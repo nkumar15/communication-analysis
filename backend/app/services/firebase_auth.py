@@ -31,7 +31,7 @@ class FirebaseAuthService:
         """
         try:
             # Firebase Admin SDK has built-in 5-minute clock skew tolerance
-            decoded_token = auth.verify_id_token(id_token)
+            decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=50)
             return decoded_token
         except Exception as e:
             raise ValueError(f"Invalid token: {str(e)}")
