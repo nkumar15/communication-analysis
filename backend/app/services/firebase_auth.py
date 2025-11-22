@@ -12,9 +12,9 @@ class FirebaseAuthService:
     
     def initialize(self):
         """Initialize Firebase Admin SDK"""
-        if not self.app:
-            cred = credentials.Certificate(settings.firebase_credentials_path)
-            self.app = firebase_admin.initialize_app(cred)
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(settings.firebase_credentials_path_resolved)
+            firebase_admin.initialize_app(cred)
     
     async def verify_id_token(self, id_token: str) -> Dict[str, Any]:
         """
