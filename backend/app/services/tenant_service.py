@@ -17,7 +17,9 @@ class TenantService:
             Tenant if found, None otherwise
         """
         query = """
-            SELECT id, name, domain, firebase_tenant_id, oidc_provider_id, is_active, created_at, updated_at
+            SELECT id, name, domain, firebase_tenant_id, oidc_provider_id,
+                   activation_token, activation_status, activation_expires_at, activated_at, activated_by,
+                   is_active, created_at, updated_at
             FROM tenants
             WHERE domain = $1 AND is_active = TRUE
         """
@@ -40,7 +42,9 @@ class TenantService:
             Tenant if found, None otherwise
         """
         query = """
-            SELECT id, name, domain, firebase_tenant_id, oidc_provider_id, is_active, created_at, updated_at
+            SELECT id, name, domain, firebase_tenant_id, oidc_provider_id,
+                   activation_token, activation_status, activation_expires_at, activated_at, activated_by,
+                   is_active, created_at, updated_at
             FROM tenants
             WHERE id = $1 AND is_active = TRUE
         """
@@ -63,7 +67,9 @@ class TenantService:
             Tenant if found, None otherwise
         """
         query = """
-            SELECT id, name, domain, firebase_tenant_id, oidc_provider_id, is_active, created_at, updated_at
+            SELECT id, name, domain, firebase_tenant_id, oidc_provider_id,
+                   activation_token, activation_status, activation_expires_at, activated_at, activated_by,
+                   is_active, created_at, updated_at
             FROM tenants
             WHERE firebase_tenant_id = $1 AND is_active = TRUE
         """

@@ -10,7 +10,7 @@ class UserService:
     async def get_user_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID"""
         query = """
-            SELECT id, tenant_id, email, name, external_id, is_active, 
+            SELECT id, tenant_id, email, name, firebase_uid, role, is_active, 
                    last_login, created_at, updated_at
             FROM users
             WHERE id = $1 AND is_active = TRUE
@@ -26,7 +26,7 @@ class UserService:
     async def get_user_by_firebase_uid(self, tenant_id: int, firebase_uid: str) -> Optional[User]:
         """Get user by Firebase UID"""
         query = """
-            SELECT id, tenant_id, email, name, firebase_uid, is_active,
+            SELECT id, tenant_id, email, name, firebase_uid, role, is_active,
                    last_login, created_at, updated_at
             FROM users
             WHERE tenant_id = $1 AND firebase_uid = $2 AND is_active = TRUE
@@ -59,15 +59,15 @@ class UserService:
             Created or updated User
         """
         query = """
-            INSERT INTO users (tenant_id, email, name, firebase_uid, last_login)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO users (tenant_id, email, name, firebase_uid, last_login, role)
+            VALUES ($1, $2, $3, $4, $5, 'member')
             ON CONFLICT (tenant_id, firebase_uid)
             DO UPDATE SET
                 email = EXCLUDED.email,
                 name = EXCLUDED.name,
                 last_login = EXCLUDED.last_login,
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING id, tenant_id, email, name, firebase_uid, is_active,
+            RETURNING id, tenant_id, email, name, firebase_uid, role, is_active,
                       last_login, created_at, updated_at
         """
         

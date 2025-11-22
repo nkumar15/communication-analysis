@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple migration runner
+Simple migration runner with tracking
 """
 import asyncio
 import asyncpg
@@ -22,19 +22,48 @@ async def run_migrations():
     conn = await asyncpg.connect(settings.database_url)
     
     try:
+        # Create migrations tracking table if it doesn't exist
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                filename VARCHAR(255) PRIMARY KEY,
+                applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Get list of already applied migrations
+        applied = await conn.fetch("SELECT filename FROM schema_migrations")
+        applied_files = {row['filename'] for row in applied}
+        
         # Get all migration files
         migration_files = sorted(migrations_dir.glob("*.sql"))
         
+        migrations_applied = 0
         for migration_file in migration_files:
-            print(f"Running migration: {migration_file.name}")
+            if migration_file.name in applied_files:
+                print(f"⏭️  Skipping (already applied): {migration_file.name}")
+                continue
+            
+            print(f"🔄 Running migration: {migration_file.name}")
             sql = migration_file.read_text()
-            await conn.execute(sql)
-            print(f"✓ Completed: {migration_file.name}")
+            
+            # Run migration in a transaction
+            async with conn.transaction():
+                await conn.execute(sql)
+                await conn.execute(
+                    "INSERT INTO schema_migrations (filename) VALUES ($1)",
+                    migration_file.name
+                )
+            
+            print(f"✅ Completed: {migration_file.name}")
+            migrations_applied += 1
         
-        print("\n✓ All migrations completed successfully!")
+        if migrations_applied == 0:
+            print("\n✓ No new migrations to apply. Database is up to date!")
+        else:
+            print(f"\n✓ Successfully applied {migrations_applied} new migration(s)!")
         
     except Exception as e:
-        print(f"✗ Migration failed: {e}")
+        print(f"❌ Migration failed: {e}")
         raise
     finally:
         await conn.close()

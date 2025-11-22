@@ -10,6 +10,11 @@ class Tenant(BaseModel):
     domain: str  # Email domain for tenant resolution
     firebase_tenant_id: str  # Firebase Identity Platform tenant ID
     oidc_provider_id: Optional[str] = None  # OIDC provider ID from Google Cloud (e.g., 'oidc.auth0-xyz')
+    activation_token: Optional[str] = None  # Single-use activation token (48-hour expiry)
+    activation_status: str = 'pending'  # Status: pending, active, expired
+    activation_expires_at: Optional[datetime] = None  # Token expiry timestamp
+    activated_at: Optional[datetime] = None  # When tenant was activated
+    activated_by: Optional[int] = None  # User ID who completed activation
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
@@ -22,6 +27,7 @@ class User(BaseModel):
     email: EmailStr
     name: Optional[str] = None
     firebase_uid: str  # Firebase user ID
+    role: str = 'member'  # Role: admin, manager, member
     is_active: bool = True
     last_login: Optional[datetime] = None
     created_at: datetime
@@ -47,5 +53,6 @@ class UserResponse(BaseModel):
     id: int
     email: str
     name: Optional[str] = None
+    role: str  # admin, manager, member
     tenant_id: int
     tenant_name: str

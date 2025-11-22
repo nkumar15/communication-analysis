@@ -89,6 +89,7 @@ async def get_current_user_info(decoded_token: Dict[str, Any] = Depends(get_curr
         id=user.id,
         email=user.email,
         name=user.name,
+        role=user.role,
         tenant_id=tenant.id,
         tenant_name=tenant.name
     )
