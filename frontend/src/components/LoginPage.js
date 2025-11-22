@@ -41,7 +41,8 @@ function LoginPage() {
             console.log('🔍 Step 3: Initiating OIDC sign-in with provider:', providerId);
 
             // Popup flow returns the result directly
-            const result = await firebaseAuthService.signInWithOIDC(providerId);
+            // Pass email as login hint to pre-fill IdP login form
+            const result = await firebaseAuthService.signInWithOIDC(providerId, email);
             console.log('✅ User signed in:', result.user.email);
 
             // Get ID token directly from the result (more reliable than waiting for auth.currentUser)

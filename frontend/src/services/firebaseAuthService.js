@@ -26,9 +26,17 @@ class FirebaseAuthService {
      * Popup flow is more reliable for multi-tenancy
      * 
      * @param {string} providerId - The OIDC provider ID from Google Cloud (e.g., 'oidc.auth0-firstcompany')
+     * @param {string} loginHint - Optional email to pre-fill in IdP login form
      */
-    async signInWithOIDC(providerId = 'oidc.generic') {
+    async signInWithOIDC(providerId = 'oidc.generic', loginHint = null) {
         const provider = new OAuthProvider(providerId);
+
+        // Pass email as login hint to pre-fill IdP login form
+        if (loginHint) {
+            provider.setCustomParameters({
+                login_hint: loginHint
+            });
+        }
 
         // Use popup instead of redirect for better state management
         const result = await signInWithPopup(this.auth, provider);
