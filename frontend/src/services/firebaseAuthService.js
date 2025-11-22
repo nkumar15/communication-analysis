@@ -32,11 +32,17 @@ class FirebaseAuthService {
         const provider = new OAuthProvider(providerId);
 
         // Pass email as login hint to pre-fill IdP login form
+        const customParams = {};
+
         if (loginHint) {
-            provider.setCustomParameters({
-                login_hint: loginHint
-            });
+            customParams.login_hint = loginHint;
         }
+
+        // Suggest to IdP: show login screen only (not signup)
+        // Note: Whether this is respected depends on your IdP configuration
+        customParams.screen_hint = 'login';
+
+        provider.setCustomParameters(customParams);
 
         // Use popup instead of redirect for better state management
         const result = await signInWithPopup(this.auth, provider);
