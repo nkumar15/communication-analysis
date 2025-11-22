@@ -1,90 +1,121 @@
-from typing import Optional, Dict, Any
+from typing import Optional
 from datetime import datetime
-from app.database import db
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert
+from app.db_models import UserModel
 from app.models import User
 
 
 class UserService:
-    """Service for user operations"""
+    """Service for user operations using SQLAlchemy ORM"""
     
-    async def get_user_by_id(self, user_id: int) -> Optional[User]:
+    async def get_user_by_id(self, db: AsyncSession, user_id: int) -> Optional[User]:
         """Get user by ID"""
-        query = """
-            SELECT id, tenant_id, email, name, firebase_uid, role, is_active, 
-                   last_login, created_at, updated_at
-            FROM users
-            WHERE id = $1 AND is_active = TRUE
-        """
+        result = await db.execute(
+            select(UserModel)
+            .where(UserModel.id == user_id)
+            .where(UserModel.is_active == True)
+        )
+        user_model = result.scalar_one_or_none()
         
-        row = await db.fetchrow(query, user_id)
-        
-        if not row:
+        if not user_model:
             return None
         
-        return User(**dict(row))
+        return self._model_to_pydantic(user_model)
     
-    async def get_user_by_firebase_uid(self, tenant_id: int, firebase_uid: str) -> Optional[User]:
+    async def get_user_by_firebase_uid(self, db: AsyncSession, tenant_id: int, firebase_uid: str) -> Optional[User]:
         """Get user by Firebase UID"""
-        query = """
-            SELECT id, tenant_id, email, name, firebase_uid, role, is_active,
-                   last_login, created_at, updated_at
-            FROM users
-            WHERE tenant_id = $1 AND firebase_uid = $2 AND is_active = TRUE
-        """
+        result = await db.execute(
+            select(UserModel)
+            .where(UserModel.tenant_id == tenant_id)
+            .where(UserModel.firebase_uid == firebase_uid)
+            .where(UserModel.is_active == True)
+        )
+        user_model = result.scalar_one_or_none()
         
-        row = await db.fetchrow(query, tenant_id, firebase_uid)
-        
-        if not row:
+        if not user_model:
             return None
         
-        return User(**dict(row))
+        return self._model_to_pydantic(user_model)
     
     async def create_or_update_user(
         self, 
+        db: AsyncSession,
         tenant_id: int, 
         email: str, 
         firebase_uid: str,
-        name: Optional[str] = None
+        name: Optional[str] = None,
+        role: str = 'member'
     ) -> User:
         """
-        Create or update user from Firebase token
+        Create or update user from Firebase token using UPSERT
         
         Args:
+            db: Database session
             tenant_id: Tenant ID
             email: User email
             firebase_uid: Firebase user ID
             name: User display name
+            role: User role (default: member)
             
         Returns:
             Created or updated User
         """
-        query = """
-            INSERT INTO users (tenant_id, email, name, firebase_uid, last_login, role)
-            VALUES ($1, $2, $3, $4, $5, 'member')
-            ON CONFLICT (tenant_id, firebase_uid)
-            DO UPDATE SET
-                email = EXCLUDED.email,
-                name = EXCLUDED.name,
-                last_login = EXCLUDED.last_login,
-                updated_at = CURRENT_TIMESTAMP
-            RETURNING id, tenant_id, email, name, firebase_uid, role, is_active,
-                      last_login, created_at, updated_at
-        """
-        
         now = datetime.utcnow()
-        row = await db.fetchrow(query, tenant_id, email, name, firebase_uid, now)
         
-        return User(**dict(row))
+        # Using PostgreSQL's ON CONFLICT (UPSERT)
+        stmt = insert(UserModel).values(
+            tenant_id=tenant_id,
+            email=email,
+            name=name,
+            firebase_uid=firebase_uid,
+            role=role,
+            last_login=now,
+        ).on_conflict_do_update(
+            index_elements=['tenant_id', 'firebase_uid'],
+            set_={
+                'email': email,
+                'name': name,
+                'last_login': now,
+                'updated_at': now,
+            }
+        ).returning(UserModel)
+        
+        result = await db.execute(stmt)
+        user_model = result.scalar_one()
+        
+        await db.commit()
+        await db.refresh(user_model)
+        
+        return self._model_to_pydantic(user_model)
     
-    async def update_last_login(self, user_id: int):
+    async def update_last_login(self, db: AsyncSession, user_id: int):
         """Update user's last login timestamp"""
-        query = """
-            UPDATE users
-            SET last_login = $1, updated_at = $1
-            WHERE id = $2
-        """
+        result = await db.execute(
+            select(UserModel).where(UserModel.id == user_id)
+        )
+        user = result.scalar_one_or_none()
         
-        await db.execute(query, datetime.utcnow(), user_id)
+        if user:
+            user.last_login = datetime.utcnow()
+            user.updated_at = datetime.utcnow()
+            await db.commit()
+    
+    def _model_to_pydantic(self, model: UserModel) -> User:
+        """Convert SQLAlchemy model to Pydantic model"""
+        return User(
+            id=model.id,
+            tenant_id=model.tenant_id,
+            email=model.email,
+            name=model.name,
+            firebase_uid=model.firebase_uid,
+            role=model.role,
+            is_active=model.is_active,
+            last_login=model.last_login,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
 
 
 # Global user service instance

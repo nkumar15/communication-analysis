@@ -1,55 +1,67 @@
-import asyncpg
-from typing import Optional
-from contextlib import asynccontextmanager
+"""
+Database connection and session management with SQLAlchemy
+"""
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
+from typing import AsyncGenerator
 from app.config import settings
 
+# Convert postgres:// to postgresql+asyncpg://
+database_url = settings.database_url
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-class Database:
-    """Database connection manager"""
-    
-    def __init__(self):
-        self.pool: Optional[asyncpg.Pool] = None
-    
-    async def connect(self):
-        """Create database connection pool"""
-        self.pool = await asyncpg.create_pool(
-            settings.database_url,
-            min_size=5,
-            max_size=20,
-            command_timeout=60
-        )
-    
-    async def disconnect(self):
-        """Close database connection pool"""
-        if self.pool:
-            await self.pool.close()
-    
-    @asynccontextmanager
-    async def acquire(self):
-        """Acquire a connection from the pool"""
-        async with self.pool.acquire() as connection:
-            yield connection
-    
-    async def fetch(self, query: str, *args):
-        """Fetch multiple rows"""
-        async with self.acquire() as conn:
-            return await conn.fetch(query, *args)
-    
-    async def fetchrow(self, query: str, *args):
-        """Fetch a single row"""
-        async with self.acquire() as conn:
-            return await conn.fetchrow(query, *args)
-    
-    async def execute(self, query: str, *args):
-        """Execute a query"""
-        async with self.acquire() as conn:
-            return await conn.execute(query, *args)
-    
-    async def executemany(self, query: str, args):
-        """Execute a query with multiple parameter sets"""
-        async with self.acquire() as conn:
-            return await conn.executemany(query, args)
+# Create async engine
+engine = create_async_engine(
+    database_url,
+    echo=False,  # Set to True for SQL query logging
+    pool_size=20,
+    max_overflow=10,
+    pool_pre_ping=True,  # Verify connections before using
+)
+
+# Create async session factory
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
 
 
-# Global database instance
-db = Database()
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency for getting async database session
+    
+    Example usage in FastAPI:
+        @app.get("/users")
+        async def read_users(db: AsyncSession = Depends(get_db)):
+            result = await db.execute(select(UserModel))
+            users = result.scalars().all()
+            return users
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def init_db():
+    """Initialize database connection"""
+    # Test connection
+    async with engine.begin() as conn:
+        # Don't create tables - we use migrations
+        pass
+
+
+async def close_db():
+    """Close database connection"""
+    await engine.dispose()

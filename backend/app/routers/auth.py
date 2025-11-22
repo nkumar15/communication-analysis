@@ -1,17 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import TenantResolutionRequest, TenantResolutionResponse, UserResponse
 from app.services.tenant_service import tenant_service
 from app.services.user_service import user_service
 from app.services.firebase_auth import firebase_auth_service
 from app.middleware.auth import get_current_user
+from app.database import get_db
 
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 
 @router.post("/resolve-tenant", response_model=TenantResolutionResponse)
-async def resolve_tenant(request: TenantResolutionRequest):
+async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = Depends(get_db)):
     """
     Resolve tenant from email address
     
@@ -29,7 +31,7 @@ async def resolve_tenant(request: TenantResolutionRequest):
         )
     
     # Look up tenant by domain
-    tenant = await tenant_service.get_tenant_by_domain(domain)
+    tenant = await tenant_service.get_tenant_by_domain(db, domain)
     
     if not tenant:
         raise HTTPException(
@@ -47,7 +49,10 @@ async def resolve_tenant(request: TenantResolutionRequest):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(decoded_token: Dict[str, Any] = Depends(get_current_user)):
+async def get_current_user_info(
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Get current authenticated user
     
@@ -62,23 +67,24 @@ async def get_current_user_info(decoded_token: Dict[str, Any] = Depends(get_curr
     name = user_info.get("name")
     firebase_tenant_id = user_info.get("firebase_tenant_id")
     
-    if not firebase_uid or not email:
+    if not firebase_uid or not email or not firebase_tenant_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token: missing required claims"
         )
     
-    # Get tenant by Firebase tenant ID
-    tenant = await tenant_service.get_tenant_by_firebase_id(firebase_tenant_id)
+    # Get tenant from Firebase tenant ID
+    tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
     
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found"
+            detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
         )
     
-    # Create or update user in our database
+    # Create or update user
     user = await user_service.create_or_update_user(
+        db=db,
         tenant_id=tenant.id,
         email=email,
         firebase_uid=firebase_uid,
@@ -96,12 +102,15 @@ async def get_current_user_info(decoded_token: Dict[str, Any] = Depends(get_curr
 
 
 @router.post("/sync-user")
-async def sync_user(decoded_token: Dict[str, Any] = Depends(get_current_user)):
+async def sync_user(
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Sync user data from Firebase to PostgreSQL
+    Sync user with database after authentication
     
-    This can be called after authentication to ensure the user exists
-    in our database before making other API calls.
+    This is called by the frontend after successful SSO login
+    to ensure user exists in our database.
     """
     # Extract user info from token
     user_info = firebase_auth_service.get_user_info(decoded_token)
@@ -111,23 +120,24 @@ async def sync_user(decoded_token: Dict[str, Any] = Depends(get_current_user)):
     name = user_info.get("name")
     firebase_tenant_id = user_info.get("firebase_tenant_id")
     
-    if not firebase_uid or not email:
+    if not firebase_uid or not email or not firebase_tenant_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token: missing required claims"
         )
     
-    # Get tenant by Firebase tenant ID
-    tenant = await tenant_service.get_tenant_by_firebase_id(firebase_tenant_id)
+    # Get tenant from Firebase tenant ID
+    tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
     
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found"
+            detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
         )
     
     # Create or update user
     user = await user_service.create_or_update_user(
+        db=db,
         tenant_id=tenant.id,
         email=email,
         firebase_uid=firebase_uid,
@@ -135,6 +145,7 @@ async def sync_user(decoded_token: Dict[str, Any] = Depends(get_current_user)):
     )
     
     return {
-        "message": "User synced successfully",
-        "user_id": user.id
+        "user_id": user.id,
+        "email": user.email,
+        "message": "User synced successfully"
     }

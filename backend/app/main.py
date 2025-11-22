@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
-from app.database import db
+from app.database import init_db, close_db
 from app.services.firebase_auth import firebase_auth_service
 from app.routers import auth
 
@@ -12,7 +12,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
     print("Starting up application...")
-    await db.connect()
+    await init_db()
     firebase_auth_service.initialize()
     print("✓ Database connection established")
     print("✓ Firebase Admin SDK initialized")
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     print("Shutting down application...")
-    await db.disconnect()
+    await close_db()
     print("✓ Connections closed")
 
 
