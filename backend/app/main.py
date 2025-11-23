@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import init_db, close_db
 from app.services.firebase_auth import firebase_auth_service
-from app.routers import auth
+from app.routers import auth, activation
 
 
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(activation.router)
 
 
 @app.get("/")

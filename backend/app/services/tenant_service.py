@@ -99,6 +99,44 @@ class TenantService:
         
         return self._model_to_pydantic(tenant_model)
     
+    async def activate_tenant(
+        self,
+        db: AsyncSession,
+        tenant_id: int,
+        activated_by_user_id: int
+    ) -> Tenant:
+        """
+        Mark tenant as activated
+        
+        Args:
+            db: Database session
+            tenant_id: Tenant ID
+            activated_by_user_id: User ID who completed activation
+            
+        Returns:
+            Updated Tenant
+        """
+        from datetime import datetime
+        
+        result = await db.execute(
+            select(TenantModel).where(TenantModel.id == tenant_id)
+        )
+        tenant = result.scalar_one_or_none()
+        
+        if not tenant:
+            raise ValueError(f"Tenant {tenant_id} not found")
+        
+        # Update tenant status
+        tenant.activation_status = 'active'
+        tenant.activated_at = datetime.utcnow()
+        tenant.activated_by = activated_by_user_id
+        tenant.activation_token = None  # Clear token after activation
+        
+        await db.commit()
+        await db.refresh(tenant)
+        
+        return self._model_to_pydantic(tenant)
+    
     def extract_domain_from_email(self, email: str) -> str:
         """
         Extract domain from email address
