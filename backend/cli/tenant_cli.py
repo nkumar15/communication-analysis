@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import settings
 from app.database import AsyncSessionLocal
-from app.db_models import TenantModel, UserModel
+from app.db_models import TenantModel
 from app.services.firebase_auth import firebase_auth_service
 from cli.firebase_admin_cli import create_firebase_tenant, configure_oidc_provider
 from cli.email_service import email_service
@@ -100,19 +100,20 @@ async def create_tenant_async(
             await db.refresh(tenant)
             click.echo(f"✅ Tenant created: ID {tenant.id}")
         
-            # 5. Create admin user
-            click.echo("\n📍 Step 5: Creating admin user...")
-            admin_user = UserModel(
-                tenant_id=tenant.id,
-                email=admin_email,
-                firebase_uid="pending",  # Will be set on first login
-                role='admin',
-                is_active=True
-            )
-            db.add(admin_user)
-            await db.commit()
-            await db.refresh(admin_user)
-            click.echo(f"✅ Admin user created: {admin_email}")
+            # 5. Create admin invitation (not user yet)
+        click.echo("\n📍 Step 5: Creating admin invitation...")
+        from app.services.invitation_service import invitation_service
+        
+        admin_invitation = await invitation_service.create_invitation(
+            db=db,
+            tenant_id=tenant.id,
+            email=admin_email,
+            role='admin',
+            invitation_token=activation_token,  # Reuse activation token
+            invited_by=None,  # CLI-created, no inviter
+            expires_in_days=2  # 48 hours, same as activation
+        )
+        click.echo(f"✅ Admin invitation created: {admin_email}")
         
         # 6. Send activation email
         click.echo("\n📍 Step 6: Sending activation email...")

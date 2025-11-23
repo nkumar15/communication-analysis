@@ -21,18 +21,34 @@ class Tenant(BaseModel):
 
 
 class User(BaseModel):
-    """User model"""
+    """User model - authenticated users only"""
     id: int
     tenant_id: int
     email: EmailStr
     name: Optional[str] = None
-    firebase_uid: str  # Firebase user ID
+    firebase_uid: str  # Firebase user ID (real UID, not "pending")
     role: str = 'member'  # Role: admin, manager, member
     is_active: bool = True
     last_login: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
+
+class Invitation(BaseModel):
+    """Invitation model - pending invitations"""
+    id: int
+    tenant_id: int
+    email: EmailStr
+    role: str = 'member'
+    invitation_token: str
+    invited_by: Optional[int] = None
+    expires_at: datetime
+    accepted_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# Request/Response models
 
 class TenantResolutionRequest(BaseModel):
     """Request to resolve tenant from email"""
@@ -44,8 +60,8 @@ class TenantResolutionResponse(BaseModel):
     tenant_id: int
     tenant_name: str
     domain: str
-    firebase_tenant_id: str  # Frontend needs this to set Firebase auth context
-    oidc_provider_id: Optional[str] = None  # OIDC provider ID to use for sign-in
+    firebase_tenant_id: str
+    oidc_provider_id: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -56,3 +72,18 @@ class UserResponse(BaseModel):
     role: str  # admin, manager, member
     tenant_id: int
     tenant_name: str
+
+
+class InvitationRequest(BaseModel):
+    """Request to create invitation"""
+    email: EmailStr
+    role: str = 'member'
+
+
+class InvitationResponse(BaseModel):
+    """Invitation information response"""
+    id: int
+    email: str
+    role: str
+    expires_at: datetime
+    invitation_url: str

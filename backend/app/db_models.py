@@ -1,5 +1,5 @@
 """
-SQLAlchemy ORM models for tenants and users
+SQLAlchemy ORM models for tenants, users, and invitations
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
@@ -32,7 +32,7 @@ class TenantModel(Base):
 
 
 class UserModel(Base):
-    """User ORM model"""
+    """User ORM model - only for authenticated users with Firebase UID"""
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -48,3 +48,26 @@ class UserModel(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     
     # Note: Unique constraints defined at table level in migrations
+
+
+class InvitationModel(Base):
+    """Invitation ORM model - for pending user invitations"""
+    __tablename__ = "invitations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    role = Column(String(20), default='member', nullable=False)
+    
+    # Invitation token
+    invitation_token = Column(String(64), unique=True, nullable=False, index=True)
+    
+    # Metadata
+    invited_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
