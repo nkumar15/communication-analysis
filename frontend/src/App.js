@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
+import ActivationPage from './components/ActivationPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import firebaseAuthService from './services/firebaseAuthService';
 import apiService from './services/api';
@@ -52,6 +53,7 @@ function App() {
         <Router>
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/activate/:token" element={<ActivationPage />} />
                 <Route
                     path="/"
                     element={
@@ -60,6 +62,11 @@ function App() {
                         </ProtectedRoute>
                     }
                 />
+                <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                        <Dashboard />
+                    </ProtectedRoute>
+                } />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Router>

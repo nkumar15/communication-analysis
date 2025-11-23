@@ -87,9 +87,13 @@ ps: ## List running services
 ##@ Database
 
 migrate: ## Run database migrations
-	@echo "$(BLUE)Running migrations...$(NC)"
+	@echo "Running migrations... "
 	docker-compose exec backend python app/migrations/run_migrations.py
-	@echo "$(GREEN)✓ Migrations complete$(NC)"
+	@echo "✓ Migrations complete"
+
+reset-db: ## Reset database (interactive)
+	@echo "Resetting database (interactive)..."
+	@./reset-db.sh
 
 db-shell: ## Open PostgreSQL shell
 	docker-compose exec postgres psql -U sso_user -d sso_db

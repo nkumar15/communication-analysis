@@ -142,7 +142,13 @@ async def complete_activation(
     
     # Verify current user belongs to this tenant
     user_info = current_user  # From Firebase token
-    firebase_uid = user_info.get("firebase_uid")
+    firebase_uid = user_info.get("uid")  # Firebase tokens use 'uid' not 'firebase_uid'
+    
+    if not firebase_uid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing uid"
+        )
     
     # Get user from database
     user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)

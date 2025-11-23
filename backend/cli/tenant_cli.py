@@ -84,7 +84,8 @@ async def create_tenant_async(
         
         # 4. Create tenant in database
         click.echo("\n📍 Step 4: Creating tenant in database...")
-        async with AsyncSessionLocal() as db:
+        db = AsyncSessionLocal()
+        try:
             tenant = TenantModel(
                 name=company,
                 domain=domain.lower(),
@@ -101,19 +102,21 @@ async def create_tenant_async(
             click.echo(f"✅ Tenant created: ID {tenant.id}")
         
             # 5. Create admin invitation (not user yet)
-        click.echo("\n📍 Step 5: Creating admin invitation...")
-        from app.services.invitation_service import invitation_service
-        
-        admin_invitation = await invitation_service.create_invitation(
-            db=db,
-            tenant_id=tenant.id,
-            email=admin_email,
-            role='admin',
-            invitation_token=activation_token,  # Reuse activation token
-            invited_by=None,  # CLI-created, no inviter
-            expires_in_days=2  # 48 hours, same as activation
-        )
-        click.echo(f"✅ Admin invitation created: {admin_email}")
+            click.echo("\n📍 Step 5: Creating admin invitation...")
+            from app.services.invitation_service import invitation_service
+            
+            admin_invitation = await invitation_service.create_invitation(
+                db=db,
+                tenant_id=tenant.id,
+                email=admin_email,
+                role='admin',
+                invitation_token=activation_token,  # Reuse activation token
+                invited_by=None,  # CLI-created, no inviter
+                expires_in_days=2  # 48 hours, same as activation
+            )
+            click.echo(f"✅ Admin invitation created: {admin_email}")
+        finally:
+            await db.close()
         
         # 6. Send activation email
         click.echo("\n📍 Step 6: Sending activation email...")
@@ -137,6 +140,105 @@ async def create_tenant_async(
         click.echo(f"Admin Email:      {admin_email}")
         click.echo(f"Firebase Tenant:  {firebase_tenant_id}")
         click.echo(f"OIDC Provider:    {provider_id}")
+        click.echo(f"Activation URL:   {activation_url}")
+        click.echo(f"Expires:          {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
+        click.echo("=" * 70)
+        click.echo("\n✅ Next: Admin will receive activation email")
+        
+    except Exception as e:
+        click.echo(f"\n❌ Error: {str(e)}", err=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command('create-local')
+@click.option('--firebase-tenant-id', required=True, help='Existing Firebase tenant ID')
+@click.option('--oidc-provider-id', required=True, help='Existing OIDC provider ID (e.g., oidc.auth0)')
+@click.option('--company', required=True, help='Company name')
+@click.option('--domain', required=True, help='Email domain (e.g., acme.com)')
+@click.option('--admin-email', required=True, help='Admin email address')
+def create_local(firebase_tenant_id, oidc_provider_id, company, domain, admin_email):
+    """Create tenant using existing Firebase tenant (DB only - for testing)"""
+    asyncio.run(create_local_async(
+        firebase_tenant_id, oidc_provider_id, company, domain, admin_email
+    ))
+
+
+async def create_local_async(
+    firebase_tenant_id, oidc_provider_id, company, domain, admin_email
+):
+    """Create tenant in local DB using existing Firebase tenant"""
+    
+    click.echo(f"🚀 Creating local tenant for {company}...\n")
+    click.echo(f"📍 Using Firebase tenant: {firebase_tenant_id}")
+    click.echo(f"📍 Using OIDC provider: {oidc_provider_id}\n")
+    
+    try:
+        # 1. Generate activation token
+        click.echo("📍 Step 1: Generating activation token...")
+        activation_token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=48)
+        click.echo(f"✅ Activation token generated (expires in 48 hours)")
+        
+        # 2. Create tenant in database
+        click.echo("\n📍 Step 2: Creating tenant in database...")
+        db = AsyncSessionLocal()
+        try:
+            tenant = TenantModel(
+                name=company,
+                domain=domain.lower(),
+                firebase_tenant_id=firebase_tenant_id,
+                oidc_provider_id=oidc_provider_id,
+                activation_token=activation_token,
+                activation_status='pending',
+                activation_expires_at=expires_at,
+                is_active=True
+            )
+            db.add(tenant)
+            await db.commit()
+            await db.refresh(tenant)
+            click.echo(f"✅ Tenant created: ID {tenant.id}")
+        
+            # 3. Create admin invitation
+            click.echo("\n📍 Step 3: Creating admin invitation...")
+            from app.services.invitation_service import invitation_service
+            
+            admin_invitation = await invitation_service.create_invitation(
+                db=db,
+                tenant_id=tenant.id,
+                email=admin_email,
+                role='admin',
+                invitation_token=activation_token,
+                invited_by=None,
+                expires_in_days=2
+            )
+            click.echo(f"✅ Admin invitation created: {admin_email}")
+        finally:
+            await db.close()
+        
+        # 4. Send activation email
+        click.echo("\n📍 Step 4: Sending activation email...")
+        frontend_url = settings.frontend_url or "http://localhost:3000"
+        activation_url = f"{frontend_url}/activate/{activation_token}"
+        
+        email_service.send_activation_email(
+            admin_email,
+            company,
+            activation_url,
+            expires_at
+        )
+        click.echo(f"✅ Activation email sent to {admin_email}")
+        
+        # Summary
+        click.echo("\n" + "=" * 70)
+        click.echo("✅ LOCAL TENANT CREATED SUCCESSFULLY")
+        click.echo("=" * 70)
+        click.echo(f"Company:          {company}")
+        click.echo(f"Domain:           {domain}")
+        click.echo(f"Admin Email:      {admin_email}")
+        click.echo(f"Firebase Tenant:  {firebase_tenant_id}")
+        click.echo(f"OIDC Provider:    {oidc_provider_id}")
         click.echo(f"Activation URL:   {activation_url}")
         click.echo(f"Expires:          {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
         click.echo("=" * 70)

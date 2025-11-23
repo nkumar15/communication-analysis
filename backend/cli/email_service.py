@@ -31,8 +31,16 @@ class EmailService:
             expires_at: Token expiry timestamp
         """
         if not self.api_key:
-            print(f"⚠️  RESEND_API_KEY not set - Email would be sent to {to_email}")
-            print(f"   Activation URL: {activation_url}")
+            print("\n" + "="*80)
+            print("📧 ACTIVATION EMAIL (Email service not configured)")
+            print("="*80)
+            print(f"To: {to_email}")
+            print(f"Subject: Activate your {company_name} SSO account")
+            print("-"*80)
+            print("ACTIVATION URL (Copy this to browser):")
+            print(f"\n    {activation_url}\n")
+            print(f"Expires: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
+            print("="*80 + "\n")
             return
         
         html_content = f"""
@@ -104,8 +112,18 @@ class EmailService:
             print(f"📧 Activation email sent to {to_email}")
             
         except Exception as e:
-            print(f"❌ Failed to send email: {e}")
-            raise
+            # Fallback to console logging if email fails
+            print(f"\n⚠️  Email service error: {e}")
+            print("="*80)
+            print("📧 ACTIVATION EMAIL (Fallback to console)")
+            print("="*80)
+            print(f"To: {to_email}")
+            print(f"Subject: Activate your {company_name} SSO account")
+            print("-"*80)
+            print("ACTIVATION URL (Copy this to browser):")
+            print(f"\n    {activation_url}\n")
+            print(f"Expires: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
+            print("="*80 + "\n")
 
 
 # Global email service instance

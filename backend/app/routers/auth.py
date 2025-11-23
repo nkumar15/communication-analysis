@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from pydantic import BaseModel, EmailStr
 from app.models import TenantResolutionRequest, TenantResolutionResponse, UserResponse
 from app.services.tenant_service import tenant_service
 from app.services.user_service import user_service
 from app.services.firebase_auth import firebase_auth_service
+from app.db_models import InvitationModel
 from app.middleware.auth import get_current_user
 from app.database import get_db
 
@@ -135,17 +138,31 @@ async def sync_user(
             detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
         )
     
+    # Check if there's a pending invitation for this email
+    result = await db.execute(
+        select(InvitationModel)
+        .where(InvitationModel.tenant_id == tenant.id)
+        .where(InvitationModel.email == email.lower())
+        .where(InvitationModel.accepted_at.is_(None))
+    )
+    invitation = result.scalar_one_or_none()
+    
+    # Use role from invitation if exists, otherwise default to 'member'
+    user_role = invitation.role if invitation else 'member'
+    
     # Create or update user
     user = await user_service.create_or_update_user(
         db=db,
         tenant_id=tenant.id,
         email=email,
         firebase_uid=firebase_uid,
-        name=name
+        name=name,
+        role=user_role  # Use role from invitation
     )
     
     return {
+        "message": "User synced successfully",
         "user_id": user.id,
         "email": user.email,
-        "message": "User synced successfully"
+        "role": user.role
     }
