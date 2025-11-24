@@ -21,6 +21,14 @@ All tenant onboarding phases complete! See [COMPLETED_PHASES.md](./COMPLETED_PHA
 - Email: Resend API with console fallback
 - Testing: Full E2E activation flow verified
 
+**Recently Completed (2025-11-24):**
+- ✅ **User invitation system** - Admins can invite managers via email
+  - Email domain validation
+  - Invitation management UI (list, resend, cancel)
+  - Public invitation acceptance page
+  - SSO integration for invited users
+  - Role assignment (manager role)
+
 ---
 
 ## 🚧 Known Issues / Technical Debt
@@ -38,7 +46,6 @@ Example:
 
 ### High Priority
 - [ ] Admin dashboard for tenant management
-- [ ] User invitation flow (non-admin users)
 - [ ] Audit logging for security events
 - [ ] Multi-factor authentication (MFA)
 

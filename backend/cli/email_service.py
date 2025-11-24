@@ -125,6 +125,106 @@ class EmailService:
             print(f"Expires: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
             print("="*80 + "\n")
 
+    def send_user_invitation_email(
+        self,
+        to_email: str,
+        tenant_name: str,
+        inviter_name: str,
+        role: str,
+        invitation_url: str,
+        expires_at: datetime
+    ):
+        """Send user invitation email"""
+        subject = f"You're invited to join {tenant_name}"
+
+        if not self.api_key:
+            print("\n" + "=" * 80)
+            print("📧 USER INVITATION EMAIL (Email service not configured)")
+            print("=" * 80)
+            print(f"To: {to_email}")
+            print(f"Subject: {subject}")
+            print("-" * 80)
+            print(f"From: {inviter_name}")
+            print(f"Tenant: {tenant_name}")
+            print(f"Role: {role}")
+            print()
+            print("INVITATION URL (Copy this to browser):")
+            print()
+            print(f"    {invitation_url}")
+            print()
+            print(f"Expires: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
+            print("=" * 80)
+            print()
+            return
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #2563eb;">You've been invited!</h2>
+                
+                <p>Hi there,</p>
+                
+                <p><strong>{inviter_name}</strong> has invited you to join <strong>{tenant_name}</strong> as a <strong>{role}</strong>.</p>
+                
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p style="margin: 0; text-align: center;">
+                        <a href="{invitation_url}" 
+                           style="display: inline-block; background-color: #2563eb; color: white; 
+                                  padding: 12px 24px; text-decoration: none; border-radius: 6px;
+                                  font-weight: bold;">
+                            Accept Invitation
+                        </a>
+                    </p>
+                </div>
+                
+                <p style="color: #6b7280; font-size: 14px;">
+                    <strong>Invitation link:</strong><br>
+                    <a href="{invitation_url}" style="color: #2563eb; word-break: break-all;">{invitation_url}</a>
+                </p>
+                
+               <p style="color: #6b7280; font-size: 14px;">
+                    This invitation expires on {expires_at.strftime('%B %d, %Y at %H:%M UTC')}.
+                </p>
+                
+                <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">
+                    If you weren't expecting this invitation, you can safely ignore this email.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        try:
+            params = {
+                "from": "Enterprise SSO <onboarding@yourapp.com>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content
+            }
+            resend.Emails.send(params)
+            print(f"📧 User invitation email sent to {to_email}")
+        except Exception as e:
+            # Fallback to console if email service fails
+            print(f"\n⚠️  Email service error: {str(e)}")
+            print("=" * 80)
+            print("📧 USER INVITATION EMAIL (Fallback to console)")
+            print("=" * 80)
+            print(f"To: {to_email}")
+            print(f"Subject: {subject}")
+            print("-" * 80)
+            print(f"From: {inviter_name}")
+            print(f"Tenant: {tenant_name}")
+            print(f"Role: {role}")
+            print()
+            print("INVITATION URL (Copy this to browser):")
+            print()
+            print(f"    {invitation_url}")
+            print()
+            print(f"Expires: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
+            print("=" * 80)
+            print()
+
 
 # Global email service instance
 email_service = EmailService()

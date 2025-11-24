@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import ActivationPage from './components/ActivationPage';
+import InvitationsPage from './components/InvitationsPage';
+import InvitationAcceptPage from './components/InvitationAcceptPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import firebaseAuthService from './services/firebaseAuthService';
 import apiService from './services/api';
@@ -52,22 +54,32 @@ function App() {
     return (
         <Router>
             <Routes>
+                {/* Public routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/activate/:token" element={<ActivationPage />} />
+                <Route path="/invite/:token" element={<InvitationAcceptPage />} />
+
+                {/* Protected routes */}
                 <Route
-                    path="/"
+                    path="/dashboard"
                     element={
                         <ProtectedRoute>
                             <Dashboard />
                         </ProtectedRoute>
                     }
                 />
-                <Route path="/dashboard" element={
-                    <ProtectedRoute>
-                        <Dashboard />
-                    </ProtectedRoute>
-                } />
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route
+                    path="/invitations"
+                    element={
+                        <ProtectedRoute>
+                            <InvitationsPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Default redirect */}
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
         </Router>
     );

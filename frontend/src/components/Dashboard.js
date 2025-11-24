@@ -113,6 +113,31 @@ function Dashboard() {
                 </div>
 
                 <div className="dashboard-content">
+                    {user.role === 'admin' && (
+                        <div className="content-card" style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: 'white',
+                            cursor: 'pointer'
+                        }}
+                            onClick={() => navigate('/invitations')}
+                        >
+                            <h2 style={{ color: 'white' }}>👥 Team Management</h2>
+                            <p style={{ color: 'rgba(255,255,255,0.9)' }}>
+                                Invite managers to join your organization. Manage pending and accepted invitations.
+                            </p>
+                            <div style={{
+                                marginTop: '20px',
+                                padding: '10px 20px',
+                                background: 'rgba(255,255,255,0.2)',
+                                borderRadius: '6px',
+                                display: 'inline-block',
+                                fontWeight: '600'
+                            }}>
+                                Manage Invitations →
+                            </div>
+                        </div>
+                    )}
+
                     <div className="content-card">
                         <h2>🎉 Firebase Multi-Tenant SSO</h2>
                         <p>
