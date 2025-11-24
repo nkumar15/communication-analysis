@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './components/LoginPage';
-import Dashboard from './components/Dashboard';
+import DashboardPage from './components/DashboardPage';
 import ActivationPage from './components/ActivationPage';
 import InvitationsPage from './components/InvitationsPage';
 import InvitationAcceptPage from './components/InvitationAcceptPage';
@@ -64,7 +64,7 @@ function App() {
                     path="/dashboard"
                     element={
                         <ProtectedRoute>
-                            <Dashboard />
+                            <DashboardPage />
                         </ProtectedRoute>
                     }
                 />

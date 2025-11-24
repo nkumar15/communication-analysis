@@ -140,6 +140,42 @@ const invitationApi = {
         }
 
         return response.json();
+    },
+
+    /**
+     * Get user statistics
+     */
+    getUserStats: async () => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/users/stats`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to load statistics');
+        }
+
+        return response.json();
+    },
+
+    /**
+     * Get list of all users
+     */
+    getUsers: async () => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/users/list`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to load users');
+        }
+
+        return response.json();
     }
 };
 

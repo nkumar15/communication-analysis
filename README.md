@@ -254,6 +254,35 @@ See [Database Migrations](./backend/app/migrations/) for complete schema.
 
 ---
 
+## ✨ Features
+
+### Authentication & Authorization
+- 🔐 **Firebase GCIP Integration** - Multi-tenant SSO with OIDC
+- 🏢 **Tenant Management** - Isolated workspaces per organization
+- 👤 **Role-Based Access** - Admin, Manager, Member roles
+- 🎫 **JWT Validation** - Secure token-based authentication
+
+### Admin Dashboard
+- 📊 **Statistics Dashboard** - Real-time user & invitation metrics
+- 🎨 **Professional UI** - Sidebar navigation, clean design
+- 👥 **User Management** - View, search, filter all users
+- 📧 **Invitation System** - Send, track, manage user invitations
+- 🏷️ **Color-Coded Badges** - Role and status visualization
+- 🔍 **Advanced Filters** - Search by name, email, role, status
+
+### User Invitations
+- ✉️ **Email Invitations** - Invite users via email
+- 🔗 **Secure Tokens** - URL-safe invitation links
+- ⏰ **Expiration Management** - 7-day invitation expiry
+- 🔄 **Resend Capability** - Re-send pending invitations
+- ✅ **SSO Integration** - Seamless login after acceptance
+
+### Developer Experience
+- 🐳 **Docker Compose** - One-command deployment
+- 🛠️ **CLI Tools** - Tenant provisioning utilities
+- 📝 **SQLAlchemy ORM** - Type-safe database operations
+- 🔄 **Hot Reload** - Fast development iteration
+
 ## 🔐 Security Features
 
 - **JWT-based auth** - Stateless, scalable authentication
