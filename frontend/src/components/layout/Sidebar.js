@@ -7,7 +7,9 @@ const Sidebar = () => {
 
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard' },
-        { id: 'users', label: 'User Management', icon: '👥', path: '/invitations' }
+        { id: 'users', label: 'User Management', icon: '👥', path: '/invitations' },
+        { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles' },
+        { id: 'farmers', label: 'Farmer Management', icon: '🚜', path: '/farmers' }
     ];
 
     const isActive = (path) => location.pathname === path;

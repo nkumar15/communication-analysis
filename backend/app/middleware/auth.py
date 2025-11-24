@@ -70,3 +70,39 @@ async def require_auth(request: Request) -> Dict[str, Any]:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+
+
+# Import here to avoid circular imports if possible, or use string forward refs if needed
+# But get_db needs to be imported.
+from app.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.db_models import UserModel
+
+async def get_current_active_user(
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get current user from database using Firebase ID token
+    
+    Returns dict with user fields including 'id'
+    """
+    firebase_uid = decoded_token.get('uid')
+    if not firebase_uid:
+         raise HTTPException(status_code=401, detail="Invalid token")
+         
+    result = await db.execute(select(UserModel).where(UserModel.firebase_uid == firebase_uid))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+        
+    return {
+        "id": user.id,
+        "email": user.email,
+        "firebase_uid": user.firebase_uid,
+        "tenant_id": user.tenant_id,
+        "role_id": user.role_id,
+        "role": user.role
+    }

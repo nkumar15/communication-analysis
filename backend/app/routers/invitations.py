@@ -21,8 +21,9 @@ router = APIRouter(prefix="/api/invitations", tags=["invitations"])
 
 # Request/Response Models
 class InviteUserRequest(BaseModel):
-    email: EmailStr
-    role: str = "manager"  # Only manager for now
+    """Request to invite a new user"""
+    email: str
+    role: str = 'field_agent'  # Default to field_agent (lowest permission)
 
 
 class InviteUserResponse(BaseModel):
@@ -49,12 +50,24 @@ async def invite_user(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Admin invites a manager to join the tenant
+    Invite a new user to the tenant
     
-    - Requires admin role
-    - Email must match tenant domain
-    - Creates invitation and sends email
+    Permission required: users:invite
+    
+    Role restrictions:
+    - Admin: Can invite admin, field_manager, field_agent
+    - Field Manager: Can only invite field_agent
+    - Field Agent: Cannot invite (no permission)
     """
+    from app.rbac import has_permission
+    
+    # Check if user has invite permission
+    if not await has_permission(current_user['id'], 'users', 'invite', db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to invite users"
+        )
+    
     # Get current user's details
     from app.db_models import UserModel
     
@@ -69,12 +82,12 @@ async def invite_user(
             detail="User not found"
         )
     
-    # Check admin role
-    if user.role != 'admin':
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can invite users"
-        )
+    # Admin check removed here to allow field_managers (logic handled below)
+    # if user.role != 'admin':
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="Only admins can invite users"
+    #     )
     
     # Get tenant info for domain validation
     tenant = await tenant_service.get_tenant_by_id(db, user.tenant_id)
@@ -93,11 +106,32 @@ async def invite_user(
             detail=f"Email domain must match tenant domain ({tenant.domain})"
         )
     
-    # Validate role (only manager for now)
-    if request.role != 'manager':
+    # RBAC: Check what roles the current user can invite
+    from app.rbac import get_user_role_name
+    
+    current_user_role = await get_user_role_name(user.id, db)
+    requested_role = request.role
+    
+    # Admin can invite anyone
+    # Field Manager can only invite field_agent (NOT other field_managers)
+    # Field Agent cannot invite anyone (should not reach here due to permission check)
+    if current_user_role == 'field_manager':
+        if requested_role != 'field_agent':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Field managers can only invite field agents"
+            )
+    elif current_user_role == 'admin':
+        # Admin can invite admin, field_manager, or field_agent
+        if requested_role not in ['admin', 'field_manager', 'field_agent']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role: {requested_role}"
+            )
+    else:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only 'manager' role is supported currently"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to invite users"
         )
     
     # Check if user already exists

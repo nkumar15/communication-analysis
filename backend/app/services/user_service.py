@@ -77,6 +77,7 @@ class UserService:
             set_={
                 'email': email,
                 'name': name,
+                'role': role,
                 'last_login': now,
                 'updated_at': now,
             }
@@ -84,6 +85,37 @@ class UserService:
         
         result = await db.execute(stmt)
         user_model = result.scalar_one()
+        
+        # Self-heal: If role_id is missing, populate it from legacy role column
+        if user_model.role_id is None:
+            from app.rbac_models import Role
+            # Use the role argument passed to the function (already normalized)
+            role_name = role
+            
+            # Map legacy role names to internal role identifiers
+            if role_name == 'member':
+                role_name = 'field_agent'
+            elif role_name == 'manager':
+                role_name = 'field_manager'
+            # 'admin' stays 'admin'
+            
+            # Find the corresponding Role record
+            role_result = await db.execute(
+                select(Role)
+                .where(Role.tenant_id == tenant_id)
+                .where(Role.name == role_name)
+            )
+            role_obj = role_result.scalar_one_or_none()
+            
+            if role_obj:
+                # Update user with role_id and keep role column in sync
+                await db.execute(
+                    UserModel.__table__.update()
+                    .where(UserModel.id == user_model.id)
+                    .values(role_id=role_obj.id, role=role_name)
+                )
+                user_model.role_id = role_obj.id
+                user_model.role = role_name
         
         await db.commit()
         await db.refresh(user_model)

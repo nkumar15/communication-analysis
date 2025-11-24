@@ -1,0 +1,30 @@
+// FarmerManagementPage.css – basic styling for farmer management UI
+.farmer-management {
+  padding: 24px;
+  background-color: #f9fafb;
+}
+.farmer-management h2 {
+  margin-bottom: 16px;
+  font-size: 1.5rem;
+  color: #111827;
+}
+.farmer-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.farmer-table th,
+.farmer-table td {
+  padding: 12px 8px;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+.farmer-table th {
+  background-color: #f3f4f6;
+}
+.loading {
+  font-size: 1rem;
+  color: #6b7280;
+}
+.error {
+  color: #dc2626;
+}

@@ -7,7 +7,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app.services.user_service import user_service
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, get_current_active_user
 from app.db_models import UserModel, InvitationModel
 
 
@@ -34,99 +34,71 @@ class StatsResponse(BaseModel):
 
 @router.get("/stats", response_model=StatsResponse)
 async def get_user_stats(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get user and invitation statistics for current tenant
+    Get user and invitation statistics for current tenant (scoped by role)
     
     - Requires authentication
-    - Returns counts for dashboard stats
+    - Returns counts scoped to user's access level:
+      - Admin: All users in tenant
+      - Field Manager: Users in their team
+      - Field Agent: N/A (no dashboard access)
     """
-    from app.db_models import UserModel as CurrentUserModel
+    from app.rbac import get_dashboard_stats, require_permission
     
-    # Get current user's tenant
-    result = await db.execute(
-        select(CurrentUserModel).where(CurrentUserModel.firebase_uid == current_user.get("uid"))
-    )
-    user = result.scalar_one_or_none()
-    
-    if not user:
+    # Check if user has dashboard access (admin and field_manager only)
+    # This will raise 403 if user doesn't have permission
+    from app.rbac.permission_checker import has_permission
+    if not await has_permission(current_user['id'], 'dashboard', 'read', db):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Dashboard access denied. Field agents cannot access dashboard."
         )
     
-    tenant_id = user.tenant_id
+    # Get scoped stats based on user's role and hierarchy
+    stats = await get_dashboard_stats(current_user['id'], db)
     
-    # Get total users count
-    total_result = await db.execute(
-        select(func.count(UserModel.id))
-        .where(UserModel.tenant_id == tenant_id)
-    )
-    total_users = total_result.scalar()
-    
-    # Get active users count
-    active_result = await db.execute(
-        select(func.count(UserModel.id))
-        .where(UserModel.tenant_id == tenant_id)
-        .where(UserModel.is_active == True)
-    )
-    active_users = active_result.scalar()
-    
-    # Get pending invitations count
+    # Get pending invitations count (scoped to tenant for now)
     pending_result = await db.execute(
         select(func.count(InvitationModel.id))
-        .where(InvitationModel.tenant_id == tenant_id)
+        .where(InvitationModel.tenant_id == current_user['tenant_id'])
         .where(InvitationModel.accepted_at.is_(None))
     )
     pending_invitations = pending_result.scalar()
     
-    # Get managers count
-    managers_result = await db.execute(
-        select(func.count(UserModel.id))
-        .where(UserModel.tenant_id == tenant_id)
-        .where(UserModel.role == 'manager')
-    )
-    managers_count = managers_result.scalar()
-    
     return StatsResponse(
-        total_users=total_users,
-        active_users=active_users,
+        total_users=stats['total_users'],
+        active_users=stats['accessible_users'],  # Users in hierarchy
         pending_invitations=pending_invitations,
-        managers_count=managers_count
+        managers_count=stats['total_farmers']  # Repurpose for now, can add later
     )
 
 
 @router.get("/list", response_model=List[UserResponse])
 async def list_users(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    List all users in current tenant
+    List users accessible to current user (scoped by hierarchy)
     
     - Requires authentication
-    - Returns all users with their details
+    - Returns users based on reporting structure:
+      - Admin: All users in tenant
+      - Field Manager: Self + invited field agents
+      - Field Agent: Only self
     """
-    from app.db_models import UserModel as CurrentUserModel
+    from app.rbac import get_accessible_user_ids
     
-    # Get current user's tenant
-    result = await db.execute(
-        select(CurrentUserModel).where(CurrentUserModel.firebase_uid == current_user.get("uid"))
-    )
-    user = result.scalar_one_or_none()
+    # Get accessible user IDs based on hierarchy
+    accessible_ids = await get_accessible_user_ids(current_user['id'], db)
     
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    
-    # Get all users in tenant
+    # Get users
     users_result = await db.execute(
         select(UserModel)
-        .where(UserModel.tenant_id == user.tenant_id)
+        .where(UserModel.id.in_(accessible_ids))
         .order_by(UserModel.created_at.desc())
     )
     users = users_result.scalars().all()

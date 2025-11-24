@@ -62,13 +62,15 @@ const InvitationsPage = () => {
         }
     };
 
+    const [selectedRole, setSelectedRole] = useState('field_manager'); // default role
     const handleInvite = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
         try {
-            await invitationApi.inviteUser(email, 'manager');
+            // Send the selected role directly (new role names)
+            await invitationApi.inviteUser(email, selectedRole);
             setSuccess(`Invitation sent to ${email}`);
             setEmail('');
             setShowInviteModal(false);
@@ -241,8 +243,8 @@ const InvitationsPage = () => {
                         >
                             <option value="all">All Roles</option>
                             <option value="admin">Admin</option>
-                            <option value="manager">Manager</option>
-                            <option value="member">Member</option>
+                            <option value="field_manager">Field Manager</option>
+                            <option value="field_agent">Field Agent</option>
                         </select>
                         <select
                             value={statusFilter}
@@ -470,10 +472,9 @@ const InvitationsPage = () => {
                                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
                                         Role
                                     </label>
-                                    <input
-                                        type="text"
-                                        value="Manager"
-                                        disabled
+                                    <select
+                                        value={selectedRole}
+                                        onChange={(e) => setSelectedRole(e.target.value)}
                                         style={{
                                             width: '100%',
                                             padding: '12px',
@@ -481,9 +482,13 @@ const InvitationsPage = () => {
                                             borderRadius: '6px',
                                             fontSize: '14px',
                                             backgroundColor: '#F9FAFB',
-                                            color: '#6B7280'
+                                            color: '#111827'
                                         }}
-                                    />
+                                    >
+                                        <option value="admin">Admin</option>
+                                        <option value="field_manager">Field Manager</option>
+                                        <option value="field_agent">Field Agent</option>
+                                    </select>
                                 </div>
                                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                                     <button

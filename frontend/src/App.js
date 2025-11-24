@@ -7,6 +7,9 @@ import InvitationsPage from './components/InvitationsPage';
 import InvitationAcceptPage from './components/InvitationAcceptPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import firebaseAuthService from './services/firebaseAuthService';
+import RoleManagementPage from './components/RoleManagementPage';
+import FarmerManagementPage from './components/FarmerManagementPage';
+
 import apiService from './services/api';
 import './styles/main.css';
 
@@ -77,6 +80,9 @@ function App() {
                     }
                 />
 
+                {/* New routes */}
+                <Route path="/roles" element={<ProtectedRoute><RoleManagementPage /></ProtectedRoute>} />
+                <Route path="/farmers" element={<ProtectedRoute><FarmerManagementPage /></ProtectedRoute>} />
                 {/* Default redirect */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
