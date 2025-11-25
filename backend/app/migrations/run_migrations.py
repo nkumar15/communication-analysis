@@ -34,8 +34,11 @@ async def run_migrations():
         applied = await conn.fetch("SELECT filename FROM schema_migrations")
         applied_files = {row['filename'] for row in applied}
         
-        # Get all migration files
-        migration_files = sorted(migrations_dir.glob("*.sql"))
+        # Get all migration files (excluding archive directory)
+        migration_files = sorted([
+            f for f in migrations_dir.glob("*.sql")
+            if f.is_file()  # Only process files, not directories
+        ])
         
         migrations_applied = 0
         for migration_file in migration_files:

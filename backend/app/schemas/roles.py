@@ -3,11 +3,12 @@ Pydantic schemas for Role Management API
 """
 from pydantic import BaseModel
 from typing import Optional
+from uuid import UUID
 
 
 class ResourceResponse(BaseModel):
     """Resource information"""
-    id: int
+    id: UUID
     name: str
     display_name: str
     category: Optional[str]
@@ -19,7 +20,7 @@ class ResourceResponse(BaseModel):
 
 class ActionResponse(BaseModel):
     """Action information"""
-    id: int
+    id: UUID
     name: str
     display_name: str
     
@@ -38,7 +39,7 @@ class PermissionResponse(BaseModel):
 
 class RoleResponse(BaseModel):
     """Role with basic information"""
-    id: int
+    id: UUID
     name: str
     display_name: str
     description: Optional[str]
@@ -51,7 +52,7 @@ class RoleResponse(BaseModel):
 
 class RoleDetailResponse(BaseModel):
     """Role with full permission details"""
-    id: int
+    id: UUID
     name: str
     display_name: str
     description: Optional[str]

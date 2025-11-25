@@ -1,11 +1,12 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class Tenant(BaseModel):
     """Tenant model"""
-    id: int
+    id: UUID
     name: str
     domain: str  # Email domain for tenant resolution
     firebase_tenant_id: str  # Firebase Identity Platform tenant ID
@@ -14,7 +15,7 @@ class Tenant(BaseModel):
     activation_status: str = 'pending'  # Status: pending, active, expired
     activation_expires_at: Optional[datetime] = None  # Token expiry timestamp
     activated_at: Optional[datetime] = None  # When tenant was activated
-    activated_by: Optional[int] = None  # User ID who completed activation
+    activated_by: Optional[UUID] = None  # User ID who completed activation
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
@@ -22,12 +23,14 @@ class Tenant(BaseModel):
 
 class User(BaseModel):
     """User model - authenticated users only"""
-    id: int
-    tenant_id: int
+    id: UUID
+    tenant_id: UUID
     email: EmailStr
     name: Optional[str] = None
     firebase_uid: str  # Firebase user ID (real UID, not "pending")
-    role: str = 'member'  # Role: admin, manager, member
+    role_id: Optional[UUID] = None  # Foreign key to roles table
+    role: Optional[str] = None  # Role slug (e.g., 'admin')
+    role_display_name: Optional[str] = None  # Display name of the role (e.g., "Admin", "Field Manager")
     is_active: bool = True
     last_login: Optional[datetime] = None
     created_at: datetime
@@ -36,12 +39,12 @@ class User(BaseModel):
 
 class Invitation(BaseModel):
     """Invitation model - pending invitations"""
-    id: int
-    tenant_id: int
+    id: UUID
+    tenant_id: UUID
     email: EmailStr
     role: str = 'member'
     invitation_token: str
-    invited_by: Optional[int] = None
+    invited_by: Optional[UUID] = None
     expires_at: datetime
     accepted_at: Optional[datetime] = None
     created_at: datetime
@@ -57,7 +60,7 @@ class TenantResolutionRequest(BaseModel):
 
 class TenantResolutionResponse(BaseModel):
     """Response with tenant information"""
-    tenant_id: int
+    tenant_id: UUID
     tenant_name: str
     domain: str
     firebase_tenant_id: str
@@ -66,11 +69,12 @@ class TenantResolutionResponse(BaseModel):
 
 class UserResponse(BaseModel):
     """User information response"""
-    id: int
+    id: UUID
     email: str
     name: Optional[str] = None
-    role: str  # admin, manager, member
-    tenant_id: int
+    role: Optional[str] = None  # Role slug (e.g., "admin", "field_manager")
+    role_display_name: Optional[str] = None  # Role display name (e.g., "Admin", "Field Manager")
+    tenant_id: UUID
     tenant_name: str
 
 
@@ -82,7 +86,7 @@ class InvitationRequest(BaseModel):
 
 class InvitationResponse(BaseModel):
     """Invitation information response"""
-    id: int
+    id: UUID
     email: str
     role: str
     expires_at: datetime

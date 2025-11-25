@@ -3,19 +3,20 @@ RBAC (Role-Based Access Control) Database Models
 
 Models for roles, resources, actions, and permissions.
 """
-from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, Index, text
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.sql import func
 from app.db_models import Base, TenantModel as Tenant, UserModel as User
+import uuid
 
 
 class Role(Base):
     """User roles with configurable permissions"""
     __tablename__ = "roles"
     
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(50), nullable=False)  # Internal: 'admin', 'field_manager'
     display_name = Column(String(100), nullable=False)  # UI: 'Admin', 'Field Manager'
     description = Column(Text)
@@ -25,9 +26,9 @@ class Role(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    tenant = relationship(Tenant, back_populates="roles")
+    tenant = relationship(Tenant)
     permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan")
-    users = relationship(User, back_populates="role_obj", foreign_keys=[User.role_id])
+    users = relationship(User, foreign_keys=[User.role_id])
     
     # Indexes
     __table_args__ = (
@@ -41,7 +42,7 @@ class Resource(Base):
     """Application resources that can be controlled by permissions"""
     __tablename__ = "resources"
     
-    id = Column(Integer, primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     name = Column(String(50), unique=True, nullable=False)  # 'dashboard', 'users', 'farmers'
     display_name = Column(String(100), nullable=False)  # 'Dashboard', 'User Management'
     category = Column(String(50))  # Group in UI: 'Administration', 'Core'
@@ -69,10 +70,10 @@ class RolePermission(Base):
     """Maps roles to resource+action combinations"""
     __tablename__ = "role_permissions"
     
-    id = Column(Integer, primary_key=True)
-    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
-    resource_id = Column(Integer, ForeignKey("resources.id", ondelete="CASCADE"), nullable=False)
-    action_id = Column(Integer, ForeignKey("actions.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    resource_id = Column(UUID(as_uuid=True), ForeignKey("resources.id", ondelete="CASCADE"), nullable=False)
+    action_id = Column(UUID(as_uuid=True), ForeignKey("actions.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     
     # Relationships
@@ -93,8 +94,8 @@ class Farmer(Base):
     """Farmer management with row-level security"""
     __tablename__ = "farmers"
     
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     
     # Farmer details
     name = Column(String(200), nullable=False)
@@ -103,15 +104,15 @@ class Farmer(Base):
     address = Column(Text)
     
     # Row-level security (ownership tracking)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
     # Timestamps
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    tenant = relationship(Tenant, back_populates="farmers")
-    creator = relationship(User, back_populates="created_farmers", foreign_keys=[created_by])
+    tenant = relationship(Tenant)
+    creator = relationship(User, foreign_keys=[created_by])
     
     # Indexes
     __table_args__ = (

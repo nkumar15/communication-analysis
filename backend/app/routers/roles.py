@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from uuid import UUID
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
@@ -46,7 +47,7 @@ async def list_roles(
 
 @router.get("/{role_id}", response_model=RoleDetailResponse)
 async def get_role_details(
-    role_id: int,
+    role_id: UUID,
     current_user: dict = require_permission('roles', 'read'),
     db: AsyncSession = Depends(get_db)
 ):
@@ -95,7 +96,7 @@ async def get_role_details(
 
 @router.put("/{role_id}/permissions")
 async def update_role_permissions(
-    role_id: int,
+    role_id: UUID,
     request: UpdateRolePermissionsRequest,
     current_user: dict = require_permission('roles', 'write'),
     db: AsyncSession = Depends(get_db)

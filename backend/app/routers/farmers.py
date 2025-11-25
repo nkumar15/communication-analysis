@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from uuid import UUID
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
@@ -81,7 +82,7 @@ async def list_farmers(
 
 @router.get("/{farmer_id}", response_model=FarmerResponse)
 async def get_farmer(
-    farmer_id: int,
+    farmer_id: UUID,
     current_user: dict = require_permission('farmers', 'read'),
     db: AsyncSession = Depends(get_db)
 ):
@@ -105,7 +106,7 @@ async def get_farmer(
 
 @router.put("/{farmer_id}", response_model=FarmerResponse)
 async def update_farmer(
-    farmer_id: int,
+    farmer_id: UUID,
     farmer_data: FarmerUpdate,
     current_user: dict = require_permission('farmers', 'write'),
     db: AsyncSession = Depends(get_db)
@@ -144,7 +145,7 @@ async def update_farmer(
 
 @router.delete("/{farmer_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_farmer(
-    farmer_id: int,
+    farmer_id: UUID,
     current_user: dict = require_permission('farmers', 'delete'),
     db: AsyncSession = Depends(get_db)
 ):

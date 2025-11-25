@@ -4,6 +4,7 @@ from sqlalchemy import select
 from typing import List
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
+from uuid import UUID
 import secrets
 
 from app.database import get_db
@@ -27,17 +28,17 @@ class InviteUserRequest(BaseModel):
 
 
 class InviteUserResponse(BaseModel):
-    invitation_id: int
+    invitation_id: UUID
     email: str
     status: str
     message: str
 
 
 class InvitationListResponse(BaseModel):
-    id: int
+    id: UUID
     email: str
     role: str
-    invited_by: int | None
+    invited_by: UUID | None
     expires_at: datetime
     accepted_at:datetime | None
     created_at: datetime
@@ -213,29 +214,30 @@ async def list_invitations(
     - Requires admin role
     - Shows pending and accepted invitations
     """
-    from app.db_models import UserModel
+    from app.db_models import UserModel, InvitationModel
+    from app.rbac_models import Role
     
-    # Get current user
+    # Get current user with role
     result = await db.execute(
-        select(UserModel).where(UserModel.firebase_uid == current_user.get("uid"))
+        select(UserModel, Role)
+        .join(Role, UserModel.role_id == Role.id)
+        .where(UserModel.firebase_uid == current_user.get("uid"))
     )
-    user = result.scalar_one_or_none()
-    
-    if not user:
+    user_row = result.first()
+    if not user_row:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-    
+    user_obj, role_obj = user_row
     # Check admin role
-    if user.role != 'admin':
+    if role_obj is None or role_obj.name != 'admin':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can view invitations"
         )
-    
-    # Get invitations for tenant (both pending and accepted)
-    from app.db_models import InvitationModel
+    # Use user_obj for tenant_id
+    user = user_obj
     
     result = await db.execute(
         select(InvitationModel)
@@ -260,7 +262,7 @@ async def list_invitations(
 
 @router.delete("/{invitation_id}")
 async def cancel_invitation(
-    invitation_id: int,
+    invitation_id: UUID,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -318,7 +320,7 @@ async def cancel_invitation(
 
 @router.post("/resend/{invitation_id}")
 async def resend_invitation(
-    invitation_id: int,
+    invitation_id: UUID,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):

@@ -91,26 +91,32 @@ migrate: ## Run database migrations
 	docker-compose exec backend python app/migrations/run_migrations.py
 	@echo "✓ Migrations complete"
 
-reset-db: ## Reset database (interactive)
-	@echo "Resetting database (interactive)..."
-	@./reset-db.sh
+tenant-create-local: ## Create a local test tenant (interactive)
+	@echo "$(BLUE)Creating local tenant...$(NC)"
+	docker-compose exec -it backend python -m cli.tenant_cli create-local
+	@echo "$(GREEN)✓ Tenant created$(NC)"
 
 db-shell: ## Open PostgreSQL shell
 	docker-compose exec postgres psql -U sso_user -d sso_db
 
-db-reset: ## Reset database (WARNING: deletes all data!)
+reset-db: ## Reset database (WARNING: deletes all data!)
 	@echo "$(YELLOW)⚠ This will delete all data!$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker-compose down -v; \
-		docker-compose up -d postgres; \
-		sleep 5; \
-		docker-compose up -d backend; \
-		sleep 3; \
-		$(MAKE) migrate; \
-		echo "$(GREEN)✓ Database reset complete$(NC)"; \
-	fi
+	@printf "Are you sure? [y/N] "; \
+	read REPLY; \
+	case "$$REPLY" in \
+		[Yy]*) \
+			docker-compose down -v; \
+			docker-compose up -d postgres; \
+			sleep 5; \
+			docker-compose up -d backend; \
+			sleep 3; \
+			$(MAKE) migrate; \
+			echo "$(GREEN)✓ Database reset complete$(NC)"; \
+			;; \
+		*) \
+			echo "Cancelled."; \
+			;; \
+	esac
 
 ##@ Frontend
 

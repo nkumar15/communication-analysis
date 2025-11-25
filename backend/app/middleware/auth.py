@@ -74,7 +74,7 @@ async def require_auth(request: Request) -> Dict[str, Any]:
 
 # Import here to avoid circular imports if possible, or use string forward refs if needed
 # But get_db needs to be imported.
-from app.database import get_db
+from app.database import get_db, current_tenant_id
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db_models import UserModel
@@ -85,6 +85,8 @@ async def get_current_active_user(
 ) -> Dict[str, Any]:
     """
     Get current user from database using Firebase ID token
+    
+    Also sets the tenant context for Row Level Security enforcement.
     
     Returns dict with user fields including 'id'
     """
@@ -97,12 +99,28 @@ async def get_current_active_user(
     
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    
+    # Set tenant context for Row Level Security
+    # This ensures all subsequent queries are automatically scoped to this tenant
+    current_tenant_id.set(str(user.tenant_id))
         
+    # Fetch role slug and display name
+    role_slug = None
+    role_display_name = None
+    if user.role_id:
+        from app.rbac_models import Role
+        role_result = await db.execute(select(Role).where(Role.id == user.role_id))
+        role_obj = role_result.scalar_one_or_none()
+        if role_obj:
+            role_slug = role_obj.name
+            role_display_name = role_obj.display_name
+
     return {
         "id": user.id,
         "email": user.email,
         "firebase_uid": user.firebase_uid,
         "tenant_id": user.tenant_id,
         "role_id": user.role_id,
-        "role": user.role
+        "role": role_slug,
+        "role_display_name": role_display_name
     }

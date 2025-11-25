@@ -4,11 +4,15 @@ from sqlalchemy import select, func
 from typing import List
 from pydantic import BaseModel
 from datetime import datetime
+from uuid import UUID
 
-from app.database import get_db
-from app.services.user_service import user_service
-from app.middleware.auth import get_current_user, get_current_active_user
 from app.db_models import UserModel, InvitationModel
+from app.rbac_models import Role
+from app.middleware.auth import get_current_active_user, get_current_user
+from app.database import get_db
+
+# Placeholder block removed - moved logic into list_users endpoint
+
 
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -16,7 +20,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 # Response Models
 class UserResponse(BaseModel):
-    id: int
+    id: UUID
     name: str | None
     email: str
     role: str
@@ -95,23 +99,24 @@ async def list_users(
     # Get accessible user IDs based on hierarchy
     accessible_ids = await get_accessible_user_ids(current_user['id'], db)
     
-    # Get users
+    # Get users along with their roles
     users_result = await db.execute(
-        select(UserModel)
+        select(UserModel, Role)
+        .join(Role, UserModel.role_id == Role.id)
         .where(UserModel.id.in_(accessible_ids))
         .order_by(UserModel.created_at.desc())
     )
-    users = users_result.scalars().all()
+    users = users_result.all() # .all() returns tuples of (UserModel, Role)
     
     return [
         UserResponse(
-            id=u.id,
-            name=u.name,
-            email=u.email,
-            role=u.role,
-            is_active=u.is_active,
-            last_login=u.last_login,
-            created_at=u.created_at
+            id=u[0].id,
+            name=u[0].name,
+            email=u[0].email,
+            role=u[1].name if u[1] else None, # Access role name from the Role object
+            is_active=u[0].is_active,
+            last_login=u[0].last_login,
+            created_at=u[0].created_at
         )
         for u in users
     ]

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
 from datetime import datetime
 from pydantic import BaseModel
+from uuid import UUID
 
 from app.database import get_db
 from app.services.tenant_service import tenant_service
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/api/activate", tags=["activation"])
 
 class ActivationValidationResponse(BaseModel):
     """Response for activation token validation"""
-    tenant_id: int
+    tenant_id: UUID
     tenant_name: str
     domain: str
     admin_email: str
@@ -90,7 +91,7 @@ async def validate_activation_token(token: str, db: AsyncSession = Depends(get_d
 
 @router.get("/tenant-info/{tenant_id}")
 async def get_tenant_for_activation(
-    tenant_id: int,
+    tenant_id: UUID,
     db: AsyncSession = Depends(get_db)
 ):
     """

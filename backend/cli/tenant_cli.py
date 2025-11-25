@@ -20,6 +20,7 @@ from app.db_models import TenantModel
 from app.services.firebase_auth import firebase_auth_service
 from cli.firebase_admin_cli import create_firebase_tenant, configure_oidc_provider
 from cli.email_service import email_service
+from app.constants import RoleName
 
 
 @click.group()
@@ -100,6 +101,21 @@ async def create_tenant_async(
             await db.commit()
             await db.refresh(tenant)
             click.echo(f"✅ Tenant created: ID {tenant.id}")
+            
+            # 4b. Seed RBAC data
+            click.echo("\n📍 Step 4b: Seeding RBAC data...")
+            from pathlib import Path
+            from sqlalchemy import text
+            seed_path = Path(__file__).parent / "006_rbac_seed_data_simple.sql"
+            seed_sql_template = seed_path.read_text()
+            # Replace placeholder with actual tenant UUID
+            seed_sql = seed_sql_template.replace("{tenant_id}", f"'{tenant.id}'")
+            # Split by semicolon and execute each statement separately
+            statements = [stmt.strip() for stmt in seed_sql.split(';') if stmt.strip() and not stmt.strip().startswith('--')]
+            for stmt in statements:
+                await db.execute(text(stmt))
+            await db.commit()
+            click.echo("✅ RBAC data seeded")
         
             # 5. Create admin invitation (not user yet)
             click.echo("\n📍 Step 5: Creating admin invitation...")
@@ -109,7 +125,7 @@ async def create_tenant_async(
                 db=db,
                 tenant_id=tenant.id,
                 email=admin_email,
-                role='admin',
+                role=RoleName.ADMIN,
                 invitation_token=activation_token,  # Reuse activation token
                 invited_by=None,  # CLI-created, no inviter
                 expires_in_days=2  # 48 hours, same as activation
@@ -153,11 +169,11 @@ async def create_tenant_async(
 
 
 @cli.command('create-local')
-@click.option('--firebase-tenant-id', required=True, help='Existing Firebase tenant ID')
-@click.option('--oidc-provider-id', required=True, help='Existing OIDC provider ID (e.g., oidc.auth0)')
-@click.option('--company', required=True, help='Company name')
-@click.option('--domain', required=True, help='Email domain (e.g., acme.com)')
-@click.option('--admin-email', required=True, help='Admin email address')
+@click.option('--firebase-tenant-id', prompt='Firebase Tenant ID', help='Existing Firebase tenant ID')
+@click.option('--oidc-provider-id', prompt='OIDC Provider ID (e.g., oidc.auth0)', help='Existing OIDC provider ID')
+@click.option('--company', prompt='Company Name', help='Company name')
+@click.option('--domain', prompt='Domain (e.g., test.com)', help='Email domain')
+@click.option('--admin-email', prompt='Admin Email', help='Admin email address')
 def create_local(firebase_tenant_id, oidc_provider_id, company, domain, admin_email):
     """Create tenant using existing Firebase tenant (DB only - for testing)"""
     asyncio.run(create_local_async(
@@ -199,6 +215,38 @@ async def create_local_async(
             await db.commit()
             await db.refresh(tenant)
             click.echo(f"✅ Tenant created: ID {tenant.id}")
+            
+            # 2b. Seed RBAC data
+            click.echo("\n📍 Step 2b: Seeding RBAC data...")
+            from pathlib import Path
+            from sqlalchemy import text
+            seed_path = Path(__file__).parent / "006_rbac_seed_data_simple.sql"
+            seed_sql_template = seed_path.read_text()
+            # Replace placeholder with actual tenant UUID
+            seed_sql = seed_sql_template.replace("{tenant_id}", f"'{tenant.id}'")
+            
+            # Remove comments and split by semicolon
+            import re
+            # Remove SQL comments (-- style)
+            lines = seed_sql.split('\n')
+            cleaned_lines = [line.split('--')[0] for line in lines]  # Remove inline comments
+            cleaned_sql = '\n'.join(cleaned_lines)
+            
+            # Split by semicolon and execute each statement separately
+            statements = [stmt.strip() for stmt in cleaned_sql.split(';') if stmt.strip()]
+            
+            click.echo(f"   Found {len(statements)} SQL statements to execute")
+            for i, stmt in enumerate(statements, 1):
+                try:
+                    click.echo(f"   Executing statement {i}/{len(statements)}...")
+                    await db.execute(text(stmt))
+                except Exception as e:
+                    click.echo(f"   ⚠️  Error in statement {i}: {str(e)}")
+                    click.echo(f"   Statement preview: {stmt[:100]}...")
+                    raise
+            
+            await db.commit()
+            click.echo("✅ RBAC data seeded")
         
             # 3. Create admin invitation
             click.echo("\n📍 Step 3: Creating admin invitation...")
@@ -208,7 +256,7 @@ async def create_local_async(
                 db=db,
                 tenant_id=tenant.id,
                 email=admin_email,
-                role='admin',
+                role=RoleName.ADMIN,
                 invitation_token=activation_token,
                 invited_by=None,
                 expires_in_days=2
@@ -260,7 +308,7 @@ def list_tenants(domain):
 
 async def list_tenants_async(domain):
     """List tenants"""
-    from sqlalchemy import select
+    from sqlalchemy import select, text
     
     async with AsyncSessionLocal() as db:
         result = await db.execute(

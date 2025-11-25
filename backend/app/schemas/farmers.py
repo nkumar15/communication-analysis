@@ -4,6 +4,7 @@ Pydantic schemas for Farmer Management API
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class FarmerCreate(BaseModel):
@@ -34,12 +35,12 @@ class FarmerUpdate(BaseModel):
 
 class FarmerResponse(BaseModel):
     """Farmer details response"""
-    id: int
+    id: UUID
     name: str
     email: Optional[str]
     phone: Optional[str]
     address: Optional[str]
-    created_by: int
+    created_by: UUID
     created_at: datetime
     updated_at: datetime
     
