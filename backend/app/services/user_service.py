@@ -46,7 +46,7 @@ class UserService:
         email: str, 
         firebase_uid: str,
         name: Optional[str] = None,
-        role: str = 'member'
+        role: str = 'field_agent'
     ) -> User:
         """
         Create or update user from Firebase token using UPSERT
@@ -57,7 +57,7 @@ class UserService:
             email: User email
             firebase_uid: Firebase user ID
             name: User display name
-            role: User role (default: member)
+            role: User role (default: field_agent)
             
         Returns:
             Created or updated User
@@ -77,7 +77,7 @@ class UserService:
             set_={
                 'email': email,
                 'name': name,
-                'role': role,
+                # Don't update role - it should only be set on initial creation
                 'last_login': now,
                 'updated_at': now,
             }

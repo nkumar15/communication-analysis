@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import invitationApi from '../services/invitationApi';
 import StatCard from './StatCard';
 import AdminLayout from './layout/AdminLayout';
+import useAuth from '../hooks/useAuth';
 
 const DashboardPage = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { user, hasRole, getScopeLabel, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
 
     useEffect(() => {
         loadStats();
@@ -22,9 +26,60 @@ const DashboardPage = () => {
         }
     };
 
+    // Block field_agent from accessing dashboard
+    if (!authLoading && !hasRole(['admin', 'field_manager'])) {
+        return (
+            <AdminLayout title="Access Denied" subtitle="">
+                <div style={{ padding: '60px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
+                    <div style={{ fontSize: '64px', marginBottom: '24px' }}>🚫</div>
+                    <h2 style={{ color: '#111827', marginBottom: '16px' }}>Dashboard Access Restricted</h2>
+                    <p style={{ color: '#6B7280', marginBottom: '32px', lineHeight: '1.6' }}>
+                        You don't have permission to view the dashboard.
+                        As a Field Agent, you can manage farmer data from the Farmer Management page.
+                    </p>
+                    <button
+                        onClick={() => navigate('/farmers')}
+                        style={{
+                            padding: '12px 24px',
+                            backgroundColor: '#4F46E5',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Go to Farmer Management
+                    </button>
+                </div>
+            </AdminLayout>
+        );
+    }
+
+
     return (
         <AdminLayout title="Dashboard" subtitle="Welcome to your SSO admin panel">
             <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+                {/* Scope Indicator */}
+                {user && (
+                    <div style={{
+                        backgroundColor: '#EEF2FF',
+                        border: '1px solid #C7D2FE',
+                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        marginBottom: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '16px' }}>📊</span>
+                        <span style={{ fontSize: '14px', color: '#4338CA' }}>
+                            <strong>Viewing:</strong> {getScopeLabel()}
+                        </span>
+                    </div>
+                )}
+
                 {/* Statistics */}
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '60px' }}>

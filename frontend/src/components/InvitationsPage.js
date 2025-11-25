@@ -7,6 +7,7 @@ import RoleBadge from './RoleBadge';
 import StatusBadge from './StatusBadge';
 import ActionMenu from './ActionMenu';
 import AdminLayout from './layout/AdminLayout';
+import useAuth from '../hooks/useAuth';
 import './Card.css';
 import './Button.css';
 
@@ -24,6 +25,7 @@ const InvitationsPage = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const navigate = useNavigate();
+    const { user, getInvitableRoles, getScopeLabel } = useAuth();
 
     useEffect(() => {
         loadData();
@@ -177,6 +179,25 @@ const InvitationsPage = () => {
     return (
         <AdminLayout title="User & Invitation Management" subtitle="Manage team members and invitations">
             <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+                {/* Scope Indicator */}
+                {user && (
+                    <div style={{
+                        backgroundColor: '#EEF2FF',
+                        border: '1px solid #C7D2FE',
+                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        marginBottom: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '16px' }}>👥</span>
+                        <span style={{ fontSize: '14px', color: '#4338CA' }}>
+                            <strong>Viewing:</strong> {getScopeLabel()}
+                        </span>
+                    </div>
+                )}
+
                 {/* Statistics Cards */}
                 {stats && (
                     <div style={{
@@ -481,14 +502,21 @@ const InvitationsPage = () => {
                                             border: '1px solid #D1D5DB',
                                             borderRadius: '6px',
                                             fontSize: '14px',
-                                            backgroundColor: '#F9FAFB',
+                                            backgroundColor: 'white',
                                             color: '#111827'
                                         }}
                                     >
-                                        <option value="admin">Admin</option>
-                                        <option value="field_manager">Field Manager</option>
-                                        <option value="field_agent">Field Agent</option>
+                                        {getInvitableRoles().map(role => (
+                                            <option key={role.value} value={role.value}>
+                                                {role.label}
+                                            </option>
+                                        ))}
                                     </select>
+                                    {user?.role === 'field_manager' && (
+                                        <small style={{ color: '#6B7280', fontSize: '12px', display: 'block', marginTop: '6px' }}>
+                                            As a Field Manager, you can only invite Field Agents
+                                        </small>
+                                    )}
                                 </div>
                                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                                     <button

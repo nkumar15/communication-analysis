@@ -71,7 +71,7 @@ class InvitationModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False, index=True)
     email = Column(String(255), nullable=False, index=True)
-    role = Column(String(20), default='member', nullable=False)
+    role = Column(String(20), default='field_agent', nullable=False)
     
     # Invitation token
     invitation_token = Column(String(64), unique=True, nullable=False, index=True)

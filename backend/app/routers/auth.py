@@ -147,8 +147,8 @@ async def sync_user(
     )
     invitation = result.scalar_one_or_none()
     
-    # Use role from invitation if exists, otherwise default to 'member'
-    user_role = invitation.role if invitation else 'member'
+    # Use role from invitation if exists, otherwise default to 'field_agent'
+    user_role = invitation.role if invitation else 'field_agent'
     
     # Create or update user
     user = await user_service.create_or_update_user(

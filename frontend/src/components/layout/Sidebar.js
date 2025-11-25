@@ -1,18 +1,40 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth';
 
 const Sidebar = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user, canAccess, loading } = useAuth();
 
-    const menuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard' },
-        { id: 'users', label: 'User Management', icon: '👥', path: '/invitations' },
-        { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles' },
-        { id: 'farmers', label: 'Farmer Management', icon: '🚜', path: '/farmers' }
+    const allMenuItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
+        { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
+        { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles', feature: 'roles' },
+        { id: 'farmers', label: 'Farmer Management', icon: '🚜', path: '/farmers', feature: 'farmers' }
     ];
 
+    // Filter menu items based on user permissions
+    const menuItems = allMenuItems.filter(item => canAccess(item.feature));
+
     const isActive = (path) => location.pathname === path;
+
+    // Show loading state
+    if (loading) {
+        return (
+            <div style={{
+                width: '250px',
+                height: '100vh',
+                backgroundColor: '#1F2937',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <div style={{ color: '#9CA3AF' }}>Loading...</div>
+            </div>
+        );
+    }
 
     return (
         <div style={{
@@ -50,7 +72,11 @@ const Sidebar = () => {
                     </div>
                     <div>
                         <div style={{ fontWeight: '700', fontSize: '16px' }}>SSO Portal</div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF' }}>Admin Panel</div>
+                        <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                            {user?.role === 'admin' ? 'Admin Panel' :
+                                user?.role === 'field_manager' ? 'Manager Panel' :
+                                    'Agent Panel'}
+                        </div>
                     </div>
                 </div>
             </div>
