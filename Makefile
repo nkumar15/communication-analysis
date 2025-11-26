@@ -168,7 +168,11 @@ e2e-test: ## Run E2E API integration tests
 e2e-test-coverage: ## Run E2E tests with coverage report
 	@echo "$(BLUE)Running E2E tests with coverage...$(NC)"
 	docker-compose exec backend python -m pytest tests/integration tests/security -v --cov=app --cov-report=html --cov-report=term
-	@echo "$(GREEN)✓ Coverage report generated at backend/htmlcov/index.html$(NC)"
+
+e2e-browser: ## Run E2E browser tests
+	@echo "$(BLUE)Running E2E browser tests...$(NC)"
+	docker-compose exec backend python -m pytest tests/e2e_browser -v
+	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
 
 test-invitation: ## Run invitation flow tests only
 	@echo "$(BLUE)Testing invitation flow...$(NC)"

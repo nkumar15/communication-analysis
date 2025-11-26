@@ -23,16 +23,11 @@ TEST_DATABASE_URL = "postgresql+asyncpg://sso_user:sso_password@postgres:5432/ss
 
 
 # Create a single test engine and session factory
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for entire test session"""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
-@pytest_asyncio.fixture(scope="session")
-async def test_db_engine(event_loop):
+
+@pytest_asyncio.fixture(scope="function")
+async def test_db_engine():
     """Create test database engine for session"""
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_pre_ping=True)
     yield engine
