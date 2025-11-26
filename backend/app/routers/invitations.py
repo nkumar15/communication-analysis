@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -348,7 +348,7 @@ async def validate_invitation(
     """
     Validate invitation token (public endpoint)
     
-    Returns invitation details for display
+    Returns MINIMAL invitation details for display (PII minimization)
     """
     invitation = await invitation_service.get_invitation_by_token(db, token)
     
@@ -375,27 +375,21 @@ async def validate_invitation(
     # Get tenant info
     tenant = await tenant_service.get_tenant_by_id(db, invitation.tenant_id)
     
-    # Get inviter info if exists
-    inviter_name = "Admin"
-    if invitation.invited_by:
-        inviter = await user_service.get_user_by_id(db, invitation.invited_by)
-        if inviter:
-            inviter_name = inviter.name or inviter.email
-    
+    # Return MINIMAL data to prevent PII leakage
+    # Note: tenant_id removed, inviter_name removed
     return {
-        "tenant_id": tenant.id,
         "tenant_name": tenant.name,
         "firebase_tenant_id": tenant.firebase_tenant_id,
         "oidc_provider_id": tenant.oidc_provider_id,
-        "inviter_name": inviter_name,
         "role": invitation.role,
-        "email": invitation.email
+        "email": invitation.email  # Keep for UI display to user
     }
 
 
 @router.post("/join")
 async def join_tenant(
     token: str,
+    request: Request,
     decoded_token: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -403,8 +397,9 @@ async def join_tenant(
     Accept invitation and join tenant (after SSO login)
     
     - Requires authentication (Firebase token)
+    - Enforces EMAIL VERIFICATION (security fix)
     - Creates user from invitation if doesn't exist
-    - Marks invitation as accepted
+    - Marks invitation as accepted with audit trail
     
     This endpoint handles new users who just completed SSO login
     """
@@ -424,12 +419,20 @@ async def join_tenant(
     firebase_uid = user_info.get("firebase_uid")
     email = user_info.get("email")
     name = user_info.get("name")
+    email_verified = user_info.get("email_verified", False)  # Get email verification status
     firebase_tenant_id = user_info.get("firebase_tenant_id")
     
     if not firebase_uid or not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
+        )
+    
+    # SECURITY: Enforce email verification
+    if not email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email must be verified before accepting invitation. Please verify your email in your authentication provider."
         )
     
     # Verify user's email matches invitation
@@ -450,9 +453,10 @@ async def join_tenant(
     # Check if user already exists
     existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
     
+    user_id = None
     if not existing_user:
         # Create user from invitation
-        await user_service.create_or_update_user(
+        created_user = await user_service.create_or_update_user(
             db=db,
             tenant_id=tenant.id,
             email=email,
@@ -460,9 +464,20 @@ async def join_tenant(
             name=name,
             role=invitation.role  # Use role from invitation
         )
+        user_id = created_user.id
+    else:
+        user_id = existing_user.id
     
-    # Mark invitation as accepted
-    await invitation_service.accept_invitation(db, token)
+    # Get client IP for audit trail
+    client_ip = request.client.host if request.client else None
+    
+    # Mark invitation as accepted with audit trail
+    await invitation_service.accept_invitation(
+        db=db,
+        token=token,
+        accepted_by_user_id=user_id,
+        ip_address=client_ip
+    )
     
     return {
         "message": "Successfully joined tenant",

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db_models import InvitationModel
 from app.models import Invitation
+import secrets  # For timing-attack resistant comparison
 
 
 class InvitationService:
@@ -58,7 +59,7 @@ class InvitationService:
         token: str
     ) -> Optional[Invitation]:
         """
-        Get invitation by token
+        Get invitation by token with timing-attack resistant comparison
         
         Args:
             db: Database session
@@ -67,17 +68,20 @@ class InvitationService:
         Returns:
             Invitation if found and valid, None otherwise
         """
+        # Fetch all pending invitations to prevent timing attacks
+        # In a high-scale system, consider using a hash-based lookup
         result = await db.execute(
             select(InvitationModel)
-            .where(InvitationModel.invitation_token == token)
             .where(InvitationModel.accepted_at.is_(None))  # Not already accepted
         )
-        invitation_model = result.scalar_one_or_none()
+        invitations = result.scalars().all()
         
-        if not invitation_model:
-            return None
+        # Use constant-time comparison to prevent timing attacks
+        for invitation_model in invitations:
+            if secrets.compare_digest(invitation_model.invitation_token, token):
+                return self._model_to_pydantic(invitation_model)
         
-        return self._model_to_pydantic(invitation_model)
+        return None
     
     async def get_pending_invitations(
         self,
@@ -108,14 +112,18 @@ class InvitationService:
     async def accept_invitation(
         self,
         db: AsyncSession,
-        token: str
+        token: str,
+        accepted_by_user_id: Optional[UUID] = None,
+        ip_address: Optional[str] = None
     ) -> Optional[Invitation]:
         """
-        Mark invitation as accepted
+        Mark invitation as accepted with audit trail
         
         Args:
             db: Database session
             token: Invitation token
+            accepted_by_user_id: User ID who accepted (for audit)
+            ip_address: IP address of acceptance (for audit)
             
         Returns:
             Accepted invitation or None if not found
@@ -130,6 +138,8 @@ class InvitationService:
             return None
         
         invitation.accepted_at = datetime.utcnow()
+        invitation.accepted_by = accepted_by_user_id
+        invitation.accepted_from_ip = ip_address
         await db.commit()
         await db.refresh(invitation)
         
@@ -195,6 +205,8 @@ class InvitationService:
             invited_by=model.invited_by,
             expires_at=model.expires_at,
             accepted_at=model.accepted_at,
+            accepted_by=model.accepted_by,
+            accepted_from_ip=model.accepted_from_ip,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )

@@ -1,0 +1,265 @@
+"""
+Integration tests for invitation flow
+Tests all scenarios: create, validate, accept, cancel, resend
+"""
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from tests.conftest import (
+    create_mock_firebase_token, 
+    encode_mock_jwt,
+    create_test_tenant,
+    create_test_user,
+    create_test_invitation
+)
+
+
+@pytest.mark.integration
+class TestInvitationFlow:
+    """Test invitation creation, validation, and acceptance"""
+    
+    @pytest.mark.asyncio
+    async def test_admin_invites_field_manager_success(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """Admin successfully invites a field manager"""
+        # Setup: Create tenant and admin user
+        tenant = await create_test_tenant(db_session)
+        admin = await create_test_user(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"admin@{tenant.domain}",
+            role_slug="admin"
+        )
+        
+        # Create mock JWT for admin
+        jwt_payload = create_mock_firebase_token(
+            uid=admin.firebase_uid,
+            email=admin.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        )
+        jwt_token = encode_mock_jwt(jwt_payload)
+        
+        # Send invitation
+        response = await api_client.post(
+            "/api/invitations/invite",
+            json={"email": f"manager@{tenant.domain}", "role": "field_manager"},
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email"] == f"manager@{tenant.domain}"
+        assert data["status"] == "sent"
+        assert "invitation_id" in data
+    
+    
+    @pytest.mark.asyncio
+    async def test_field_manager_cannot_invite_field_manager(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """Field manager cannot invite another field manager"""
+        tenant = await create_test_tenant(db_session)
+        manager = await create_test_user(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"manager@{tenant.domain}",
+            role_slug="field_manager"
+        )
+        
+        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=manager.firebase_uid,
+            email=manager.email
+        ))
+        
+        response = await api_client.post(
+            "/api/invitations/invite",
+            json={"email": f"manager2@{tenant.domain}", "role": "field_manager"},
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        assert response.status_code == 403
+        assert "Field managers can only invite field agents" in response.json()["detail"]
+    
+    
+    @pytest.mark.asyncio
+    async def test_email_domain_mismatch_rejected(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """Invitation to wrong domain is rejected"""
+        domain = f"company-{UUID(int=0).hex[:8]}.com" # Random-ish but consistent for this test
+        tenant = await create_test_tenant(db_session, domain=domain)
+        admin = await create_test_user(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"admin@{domain}",
+            role_slug="admin"
+        )
+        
+        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=admin.firebase_uid,
+            email=admin.email
+        ))
+        
+        response = await api_client.post(
+            "/api/invitations/invite",
+            json={"email": "user@different.com", "role": "field_agent"},
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        assert response.status_code == 400
+        assert "Email domain must match tenant domain" in response.json()["detail"]
+    
+    
+    @pytest.mark.asyncio
+    async def test_validate_invitation_pii_minimization(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """Validation endpoint returns minimal PII"""
+        tenant = await create_test_tenant(db_session)
+        invitation = await create_test_invitation(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"user@{tenant.domain}"
+        )
+        
+        response = await api_client.get(
+            f"/api/invitations/accept/{invitation.invitation_token}"
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check PII minimization - should NOT contain these
+        assert "inviter_name" not in data
+        
+        # Should contain these
+        assert data["email"] == f"user@{tenant.domain}"
+        assert data["tenant_name"] == tenant.name
+        assert "tenant_id" not in data  # PII minimization check
+        assert data["role"] == "field_agent"
+    
+    
+    @pytest.mark.asyncio
+    async def test_accept_invitation_with_verified_email_success(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """User with verified email can accept invitation"""
+        tenant = await create_test_tenant(db_session)
+        invitation = await create_test_invitation(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"newuser@{tenant.domain}"
+        )
+        
+        # Mock JWT with verified email
+        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+            uid="new-user-firebase-uid",
+            email=f"newuser@{tenant.domain}",
+            email_verified=True,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
+        
+        response = await api_client.post(
+            f"/api/invitations/join?token={invitation.invitation_token}",
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        assert response.status_code == 200
+        assert response.json()["message"] == "Successfully joined tenant"
+        
+        # Verify audit trail
+        from app.db_models import InvitationModel
+        from sqlalchemy import select
+        
+        result = await db_session.execute(
+            select(InvitationModel).where(
+                InvitationModel.invitation_token == invitation.invitation_token
+            )
+        )
+        updated_invitation = result.scalar_one()
+        
+        assert updated_invitation.accepted_at is not None
+        assert updated_invitation.accepted_by is not None
+        assert updated_invitation.accepted_from_ip is not None
+    
+    
+    @pytest.mark.asyncio
+    async def test_accept_invitation_with_unverified_email_rejected(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """User with unverified email CANNOT accept invitation (security fix)"""
+        tenant = await create_test_tenant(db_session)
+        invitation = await create_test_invitation(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"unverified@{tenant.domain}"
+        )
+        
+        # Mock JWT with UNverified email
+        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+            uid="unverified-user",
+            email=f"unverified@{tenant.domain}",
+            email_verified=False,  # NOT VERIFIED
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
+        
+        response = await api_client.post(
+            f"/api/invitations/join?token={invitation.invitation_token}",
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        assert response.status_code == 403
+        assert "Email must be verified" in response.json()["detail"]
+    
+    
+    @pytest.mark.asyncio
+    async def test_duplicate_pending_invitation_rejected(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """Cannot create duplicate pending invitation"""
+        tenant = await create_test_tenant(db_session)
+        admin = await create_test_user(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"admin@{tenant.domain}",
+            role_slug="admin"
+        )
+        
+        # Create existing invitation
+        await create_test_invitation(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"user@{tenant.domain}"
+        )
+        
+        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=admin.firebase_uid,
+            email=admin.email
+        ))
+        
+        # Try to create duplicate
+        response = await api_client.post(
+            "/api/invitations/invite",
+            json={"email": f"user@{tenant.domain}", "role": "field_agent"},
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        assert response.status_code == 400
+        assert "Pending invitation already exists" in response.json()["detail"]

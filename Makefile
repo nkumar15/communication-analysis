@@ -160,8 +160,35 @@ clean-all: clean ## Complete cleanup including node_modules
 
 ##@ Testing & Validation
 
-test-backend: ## Run backend tests
-	docker-compose exec backend pytest
+e2e-test: ## Run E2E API integration tests
+	@echo "$(BLUE)Running E2E API integration tests...$(NC)"
+	docker-compose exec backend python -m pytest tests/integration tests/security -v
+	@echo "$(GREEN)✓ E2E tests complete$(NC)"
+
+e2e-test-coverage: ## Run E2E tests with coverage report
+	@echo "$(BLUE)Running E2E tests with coverage...$(NC)"
+	docker-compose exec backend python -m pytest tests/integration tests/security -v --cov=app --cov-report=html --cov-report=term
+	@echo "$(GREEN)✓ Coverage report generated at backend/htmlcov/index.html$(NC)"
+
+test-invitation: ## Run invitation flow tests only
+	@echo "$(BLUE)Testing invitation flow...$(NC)"
+	docker-compose exec backend python -m pytest tests/integration/test_invitation_flow.py -v
+
+test-activation: ## Run activation flow tests only
+	@echo "$(BLUE)Testing activation flow...$(NC)"
+	docker-compose exec backend python -m pytest tests/integration/test_activation_flow.py -v
+
+test-security: ## Run security tests only
+	@echo "$(BLUE)Running security tests...$(NC)"
+	docker-compose exec backend python -m pytest tests/security -v
+
+test-install: ## Install test dependencies in backend container
+	@echo "$(BLUE)Installing test dependencies...$(NC)"
+	docker-compose exec backend pip install -r requirements-test.txt
+	@echo "$(GREEN)✓ Test dependencies installed$(NC)"
+
+test-backend: ## Run all backend tests (alias for e2e-test)
+	@$(MAKE) e2e-test
 
 test-env: ## Validate environment configuration
 	@echo "$(BLUE)Checking environment configuration...$(NC)"

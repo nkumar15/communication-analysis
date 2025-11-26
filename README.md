@@ -293,6 +293,8 @@ See [Database Migrations](./backend/app/migrations/) for complete schema.
 - **Activation tokens** - Time-limited, single-use
 - **Invitation tokens** - Secure user onboarding
 
+See **[Security Policy](./SECURITY.md)** for detailed architecture and reporting instructions.
+
 ---
 
 ## 🎓 Project Structure
@@ -368,6 +370,8 @@ docker-compose exec backend python -m cli.tenant_cli list-tenants \
 ## 📚 Documentation
 
 - **[Development Guide](./docs/development-guide.md)** - Complete development & testing guide
+- **[Development Guide](./docs/development-guide.md)** - Complete development & testing guide
+- **[Testing Strategy](./docs/TESTING.md)** - Comprehensive test plan and roadmap
 - **[Testing Workflow](./docs/testing-workflow.md)** - Tenant provisioning & testing procedures
 - **[E2E Test Guide](./docs/e2e-activation-test.md)** - Step-by-step activation flow testing
 - **[API Documentation](http://localhost:8000/docs)** - Interactive Swagger docs (when running)

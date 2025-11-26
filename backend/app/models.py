@@ -16,6 +16,7 @@ class Tenant(BaseModel):
     activation_expires_at: Optional[datetime] = None  # Token expiry timestamp
     activated_at: Optional[datetime] = None  # When tenant was activated
     activated_by: Optional[UUID] = None  # User ID who completed activation
+    activation_started_at: Optional[datetime] = None  # Prevent replay attacks
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
@@ -47,6 +48,8 @@ class Invitation(BaseModel):
     invited_by: Optional[UUID] = None
     expires_at: datetime
     accepted_at: Optional[datetime] = None
+    accepted_by: Optional[UUID] = None  # Audit: who accepted
+    accepted_from_ip: Optional[str] = None  # Audit: IP address
     created_at: datetime
     updated_at: datetime
 

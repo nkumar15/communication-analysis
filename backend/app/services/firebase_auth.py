@@ -50,6 +50,7 @@ class FirebaseAuthService:
             "firebase_uid": decoded_token.get("uid"),
             "email": decoded_token.get("email"),
             "name": decoded_token.get("name"),
+            "email_verified": decoded_token.get("email_verified", False),
             "firebase_tenant_id": decoded_token.get("firebase", {}).get("tenant"),
         }
 

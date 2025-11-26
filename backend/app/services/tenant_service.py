@@ -163,6 +163,7 @@ class TenantService:
             activation_expires_at=model.activation_expires_at,
             activated_at=model.activated_at,
             activated_by=model.activated_by,
+            activation_started_at=model.activation_started_at,
             is_active=model.is_active,
             created_at=model.created_at,
             updated_at=model.updated_at,

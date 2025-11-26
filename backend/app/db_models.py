@@ -28,6 +28,7 @@ class TenantModel(Base):
     activation_expires_at = Column(DateTime(timezone=True), nullable=True)
     activated_at = Column(DateTime(timezone=True), nullable=True)
     activated_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
+    activation_started_at = Column(DateTime(timezone=True), nullable=True)  # Prevent replay attacks
     
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -76,6 +77,10 @@ class InvitationModel(Base):
     invited_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Audit fields for security
+    accepted_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)  # Who accepted
+    accepted_from_ip = Column(String(45), nullable=True)  # IP address of acceptance
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -131,15 +131,45 @@ async def complete_activation(
     3. Admin confirms activation
     
     Marks tenant as active and accepts the invitation.
+    Prevents replay attacks via activation_started_at check.
     """
-    # Get tenant
-    tenant = await tenant_service.get_tenant_by_activation_token(db, request.activation_token)
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select, update
+    from app.db_models import TenantModel
     
-    if not tenant:
+    # Get tenant with atomic locking
+    result = await db.execute(
+        select(TenantModel)
+        .where(TenantModel.activation_token == request.activation_token)
+        .with_for_update()  # Lock row to prevent race conditions
+    )
+    tenant_model = result.scalar_one_or_none()
+    
+    if not tenant_model:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invalid activation token"
         )
+    
+    # Check if activation already started (prevents replay attacks)
+    if tenant_model.activation_started_at:
+        # Allow a grace period of 5 minutes in case of legitimate retries
+        grace_period = timedelta(minutes=5)
+        time_since_start = datetime.now(timezone.utc) - tenant_model.activation_started_at
+        
+        if time_since_start > grace_period:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Activation already in progress or completed"
+            )
+    else:
+        # Mark activation as started (prevents concurrent attempts)
+        tenant_model.activation_started_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(tenant_model)
+    
+    # Convert to Pydantic model
+    tenant = tenant_service._model_to_pydantic(tenant_model)
     
     # Verify current user belongs to this tenant
     user_info = current_user  # From Firebase token
