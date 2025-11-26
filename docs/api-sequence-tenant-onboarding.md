@@ -55,6 +55,43 @@ sequenceDiagram
 
 ---
 
+## Mermaid diagram – Invite‑User Flow
+```mermaid
+sequenceDiagram
+    participant Admin as Admin (Test Script)
+    participant BE as Backend API
+    participant DB as Database
+    participant Front as Front‑end (React)
+    participant Invite as Invitee (Browser)
+
+    Admin->>BE: POST /api/invitations (create invitation)
+    BE->>DB: INSERT invitation
+    BE-->>Admin: 201 Created (invitation_token)
+
+    Admin->>Invite: Receive invitation email with link
+    Invite->>Front: Open invitation URL (http://localhost:3000/invite/TOKEN)
+    Front->>BE: GET /api/invitations/{token}
+    BE->>DB: SELECT invitation
+    BE-->>Front: 200 Invitation details (email, role)
+
+    Front->>Invite: Show Accept button
+    Invite->>Front: Click Accept
+    Front->>BE: POST /api/invitations/accept {token}
+    BE->>DB: UPDATE invitation.accepted_at
+    BE-->>Front: 200 Accepted
+
+    Front->>Invite: Prompt SSO login
+    Invite->>Firebase: Open OIDC login popup (mocked)
+    Firebase-->>Invite: ID token (uid, email)
+
+    Front->>BE: POST /api/activate/complete {activation_token}
+    BE->>DB: SELECT tenant FOR UPDATE
+    BE->>DB: INSERT user if needed
+    BE->>DB: UPDATE tenant.status='active'
+    BE-->>Front: 200 Activation success
+```
+---
+
 ## Detailed step‑by‑step API sequence
 
 ### 1. **Create Tenant**
