@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db_models import TenantModel
@@ -31,7 +32,7 @@ class TenantService:
         
         return self._model_to_pydantic(tenant_model)
     
-    async def get_tenant_by_id(self, db: AsyncSession, tenant_id: int) -> Optional[Tenant]:
+    async def get_tenant_by_id(self, db: AsyncSession, tenant_id: UUID) -> Optional[Tenant]:
         """
         Get tenant by ID
         
@@ -102,8 +103,8 @@ class TenantService:
     async def activate_tenant(
         self,
         db: AsyncSession,
-        tenant_id: int,
-        activated_by_user_id: int
+        tenant_id: UUID,
+        activated_by_user_id: UUID
     ) -> Tenant:
         """
         Mark tenant as activated

@@ -1,5 +1,6 @@
 from typing import Optional, List
 from datetime import datetime, timedelta
+from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db_models import InvitationModel
@@ -12,11 +13,11 @@ class InvitationService:
     async def create_invitation(
         self,
         db: AsyncSession,
-        tenant_id: int,
+        tenant_id: UUID,
         email: str,
         role: str,
         invitation_token: str,
-        invited_by: Optional[int] = None,
+        invited_by: Optional[UUID] = None,
         expires_in_days: int = 7
     ) -> Invitation:
         """
@@ -81,7 +82,7 @@ class InvitationService:
     async def get_pending_invitations(
         self,
         db: AsyncSession,
-        tenant_id: int
+        tenant_id: UUID
     ) -> List[Invitation]:
         """
         Get all pending invitations for a tenant
@@ -137,7 +138,7 @@ class InvitationService:
     async def delete_invitation(
         self,
         db: AsyncSession,
-        invitation_id: int
+        invitation_id: UUID
     ):
         """
         Delete an invitation

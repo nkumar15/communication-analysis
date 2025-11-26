@@ -3,13 +3,14 @@ Scope Helpers - Hierarchical Data Access
 
 Determines what data a user can access based on reporting structure.
 """
+from uuid import UUID
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db_models import UserModel
 from app.rbac_models import Role, Farmer
 
 
-async def get_accessible_user_ids(user_id: int, db: AsyncSession) -> list[int]:
+async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]:
     """
     Get all user IDs that are accessible to this user based on hierarchy
     
@@ -23,7 +24,7 @@ async def get_accessible_user_ids(user_id: int, db: AsyncSession) -> list[int]:
         db: Database session
         
     Returns:
-        list[int]: List of accessible user IDs
+        list[UUID]: List of accessible user IDs
     """
     user = await db.get(UserModel, user_id)
     if not user:
@@ -60,7 +61,7 @@ async def get_accessible_user_ids(user_id: int, db: AsyncSession) -> list[int]:
     return [user_id]
 
 
-async def get_accessible_farmers_query(user_id: int, db: AsyncSession):
+async def get_accessible_farmers_query(user_id: UUID, db: AsyncSession):
     """
     Get SQLAlchemy query for farmers accessible to this user
     
@@ -103,7 +104,7 @@ async def get_accessible_farmers_query(user_id: int, db: AsyncSession):
     return select(Farmer).where(Farmer.created_by == user_id)
 
 
-async def can_access_farmer(user_id: int, farmer_id: int, db: AsyncSession) -> bool:
+async def can_access_farmer(user_id: UUID, farmer_id: UUID, db: AsyncSession) -> bool:
     """
     Check if user can access a specific farmer
     
@@ -121,7 +122,7 @@ async def can_access_farmer(user_id: int, farmer_id: int, db: AsyncSession) -> b
     return farmer is not None
 
 
-async def can_access_user(current_user_id: int, target_user_id: int, db: AsyncSession) -> bool:
+async def can_access_user(current_user_id: UUID, target_user_id: UUID, db: AsyncSession) -> bool:
     """
     Check if current user can access target user's data
     
@@ -137,7 +138,7 @@ async def can_access_user(current_user_id: int, target_user_id: int, db: AsyncSe
     return target_user_id in accessible_ids
 
 
-async def get_dashboard_stats(user_id: int, db: AsyncSession) -> dict:
+async def get_dashboard_stats(user_id: UUID, db: AsyncSession) -> dict:
     """
     Get dashboard statistics scoped to user's access level
     

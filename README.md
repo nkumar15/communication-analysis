@@ -374,7 +374,29 @@ docker-compose exec backend python -m cli.tenant_cli list-tenants \
 
 ---
 
+---
+
+## 📝 Recent Updates (Nov 2025)
+
+### ✅ Invitation System Fixes
+- **Fixed:** New users no longer need to login twice to accept invitations
+- **Fixed:** UUID type validation errors resolved
+- **Improved:** Simplified invitation endpoint logic for better performance
+
+See [CHANGELOG.md](./CHANGELOG.md) for complete details.
+
+---
+
 ## 🐛 Troubleshooting
+
+### Recent Issues (Fixed)
+
+**"User not found" when accepting invitation**
+- ✅ **Fixed in latest version** - Users are now created automatically when accepting invitations
+- No longer requires second login attempt
+
+**UUID validation errors**
+- ✅ **Fixed in latest version** - All backend services now use correct UUID types
 
 ### Backend Issues
 

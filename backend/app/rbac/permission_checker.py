@@ -3,6 +3,7 @@ Permission Checker Service
 
 Checks if a user has permission to perform actions on resources.
 """
+from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db_models import UserModel
@@ -10,7 +11,7 @@ from app.rbac_models import Role, Resource, Action, RolePermission
 
 
 async def has_permission(
-    user_id: int,
+    user_id: UUID,
     resource: str,
     action: str,
     db: AsyncSession
@@ -55,7 +56,7 @@ async def has_permission(
     return permission is not None
 
 
-async def get_user_permissions(user_id: int, db: AsyncSession) -> list[str]:
+async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     """
     Get all permissions for a user as a list of 'resource:action' strings
     
@@ -90,7 +91,7 @@ async def get_user_permissions(user_id: int, db: AsyncSession) -> list[str]:
     return permissions
 
 
-async def get_user_role_name(user_id: int, db: AsyncSession) -> str | None:
+async def get_user_role_name(user_id: UUID, db: AsyncSession) -> str | None:
     """
     Get the role name for a user
     

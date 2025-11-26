@@ -11,7 +11,7 @@ from app.database import get_db
 from app.services.invitation_service import invitation_service
 from app.services.tenant_service import tenant_service
 from app.services.user_service import user_service
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_active_user, get_current_user
 from app.models import Invitation
 from cli.email_service import email_service
 from app.config import settings
@@ -47,7 +47,7 @@ class InvitationListResponse(BaseModel):
 @router.post("/invite", response_model=InviteUserResponse)
 async def invite_user(
     request: InviteUserRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -69,29 +69,8 @@ async def invite_user(
             detail="You do not have permission to invite users"
         )
     
-    # Get current user's details
-    from app.db_models import UserModel
-    
-    result = await db.execute(
-        select(UserModel).where(UserModel.firebase_uid == current_user.get("uid"))
-    )
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    
-    # Admin check removed here to allow field_managers (logic handled below)
-    # if user.role != 'admin':
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Only admins can invite users"
-    #     )
-    
     # Get tenant info for domain validation
-    tenant = await tenant_service.get_tenant_by_id(db, user.tenant_id)
+    tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
     
     if not tenant:
         raise HTTPException(
@@ -108,9 +87,7 @@ async def invite_user(
         )
     
     # RBAC: Check what roles the current user can invite
-    from app.rbac import get_user_role_name
-    
-    current_user_role = await get_user_role_name(user.id, db)
+    current_user_role = current_user.get('role')  # Role slug from current_user
     requested_role = request.role
     
     # Admin can invite anyone
@@ -140,7 +117,7 @@ async def invite_user(
     
     existing_user_result = await db.execute(
         select(ExistingUserModel)
-        .where(ExistingUserModel.tenant_id == user.tenant_id)
+        .where(ExistingUserModel.tenant_id == current_user['tenant_id'])
         .where(ExistingUserModel.email == request.email.lower())
     )
     existing_user = existing_user_result.scalar_one_or_none()
@@ -156,7 +133,7 @@ async def invite_user(
     
     existing_inv_result = await db.execute(
         select(InvitationModel)
-        .where(InvitationModel.tenant_id == user.tenant_id)
+        .where(InvitationModel.tenant_id == current_user['tenant_id'])
         .where(InvitationModel.email == request.email.lower())
         .where(InvitationModel.accepted_at.is_(None))
     )
@@ -174,11 +151,11 @@ async def invite_user(
     # Create invitation
     invitation = await invitation_service.create_invitation(
         db=db,
-        tenant_id=user.tenant_id,
+        tenant_id=current_user['tenant_id'],
         email=request.email,
         role=request.role,
         invitation_token=invitation_token,
-        invited_by=user.id,
+        invited_by=current_user['id'],
         expires_in_days=7
     )
     
@@ -189,7 +166,7 @@ async def invite_user(
     email_service.send_user_invitation_email(
         to_email=request.email,
         tenant_name=tenant.name,
-        inviter_name=user.name or user.email,
+        inviter_name=current_user.get('name') or current_user['email'],
         role=request.role,
         invitation_url=invitation_url,
         expires_at=invitation.expires_at
@@ -205,7 +182,7 @@ async def invite_user(
 
 @router.get("/list", response_model=List[InvitationListResponse])
 async def list_invitations(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -214,34 +191,18 @@ async def list_invitations(
     - Requires admin role
     - Shows pending and accepted invitations
     """
-    from app.db_models import UserModel, InvitationModel
-    from app.rbac_models import Role
+    from app.db_models import InvitationModel
     
-    # Get current user with role
-    result = await db.execute(
-        select(UserModel, Role)
-        .join(Role, UserModel.role_id == Role.id)
-        .where(UserModel.firebase_uid == current_user.get("uid"))
-    )
-    user_row = result.first()
-    if not user_row:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    user_obj, role_obj = user_row
     # Check admin role
-    if role_obj is None or role_obj.name != 'admin':
+    if current_user.get('role') != 'admin':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can view invitations"
         )
-    # Use user_obj for tenant_id
-    user = user_obj
     
     result = await db.execute(
         select(InvitationModel)
-        .where(InvitationModel.tenant_id == user.tenant_id)
+        .where(InvitationModel.tenant_id == current_user['tenant_id'])
         .order_by(InvitationModel.created_at.desc())
     )
     invitations = result.scalars().all()
@@ -263,7 +224,7 @@ async def list_invitations(
 @router.delete("/{invitation_id}")
 async def cancel_invitation(
     invitation_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -272,15 +233,10 @@ async def cancel_invitation(
     - Requires admin role
     - Only pending invitations can be cancelled
     """
-    from app.db_models import UserModel, InvitationModel
+    from app.db_models import InvitationModel
     
-    # Get current user
-    result = await db.execute(
-        select(UserModel).where(UserModel.firebase_uid == current_user.get("uid"))
-    )
-    user = result.scalar_one_or_none()
-    
-    if not user or user.role != 'admin':
+    # Check admin role
+    if current_user.get('role') != 'admin':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can cancel invitations"
@@ -299,7 +255,7 @@ async def cancel_invitation(
         )
     
     # Check tenant ownership
-    if invitation.tenant_id != user.tenant_id:
+    if invitation.tenant_id != current_user['tenant_id']:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot cancel invitation from another tenant"
@@ -321,7 +277,7 @@ async def cancel_invitation(
 @router.post("/resend/{invitation_id}")
 async def resend_invitation(
     invitation_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -330,15 +286,10 @@ async def resend_invitation(
     - Requires admin role
     - Only pending, non-expired invitations
     """
-    from app.db_models import UserModel, InvitationModel
+    from app.db_models import InvitationModel
     
-    # Get current user
-    result = await db.execute(
-        select(UserModel).where(UserModel.firebase_uid == current_user.get("uid"))
-    )
-    user = result.scalar_one_or_none()
-    
-    if not user or user.role != 'admin':
+    # Check admin role
+    if current_user.get('role') != 'admin':
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can resend invitations"
@@ -357,7 +308,7 @@ async def resend_invitation(
         )
     
     # Check tenant ownership
-    if invitation.tenant_id != user.tenant_id:
+    if invitation.tenant_id != current_user['tenant_id']:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot resend invitation from another tenant"
@@ -371,7 +322,7 @@ async def resend_invitation(
         )
     
     # Get tenant info
-    tenant = await tenant_service.get_tenant_by_id(db, user.tenant_id)
+    tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
     
     # Resend email
     frontend_url = settings.frontend_url or "http://localhost:3000"
@@ -380,7 +331,7 @@ async def resend_invitation(
     email_service.send_user_invitation_email(
         to_email=invitation.email,
         tenant_name=tenant.name,
-        inviter_name=user.name or user.email,
+        inviter_name=current_user.get('name') or current_user['email'],
         role=invitation.role,
         invitation_url=invitation_url,
         expires_at=invitation.expires_at
@@ -445,16 +396,20 @@ async def validate_invitation(
 @router.post("/join")
 async def join_tenant(
     token: str,
-    current_user: dict = Depends(get_current_user),
+    decoded_token: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Accept invitation and join tenant (after SSO login)
     
-    - Requires authentication
-    - Validates invitation
+    - Requires authentication (Firebase token)
+    - Creates user from invitation if doesn't exist
     - Marks invitation as accepted
+    
+    This endpoint handles new users who just completed SSO login
     """
+    from app.services.firebase_auth import firebase_auth_service
+    
     # Get invitation
     invitation = await invitation_service.get_invitation_by_token(db, token)
     
@@ -464,12 +419,46 @@ async def join_tenant(
             detail="Invalid invitation"
         )
     
+    # Extract user info from Firebase token
+    user_info = firebase_auth_service.get_user_info(decoded_token)
+    firebase_uid = user_info.get("firebase_uid")
+    email = user_info.get("email")
+    name = user_info.get("name")
+    firebase_tenant_id = user_info.get("firebase_tenant_id")
+    
+    if not firebase_uid or not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+    
     # Verify user's email matches invitation
-    user_email = current_user.get("email")
-    if user_email.lower() != invitation.email.lower():
+    if email.lower() != invitation.email.lower():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email mismatch - invitation is for a different email"
+        )
+    
+    # Get tenant
+    tenant = await tenant_service.get_tenant_by_id(db, invitation.tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found"
+        )
+    
+    # Check if user already exists
+    existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+    
+    if not existing_user:
+        # Create user from invitation
+        await user_service.create_or_update_user(
+            db=db,
+            tenant_id=tenant.id,
+            email=email,
+            firebase_uid=firebase_uid,
+            name=name,
+            role=invitation.role  # Use role from invitation
         )
     
     # Mark invitation as accepted

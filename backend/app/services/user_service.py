@@ -1,5 +1,6 @@
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
@@ -11,7 +12,7 @@ from app.constants import RoleName
 class UserService:
     """Service for user operations using SQLAlchemy ORM"""
     
-    async def get_user_by_id(self, db: AsyncSession, user_id: int) -> Optional[User]:
+    async def get_user_by_id(self, db: AsyncSession, user_id: UUID) -> Optional[User]:
         """Get user by ID"""
         result = await db.execute(
             select(UserModel)
@@ -25,7 +26,7 @@ class UserService:
         
         return await self._model_to_pydantic(user_model, db)
     
-    async def get_user_by_firebase_uid(self, db: AsyncSession, tenant_id: int, firebase_uid: str) -> Optional[User]:
+    async def get_user_by_firebase_uid(self, db: AsyncSession, tenant_id: UUID, firebase_uid: str) -> Optional[User]:
         """Get user by Firebase UID"""
         result = await db.execute(
             select(UserModel)
@@ -43,7 +44,7 @@ class UserService:
     async def create_or_update_user(
         self, 
         db: AsyncSession,
-        tenant_id: int, 
+        tenant_id: UUID, 
         email: str, 
         firebase_uid: str,
         name: Optional[str] = None,
@@ -113,7 +114,7 @@ class UserService:
         
         return await self._model_to_pydantic(user_model, db)
     
-    async def update_last_login(self, db: AsyncSession, user_id: int):
+    async def update_last_login(self, db: AsyncSession, user_id: UUID):
         """Update user's last login timestamp"""
         result = await db.execute(
             select(UserModel).where(UserModel.id == user_id)
