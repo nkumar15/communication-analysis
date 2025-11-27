@@ -60,25 +60,221 @@ Example:
 
 ---
 
-## 📋 Planned Features
+## 📋 Product Backlog
 
-### High Priority
-- [ ] Role-based permissions refinement
-- [ ] Audit logging for security events
-- [ ] Multi-factor authentication (MFA)
-- [ ] Bulk user operations (import/export)
+### 🔴 High Priority (Next 1-2 Months)
 
-### Medium Priority
-- [ ] Advanced user roles (manager, viewer, etc.)
-- [ ] Organization settings page
-- [ ] API key management for integrations
-- [ ] Usage analytics
+#### Security & Compliance
+- [ ] **Audit logging for security events**
+  - Track login attempts, role changes, permission modifications
+  - Export audit logs for compliance (SOC2, GDPR)
+  - Built-in log viewer in admin dashboard
+  - Estimated effort: 1 week
 
-### Low Priority / Future
-- [ ] Bulk user import
-- [ ] Custom branding per tenant
-- [ ] SSO with SAML (in addition to OIDC)
-- [ ] Mobile app support
+- [ ] **Multi-factor authentication (MFA)**
+  - Firebase MFA integration
+  - SMS/TOTP support
+  - Per-tenant MFA enforcement policies
+  - Estimated effort: 2 weeks
+
+- [ ] **API rate limiting**
+  - Per-tenant and per-user rate limits
+  - Redis-based throttling
+  - Rate limit headers in API responses
+  - Estimated effort: 3 days
+
+#### User Management
+- [ ] **Bulk user operations**
+  - CSV import/export
+  - Bulk invite via email list
+  - Bulk role assignment
+  - Estimated effort: 1 week
+
+### 🟡 Medium Priority (3-6 Months)
+
+#### RBAC Enhancement (See detailed plan below)
+- [ ] **Configurable tenant-specific RBAC**
+  - Custom role creation UI
+  - Permission matrix management
+  - Role cloning and templates
+  - Estimated effort: 3-4 weeks
+
+#### Platform Features
+- [ ] **Organization settings page**
+  - Tenant branding (logo, colors)
+  - Email templates customization
+  - SSO provider management UI
+  - Estimated effort: 2 weeks
+
+- [ ] **API key management**
+  - Generate API keys for integrations
+  - Scoped permissions per key
+  - Usage tracking and rotation
+  - Estimated effort: 1 week
+
+- [ ] **Usage analytics dashboard**
+  - Active users tracking
+  - Login frequency charts
+  - Resource usage metrics
+  - Estimated effort: 2 weeks
+
+### 🟢 Low Priority / Future Enhancements
+
+- [ ] **Advanced user roles**
+  - Hierarchical roles (supervisor → manager → worker)
+  - Temporary role assignments (time-limited)
+  - Role delegation
+  
+- [ ] **Custom branding per tenant**
+  - White-label frontend
+  - Custom domain support
+  - Email template editor
+
+- [ ] **SSO with SAML** (in addition to OIDC)
+  - SAML 2.0 provider support
+  - Azure AD, Okta SAML integration
+  
+- [ ] **Mobile app support**
+  - React Native companion app
+  - Mobile-optimized dashboard
+  - Push notifications
+
+- [ ] **Advanced data export**
+  - Scheduled reports
+  - Custom report builder
+  - PDF/Excel export
+
+---
+
+## 🎨 Feature Deep-Dive: Configurable Multi-Tenant RBAC
+
+**Status:** Backlog (Medium Priority)  
+**Estimated Effort:** 3-4 weeks  
+**Dependencies:** Existing RBAC foundation (`rbac_models.py`)
+
+### Problem Statement
+Currently, roles (`admin`, `field_manager`, `field_worker`) are **hardcoded** in both backend and frontend. Tenants cannot:
+- Create custom roles (e.g., "Regional Supervisor", "Data Analyst")
+- Define their own permission sets
+- Adapt the system to their specific organizational structure
+
+### Proposed Solution: Hybrid RBAC System
+
+#### Architecture (3-Tier Role System)
+
+| Tier | Scope | Examples | Deletable? | Customizable Permissions? |
+|------|-------|----------|------------|---------------------------|
+| **System Roles** | Platform-wide | `platform_admin`, `tenant_owner` | ❌ No | ❌ No |
+| **Default Roles** | Per-tenant (seeded) | `admin`, `manager`, `member` | ⚠️ Only if unused | ✅ Yes |
+| **Custom Roles** | Per-tenant (user-created) | `Regional Supervisor`, `Auditor` | ✅ Yes | ✅ Yes |
+
+#### Database Changes Required
+
+```sql
+-- Already exists in rbac_models.py ✅
+-- Just needs these additions:
+
+ALTER TABLE roles ADD COLUMN is_custom BOOLEAN DEFAULT false;
+ALTER TABLE roles ADD COLUMN created_by UUID REFERENCES users(id);
+
+-- Optional: Tenant-specific resource visibility
+CREATE TABLE tenant_resources (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    resource_id UUID REFERENCES resources(id),
+    is_enabled BOOLEAN DEFAULT true
+);
+```
+
+#### Backend API Endpoints
+
+```python
+# Role Management
+POST   /api/roles                               # Create custom role
+GET    /api/roles                               # List tenant roles
+GET    /api/roles/{role_id}                     # Get role + permissions
+PUT    /api/roles/{role_id}                     # Update role metadata
+DELETE /api/roles/{role_id}                     # Delete custom role
+
+# Permission Management  
+POST   /api/roles/{role_id}/permissions         # Assign permissions
+DELETE /api/roles/{role_id}/permissions/{perm_id}  # Revoke permission
+
+# Discovery
+GET    /api/resources                           # List available resources
+GET    /api/actions                             # List available actions
+```
+
+#### Frontend Components
+
+1. **Role Management Page** (`/admin/roles`)
+   - Table of all roles (system + default + custom)
+   - "Create Role" button (admin only)
+   - Edit/Delete actions per role
+   
+2. **Role Editor Modal**
+   - Role name, display name, description
+   - Permission matrix (Resources × Actions grid)
+   - "Clone from existing role" option
+   
+3. **Permission Enforcement**
+   - Replace hardcoded role checks with `useHasPermission(resource, action)` hook
+   - Conditionally render UI elements based on permissions
+
+#### Implementation Phases
+
+**Phase 1: Backend Foundation (Week 1)**
+- [ ] Create `rbac_service.py` with permission checking logic
+- [ ] Add database migration for new columns
+- [ ] Implement role CRUD API endpoints
+- [ ] Add permission assignment endpoints
+- [ ] Create `@require_permission` decorator for routes
+
+**Phase 2: Permission Enforcement (Week 2)**
+- [ ] Replace hardcoded role checks in all routers
+- [ ] Add permission caching in JWT tokens
+- [ ] Update frontend auth service to parse permissions
+- [ ] Create `useHasPermission` React hook
+
+**Phase 3: Admin UI (Week 3)**
+- [ ] Build role management page
+- [ ] Create role editor modal with permission matrix
+- [ ] Add role cloning functionality
+- [ ] Implement real-time permission updates
+
+**Phase 4: Testing & Documentation (Week 4)**
+- [ ] Write unit tests for RBAC service
+- [ ] E2E tests for custom role creation
+- [ ] Update API documentation
+- [ ] Create user guide for configurable RBAC
+
+#### Migration Strategy
+
+- **Backward Compatible:** Existing hardcoded roles become "default roles"
+- **Zero Downtime:** New system works alongside old until fully migrated
+- **Gradual Rollout:** Enable configurable RBAC per tenant via feature flag
+
+#### Benefits
+
+✅ **For SaaS Platform:**
+- Differentiation from competitors
+- Enterprise-ready feature
+- Higher pricing tier opportunity
+
+✅ **For Tenants:**
+- Adapt to their org structure
+- Self-service (reduce support tickets)
+- Granular access control
+
+✅ **For Developers:**
+- Cleaner code (no hardcoded checks)
+- Easier to add new features
+- Better security (principle of least privilege)
+
+#### Related Documents
+- Database schema: `backend/app/rbac_models.py`
+- Current role usage: `backend/app/middleware/auth.py`
+- Frontend role checks: `frontend/src/services/authService.js`
 
 ---
 
