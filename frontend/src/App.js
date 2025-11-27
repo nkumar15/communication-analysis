@@ -7,8 +7,14 @@ import InvitationsPage from './components/InvitationsPage';
 import InvitationAcceptPage from './components/InvitationAcceptPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import firebaseAuthService from './services/firebaseAuthService';
+import { auth } from './firebase-config';
 import RoleManagementPage from './components/RoleManagementPage';
 import FarmerManagementPage from './components/FarmerManagementPage';
+import PlatformAdminRoute from './components/PlatformAdminRoute';
+import SuperAdminLayout from './layouts/SuperAdminLayout';
+import TenantList from './pages/super-admin/TenantList';
+import Dashboard from './pages/super-admin/Dashboard';
+import PlatformLogin from './components/PlatformLogin';
 
 import apiService from './services/api';
 import './styles/main.css';
@@ -33,11 +39,21 @@ function App() {
         const unsubscribe = firebaseAuthService.onAuthStateChanged(async (user) => {
             if (user) {
                 console.log('🔔 Auth state changed:', user.email);
-                // User already signed in from previous session
-                try {
-                    await apiService.syncUser();
-                } catch (error) {
-                    console.error('❌ Error syncing user:', error);
+
+                // Check if this is a platform admin tenant
+                // Platform admins should NOT call sync-user (they use /api/platform/auth/me)
+                const tenantId = localStorage.getItem('firebase_tenant_id') || auth.tenantId;
+                const isPlatformAdmin = tenantId && (tenantId.includes('platform') || tenantId.includes('system'));
+
+                if (!isPlatformAdmin) {
+                    // User already signed in from previous session - sync with backend
+                    try {
+                        await apiService.syncUser();
+                    } catch (error) {
+                        console.error('❌ Error syncing user:', error);
+                    }
+                } else {
+                    console.log('⚠️ Skipping syncUser for platform admin in App.js');
                 }
             }
         });
@@ -83,6 +99,23 @@ function App() {
                 {/* New routes */}
                 <Route path="/roles" element={<ProtectedRoute><RoleManagementPage /></ProtectedRoute>} />
                 <Route path="/farmers" element={<ProtectedRoute><FarmerManagementPage /></ProtectedRoute>} />
+
+                {/* SaaS Admin Console */}
+                <Route
+                    path="/super-admin"
+                    element={
+                        <PlatformAdminRoute>
+                            <SuperAdminLayout />
+                        </PlatformAdminRoute>
+                    }
+                >
+                    <Route index element={<Navigate to="dashboard" replace />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="tenants" element={<TenantList />} />
+                </Route>
+                {/* Platform Admin Login */}
+                <Route path="/platform-login" element={<PlatformLogin />} />
+
                 {/* Default redirect */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />

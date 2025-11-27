@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import init_db, close_db
 from app.services.firebase_auth import firebase_auth_service
-from app.routers import auth, activation, invitations, users, roles, farmers
+from app.routers import auth, activation, invitations, users, roles, farmers, platform
 
 
 @asynccontextmanager
@@ -49,6 +49,7 @@ app.include_router(invitations.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(farmers.router)
+app.include_router(platform.router)
 
 
 @app.get("/")

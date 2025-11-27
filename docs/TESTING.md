@@ -45,6 +45,10 @@ We are following a phased approach to testing.
 - [x] Database transaction isolation
 - [x] Critical security flow verification (Invitation/Activation)
 - [x] Multi-tenant data isolation checks
+- [x] **Platform Admin API Tests** (New)
+    - Authentication & Role verification
+    - Tenant management (Create/List)
+    - Cross-tenant impersonation security
 
 ### 🔜 Phase 4: Browser E2E Automation (Next)
 **Goal**: Verify the actual user experience including frontend routing and UI states.

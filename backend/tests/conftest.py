@@ -162,6 +162,65 @@ async def create_test_tenant(
     db_session.add(tenant)
     await db_session.flush()  # Use flush instead of commit
     await db_session.refresh(tenant)
+    
+    # Seed roles for this tenant (crucial for RBAC)
+    from sqlalchemy import text
+    await db_session.execute(
+        text("SELECT seed_tenant_roles(:tenant_id)"),
+        {"tenant_id": tenant.id}
+    )
+    
+    return tenant
+
+
+async def create_system_tenant(
+    db_session: AsyncSession,
+    name: str = "SaaS Platform System",
+    domain: str = None,
+    firebase_tenant_id: str = None,
+    oidc_provider_id: str = None
+):
+    """Create the system tenant"""
+    from app.db_models import TenantModel
+    
+    suffix = uuid4().hex[:8]
+    domain = domain or f"system-{suffix}.local"
+    firebase_tenant_id = firebase_tenant_id or f"system-platform-{suffix}"
+    oidc_provider_id = oidc_provider_id or f"system-oidc-{suffix}"
+    
+    tenant = TenantModel(
+        name=name,
+        domain=domain,
+        firebase_tenant_id=firebase_tenant_id,
+        oidc_provider_id=oidc_provider_id,
+        activation_status='active',
+        is_active=True,
+        is_system_tenant=True
+    )
+    db_session.add(tenant)
+    await db_session.flush()
+    await db_session.refresh(tenant)
+    
+    # Seed roles for system tenant
+    from sqlalchemy import text
+    await db_session.execute(
+        text("SELECT seed_tenant_roles(:tenant_id)"),
+        {"tenant_id": tenant.id}
+    )
+    
+    # Manually seed platform_admin role (not in standard seed_tenant_roles)
+    from app.rbac_models import Role
+    platform_role = Role(
+        tenant_id=tenant.id,
+        name="platform_admin",
+        display_name="Platform Admin",
+        description="Super admin for SaaS platform",
+        is_system_role=True,
+        is_active=True
+    )
+    db_session.add(platform_role)
+    await db_session.flush()
+    
     return tenant
 
 
@@ -180,7 +239,7 @@ async def create_test_user(
     
     # Get role by slug
     result = await db_session.execute(
-        select(Role).where(Role.name == role_slug)
+        select(Role).where(Role.name == role_slug).where(Role.tenant_id == tenant_id)
     )
     role = result.scalar_one_or_none()
     

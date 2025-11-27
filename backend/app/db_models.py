@@ -30,6 +30,7 @@ class TenantModel(Base):
     activated_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
     activation_started_at = Column(DateTime(timezone=True), nullable=True)  # Prevent replay attacks
     
+    is_system_tenant = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

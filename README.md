@@ -374,6 +374,7 @@ docker-compose exec backend python -m cli.tenant_cli list-tenants \
 - **[Testing Strategy](./docs/TESTING.md)** - Comprehensive test plan and roadmap
 - **[Testing Workflow](./docs/testing-workflow.md)** - Tenant provisioning & testing procedures
 - **[E2E Test Guide](./docs/e2e-activation-test.md)** - Step-by-step activation flow testing
+- **[Platform Admin Guide](./docs/platform-admin-config.md)** - SaaS Super Admin Console setup & usage
 - **[API Documentation](http://localhost:8000/docs)** - Interactive Swagger docs (when running)
 
 ---

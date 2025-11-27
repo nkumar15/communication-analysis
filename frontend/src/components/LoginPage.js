@@ -50,9 +50,17 @@ function LoginPage() {
             const idToken = await result.user.getIdToken();
             console.log('✅ Got ID token');
 
-            // Sync user with backend using the token
-            await apiService.syncUser();
-            console.log('✅ User synced with backend');
+            // Sync user with backend (but NOT for platform admins)
+            // Platform admins use a separate endpoint (/api/platform/auth/me)
+            const isPlatformAdmin = tenantInfo.firebase_tenant_id.includes('platform') ||
+                tenantInfo.firebase_tenant_id.includes('system');
+
+            if (!isPlatformAdmin) {
+                await apiService.syncUser();
+                console.log('✅ User synced with backend');
+            } else {
+                console.log('⚠️ Skipping syncUser for platform admin tenant');
+            }
 
             // Clear tenant ID from storage after successful login
             localStorage.removeItem('firebase_tenant_id');

@@ -120,6 +120,21 @@ class ApiService {
         return response.json();
     }
 
+    // Generic POST request with auth headers
+    async post(path, data) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`POST ${path} failed: ${response.status} - ${error}`);
+        }
+        return response.json();
+    }
+
     // Convenience methods for roles and farmers
     async getRoles() {
         return this.get('/api/roles');

@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs build migrate shell db-shell clean frontend-install frontend-start frontend-build test
+.PHONY: help up down restart logs build migrate shell db-shell clean frontend-install frontend-start frontend-build test seed-system-tenant create-platform-admin setup-saas-admin
 
 # Default target
 .DEFAULT_GOAL := help
@@ -117,6 +117,77 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			echo "Cancelled."; \
 			;; \
 	esac
+
+
+seed-system-tenant: ## Seed System Tenant and Platform Admin role (interactive)
+	@echo "$(BLUE)=== SaaS Admin Console - System Tenant Setup ===$(NC)"
+	@echo ""
+	@printf "$(YELLOW)Enter Firebase Tenant ID from GCIP: $(NC)"; \
+	read TENANT_ID; \
+	if [ -z "$$TENANT_ID" ]; then \
+		echo "$(YELLOW)No input provided, using default: system-platform$(NC)"; \
+		TENANT_ID="system-platform"; \
+	fi; \
+	printf "$(YELLOW)Enter OIDC Provider ID (press Enter for default 'system-oidc'): $(NC)"; \
+	read OIDC_PROVIDER; \
+	if [ -z "$$OIDC_PROVIDER" ]; then \
+		OIDC_PROVIDER="system-oidc"; \
+	fi; \
+	printf "$(YELLOW)Enter Tenant Name (press Enter for default 'SaaS Platform System'): $(NC)"; \
+	read TENANT_NAME; \
+	if [ -z "$$TENANT_NAME" ]; then \
+		TENANT_NAME="SaaS Platform System"; \
+	fi; \
+	printf "$(YELLOW)Enter Domain (press Enter for default 'system.local'): $(NC)"; \
+	read DOMAIN; \
+	if [ -z "$$DOMAIN" ]; then \
+		DOMAIN="system.local"; \
+	fi; \
+	echo ""; \
+	echo "$(GREEN)Using Configuration:$(NC)"; \
+	echo "  Firebase Tenant ID: $$TENANT_ID"; \
+	echo "  OIDC Provider:      $$OIDC_PROVIDER"; \
+	echo "  Tenant Name:        $$TENANT_NAME"; \
+	echo "  Domain:             $$DOMAIN"; \
+	echo ""; \
+	docker-compose exec backend python scripts/seed_system_tenant.py \
+		--firebase-tenant-id "$$TENANT_ID" \
+		--oidc-provider "$$OIDC_PROVIDER" \
+		--name "$$TENANT_NAME" \
+		--domain "$$DOMAIN"
+	@echo "$(GREEN)✓ System Tenant seeded$(NC)"
+
+create-platform-admin: ## Create platform admin user (interactive)
+	@echo "$(BLUE)=== Create Platform Admin User ===$(NC)"
+	@echo ""
+	@printf "$(YELLOW)Enter Email Address: $(NC)"; \
+	read EMAIL; \
+	if [ -z "$$EMAIL" ]; then \
+		echo "$(YELLOW)ERROR: Email is required$(NC)"; \
+		exit 1; \
+	fi; \
+	printf "$(YELLOW)Enter Display Name (press Enter to use email): $(NC)"; \
+	read NAME; \
+	echo ""; \
+	echo "$(GREEN)Creating Platform Admin:$(NC)"; \
+	echo "  Email: $$EMAIL"; \
+	if [ -z "$$NAME" ]; then \
+		echo "  Name:  (using email username)"; \
+		docker-compose exec backend python scripts/create_platform_admin.py --email "$$EMAIL"; \
+	else \
+		echo "  Name:  $$NAME"; \
+		docker-compose exec backend python scripts/create_platform_admin.py --email "$$EMAIL" --name "$$NAME"; \
+	fi
+	@echo "$(GREEN)✓ Platform Admin created$(NC)"
+
+
+setup-saas-admin: seed-system-tenant ## Setup SaaS Admin Console (run after initial setup)
+	@echo "$(BLUE)SaaS Admin Console Setup$(NC)"
+	@echo "$(YELLOW)Step 1/2: System Tenant seeded$(NC)"
+	@echo "$(YELLOW)Step 2/2: Create platform admin user$(NC)"
+	@echo "$(YELLOW)Run: make create-platform-admin EMAIL=your-email@company.com$(NC)"
+	@echo "$(GREEN)✓ Setup ready for platform admin creation$(NC)"
+
 
 ##@ Frontend
 

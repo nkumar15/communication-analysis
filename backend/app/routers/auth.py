@@ -53,6 +53,10 @@ async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = De
     )
 
 
+
+
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     decoded_token: Dict[str, Any] = Depends(get_current_user),
@@ -87,8 +91,28 @@ async def get_current_user_info(
             detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
         )
     
-    # Check if user already exists to preserve their role
+    
+    # Check if user already exists by Firebase UID OR by email
     existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+    
+    # If not found by UID, check by email (for users created with temporary UIDs)
+    if not existing_user:
+        from app.db_models import UserModel
+        result = await db.execute(
+            select(UserModel)
+            .where(UserModel.tenant_id == tenant.id)
+            .where(UserModel.email == email.lower())
+            .where(UserModel.is_active == True)
+        )
+        existing_user_by_email = result.scalar_one_or_none()
+        
+        if existing_user_by_email:
+            # Update Firebase UID if it's a temporary one (starts with "oidc-")
+            if existing_user_by_email.firebase_uid.startswith('oidc-'):
+                existing_user_by_email.firebase_uid = firebase_uid
+                await db.commit()
+                await db.refresh(existing_user_by_email)
+            existing_user = await user_service._model_to_pydantic(existing_user_by_email, db)
     
     if existing_user:
         # User exists, use default role (it won't overwrite existing role_id)

@@ -10,3 +10,4 @@ class RoleName:
     ADMIN = "admin"
     FIELD_MANAGER = "field_manager"
     FIELD_AGENT = "field_agent"
+    PLATFORM_ADMIN = "platform_admin"

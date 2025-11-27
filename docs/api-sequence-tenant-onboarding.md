@@ -190,3 +190,80 @@ sequenceDiagram
 ---
 
 *Document generated on 2025‑11‑27.  Keep this file in `docs/` and reference it from the onboarding README.*
+
+---
+
+## Platform Tenant Onboarding Flow
+
+This flow describes how a Platform Admin logs in and creates a new tenant.
+
+### Mermaid Diagram (Platform Admin)
+
+```mermaid
+sequenceDiagram
+    participant Admin as Platform Admin (React)
+    participant BE as Backend API
+    participant DB as Database
+    participant Firebase as Firebase Auth
+
+    Note over Admin: 1. Login Flow
+    Admin->>BE: GET /api/platform/config
+    BE->>DB: SELECT system tenant
+    BE-->>Admin: 200 {firebase_tenant_id, oidc_provider_id}
+    
+    Admin->>Firebase: Login with System Tenant Config
+    Firebase-->>Admin: ID Token (uid, email)
+    
+    Admin->>BE: GET /api/platform/auth/me
+    BE->>DB: Verify platform_admin role
+    BE-->>Admin: 200 {user_info, role: "platform_admin"}
+
+    Note over Admin: 2. Create Tenant Flow
+    Admin->>BE: POST /api/platform/tenants {name, domain, admin_email}
+    BE->>BE: Verify platform_admin role
+    BE->>DB: Check domain uniqueness
+    BE->>DB: INSERT tenant (status='pending')
+    BE-->>Admin: 200 {id, message}
+    
+    Note over Admin: 3. Impersonation Flow
+    Admin->>BE: POST /api/platform/tenants/{id}/impersonate
+    BE->>DB: Verify platform_admin role
+    BE->>DB: Find tenant admin user
+    BE->>BE: Generate short-lived JWT
+    BE-->>Admin: 200 {token, redirect_url}
+```
+
+### Detailed API Steps
+
+#### 1. **Get Platform Configuration**
+- **Endpoint**: `GET /api/platform/config`
+- **Access**: Public
+- **Purpose**: Frontend needs to know *which* Firebase tenant to use for platform admin login.
+- **Response**: `{ "firebase_tenant_id": "...", "oidc_provider_id": "..." }`
+
+#### 2. **Platform Admin Login**
+- **Endpoint**: `GET /api/platform/auth/me`
+- **Access**: Authenticated (Firebase Token)
+- **Middleware**: `verify_platform_admin`
+- **Logic**:
+  1. Validates Firebase token.
+  2. Checks if user belongs to **System Tenant**.
+  3. Checks if user has `platform_admin` role.
+  4. Returns user details.
+
+#### 3. **Create New Tenant**
+- **Endpoint**: `POST /api/platform/tenants`
+- **Access**: Platform Admin Only
+- **Logic**:
+  1. Verifies admin privileges.
+  2. Checks if domain is unique.
+  3. Creates tenant record in `tenants` table.
+  4. (Future) Triggers async provisioning workflow.
+
+#### 4. **Impersonate Tenant Admin**
+- **Endpoint**: `POST /api/platform/tenants/{id}/impersonate`
+- **Access**: Platform Admin Only
+- **Logic**:
+  1. Finds the target tenant's admin user.
+  2. Generates a custom JWT signed by the backend.
+  3. Frontend uses this token to "login as" that user.
