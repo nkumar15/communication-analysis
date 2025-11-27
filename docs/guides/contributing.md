@@ -5,10 +5,10 @@ Guide for developers working on this project.
 ## 🚀 Getting Started
 
 1. **Read documentation first:**
-   - [README.md](../README.md) - Project overview
-   - [docs/ROADMAP.md](./ROADMAP.md) - Current state & planned features
-   - [docs/development-guide.md](./development-guide.md) - Setup & testing
-   - [docs/ARCHITECTURE.md](./ARCHITECTURE.md) - Technical decisions
+   - [README.md](../../README.md) - Project overview
+   - [Roadmap](../planning/roadmap.md) - Current state & planned features
+   - [Development Guide](./development.md) - Setup & testing
+   - [Architecture](../architecture/overview.md) - Technical decisions
 
 2. **Setup local environment:**
    ```bash
@@ -19,7 +19,7 @@ Guide for developers working on this project.
    ```
 
 3. **Check what's already done:**
-   - Review [COMPLETED_PHASES.md](./COMPLETED_PHASES.md)
+   - Review [Completed Phases](../planning/completed-phases.md)
    - Check existing code in relevant service/component
 
 ---

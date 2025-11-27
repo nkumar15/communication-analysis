@@ -2,7 +2,7 @@
 
 ## ✅ Completed Features (Phases 0-5)
 
-All tenant onboarding phases complete! See [COMPLETED_PHASES.md](./COMPLETED_PHASES.md) for detailed checklist.
+All tenant onboarding phases complete! See [Completed Phases](./completed-phases.md) for detailed checklist.
 
 **Major Features:**
 - ✅ Multi-tenant architecture with SQLAlchemy ORM
