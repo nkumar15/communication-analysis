@@ -557,8 +557,9 @@ Before deploying to production:
 
 ## Additional Resources
 
-- [Testing Workflow](file:///home/neeraj/.gemini/antigravity/brain/77a57bf7-cf6b-466b-8404-0f1d9810340d/testing-workflow.md) - Detailed testing procedures
-- [E2E Test Guide](file:///home/neeraj/.gemini/antigravity/brain/77a57bf7-cf6b-466b-8404-0f1d9810340d/e2e-activation-test.md) - Step-by-step activation testing
+- [Testing Strategy](../testing/strategy.md) - Test plans & roadmap
+- [Testing Workflows](../testing/workflows.md) - Detailed testing procedures
+- [E2E Activation Guide](../testing/e2e-activation.md) - Step-by-step activation testing
 - [API Docs](http://localhost:8000/docs) - Interactive API documentation
 - [Firebase GCIP](https://cloud.google.com/identity-platform) - Multi-tenancy docs
 
