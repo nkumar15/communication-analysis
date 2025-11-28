@@ -171,9 +171,64 @@ make reset-db
 
 ---
 
-## Testing Workflows
+## Testing & Verification
 
-### End-to-End Activation Test
+### 1. Platform Admin Testing (Super Admin)
+
+Testing the isolated SaaS management system.
+
+**Setup:**
+```bash
+# Seed platform tenant and create admin
+make seed-system-tenant
+make create-platform-admin
+```
+
+**Manual Verification:**
+1. Go to `http://localhost:3000/platform-login`
+2. Login with platform admin credentials
+3. Verify access to Super Admin Dashboard
+
+**Automated Tests:**
+```bash
+# Run platform integration tests
+docker-compose exec backend python -m pytest tests/integration/test_platform_admin.py -v
+```
+
+### 2. Customer Tenant Testing (Standard Flow)
+
+Testing the multi-tenant features (invitations, login, dashboard).
+
+**Setup:**
+```bash
+# Create a test tenant
+make tenant-create-local
+```
+
+**Manual Verification:**
+1. Go to `http://localhost:3000/login`
+2. Enter tenant user email (e.g., `admin@acme.com`)
+3. Verify redirection to IdP and successful login
+
+**Automated Tests:**
+```bash
+# Test Invitation Flow
+make test-invitation
+
+# Test Activation Flow
+make test-activation
+```
+
+### 3. Security & Isolation Testing
+
+Verify that tenants cannot access each other's data and regular users cannot access platform APIs.
+
+```bash
+# Run security isolation tests
+make test-security
+```
+
+### 4. End-to-End Activation Test
 
 **Complete flow:**
 
@@ -200,10 +255,6 @@ make reset-db
    # Check tenant activated
    docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
      "SELECT name, activation_status FROM tenants;"
-   
-   # Check invitation accepted
-   docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
-     "SELECT email, accepted_at FROM invitations;"
    
    # Check user created with admin role
    docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
@@ -242,13 +293,6 @@ docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
 # Use wrong token in URL
 http://localhost:3000/activate/invalid-token-here
 # Should see "Invalid activation token"
-```
-
-**Already activated:**
-```bash
-# Complete activation once
-# Try activation URL again
-# Should see "Tenant already activated"
 ```
 
 ---

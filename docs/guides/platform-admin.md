@@ -451,6 +451,8 @@ All platform admin actions are automatically logged to `platform_audit_log` incl
 
 ## Commands Quick Reference
 
+For a complete list of commands and detailed testing workflows, see the [Development Guide](development.md).
+
 | Command | Purpose |
 |---------|---------|
 | `make migrate` | Run database migrations |
