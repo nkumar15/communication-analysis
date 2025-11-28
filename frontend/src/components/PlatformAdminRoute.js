@@ -27,7 +27,8 @@ function PlatformAdminRoute({ children }) {
                 localStorage.setItem('token', token);
 
                 // Fetch user details from PLATFORM admin endpoint (not regular auth endpoint)
-                const response = await fetch('http://localhost:8000/api/platform/auth/me', {
+                const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+                const response = await fetch(`${API_URL}/api/platform/auth/me`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }

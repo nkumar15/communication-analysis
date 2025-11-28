@@ -191,9 +191,14 @@ setup-saas-admin: seed-system-tenant ## Setup SaaS Admin Console (run after init
 
 ##@ Frontend
 
-frontend-install: ## Install frontend dependencies
+frontend-install: ## Install frontend dependencies (locally)
 	@echo "$(BLUE)Installing frontend dependencies...$(NC)"
 	cd frontend && npm install
+	@echo "$(GREEN)✓ Frontend dependencies installed$(NC)"
+
+frontend-install-docker: ## Install frontend dependencies (in Docker)
+	@echo "$(BLUE)Installing frontend dependencies in Docker...$(NC)"
+	docker-compose run --rm frontend npm install
 	@echo "$(GREEN)✓ Frontend dependencies installed$(NC)"
 
 frontend-start: ## Start frontend dev server

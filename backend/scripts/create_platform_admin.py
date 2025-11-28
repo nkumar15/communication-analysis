@@ -26,7 +26,7 @@ from app.db_models import PlatformTenant, PlatformRole, PlatformUser
 from app.config import settings
 from app.services.firebase_auth import firebase_auth_service
 import firebase_admin
-from firebase_admin import auth
+from firebase_admin import auth, tenant_mgt
 
 async def create_platform_admin(email: str, name: str = None, role_name: str = "platform_admin"):
     """
@@ -93,7 +93,7 @@ async def create_platform_admin(email: str, name: str = None, role_name: str = "
         
         try:
             # Get tenant-scoped Firebase Auth client
-            tenant_auth = auth.tenant_mgt().auth_for_tenant(platform_tenant.firebase_tenant_id)
+            tenant_auth = tenant_mgt.auth_for_tenant(platform_tenant.firebase_tenant_id)
             
             # Check if Firebase user exists
             try:

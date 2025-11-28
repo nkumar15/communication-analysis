@@ -163,6 +163,16 @@ Enter Display Name (press Enter to use email): John Doe
 docker compose exec -T postgres psql -U sso_user -d sso_db -c "SELECT email, display_name, is_active FROM platform_users"
 ```
 
+**Alternative (non-interactive):**
+
+If you prefer to run the command directly without interactive prompts:
+
+```bash
+docker compose exec backend python scripts/create_platform_admin.py \
+  --email admin@mycompany.com \
+  --name "John Doe"
+```
+
 ### Step 5: Test Platform Login
 
 1. Navigate to `http://localhost:3000/platform-login`
