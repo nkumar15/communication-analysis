@@ -1,91 +1,85 @@
-# Browser E2E Testing Infrastructure
+# E2E Browser Tests - Setup Guide
 
-## ✅ Setup Complete
+## Overview
 
-The Browser E2E testing infrastructure has been set up and is **working correctly**.
+The E2E browser tests use **real Firebase authentication** with custom tokens to automate login flows. This approach:
+- Uses your actual Firebase GCIP configuration
+- Bypasses the OAuth popup/redirect flow (which is hard to automate)
+- Still validates the full authentication stack
 
-### Current Status
-- ✅ Infrastructure configured
-- ✅ Playwright + Chromium installed
-- ✅ Tests run successfully (fail with `ERR_CONNECTION_REFUSED` because frontend not running - **expected**)
-- ✅ Async loop conflict resolved
-- ⏸️ **DEFERRED**: Full implementation blocked by WSL/Docker networking (frontend in WSL, tests in Docker can't access `localhost:3000`)
+## Prerequisites
 
-**Status**: Infrastructure complete. Tests deferred until CI/CD or dedicated test environment where networking is simpler.
+1. **System Tenant**: You must have a system tenant configured in Firebase GCIP
+2. **Firebase Credentials**: Valid `firebase-credentials.json` in the `secrets/` directory
+3. **Platform Admin**: A platform admin user created via `make create-platform-admin`
 
-### Infrastructure
-1. **Multistage Dockerfile**: Created `base`, `production`, and `test` stages
-   - `base`: Common Python dependencies
-   - `production`: Minimal runtime (for deployment)
-   - `test`: Includes test dependencies + Playwright + Chromium
+## Configuration
 
-2. **Test Directory**: `backend/tests/e2e_browser/`
-   - `conftest.py`: Playwright configuration
-   - `test_tenant_onboarding.py`: Onboarding flow tests
-   - `test_invitation_flow.py`: Invitation flow tests
-   - `test_admin_dashboard.py`: Dashboard rendering tests
+Set these environment variables before running tests (or use defaults):
 
-3. **Makefile**: `make e2e-browser` command added
-
-### Key Design Decisions
-
-**❌ Database Fixtures Not Used in Browser Tests**
-
-Browser tests do NOT use `db_session` or other async database fixtures due to event loop conflicts between `pytest-playwright` and `pytest-asyncio`. This is intentional:
-
-- **Why**: `pytest-playwright` manages its own event loop for browser automation, conflicting with `pytest-asyncio`'s loop management
-- **Solution**: Browser tests use only Playwright's `page` fixture
-- **Test Data**: Should be created via API calls, not direct DB manipulation
-
-### Current Status
-
-- ✅ Infrastructure configured
-- ✅ Smoke tests created (but skipped - require frontend running)
-- ⚠️ Browser install works in Docker build but **volume mounts override** the installation at runtime
-
-### Known Limitation: Volume Mounts
-
-When running locally with `docker-compose`, the volume mount (`./backend:/app`) overrides the container's `/app` directory, which includes the Playwright browser binaries installed during build.
-
-**Workarounds**:
-1. **Option A**: Install browsers at runtime (slower first run):
-   ```bash
-   docker-compose exec backend playwright install chromium
-   ```
-
-2. **Option B**: Run tests without volume mounts (requires rebuild after code changes)
-
-3. **Option C**: CI/CD environments don't use volume mounts, so tests work fine there
-
-### Running Tests
-
-**Prerequisites**:
-- Frontend running at `http://localhost:3000`
-- Backend API accessible
-- Test data created via API
-
-**Execute**:
 ```bash
-make e2e-browser
+export E2E_SYSTEM_TENANT_ID="your-system-tenant-id"
+export E2E_SYSTEM_OIDC_PROVIDER="your-oidc-provider-id"
+export E2E_PLATFORM_ADMIN_EMAIL="admin@platform.test"
 ```
 
-### Test Structure
+## Running Tests
 
-Tests are intentionally minimal smoke tests because:
-1. Real testing requires running frontend
-2. Test data must be created via API (not DB fixtures)
-3. SSO authentication is complex to mock in browser context
+```bash
+# Run all E2E browser tests
+make e2e-browser
 
-### Next Steps
+# Run specific test file
+docker-compose run --rm e2e-tests python -m pytest tests/e2e_browser/test_platform_admin.py -v
+```
 
-To implement full browser E2E tests:
-1. Create API helper module for test data setup
-2. Implement authentication bypass or test account
-3. Run frontend in test mode
-4. Write actual test flows
+## How It Works
 
-## Technical Notes
+1. **Custom Tokens**: Tests use Firebase Admin SDK to create custom tokens
+2. **Frontend Login**: Tests inject the custom token into the browser and call `signInWithCustomToken()`
+3. **Real Auth**: The backend validates these tokens using Firebase Admin SDK as normal
+4. **No Popups**: Bypasses the OAuth redirect/popup flow entirely
 
-- **Sync API**: Playwright Python provides sync fixtures by default. Tests use regular `def`, not `async def`
-- Python regex: Use `re.compile(r"pattern", re.IGNORECASE)` not `/pattern/i`
-- Playwright methods: Use `page.goto()` not `await page.goto()` (sync API)
+## Test Structure
+
+```
+tests/e2e_browser/
+├── e2e_config.py       # Configuration (tenant IDs, URLs)
+├── e2e_helpers.py      # Token generation utilities
+├── conftest.py         # Playwright fixtures
+├── test_platform_admin.py
+├── test_tenant_onboarding.py
+└── test_invitation_flow.py
+```
+
+## Writing New Tests
+
+```python
+from e2e_helpers import create_platform_admin_token
+from e2e_config import PLATFORM_ADMIN_EMAIL
+
+def test_example(page: Page):
+    # Get custom token
+    token = await create_platform_admin_token(PLATFORM_ADMIN_EMAIL)
+    
+    # Navigate and inject token
+    page.goto("/platform-login")
+    page.evaluate(f"localStorage.setItem('custom_token', '{token}')")
+    
+    # Frontend code should check for custom_token and use signInWithCustomToken()
+    # ... rest of test
+```
+
+## Troubleshooting
+
+**"Invalid custom token" errors**:
+- Ensure Firebase credentials are correct
+- Check that the tenant ID in the token matches the system tenant
+
+**"User not found" errors**:
+- Make sure the platform admin user exists in the database
+- Run `make create-platform-admin` if needed
+
+**Tests timing out**:
+- Check that services are running: `docker-compose ps`
+- View logs: `docker-compose logs frontend backend`

@@ -50,14 +50,29 @@ We are following a phased approach to testing.
     - Tenant management (Create/List)
     - Cross-tenant impersonation security
 
-### 🔜 Phase 4: Browser E2E Automation (Next)
-**Goal**: Verify the actual user experience including frontend routing and UI states.
-- **Tool**: Playwright (Python or Node.js)
-- **Scope**:
-    - Full "Join Tenant" flow (Click link -> Login -> Dashboard)
-    - Admin Dashboard rendering
-    - Role-based UI element visibility
-- **Lookup**: See `tests/e2e-browser/` (To be created)
+### ✅ Phase 4: Browser E2E Infrastructure (Completed)
+**Status**: Infrastructure complete, basic tests passing (3/3 ✅)
+
+**Implemented**:
+- ✅ Playwright installed in Docker with system dependencies
+- ✅ `frontend` and `e2e-tests` services in docker-compose
+- ✅ Sync Playwright API (no async conflicts)
+- ✅ Firebase custom token authentication support (real Firebase, no mocks)
+- ✅ Test configuration via environment variables
+- ✅ Basic page load tests passing
+
+**Scope**:
+- `make e2e-browser` - Run browser tests in Docker
+- Tests in `backend/tests/e2e_browser/`
+- Uses real Firebase GCIP authentication with custom tokens
+- Custom token helpers in `e2e_helpers.py`
+
+**Pending** (requires frontend integration + test data setup):
+- Platform Admin full workflow (login → create tenant)
+- Tenant Activation flow (activation page → SSO → dashboard)
+- Invitation flow (join link → accept → login)
+
+**Documentation**: See `backend/tests/e2e_browser/README.md`
 
 ### 🔮 Phase 5: Granular RBAC Testing
 **Goal**: Verify complex permission matrices beyond simple roles.

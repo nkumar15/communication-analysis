@@ -5,7 +5,7 @@ These tests are UI-focused and should not use database fixtures.
 Test data should be created via API calls or authenticated session.
 """
 import pytest
-from playwright.async_api import Page, expect
+from playwright.sync_api import Page, expect
 
 @pytest.mark.skip(reason="Requires authenticated session")
 def test_admin_dashboard_rendering(page: Page):

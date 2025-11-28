@@ -39,6 +39,40 @@ services:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sso_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://backend:8000
+      - WDS_SOCKET_PORT=0
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  e2e-tests:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    container_name: sso_e2e_tests
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - FRONTEND_URL=http://frontend:3000
+      - API_URL=http://backend:8000
+    volumes:
+      - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+    depends_on:
+      - backend
+      - frontend
+    command: python -m pytest tests/e2e_browser -v
+
 volumes:
   postgres_data:
 

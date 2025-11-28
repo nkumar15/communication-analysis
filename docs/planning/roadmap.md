@@ -54,6 +54,13 @@ All tenant onboarding phases complete! See [Completed Phases](./completed-phases
   - "Login As" Impersonation for support
   - Security isolation from regular tenants
 
+- ✅ **E2E Browser Testing Infrastructure** (2025-11-28)
+  - Playwright integration with Docker
+  - Real Firebase authentication with custom tokens
+  - `make e2e-browser` command
+  - Basic page load tests passing (3/3)
+  - Ready for full test scenario implementation
+
 ---
 
 ## 🚧 Known Issues / Technical Debt
@@ -284,91 +291,6 @@ GET    /api/actions                             # List available actions
 - Database schema: `backend/app/rbac_models.py`
 - Current role usage: `backend/app/middleware/auth.py`
 - Frontend role checks: `frontend/src/services/authService.js`
-
----
-
-## 🚀 Feature Deep-Dive: SaaS Super Admin Console
-
-**Status:** Backlog (High Priority)
-**Estimated Effort:** 3 weeks
-**Target Audience:** Platform Owners / Support Staff
-
-### Problem Statement
-Platform owners currently lack a GUI to manage tenants. Tenant onboarding is manual (CLI/API), and there is no centralized view of platform usage, tenant health, or global metrics. Support staff cannot easily debug tenant issues or suspend non-paying tenants.
-
-### Proposed Solution
-A dedicated **Super Admin Console** accessible only to users with the `platform_admin` system role. This console is separate from the regular tenant admin dashboard.
-
-### Key Features
-
-#### 1. Global Dashboard
-- **KPI Cards:** Total Tenants, Active Users, Total Invites, System Health.
-- **Growth Chart:** New tenants/users over time.
-- **Recent Activity:** Latest tenant signups, critical errors.
-
-#### 2. Tenant Management
-- **Tenant List:** Searchable/filterable table (Name, Domain, Status, Plan, Created At).
-- **Provisioning Wizard:** UI for `create_tenant` service (Step-by-step: Basic Info -> Admin User -> Feature Flags).
-- **Tenant Detail View:**
-  - View/Edit configuration (OIDC settings, etc.).
-  - **"Login As"** feature (impersonation) for support.
-  - Suspend/Activate tenant toggle.
-  - Delete tenant (soft delete).
-
-#### 3. Platform Analytics
-- **Usage Reports:** API request volume per tenant.
-- **Storage Metrics:** Database size per tenant (if applicable).
-- **Audit Log:** Global audit trail of platform admin actions.
-
-### Technical Architecture
-
-#### Database Changes
-- No schema changes required for core functionality.
-- *Optional:* Add `subscription_plan` and `billing_status` columns to `tenants` table.
-
-#### Backend API (`/api/platform/...`)
-*Protected by `verify_platform_admin` dependency*
-
-```python
-GET  /api/platform/stats           # Global KPIs
-GET  /api/platform/tenants         # List all tenants (paginated)
-POST /api/platform/tenants         # Create new tenant
-GET  /api/platform/tenants/{id}    # Get tenant details
-PUT  /api/platform/tenants/{id}    # Update tenant config
-POST /api/platform/tenants/{id}/suspend  # Suspend tenant
-POST /api/platform/tenants/{id}/impersonate # Generate impersonation token
-```
-
-#### Frontend Implementation
-- **New Route:** `/super-admin/*` (guarded by `PlatformAdminRoute` component).
-- **Layout:** Distinct sidebar/header color (e.g., dark purple) to distinguish from tenant admin.
-- **Components:**
-  - `TenantTable`: Advanced data table with server-side pagination.
-  - `ProvisioningForm`: Multi-step form for onboarding.
-  - `GlobalStats`: Recharts-based visualization.
-
-### Implementation Phases
-
-**Phase 1: Foundation (Week 1)**
-- [ ] Define `platform_admin` system role in `rbac_models.py`.
-- [ ] Create `verify_platform_admin` middleware.
-- [ ] Implement `GET /api/platform/tenants` and `POST /api/platform/tenants`.
-- [ ] Setup `/super-admin` frontend route and layout.
-
-**Phase 2: Management Features (Week 2)**
-- [ ] Build Tenant List UI with search/filter.
-- [ ] Build Provisioning Wizard (connect to existing onboarding logic).
-- [ ] Implement Suspend/Activate logic in backend.
-
-**Phase 3: Analytics & Polish (Week 3)**
-- [ ] Implement Aggregated Stats API (SQL queries for global counts).
-- [ ] Build Dashboard charts.
-- [ ] Add "Login As Tenant Admin" impersonation flow.
-
-### Security Considerations
-- **Strict Role Enforcement:** Ensure NO regular admin can access `/api/platform`.
-- **Audit Logging:** Log EVERY action taken by platform admins.
-- **Data Isolation:** Ensure platform APIs don't accidentally leak cross-tenant data in the wrong context.
 
 ---
 

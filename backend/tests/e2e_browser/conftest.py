@@ -1,5 +1,5 @@
 import pytest
-from playwright.async_api import Page, expect
+from playwright.sync_api import Page, expect
 import os
 
 # Use the frontend URL from environment or default to localhost:3000

@@ -2,6 +2,7 @@ import { auth } from '../firebase-config';
 import {
     signInWithPopup,
     getRedirectResult,
+    signInWithCustomToken,
     OAuthProvider,
     signOut as firebaseSignOut
 } from 'firebase/auth';
@@ -46,6 +47,16 @@ class FirebaseAuthService {
 
         // Use popup instead of redirect for better state management
         const result = await signInWithPopup(this.auth, provider);
+        return result;
+    }
+
+    /**
+     * Sign in with a Firebase custom token (for E2E testing)
+     * 
+     * @param {string} customToken - Firebase custom token from Admin SDK
+     */
+    async signInWithCustomToken(customToken) {
+        const result = await signInWithCustomToken(this.auth, customToken);
         return result;
     }
 

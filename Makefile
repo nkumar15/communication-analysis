@@ -242,7 +242,11 @@ e2e-test-coverage: ## Run E2E tests with coverage report
 
 e2e-browser: ## Run E2E browser tests
 	@echo "$(BLUE)Running E2E browser tests...$(NC)"
-	docker-compose exec backend python -m pytest tests/e2e_browser -v
+	@echo "$(YELLOW)Starting services...$(NC)"
+	docker-compose up -d
+	@echo "$(YELLOW)Waiting for services to be ready...$(NC)"
+	@sleep 10
+	docker-compose run --rm e2e-tests
 	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
 
 test-invitation: ## Run invitation flow tests only
