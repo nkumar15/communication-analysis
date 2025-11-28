@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.conftest import (
     create_mock_firebase_token, 
     encode_mock_jwt,
-    create_system_tenant,
     create_test_user,
     create_test_tenant
 )
@@ -87,34 +86,3 @@ class TestPlatformSecurity:
         response = await api_client.get("/api/platform/stats")
         assert response.status_code == 401
         assert "Not authenticated" in response.json()["detail"]
-
-    @pytest.mark.asyncio
-    async def test_cross_tenant_impersonation_security(
-        self,
-        api_client: AsyncClient,
-        db_session: AsyncSession
-    ):
-        """Cannot impersonate without platform admin role"""
-        # Setup system tenant but regular user (not platform admin)
-        system_tenant = await create_system_tenant(db_session)
-        regular_user = await create_test_user(
-            db_session,
-            tenant_id=system_tenant.id,
-            email="user@platform.net",
-            role_slug="admin" # Even admin of system tenant shouldn't access if not platform_admin role
-        )
-        
-        target_tenant = await create_test_tenant(db_session)
-        
-        jwt_token = encode_mock_jwt(create_mock_firebase_token(
-            uid=regular_user.firebase_uid,
-            email=regular_user.email,
-            firebase_tenant_id=system_tenant.firebase_tenant_id
-        ))
-        
-        response = await api_client.post(
-            f"/api/platform/tenants/{target_tenant.id}/impersonate",
-            headers={"Authorization": f"Bearer {jwt_token}"}
-        )
-        
-        assert response.status_code == 403

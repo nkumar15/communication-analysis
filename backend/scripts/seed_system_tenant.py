@@ -1,12 +1,14 @@
 """
-Seed script for SaaS Admin Console foundation.
+Seed script for Platform Foundation.
 Creates:
-1. System Tenant (if not exists)
-2. Platform Admin Role (if not exists)
+1. Platform Tenant (singleton)
+2. Platform Roles (platform_admin, support_staff, billing_manager)
+
+This is for the NEW separated platform system.
 
 Usage:
-    python scripts/seed_system_tenant.py --firebase-tenant-id your-tenant-id
-    python scripts/seed_system_tenant.py --firebase-tenant-id demo-abc123 --oidc-provider oidc.okta
+    python scripts/seed_system_tenant.py --firebase-tenant-id your-platform-tenant-id
+    python scripts/seed_system_tenant.py --firebase-tenant-id platform-abc123 --oidc-provider oidc.okta
 """
 import asyncio
 import argparse
@@ -19,126 +21,128 @@ from sqlalchemy.orm import sessionmaker
 # Add backend directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from app.db_models import TenantModel, Base
-from app.rbac_models import Role
-from app.constants import RoleName
+from app.db_models import PlatformTenant, PlatformRole
 from app.config import settings
 
-async def seed_system_tenant(
-    firebase_tenant_id: str = "system-platform",
-    oidc_provider_id: str = "system-oidc",
-    tenant_name: str = "SaaS Platform System",
-    tenant_domain: str = "system.local"
+async def seed_platform_system(
+    firebase_tenant_id: str = "platform-tenant",
+    oidc_provider_id: str = "platform-oidc",
+    platform_name: str = "SaaS Platform",
+    email_domain: str = "platform.local"
 ):
-    print("🌱 Seeding SaaS Admin Foundation...")
+    print("🌱 Seeding Platform Foundation...")
     print(f"   Firebase Tenant ID: {firebase_tenant_id}")
     print(f"   OIDC Provider ID: {oidc_provider_id}")
+    print(f"   Platform Name: {platform_name}")
     
     db_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")
     engine = create_async_engine(db_url)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as db:
-        # 1. Check/Create System Tenant
-        result = await db.execute(
-            select(TenantModel).where(TenantModel.firebase_tenant_id == firebase_tenant_id)
-        )
-        system_tenant = result.scalar_one_or_none()
+        # 1. Check/Create Platform Tenant (singleton)
+        result = await db.execute(select(PlatformTenant))
+        platform_tenant = result.scalar_one_or_none()
         
-        if not system_tenant:
-            print("Creating System Tenant...")
-            system_tenant = TenantModel(
-                name=tenant_name,
-                domain=tenant_domain,
+        if not platform_tenant:
+            print("✨ Creating Platform Tenant...")
+            platform_tenant = PlatformTenant(
+                name=platform_name,
                 firebase_tenant_id=firebase_tenant_id,
                 oidc_provider_id=oidc_provider_id,
-                is_active=True,
-                activation_status='active',
-                is_system_tenant=True
+                email_domain=email_domain
             )
-            db.add(system_tenant)
+            db.add(platform_tenant)
             await db.commit()
-            await db.refresh(system_tenant)
-            print(f"✅ System Tenant created: {system_tenant.id}")
+            await db.refresh(platform_tenant)
+            print(f"   ✅ Platform Tenant created: {platform_tenant.name}")
         else:
-            print(f"ℹ️ System Tenant already exists: {system_tenant.id}")
-            
-        # 2. Check/Create Platform Admin Role
-        result = await db.execute(
-            select(Role)
-            .where(Role.tenant_id == system_tenant.id)
-            .where(Role.name == RoleName.PLATFORM_ADMIN)
-        )
-        admin_role = result.scalar_one_or_none()
+            print(f"   ℹ️  Platform Tenant already exists: {platform_tenant.name}")
         
-        if not admin_role:
-            print("Creating Platform Admin Role...")
-            admin_role = Role(
-                tenant_id=system_tenant.id,
-                name=RoleName.PLATFORM_ADMIN,
-                display_name="Platform Administrator",
-                description="Full access to SaaS Admin Console",
-                is_system_role=True
+        # 2. Create Platform Roles
+        role_definitions = [
+            {
+                "name": "platform_admin",
+                "display_name": "Platform Administrator",
+                "description": "Full access to platform management and configuration",
+                "is_system_role": True
+            },
+            {
+                "name": "support_staff",
+                "display_name": "Support Staff",
+                "description": "Customer support and troubleshooting access",
+                "is_system_role": True
+            },
+            {
+                "name": "billing_manager",
+                "display_name": "Billing Manager",
+                "description": "Billing, subscriptions, and payment management",
+                "is_system_role": True
+            }
+        ]
+        
+        print("\n📋 Creating Platform Roles...")
+        created_count = 0
+        
+        for role_def in role_definitions:
+            result = await db.execute(
+                select(PlatformRole).where(PlatformRole.name == role_def["name"])
             )
-            db.add(admin_role)
-            await db.commit()
-            print("✅ Platform Admin Role created")
-        else:
-            print("ℹ️ Platform Admin Role already exists")
+            existing_role = result.scalar_one_or_none()
             
-    await engine.dispose()
-    print("✨ Seeding complete!")
+            if not existing_role:
+                new_role = PlatformRole(
+                    platform_tenant_id=platform_tenant.id,
+                    **role_def
+                )
+                db.add(new_role)
+                created_count += 1
+                print(f"   ✅ Created role: {role_def['display_name']}")
+            else:
+                print(f"   ℹ️  Role already exists: {role_def['display_name']}")
+        
+        if created_count > 0:
+            await db.commit()
+        
+        print(f"\n✅ Platform foundation setup complete!")
+        print(f"   Platform Tenant ID: {platform_tenant.id}")
+        print(f"   Firebase Tenant ID: {platform_tenant.firebase_tenant_id}")
+        
+        # Return platform tenant ID for use by other scripts
+        return str(platform_tenant.id)
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Seed System Tenant and Platform Admin Role for SaaS Admin Console',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
-Examples:
-  # Use default values (system-platform)
-  python scripts/seed_system_tenant.py
-
-  # Specify your Firebase tenant ID
-  python scripts/seed_system_tenant.py --firebase-tenant-id demo-abc123
-
-  # Full customization
-  python scripts/seed_system_tenant.py \\
-    --firebase-tenant-id demo-abc123 \\
-    --oidc-provider oidc.okta \\
-    --name "My Platform Admin" \\
-    --domain platform.mycompany.com
-        '''
-    )
-    
-    parser.add_argument(
-        '--firebase-tenant-id',
-        default='system-platform',
-        help='Firebase tenant ID from GCIP (default: system-platform)'
+        description="Seed Platform Foundation (separate from customer tenants)"
     )
     parser.add_argument(
-        '--oidc-provider',
-        default='system-oidc',
-        help='OIDC provider ID configured in Firebase (default: system-oidc)'
+        "--firebase-tenant-id",
+        default="platform-system",
+        help="Firebase Tenant ID for platform (from GCIP)"
     )
     parser.add_argument(
-        '--name',
-        default='SaaS Platform System',
-        help='Display name for the system tenant (default: SaaS Platform System)'
+        "--oidc-provider",
+        default="platform-oidc",
+        help="OIDC Provider ID"
     )
     parser.add_argument(
-        '--domain',
-        default='system.local',
-        help='Domain for the system tenant (default: system.local)'
+        "--name",
+        default="SaaS Platform",
+        help="Platform display name"
+    )
+    parser.add_argument(
+        "--domain",
+        default="platform.local",
+        help="Platform email domain"
     )
     
     args = parser.parse_args()
     
-    # Run seeding
-    asyncio.run(seed_system_tenant(
+    asyncio.run(seed_platform_system(
         firebase_tenant_id=args.firebase_tenant_id,
         oidc_provider_id=args.oidc_provider,
-        tenant_name=args.name,
-        tenant_domain=args.domain
+        platform_name=args.name,
+        email_domain=args.domain
     ))
 
 if __name__ == "__main__":

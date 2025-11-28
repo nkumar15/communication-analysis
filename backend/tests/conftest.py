@@ -173,55 +173,96 @@ async def create_test_tenant(
     return tenant
 
 
-async def create_system_tenant(
+async def create_platform_tenant(
     db_session: AsyncSession,
     name: str = "SaaS Platform System",
-    domain: str = None,
     firebase_tenant_id: str = None,
     oidc_provider_id: str = None
 ):
-    """Create the system tenant"""
-    from app.db_models import TenantModel
+    """Create the platform tenant (singleton) - Idempotent"""
+    from app.db_models import PlatformTenant, PlatformRole
+    from sqlalchemy import select
+    
+    # Check if exists (singleton)
+    result = await db_session.execute(select(PlatformTenant))
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
     
     suffix = uuid4().hex[:8]
-    domain = domain or f"system-{suffix}.local"
-    firebase_tenant_id = firebase_tenant_id or f"system-platform-{suffix}"
-    oidc_provider_id = oidc_provider_id or f"system-oidc-{suffix}"
+    firebase_tenant_id = firebase_tenant_id or f"platform-{suffix}"
+    oidc_provider_id = oidc_provider_id or f"platform-oidc-{suffix}"
     
-    tenant = TenantModel(
+    tenant = PlatformTenant(
         name=name,
-        domain=domain,
         firebase_tenant_id=firebase_tenant_id,
         oidc_provider_id=oidc_provider_id,
-        activation_status='active',
-        is_active=True,
-        is_system_tenant=True
+        email_domain="platform.local",
+        is_active=True
     )
     db_session.add(tenant)
     await db_session.flush()
     await db_session.refresh(tenant)
     
-    # Seed roles for system tenant
-    from sqlalchemy import text
-    await db_session.execute(
-        text("SELECT seed_tenant_roles(:tenant_id)"),
-        {"tenant_id": tenant.id}
-    )
+    # Seed platform roles
+    roles = ["platform_admin", "support_staff", "billing_manager"]
+    for role_name in roles:
+        role = PlatformRole(
+            platform_tenant_id=tenant.id,
+            name=role_name,
+            display_name=role_name.replace("_", " ").title(),
+            is_system_role=True
+        )
+        db_session.add(role)
     
-    # Manually seed platform_admin role (not in standard seed_tenant_roles)
-    from app.rbac_models import Role
-    platform_role = Role(
-        tenant_id=tenant.id,
-        name="platform_admin",
-        display_name="Platform Admin",
-        description="Super admin for SaaS platform",
-        is_system_role=True,
-        is_active=True
-    )
-    db_session.add(platform_role)
     await db_session.flush()
     
     return tenant
+
+
+async def create_platform_user(
+    db_session: AsyncSession,
+    platform_tenant_id: UUID,
+    email: str,
+    firebase_uid: str = None,
+    role_name: str = "platform_admin",
+    name: str = None
+):
+    """Create a platform user - Idempotent"""
+    from app.db_models import PlatformUser, PlatformRole
+    from sqlalchemy import select
+    
+    # Check if exists
+    result = await db_session.execute(
+        select(PlatformUser).where(PlatformUser.email == email)
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+    
+    # Get role
+    result = await db_session.execute(
+        select(PlatformRole)
+        .where(PlatformRole.platform_tenant_id == platform_tenant_id)
+        .where(PlatformRole.name == role_name)
+    )
+    role = result.scalar_one_or_none()
+    
+    if not role:
+        raise ValueError(f"Platform role '{role_name}' not found")
+    
+    user = PlatformUser(
+        platform_tenant_id=platform_tenant_id,
+        platform_role_id=role.id,
+        email=email,
+        firebase_uid=firebase_uid or f"firebase-{uuid4().hex}",
+        display_name=name or email.split("@")[0],
+        is_active=True
+    )
+    db_session.add(user)
+    await db_session.flush()
+    await db_session.refresh(user)
+    return user
 
 
 async def create_test_user(

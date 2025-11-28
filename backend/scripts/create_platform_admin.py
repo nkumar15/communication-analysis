@@ -2,14 +2,12 @@
 """
 Create Platform Admin User
 
-This script creates a platform admin user in Firebase (system-platform tenant)
-and links them to the database. For use when the platform tenant is configured
-with OIDC provider in Google Cloud Identity Platform.
+This script creates a platform admin user in Firebase and the platform_users table.
+Works with the NEW separated platform system (platform_users, not users table).
 
 Usage:
     python scripts/create_platform_admin.py --email admin@yourcompany.com
-
-The user will receive an invitation email with activation link to set up OIDC.
+    python scripts/create_platform_admin.py --email admin@yourcompany.com --name "John Doe"
 """
 import asyncio
 import argparse
@@ -24,25 +22,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db_models import TenantModel, Base
-from app.rbac_models import Role
-from app.db_models import UserModel
-from app.constants import RoleName
+from app.db_models import PlatformTenant, PlatformRole, PlatformUser
 from app.config import settings
 from app.services.firebase_auth import firebase_auth_service
+import firebase_admin
+from firebase_admin import auth
 
-# System Tenant Constants
-SYSTEM_TENANT_FIREBASE_ID = "system-platform"
-
-async def create_platform_admin(email: str, name: str = None):
+async def create_platform_admin(email: str, name: str = None, role_name: str = "platform_admin"):
     """
-    Create a platform admin user
+    Create a platform admin user in the platform system.
     
     Args:
-        email: Email address for the platform admin
+        email: Email address for the platform user
         name: Display name (defaults to email username)
+        role_name: Platform role (default: platform_admin)
     """
-    print(f"🔧 Creating Platform Admin: {email}")
+    print(f"🔧 Creating Platform User: {email}")
+    print(f"   Role: {role_name}")
     
     # Initialize Firebase
     firebase_auth_service.initialize()
@@ -53,155 +49,128 @@ async def create_platform_admin(email: str, name: str = None):
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as db:
-        # 1. Find System Tenant
-        # 1. Find System Tenant
+        # 1. Find Platform Tenant (singleton)
+        result = await db.execute(select(PlatformTenant))
+        platform_tenant = result.scalar_one_or_none()
+        
+        if not platform_tenant:
+            print("❌ Platform tenant not found!")
+            print("   Run: python scripts/seed_system_tenant.py first")
+            return
+        
+        print(f"✅ Found platform tenant: {platform_tenant.name}")
+        print(f"   Firebase Tenant ID: {platform_tenant.firebase_tenant_id}")
+        
+        # 2. Find Platform Role
         result = await db.execute(
-            select(TenantModel).where(TenantModel.is_system_tenant == True)
+            select(PlatformRole)
+            .where(PlatformRole.platform_tenant_id == platform_tenant.id)
+            .where(PlatformRole.name == role_name)
         )
-        system_tenant = result.scalar_one_or_none()
+        platform_role = result.scalar_one_or_none()
         
-        if not system_tenant:
-            print("❌ Error: System Tenant not found. Run seed_system_tenant.py first.")
-            return False
+        if not platform_role:
+            print(f"❌ Platform role '{role_name}' not found!")
+            print("   Available roles should be seeded by seed_system_tenant.py")
+            return
         
-        print(f"✅ Found System Tenant: {system_tenant.name} ({system_tenant.id})")
+        print(f"✅ Found platform role: {platform_role.display_name}")
         
-        # 2. Find platform_admin role
+        # 3. Check if user already exists in platform_users
         result = await db.execute(
-            select(Role)
-            .where(Role.tenant_id == system_tenant.id)
-            .where(Role.name == RoleName.PLATFORM_ADMIN)
-        )
-        admin_role = result.scalar_one_or_none()
-        
-        if not admin_role:
-            print("❌ Error: platform_admin role not found. Run seed_system_tenant.py first.")
-            return False
-            
-        print(f"✅ Found platform_admin role: {admin_role.id}")
-        
-        # 3. Check if user already exists in database
-        result = await db.execute(
-            select(UserModel).where(UserModel.email == email.lower())
+            select(PlatformUser).where(PlatformUser.email == email)
         )
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
-            print(f"⚠️  User already exists in database: {existing_user.id}")
+            print(f"⚠️  Platform user already exists: {existing_user.display_name or existing_user.email}")
             print(f"   Firebase UID: {existing_user.firebase_uid}")
-            print(f"   Role: {existing_user.role_id}")
-            
-            # Update role if needed
-            if existing_user.role_id != admin_role.id:
-                print("   Updating user role to platform_admin...")
-                existing_user.role_id = admin_role.id
-                await db.commit()
-                print("✅ User role updated")
-            
-            return True
+            return
         
-        # 4. Create user in Firebase (under system-platform tenant)
-        print(f"\n📧 Creating Firebase user in tenant: {system_tenant.firebase_tenant_id}")
+        # 4. Create Firebase user in platform tenant
+        print(f"\n🔥 Creating Firebase user in platform tenant...")
+        print(f"   Tenant ID: {platform_tenant.firebase_tenant_id}")
         
         try:
-            import firebase_admin
-            from firebase_admin import auth, tenant_mgt
+            # Get tenant-scoped Firebase Auth client
+            tenant_auth = auth.tenant_mgt().auth_for_tenant(platform_tenant.firebase_tenant_id)
             
-            # Get tenant-scoped auth client
-            tenant_client = tenant_mgt.auth_for_tenant(system_tenant.firebase_tenant_id)
-            
-            # Create user (will trigger OIDC flow on first login)
-            firebase_user = tenant_client.create_user(
-                email=email,
-                email_verified=False,  # Will verify through OIDC
-                display_name=name or email.split('@')[0]
-            )
-            
-            firebase_uid = firebase_user.uid
-            print(f"✅ Firebase user created: {firebase_uid}")
-            
+            # Check if Firebase user exists
+            try:
+                existing_firebase_user = tenant_auth.get_user_by_email(email)
+                firebase_uid = existing_firebase_user.uid
+                print(f"✅ Firebase user already exists: {firebase_uid}")
+            except auth.UserNotFoundError:
+                # Create new Firebase user
+                firebase_user = tenant_auth.create_user(
+                    email=email,
+                    display_name=name or email.split('@')[0],
+                    email_verified=True  # Platform users are pre-verified
+                )
+                firebase_uid = firebase_user.uid
+                print(f"✅ Created Firebase user: {firebase_uid}")
+        
         except Exception as e:
             print(f"❌ Error creating Firebase user: {e}")
-            print("\nNote: If the tenant uses OIDC, the user will be created automatically")
-            print("      on first login. Using a temporary UID for database record.")
-            
-            # Use a deterministic UID based on email for OIDC users
-            firebase_uid = f"oidc-{email.replace('@', '-').replace('.', '-')}"
-            print(f"   Using temporary UID: {firebase_uid}")
+            print(f"   Make sure Firebase tenant '{platform_tenant.firebase_tenant_id}' exists in GCIP")
+            return
         
-        # 5. Create user record in database
-        print(f"\n💾 Creating database record...")
+        # 5. Create platform user in database
+        print(f"\n💾 Creating platform user in database...")
         
-        user = UserModel(
-            tenant_id=system_tenant.id,
-            email=email.lower(),
+        platform_user = PlatformUser(
+            platform_tenant_id=platform_tenant.id,
+            platform_role_id=platform_role.id,
+            email=email,
             firebase_uid=firebase_uid,
-            name=name or email.split('@')[0],
-            role_id=admin_role.id,
-            is_active=True
+            display_name=name or email.split('@')[0]
         )
         
-        db.add(user)
+        db.add(platform_user)
         await db.commit()
-        await db.refresh(user)
+        await db.refresh(platform_user)
         
-        print(f"✅ Database record created: {user.id}")
+        print(f"✅ Platform user created successfully!")
+        print(f"\n📋 User Details:")
+        print(f"   ID: {platform_user.id}")
+        print(f"   Email: {platform_user.email}")
+        print(f"   Name: {platform_user.display_name}")
+        print(f"   Role: {platform_role.display_name}")
+        print(f"   Firebase UID: {platform_user.firebase_uid}")
         
-        # 6. Print next steps
-        print("\n" + "="*60)
-        print("✨ Platform Admin User Created Successfully!")
-        print("="*60)
-        print(f"\nEmail: {email}")
-        print(f"Firebase UID: {firebase_uid}")
-        print(f"Database ID: {user.id}")
-        print(f"Role: platform_admin")
+        print(f"\n🔐 Login Instructions:")
+        print(f"   1. Go to: http://localhost:3000/platform-login")
+        print(f"   2. Login with: {email}")
+        print(f"   3. Use your OIDC provider configured in Firebase")
         
-        print("\n📋 Next Steps:")
-        print("1. Navigate to: http://localhost:3000/login")
-        print(f"2. Enter email: {email}")
-        print("3. You'll be redirected to your OIDC provider")
-        print("4. Complete OIDC authentication")
-        print("5. Access the admin console at: http://localhost:3000/super-admin")
-        
-        if "oidc-" in firebase_uid:
-            print("\n⚠️  Note: Temporary UID assigned. Firebase will update this")
-            print("   automatically when the user logs in via OIDC.")
-        
-        print("\n" + "="*60)
-    
-    await engine.dispose()
-    return True
+        return str(platform_user.id)
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Create a platform admin user for SaaS Admin Console'
+        description="Create Platform Admin User (in separated platform system)"
     )
     parser.add_argument(
-        '--email',
+        "--email",
         required=True,
-        help='Email address for the platform admin user'
+        help="Email address for the platform user"
     )
     parser.add_argument(
-        '--name',
-        help='Display name (defaults to email username)'
+        "--name",
+        help="Display name (defaults to email username)"
+    )
+    parser.add_argument(
+        "--role",
+        default="platform_admin",
+        help="Platform role (default: platform_admin)"
     )
     
     args = parser.parse_args()
     
-    # Validate email
-    if '@' not in args.email or '.' not in args.email:
-        print("❌ Error: Invalid email format")
-        sys.exit(1)
-    
-    # Run async function
-    success = asyncio.run(create_platform_admin(args.email, args.name))
-    
-    if success:
-        print("\n✅ Done!")
-        sys.exit(0)
-    else:
-        print("\n❌ Failed to create platform admin")
-        sys.exit(1)
+    asyncio.run(create_platform_admin(
+        email=args.email,
+        name=args.name,
+        role_name=args.role
+    ))
 
 if __name__ == "__main__":
     main()

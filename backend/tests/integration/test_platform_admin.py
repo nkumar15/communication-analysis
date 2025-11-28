@@ -10,9 +10,10 @@ from uuid import UUID
 from tests.conftest import (
     create_mock_firebase_token, 
     encode_mock_jwt,
-    create_system_tenant,
-    create_test_user,
-    create_test_tenant
+    create_platform_tenant,
+    create_platform_user,
+    create_test_tenant,
+    create_test_user
 )
 
 
@@ -27,20 +28,20 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can authenticate and get info"""
-        # Setup system tenant and admin
-        system_tenant = await create_system_tenant(db_session)
-        admin = await create_test_user(
+        # Setup platform tenant and admin
+        platform_tenant = await create_platform_tenant(db_session)
+        admin = await create_platform_user(
             db_session,
-            tenant_id=system_tenant.id,
+            platform_tenant_id=platform_tenant.id,
             email="admin@platform.net",
-            role_slug="platform_admin"
+            role_name="platform_admin"
         )
         
         # Mock JWT
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=admin.firebase_uid,
             email=admin.email,
-            firebase_tenant_id=system_tenant.firebase_tenant_id
+            firebase_tenant_id=platform_tenant.firebase_tenant_id
         ))
         
         response = await api_client.get(
@@ -52,7 +53,7 @@ class TestPlatformAdmin:
         data = response.json()
         assert data["email"] == admin.email
         assert data["role"] == "platform_admin"
-        assert data["tenant_id"] == str(system_tenant.id)
+        assert data["tenant_id"] == str(platform_tenant.id)
 
     @pytest.mark.asyncio
     async def test_platform_stats(
@@ -61,13 +62,13 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can view global stats"""
-        # Setup system tenant and admin
-        system_tenant = await create_system_tenant(db_session)
-        admin = await create_test_user(
+        # Setup platform tenant and admin
+        platform_tenant = await create_platform_tenant(db_session)
+        admin = await create_platform_user(
             db_session,
-            tenant_id=system_tenant.id,
+            platform_tenant_id=platform_tenant.id,
             email="admin@platform.net",
-            role_slug="platform_admin"
+            role_name="platform_admin"
         )
         
         # Create some regular tenants
@@ -77,7 +78,7 @@ class TestPlatformAdmin:
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=admin.firebase_uid,
             email=admin.email,
-            firebase_tenant_id=system_tenant.firebase_tenant_id
+            firebase_tenant_id=platform_tenant.firebase_tenant_id
         ))
         
         response = await api_client.get(
@@ -87,9 +88,9 @@ class TestPlatformAdmin:
         
         assert response.status_code == 200
         data = response.json()
-        # Total tenants = 2 regular + 1 system
-        assert data["total_tenants"] >= 3 
-        assert data["active_tenants"] >= 2 # System + Tenant 1
+        # Total tenants = 2 regular (Platform tenant is NOT in tenants table)
+        assert data["total_tenants"] >= 2 
+        assert data["active_tenants"] >= 1 # Tenant 1
 
     @pytest.mark.asyncio
     async def test_create_tenant(
@@ -98,18 +99,18 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can create new tenants"""
-        system_tenant = await create_system_tenant(db_session)
-        admin = await create_test_user(
+        platform_tenant = await create_platform_tenant(db_session)
+        admin = await create_platform_user(
             db_session,
-            tenant_id=system_tenant.id,
+            platform_tenant_id=platform_tenant.id,
             email="admin@platform.net",
-            role_slug="platform_admin"
+            role_name="platform_admin"
         )
         
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=admin.firebase_uid,
             email=admin.email,
-            firebase_tenant_id=system_tenant.firebase_tenant_id
+            firebase_tenant_id=platform_tenant.firebase_tenant_id
         ))
         
         # Use randomized domain to prevent conflicts from committed data
@@ -152,13 +153,13 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can impersonate tenant admin"""
-        # Setup system
-        system_tenant = await create_system_tenant(db_session)
-        platform_admin = await create_test_user(
+        # Setup platform
+        platform_tenant = await create_platform_tenant(db_session)
+        platform_admin = await create_platform_user(
             db_session,
-            tenant_id=system_tenant.id,
+            platform_tenant_id=platform_tenant.id,
             email="admin@platform.net",
-            role_slug="platform_admin"
+            role_name="platform_admin"
         )
         
         # Setup target tenant
@@ -173,7 +174,7 @@ class TestPlatformAdmin:
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=platform_admin.firebase_uid,
             email=platform_admin.email,
-            firebase_tenant_id=system_tenant.firebase_tenant_id
+            firebase_tenant_id=platform_tenant.firebase_tenant_id
         ))
         
         response = await api_client.post(

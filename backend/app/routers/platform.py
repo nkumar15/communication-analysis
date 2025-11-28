@@ -56,22 +56,16 @@ async def get_platform_config(db: AsyncSession = Depends(get_db)):
     
     PUBLIC endpoint (no auth required) - called before login
     """
-    from app.db_models import TenantModel
+    from app.db_models import PlatformTenant
     
-    # Find the system tenant via is_system_tenant flag
-    query = (
-        select(TenantModel)
-        .where(TenantModel.is_system_tenant == True)
-        .limit(1)
-    )
-    
-    result = await db.execute(query)
+    # Find the singleton platform tenant
+    result = await db.execute(select(PlatformTenant))
     tenant = result.scalar_one_or_none()
     
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="System tenant configuration not found"
+            detail="Platform configuration not found. Please run seed script."
         )
         
     return PlatformConfigResponse(
@@ -149,7 +143,7 @@ async def list_tenants(
 async def create_tenant(
     request: TenantCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(verify_platform_admin)
 ):
     """Create a new tenant (Admin only)"""
     # Check domain uniqueness
@@ -160,10 +154,7 @@ async def create_tenant(
             detail=f"Domain {request.domain} already exists"
         )
         
-    # Create tenant logic (simplified for MVP)
-    # In real implementation, this would call the full provisioning service
-    # For now, we'll just create the tenant record
-    
+    # Create tenant logic
     new_tenant = TenantModel(
         name=request.name,
         domain=request.domain,
@@ -175,6 +166,17 @@ async def create_tenant(
     db.add(new_tenant)
     await db.commit()
     await db.refresh(new_tenant)
+    
+    # Log action
+    from app.middleware.platform_auth import log_platform_action
+    await log_platform_action(
+        admin=current_user,
+        action="create_tenant",
+        resource_type="tenant",
+        resource_id=new_tenant.id,
+        details={"domain": request.domain},
+        db=db
+    )
     
     return {"id": new_tenant.id, "message": "Tenant created successfully"}
 
@@ -193,8 +195,6 @@ async def impersonate_tenant_admin(
 ):
     """
     Generate impersonation token for a tenant's admin user
-    
-    This allows platform admins to "Login As" a tenant admin for support purposes.
     """
     import jwt
     from datetime import timedelta
@@ -254,7 +254,17 @@ async def impersonate_tenant_admin(
     
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
     
-    # 4. TODO: Log impersonation action for audit trail
+    # 4. Log impersonation action
+    from app.middleware.platform_auth import log_platform_action
+    
+    await log_platform_action(
+        admin=current_user,
+        action="impersonate_tenant_admin",
+        resource_type="tenant",
+        resource_id=tenant_id,
+        details={"target_user_email": admin_user.email},
+        db=db
+    )
     
     return ImpersonationResponse(
         token=token,
@@ -264,68 +274,38 @@ async def impersonate_tenant_admin(
         redirect_url="/dashboard"
     )
 
-from app.middleware.auth import get_current_user as base_get_current_user
 
 @router.get("/auth/me")
 async def get_platform_admin_info(
-    decoded_token: dict = Depends(base_get_current_user),
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(verify_platform_admin),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get platform admin user info
     
     Separate endpoint for platform admins to avoid mixing with tenant user logic
     """
-    from app.services.firebase_auth import firebase_auth_service
-    from app.db_models import UserModel
-    from app.rbac_models import Role
+    from app.db_models import PlatformUser, PlatformRole, PlatformTenant
     
-    # Extract user info
-    user_info = firebase_auth_service.get_user_info(decoded_token)
-    firebase_uid = user_info.get("firebase_uid")
-    email = user_info.get("email")
-    firebase_tenant_id = user_info.get("firebase_tenant_id")
-    
-    # Get System Tenant by firebase_tenant_id from the token
-    # This ensures we get the exact tenant the user authenticated with
     result = await db.execute(
-        select(TenantModel).where(TenantModel.firebase_tenant_id == firebase_tenant_id)
+        select(PlatformUser, PlatformRole, PlatformTenant)
+        .join(PlatformRole, PlatformUser.platform_role_id == PlatformRole.id)
+        .join(PlatformTenant, PlatformUser.platform_tenant_id == PlatformTenant.id)
+        .where(PlatformUser.id == current_user["id"])
     )
-    tenant = result.scalar_one_or_none()
+    row = result.first()
     
-    if not tenant or not tenant.is_system_tenant:
-        raise HTTPException(status_code=404, detail="System tenant not found")
-    
-    # Find user by email (platform admins are looked up by email, not UID)
-    result = await db.execute(
-        select(UserModel)
-        .where(UserModel.tenant_id == tenant.id)
-        .where(UserModel.email == email.lower())
-    )
-    user = result.scalar_one_or_none()
-    
-    if not user:
+    if not row:
         raise HTTPException(status_code=404, detail="Platform admin user not found")
-    
-    # Update Firebase UID if it's different (handles temporary -> real UID transition)
-    if user.firebase_uid != firebase_uid:
-        user.firebase_uid = firebase_uid
-        await db.commit()
-        await db.refresh(user)
-    
-    # Get role info
-    result = await db.execute(
-        select(Role).where(Role.id == user.role_id)
-    )
-    role = result.scalar_one_or_none()
+        
+    user, role, tenant = row
     
     return {
         "id": str(user.id),
         "email": user.email,
-        "name": user.name,
-        "role": role.name if role else None,
-        "role_display_name": role.display_name if role else None,
+        "name": user.display_name,
+        "role": role.name,
+        "role_display_name": role.display_name,
         "tenant_id": str(tenant.id),
         "tenant_name": tenant.name
     }
