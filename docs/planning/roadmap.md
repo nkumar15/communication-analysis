@@ -54,12 +54,29 @@ All tenant onboarding phases complete! See [Completed Phases](./completed-phases
   - "Login As" Impersonation for support
   - Security isolation from regular tenants
 
+- ✅ **Microservices Architecture** (2025-11-29)
+  - Split backend into 3 independent services (B2B, Platform, B2C)
+  - Moved migrations to top-level
+  - Updated Docker Compose for multi-service deployment
+  - Created unified test app for e2e testing
+  - All 24 integration tests passing
+
 - ✅ **E2E Browser Testing Infrastructure** (2025-11-28)
   - Playwright integration with Docker
   - Real Firebase authentication with custom tokens
   - `make e2e-browser` command
   - Basic page load tests passing (3/3)
   - Ready for full test scenario implementation
+
+---
+
+## ⏸️ Deferred Phases
+
+### Phase 4: DevOps & Observability (Paused)
+- Multi-stage Dockerfiles
+- CI/CD pipelines
+- Structured logging
+- OpenTelemetry setup
 
 ---
 
