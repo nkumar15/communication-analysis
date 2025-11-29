@@ -16,28 +16,68 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  # B2B Microservice - Tenant Management
+  b2b-api:
     build:
       context: ./backend
       dockerfile: Dockerfile
       target: test
-    container_name: sso_backend
-    # Load backend-specific environment from backend/.env
+    container_name: sso_b2b_api
     env_file:
       - ./backend/.env
     ports:
       - "8000:8000"
     environment:
-      # Override DATABASE_URL with docker-compose values
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./backend:/app
-      # Mount Firebase credentials from secrets directory (read-only for security)
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn services.b2b.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Platform Microservice - Admin Operations
+  platform-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    container_name: sso_platform_api
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn services.platform.main:app --host 0.0.0.0 --port 8001 --reload
+
+  # B2C Microservice - Workspace Management
+  b2c-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    container_name: sso_b2c_api
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn services.b2c.main:app --host 0.0.0.0 --port 8002 --reload
 
   frontend:
     build:
@@ -47,13 +87,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://backend:8000
+      - REACT_APP_API_URL=http://b2b-api:8000
       - WDS_SOCKET_PORT=0
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - backend
+      - b2b-api
 
   e2e-tests:
     build:
@@ -64,12 +104,12 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - FRONTEND_URL=http://frontend:3000
-      - API_URL=http://backend:8000
+      - API_URL=http://b2b-api:8000
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
-      - backend
+      - b2b-api
       - frontend
     command: python -m pytest tests/e2e_browser -v
 

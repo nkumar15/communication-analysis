@@ -78,24 +78,38 @@ make frontend-start  # Start Frontend
 
 **Access:**
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+- **B2B API**: http://localhost:8000/docs (Tenant Management)
+- **Platform API**: http://localhost:8001/docs (Admin Operations)
+- **B2C API**: http://localhost:8002/docs (Workspaces)
 
 For detailed setup and testing instructions, see the [Development Guide](docs/guides/development.md).
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Microservices Architecture
+
+### Backend Services
+
+The backend is split into 3 independent microservices:
+
+| Service | Port | Purpose | Routers |
+|---------|------|---------|---------|
+| **B2B API** | 8000 | Enterprise tenant management | auth, activation, invitations, users, roles, farmers |
+| **Platform API** | 8001 | SaaS platform administration | tenant mgmt, impersonation, stats |
+| **B2C API** | 8002 | Personal/team workspaces | workspaces, profiles (skeleton) |
 
 ### Tech Stack
 - **Backend:** FastAPI, PostgreSQL, SQLAlchemy, Firebase Admin SDK
-- **Frontend:** React, Firebase SDK
+- **Frontend:** React 18, Firebase SDK
 - **Auth:** Firebase GCIP (OIDC), Stateless JWT
+- **Deployment:** Docker, Docker Compose
 
-### Multi-Tenancy Model
-- **Data Isolation:** Row-level security via `tenant_id`
-- **Auth Isolation:** Separate Firebase tenants per customer
-- **Platform Isolation:** Dedicated system tenant for super admins
+### Key Architectural Patterns
+- **Microservices**: Independent services for B2B, Platform, and B2C
+- **Data Isolation**: Row-level security via `tenant_id` + PostgreSQL schemas
+- **Auth Isolation**: Separate Firebase tenants per customer
+- **Platform Isolation**: Dedicated `platform` schema for super admins
+- **Shared Database**: All services use same PostgreSQL with schema separation
 
 ---
 

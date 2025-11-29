@@ -210,4 +210,33 @@ What did we decide?
 3. Update ROADMAP.md if decision affects planning
 4. Discuss in PR before merging
 
-**Last Updated:** 2025-11-23
+**Last Updated:** 2025-11-29
+
+---
+
+## AD-008: Microservices Architecture (2025-11-29)
+
+**Context:**
+- Monolithic `app/main.py` was becoming hard to manage
+- Need to scale B2B, Platform, and B2C independently
+- Want clear separation of concerns and security boundaries
+- Platform admin API should be isolatable from public B2B API
+
+**Decision:**
+- Split backend into 3 independent microservices:
+  1. **B2B API** (Port 8000): Tenant management, auth, invitations
+  2. **Platform API** (Port 8001): Admin operations, stats
+  3. **B2C API** (Port 8002): Personal workspaces
+- Move migrations to top-level (shared database)
+- Update Docker Compose to run services independently
+
+**Consequences:**
+- ✅ Independent deployment and scaling
+- ✅ Improved security (can isolate Platform API)
+- ✅ Clearer code organization
+- ⚠️ More complex local development (3 ports)
+- ⚠️ Shared database coupling remains (intentional for now)
+
+**Alternatives Considered:**
+- Keep Monolith - Rejected (doesn't scale well for distinct workloads)
+- Separate Databases - Rejected (too complex for current stage, need cross-schema queries)

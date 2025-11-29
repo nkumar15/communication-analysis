@@ -379,7 +379,7 @@ make db-shell
 
 1. **Test config endpoint:**
    ```bash
-   curl http://localhost:8000/api/platform/config
+   curl http://localhost:8001/api/platform/config
    ```
    Should return Firebase tenant configuration.
 
@@ -390,7 +390,7 @@ make db-shell
 
 3. **Test protected endpoint (should fail without auth):**
    ```bash
-   curl http://localhost:8000/api/platform/stats
+   curl http://localhost:8001/api/platform/stats
    # Should return 401 Unauthorized
    ```
 

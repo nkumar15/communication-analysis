@@ -36,47 +36,52 @@ cd frontend && npm start
 ```
 
 **Access:**
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- Frontend: http://localhost:3000
+- **B2B API**: http://localhost:8000/docs
+- **Platform API**: http://localhost:8001/docs
+- **B2C API**: http://localhost:8002/docs
+- **Frontend**: http://localhost:3000
 
 ---
 
-## Architecture Overview
+## Microservices Architecture
 
-### Tech Stack
-**Backend:**
+### Backend Services
+
+The backend consists of 3 independent microservices:
+
+| Service | Port | Purpose | Main Module |
+|---------|------|---------|-------------|
+| **B2B API** | 8000 | Enterprise tenant management | `services.b2b.main:app` |
+| **Platform API** | 8001 | Platform administration | `services.platform.main:app` |
+| **B2C API** | 8002 | Personal workspaces | `services.b2c.main:app` |
+
+**Tech Stack:**
 - FastAPI (Python async web framework)
-- PostgreSQL (database)
+- PostgreSQL with schema separation (`b2b`, `platform`, `b2c`, `farming`)
 - SQLAlchemy ORM (async)
 - Firebase Admin SDK (authentication, multi-tenancy)
 - Resend (email service)
 
 **Frontend:**
-- React
+- React 18
 - Firebase SDK (client-side auth)
 - React Router
 
-### Database Schema
+### Database Schemas
 
-**Tenants**
-- `id`, `name`, `domain`
-- `firebase_tenant_id` - Firebase GCIP tenant ID
-- `oidc_provider_id` - OIDC provider identifier
-- `activation_token` - One-time activation link token
-- `activation_status` - pending/active
-- `activation_expires_at` - Token expiry
+**b2b schema** - Enterprise tenants
+- tenants, users, roles, invitations, role_permissions
 
-**Users**
-- `id`, `email`, `firebase_uid`, `tenant_id`
-- `role` - admin/manager/member
-- Links to Firebase user via `firebase_uid`
+**platform schema** - Platform admin
+- platform_tenant, platform_users, platform_roles, platform_audit_log
 
-**Invitations**
-- `id`, `tenant_id`, `email`, `role`
-- `invitation_token` - Invitation link token
-- `accepted_at` - When invitation was accepted
-- `expires_at` - Token expiry
+**b2c schema** - Personal workspaces
+- workspaces, b2c_users, workspace_members
+
+**farming schema** - Domain logic
+- farmers
+
+For detailed architecture, see [System Architecture](../architecture/system-architecture.md)
 
 ---
 
@@ -88,14 +93,15 @@ cd frontend && npm start
 ```bash
 make migrate
 # or
-docker-compose exec backend python app/migrations/run_migrations.py
+docker-compose exec b2b-api python migrations/run_migrations.py
 ```
 
 **Create new migration:**
 ```bash
-# Add SQL file to backend/app/migrations/
+# Add SQL file to backend/migrations/
 # Name format: 00X_description.sql
 # Migrations run in alphabetical order
+# All services share the same database/migrations
 ```
 
 **Reset database (testing only):**

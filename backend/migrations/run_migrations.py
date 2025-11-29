@@ -9,9 +9,9 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.config import settings
+from core.config import settings
 
 
 async def run_migrations():

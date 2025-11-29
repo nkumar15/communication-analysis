@@ -1,3 +1,9 @@
+"""
+Test-Only Unified App
+
+This app includes ALL routers from all microservices for testing purposes.
+In production, each service runs independently.
+"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -5,34 +11,31 @@ from core.config import settings
 from core.database import init_db, close_db
 from core.utils.firebase import firebase_auth_service
 
-# Import routers from services
+# Import ALL routers for testing
 from services.b2b.routers import auth, activation, invitations, users, roles
 from services.domains.farming.routers import farmers
 from services.platform.routers import platform
 
-# ... (lifespan and app creation) ...
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
-    print("Starting up application...")
+    print("🧪 Starting unified test app...")
     await init_db()
     firebase_auth_service.initialize()
-    print("✓ Database connection established")
-    print("✓ Firebase Admin SDK initialized")
+    print("✓ Test app ready")
     
     yield
     
     # Shutdown
-    print("Shutting down application...")
     await close_db()
-    print("✓ Connections closed")
 
 
-# Create FastAPI application
+# Create unified test app
 app = FastAPI(
-    title="Multitenant SSO API",
-    description="Enterprise SSO API with OIDC and tenant management",
+    title="Unified Test API",
+    description="Test-only app with all microservice routers combined",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -46,7 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include ALL routers
 app.include_router(auth.router)
 app.include_router(activation.router)
 app.include_router(invitations.router)
@@ -58,15 +61,9 @@ app.include_router(platform.router)
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
-    return {
-        "message": "Multitenant SSO API",
-        "version": "1.0.0",
-        "docs": "/docs"
-    }
+    return {"service": "unified-test-app", "note": "For testing only"}
 
 
 @app.get("/health")
 async def health():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "test"}

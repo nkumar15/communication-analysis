@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 import secrets
 
 # Import app components
-from app.main import app
+from tests.test_app import app  # Unified test app with all routers
 from core.database import get_db
 from core.models.base import Base
 from core.config import settings

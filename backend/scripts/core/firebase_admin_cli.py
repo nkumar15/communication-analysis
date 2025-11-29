@@ -60,7 +60,7 @@ def configure_oidc_provider(
     access_token = app.credential.get_access_token().access_token
     
     # Get project ID from environment or app
-    from app.config import settings
+    from core.config import settings
     project_id = settings.firebase_project_id
     
     provider_id = f'oidc.{provider_type}'
