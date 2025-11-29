@@ -62,9 +62,10 @@ status: ## Show status of all services and configuration
 	@$(MAKE) test-env
 	@echo ""
 	@echo "$(BLUE)=== URLs ===$(NC)"
-	@echo "Backend API:    http://localhost:8000"
-	@echo "API Docs:       http://localhost:8000/docs"
 	@echo "Frontend:       http://localhost:3000"
+	@echo "B2B API:        http://localhost:8000/docs"
+	@echo "Platform API:   http://localhost:8001/docs"
+	@echo "B2C API:        http://localhost:8002/docs"
 	@echo "PostgreSQL:     localhost:5432"
 
 ##@ Docker Services
@@ -73,8 +74,10 @@ up: ## Start all services (Postgres + Backend)
 	@echo "$(BLUE)Starting services...$(NC)"
 	docker-compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
-	@echo "Backend: http://localhost:8000"
-	@echo "API Docs: http://localhost:8000/docs"
+	@echo "Frontend:     http://localhost:3000"
+	@echo "B2B API:      http://localhost:8000/docs"
+	@echo "Platform API: http://localhost:8001/docs"
+	@echo "B2C API:      http://localhost:8002/docs"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
@@ -88,8 +91,17 @@ build: ## Build/rebuild Docker images
 	docker-compose build --no-cache
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
-logs: ## View backend logs (follow mode)
-	docker-compose logs -f backend
+logs: ## View all backend API logs (follow mode)
+	docker-compose logs -f b2b-api platform-api b2c-api
+
+logs-b2b: ## View B2B API logs
+	docker-compose logs -f b2b-api
+
+logs-platform: ## View Platform API logs
+	docker-compose logs -f platform-api
+
+logs-b2c: ## View B2C API logs
+	docker-compose logs -f b2c-api
 
 logs-all: ## View all service logs (follow mode)
 	docker-compose logs -f
@@ -166,15 +178,26 @@ frontend-build: ## Build frontend for production
 
 ##@ Development
 
-dev: ## Start full development environment (backend + frontend)
+up-backend: ## Start only backend services (for local frontend dev)
+	@echo "$(BLUE)Starting backend services...$(NC)"
+	docker-compose up -d postgres b2b-api platform-api b2c-api
+	@echo "$(GREEN)✓ Backend services started$(NC)"
+
+dev: ## Start full development environment (backend docker + frontend local)
 	@echo "$(BLUE)Starting development environment...$(NC)"
-	@$(MAKE) up
+	@$(MAKE) up-backend
 	@sleep 3
 	@echo "$(BLUE)Backend started, now starting frontend...$(NC)"
 	@$(MAKE) frontend-start
 
-shell: ## Open shell in backend container
-	docker-compose exec backend /bin/bash
+shell-b2b: ## Open shell in B2B API container
+	docker-compose exec b2b-api /bin/bash
+
+shell-platform: ## Open shell in Platform API container
+	docker-compose exec platform-api /bin/bash
+
+shell-b2c: ## Open shell in B2C API container
+	docker-compose exec b2c-api /bin/bash
 
 clean: ## Clean up containers, volumes, and build artifacts
 	@echo "$(BLUE)Cleaning up...$(NC)"

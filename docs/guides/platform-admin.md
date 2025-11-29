@@ -85,19 +85,17 @@ You should see: `platform_tenant`, `platform_roles`, `platform_users`, `platform
 
 ### Step 3: Seed Platform Foundation
 
-Run the seeding script to create the platform tenant record and default roles.
+Interactive wizard to create the platform tenant record and default roles:
 
 ```bash
-make seed-system-tenant
+make platform-seed
 ```
 
-**Interactive prompts:**
-```
-Enter Firebase Tenant ID from GCIP: platform-abc123
-Enter OIDC Provider ID (default 'system-oidc'): oidc.okta
-Enter Tenant Name (default 'SaaS Platform System'): My SaaS Platform
-Enter Domain (default 'system.local'): mycompany.com
-```
+**Prompts:**
+- **Firebase Tenant ID**: Enter the tenant ID from GCIP (e.g., `platform-abc123`)
+- **OIDC Provider ID**: Enter your configured provider ID (e.g., `oidc.okta`)
+- **Platform Name**: Your platform name (default: `SaaS Platform`)
+- **Email Domain**: Your company email domain (default: `platform.local`)
 
 **Expected Output:**
 ```
@@ -120,21 +118,6 @@ docker compose exec -T postgres psql -U sso_user -d sso_db -c "SELECT name, disp
 
 ### Step 4: Create Platform Admin User
 
-Create your first platform administrator.
-
-```bash
-make create-platform-admin
-```
-
-**Interactive prompts:**
-```
-Enter Email Address: admin@mycompany.com
-Enter Display Name (press Enter to use email): John Doe
-```
-
-**Expected Output:**
-```
-✅ Found platform tenant: My SaaS Platform
    Firebase Tenant ID: platform-abc123
 
 ✅ Found platform role: Platform Administrator

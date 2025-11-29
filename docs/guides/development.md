@@ -25,21 +25,40 @@ make setup
 # Edit .env, backend/.env, frontend/.env
 # Add Firebase credentials to secrets/firebase-credentials.json
 
-# 3. Start services
-make up
+# IMPORTANT: Set frontend API URLs in frontend/.env
+REACT_APP_API_URL=http://localhost:8000
+REACT_APP_PLATFORM_API_URL=http://localhost:8001
+
+# 3. Start all services
+make up          # Starts all backend APIs + frontend in Docker
+# OR for local frontend development:
+make dev         # Starts backend in Docker + frontend locally
 
 # 4. Run migrations
 make migrate
-
-# 5. Start frontend (new terminal)
-cd frontend && npm start
 ```
 
+**Development Workflows:**
+
+1. **Full Docker Stack** (`make up`):
+   - All services run in Docker containers
+   - Frontend: http://localhost:3000 (Dockerized)
+   - Slower hot-reload for frontend changes
+
+2. **Hybrid Development** (`make dev`) - **Recommended**:
+   - Backend APIs run in Docker
+   - Frontend runs locally with fast hot-reload
+   - Best for frontend development
+
+3. **Backend Only** (`make up-backend`):
+   - Only starts backend services (no frontend container)
+   - Use if you want to run frontend separately
+
 **Access:**
+- **Frontend**: http://localhost:3000
 - **B2B API**: http://localhost:8000/docs
 - **Platform API**: http://localhost:8001/docs
 - **B2C API**: http://localhost:8002/docs
-- **Frontend**: http://localhost:3000
 
 ---
 
@@ -126,14 +145,81 @@ docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
 
 ---
 
-## Tenant Provisioning (CLI)
+## Platform Administration (CLI)
 
-### Full Setup (First Time)
+### Setup Platform Tenant
 
-Creates Firebase tenant + OIDC + DB records:
+Interactive wizard for creating the platform admin system:
 
 ```bash
-docker-compose exec backend python -m cli.tenant_cli create \
+make platform-seed
+```
+
+**Prompts for:**
+- Firebase Tenant ID (default: `platform-system`)
+- OIDC Provider ID (default: `platform-oidc`)
+- Platform Name (default: `SaaS Platform`)
+- Email Domain (default: `platform.local`)
+
+**Creates:**
+- Platform tenant record
+- Platform roles (Platform Administrator, Support Staff, Billing Manager)
+
+### Create Platform Admin User
+
+Interactive wizard for creating platform administrators:
+
+```bash
+make platform-create-admin
+```
+
+**Prompts for:**
+- Email (must use configured Firebase tenant)
+- Display Name (optional)
+
+**Creates:**
+- Firebase user in platform tenant
+- Platform admin record in database
+
+**Access:** http://localhost:3000/platform-login
+
+---
+
+## B2B Tenant Provisioning (CLI)
+
+### Create Customer Tenant (Interactive)
+
+Interactive wizard for creating B2B customer tenants:
+
+```bash
+make b2b-seed
+```
+
+**Prompts for:**
+- Firebase Tenant ID (existing tenant from GCIP)
+- OIDC Provider ID (configured in Firebase)
+- Company Name
+- Domain (e.g., `acme.com`)
+- Admin Email
+
+**Creates:**
+- Tenant record in database
+- RBAC roles (admin, field_manager, field_agent)
+- Admin invitation email
+- Activation token (48-hour expiry)
+
+**Activation Flow:**
+1. Admin receives email with activation link
+2. Admin visits link: http://localhost:3000/activate/{token}
+3. Admin logs in via SSO
+4. Account activated
+
+### Alternative: Full Automation
+
+For production use, create tenant with full Firebase automation:
+
+```bash
+docker-compose exec b2b-api python /app/scripts/b2b/tenant_cli.py create \
   --company "Acme Corp" \
   --domain "acme.com" \
   --admin-email "admin@acme.com" \
@@ -143,42 +229,7 @@ docker-compose exec backend python -m cli.tenant_cli create \
   --oidc-issuer "https://acme.auth0.com"
 ```
 
-**Output:** Firebase tenant ID, OIDC provider ID, activation URL
-
-**Save the Firebase tenant ID for testing!**
-
-### Quick Testing Mode
-
-Reuses existing Firebase tenant (fast):
-
-```bash
-docker-compose exec backend python -m cli.tenant_cli create-local \
-  --firebase-tenant-id "AcmeCorp-abc123" \
-  --oidc-provider-id "oidc.auth0" \
-  --company "Acme Test" \
-  --domain "acme-test.com" \
-  --admin-email "admin@acme-test.com"
-```
-
-**Use Case:** Repeated testing without creating Firebase tenants
-
-### Interactive Workflow
-
-```bash
-# Reset DB and create tenant in one command
-make reset-db
-
-# Prompts for:
-# - Create tenant? (y/n)
-# - Firebase Tenant ID
-# - OIDC Provider ID
-# - Company, Domain, Email
-```
-
----
-
-## Testing & Verification
-
+**Note:** This creates both the Firebase tenant AND the database record.
 ### 1. Platform Admin Testing (Super Admin)
 
 Testing the isolated SaaS management system.
@@ -446,7 +497,9 @@ REACT_APP_FIREBASE_STORAGE_BUCKET=xxx
 REACT_APP_FIREBASE_MESSAGING_SENDER_ID=xxx
 REACT_APP_FIREBASE_APP_ID=xxx
 
-# Backend API
+# Backend API URLs (IMPORTANT: Must use localhost, not Docker hostnames)
+REACT_APP_API_URL=http://localhost:8000          # B2B API
+REACT_APP_PLATFORM_API_URL=http://localhost:8001 # Platform API
 REACT_APP_API_URL=http://localhost:8000
 ```
 
@@ -533,16 +586,36 @@ make migrate
 # Don't set RESEND_API_KEY
 # Emails will print to console
 # Look for boxed output with activation URL
+## Debugging & Troubleshooting
+
+### View Logs
+
+**All Backend APIs:**
+```bash
+make logs              # View all backend API logs (B2B, Platform, B2C)
+```
+
+**Individual Services:**
+```bash
+make logs-b2b          # B2B API only
+make logs-platform     # Platform API only
+make logs-b2c          # B2C API only
+make logs-all          # All services including frontend
+```
+
+### Access Container Shell
+
+```bash
+make shell-b2b         # B2B API container
+make shell-platform    # Platform API container
+make shell-b2c         # B2C API container
 ```
 
 ### Debug Firebase authentication
 
 ```bash
-# Check token in backend logs
-docker-compose logs backend | grep "verify_id_token"
-
 # Check user sync
-docker-compose logs backend | grep "sync-user"
+make logs-b2b | grep "sync-user"
 ```
 
 ### Clean up test data

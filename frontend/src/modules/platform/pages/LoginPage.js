@@ -21,10 +21,9 @@ function PlatformLogin() {
 
             // Fetch platform configuration
             try {
-                // We use direct fetch here to avoid circular dependencies or auth header issues
-                // Assuming backend is at localhost:8000 for dev environment
-                const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-                const response = await fetch(`${API_URL}/api/platform/config`);
+                // Use platform API (port 8001) not B2B API (port 8000)
+                const PLATFORM_API_URL = process.env.REACT_APP_PLATFORM_API_URL || 'http://localhost:8001';
+                const response = await fetch(`${PLATFORM_API_URL}/api/platform/config`);
 
                 if (!response.ok) {
                     throw new Error('Failed to load platform configuration');
