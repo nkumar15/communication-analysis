@@ -54,6 +54,19 @@ setup: ## Initial project setup (create .env files, install dependencies)
 	@echo "  2. Place Firebase credentials in secrets/firebase-credentials.json"
 	@echo "  3. Run 'make up' to start services"
 
+status: ## Show status of all services and configuration
+	@echo "$(BLUE)=== Service Status ===$(NC)"
+	@$(MAKE) ps
+	@echo ""
+	@echo "$(BLUE)=== Environment Files ===$(NC)"
+	@$(MAKE) test-env
+	@echo ""
+	@echo "$(BLUE)=== URLs ===$(NC)"
+	@echo "Backend API:    http://localhost:8000"
+	@echo "API Docs:       http://localhost:8000/docs"
+	@echo "Frontend:       http://localhost:3000"
+	@echo "PostgreSQL:     localhost:5432"
+
 ##@ Docker Services
 
 up: ## Start all services (Postgres + Backend)
@@ -84,17 +97,13 @@ logs-all: ## View all service logs (follow mode)
 ps: ## List running services
 	docker-compose ps
 
+
 ##@ Database
 
 migrate: ## Run database migrations
 	@echo "Running migrations... "
 	docker-compose exec backend python app/migrations/run_migrations.py
 	@echo "✓ Migrations complete"
-
-tenant-create-local: ## Create a local test tenant (interactive)
-	@echo "$(BLUE)Creating local tenant...$(NC)"
-	docker-compose exec -it backend python -m cli.tenant_cli create-local
-	@echo "$(GREEN)✓ Tenant created$(NC)"
 
 db-shell: ## Open PostgreSQL shell
 	docker-compose exec postgres psql -U sso_user -d sso_db
@@ -119,75 +128,29 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	esac
 
 
-seed-system-tenant: ## Seed System Tenant and Platform Admin role (interactive)
-	@echo "$(BLUE)=== SaaS Admin Console - System Tenant Setup ===$(NC)"
-	@echo ""
-	@printf "$(YELLOW)Enter Firebase Tenant ID from GCIP: $(NC)"; \
-	read TENANT_ID; \
-	if [ -z "$$TENANT_ID" ]; then \
-		echo "$(YELLOW)No input provided, using default: system-platform$(NC)"; \
-		TENANT_ID="system-platform"; \
-	fi; \
-	printf "$(YELLOW)Enter OIDC Provider ID (press Enter for default 'system-oidc'): $(NC)"; \
-	read OIDC_PROVIDER; \
-	if [ -z "$$OIDC_PROVIDER" ]; then \
-		OIDC_PROVIDER="system-oidc"; \
-	fi; \
-	printf "$(YELLOW)Enter Tenant Name (press Enter for default 'SaaS Platform System'): $(NC)"; \
-	read TENANT_NAME; \
-	if [ -z "$$TENANT_NAME" ]; then \
-		TENANT_NAME="SaaS Platform System"; \
-	fi; \
-	printf "$(YELLOW)Enter Domain (press Enter for default 'system.local'): $(NC)"; \
-	read DOMAIN; \
-	if [ -z "$$DOMAIN" ]; then \
-		DOMAIN="system.local"; \
-	fi; \
-	echo ""; \
-	echo "$(GREEN)Using Configuration:$(NC)"; \
-	echo "  Firebase Tenant ID: $$TENANT_ID"; \
-	echo "  OIDC Provider:      $$OIDC_PROVIDER"; \
-	echo "  Tenant Name:        $$TENANT_NAME"; \
-	echo "  Domain:             $$DOMAIN"; \
-	echo ""; \
-	docker-compose exec backend python scripts/seed_system_tenant.py \
-		--firebase-tenant-id "$$TENANT_ID" \
-		--oidc-provider "$$OIDC_PROVIDER" \
-		--name "$$TENANT_NAME" \
-		--domain "$$DOMAIN"
-	@echo "$(GREEN)✓ System Tenant seeded$(NC)"
+b2b-seed: ## Seed B2B Tenant (interactive)
+	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
+	@python3 -m backend.scripts.b2b.tenant_cli create-local
 
-create-platform-admin: ## Create platform admin user (interactive)
-	@echo "$(BLUE)=== Create Platform Admin User ===$(NC)"
-	@echo ""
-	@printf "$(YELLOW)Enter Email Address: $(NC)"; \
-	read EMAIL; \
-	if [ -z "$$EMAIL" ]; then \
-		echo "$(YELLOW)ERROR: Email is required$(NC)"; \
-		exit 1; \
-	fi; \
-	printf "$(YELLOW)Enter Display Name (press Enter to use email): $(NC)"; \
-	read NAME; \
-	echo ""; \
-	echo "$(GREEN)Creating Platform Admin:$(NC)"; \
-	echo "  Email: $$EMAIL"; \
-	if [ -z "$$NAME" ]; then \
-		echo "  Name:  (using email username)"; \
-		docker-compose exec backend python scripts/create_platform_admin.py --email "$$EMAIL"; \
-	else \
-		echo "  Name:  $$NAME"; \
-		docker-compose exec backend python scripts/create_platform_admin.py --email "$$EMAIL" --name "$$NAME"; \
-	fi
-	@echo "$(GREEN)✓ Platform Admin created$(NC)"
+platform-create-admin: ## Create Platform Admin User
+	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
+	@python3 -m backend.scripts.platform.create_platform_admin
 
+platform-seed: ## Seed System Tenant (Platform)
+	@echo "$(BLUE)Seeding System Tenant...$(NC)"
+	@python3 -m backend.scripts.platform.seed_system_tenant
 
-setup-saas-admin: seed-system-tenant ## Setup SaaS Admin Console (run after initial setup)
+setup-saas-admin: platform-seed ## Setup SaaS Admin Console (run after initial setup)
 	@echo "$(BLUE)SaaS Admin Console Setup$(NC)"
 	@echo "$(YELLOW)Step 1/2: System Tenant seeded$(NC)"
 	@echo "$(YELLOW)Step 2/2: Create platform admin user$(NC)"
-	@echo "$(YELLOW)Run: make create-platform-admin EMAIL=your-email@company.com$(NC)"
+	@echo "$(YELLOW)Run: make platform-create-admin EMAIL=your-email@company.com$(NC)"
 	@echo "$(GREEN)✓ Setup ready for platform admin creation$(NC)"
 
+b2b-create-local: ## Create a local test tenant (interactive)
+	@echo "$(BLUE)Creating local tenant...$(NC)"
+	docker-compose exec -it backend python -m scripts.b2b.tenant_cli create-local
+	@echo "$(GREEN)✓ Tenant created$(NC)"
 
 ##@ Frontend
 
@@ -236,16 +199,26 @@ clean-all: clean ## Complete cleanup including node_modules
 
 ##@ Testing & Validation
 
-e2e-test: ## Run E2E API integration tests
-	@echo "$(BLUE)Running E2E API integration tests...$(NC)"
-	docker-compose exec backend python -m pytest tests/integration tests/security -v
-	@echo "$(GREEN)✓ E2E tests complete$(NC)"
+test: ## Run all tests (alias for test-integration)
+	@$(MAKE) test-integration
 
-e2e-test-coverage: ## Run E2E tests with coverage report
-	@echo "$(BLUE)Running E2E tests with coverage...$(NC)"
-	docker-compose exec backend python -m pytest tests/integration tests/security -v --cov=app --cov-report=html --cov-report=term
+test-api: ## Run all backend integration tests
+	docker-compose exec backend pytest tests/e2e_api/
 
-e2e-browser: ## Run E2E browser tests
+test-platform-api: ## Run Platform tests
+	docker-compose exec backend pytest tests/e2e_api/platform/
+
+test-b2b-api: ## Run B2B tests
+	docker-compose exec backend pytest tests/e2e_api/b2b/
+
+test-core-api: ## Run Core tests
+	docker-compose exec backend pytest tests/e2e_api/core/
+
+test-coverage: ## Run tests with coverage report
+	@echo "$(BLUE)Running tests with coverage...$(NC)"
+	docker-compose exec backend python -m pytest tests/ -v --cov=app --cov-report=html --cov-report=term
+
+test-browser: ## Run E2E browser tests
 	@echo "$(BLUE)Running E2E browser tests...$(NC)"
 	@echo "$(YELLOW)Starting services...$(NC)"
 	docker-compose up -d
@@ -256,23 +229,20 @@ e2e-browser: ## Run E2E browser tests
 
 test-invitation: ## Run invitation flow tests only
 	@echo "$(BLUE)Testing invitation flow...$(NC)"
-	docker-compose exec backend python -m pytest tests/integration/test_invitation_flow.py -v
+	docker-compose exec backend python -m pytest tests/b2b/test_invitation_flow.py -v
 
 test-activation: ## Run activation flow tests only
 	@echo "$(BLUE)Testing activation flow...$(NC)"
-	docker-compose exec backend python -m pytest tests/integration/test_activation_flow.py -v
+	docker-compose exec backend python -m pytest tests/b2b/test_activation_flow.py -v
 
 test-security: ## Run security tests only
 	@echo "$(BLUE)Running security tests...$(NC)"
-	docker-compose exec backend python -m pytest tests/security -v
+	docker-compose exec backend python -m pytest tests/platform/test_platform_security.py -v
 
 test-install: ## Install test dependencies in backend container
 	@echo "$(BLUE)Installing test dependencies...$(NC)"
 	docker-compose exec backend pip install -r requirements-test.txt
 	@echo "$(GREEN)✓ Test dependencies installed$(NC)"
-
-test-backend: ## Run all backend tests (alias for e2e-test)
-	@$(MAKE) e2e-test
 
 test-env: ## Validate environment configuration
 	@echo "$(BLUE)Checking environment configuration...$(NC)"
@@ -283,16 +253,3 @@ test-env: ## Validate environment configuration
 			echo "$(YELLOW)✗ $$file missing$(NC)"; \
 		fi \
 	done
-
-status: ## Show status of all services and configuration
-	@echo "$(BLUE)=== Service Status ===$(NC)"
-	@$(MAKE) ps
-	@echo ""
-	@echo "$(BLUE)=== Environment Files ===$(NC)"
-	@$(MAKE) test-env
-	@echo ""
-	@echo "$(BLUE)=== URLs ===$(NC)"
-	@echo "Backend API:    http://localhost:8000"
-	@echo "API Docs:       http://localhost:8000/docs"
-	@echo "Frontend:       http://localhost:3000"
-	@echo "PostgreSQL:     localhost:5432"

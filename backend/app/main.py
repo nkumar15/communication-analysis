@@ -1,12 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.config import settings
-from app.database import init_db, close_db
-from app.services.firebase_auth import firebase_auth_service
-from app.routers import auth, activation, invitations, users, roles, farmers, platform
+from core.config import settings
+from core.database import init_db, close_db
+from core.utils.firebase import firebase_auth_service
 
+# Import routers from services
+from services.b2b.routers import auth, activation, invitations, users, roles
+from services.domains.farming.routers import farmers
+from services.platform.routers import platform
 
+# ... (lifespan and app creation) ...
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""

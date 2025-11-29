@@ -1,22 +1,22 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from './components/LoginPage';
-import DashboardPage from './components/DashboardPage';
-import ActivationPage from './components/ActivationPage';
-import InvitationsPage from './components/InvitationsPage';
-import InvitationAcceptPage from './components/InvitationAcceptPage';
-import ProtectedRoute from './components/ProtectedRoute';
-import firebaseAuthService from './services/firebaseAuthService';
-import { auth } from './firebase-config';
-import RoleManagementPage from './components/RoleManagementPage';
-import FarmerManagementPage from './components/FarmerManagementPage';
-import PlatformAdminRoute from './components/PlatformAdminRoute';
-import SuperAdminLayout from './layouts/SuperAdminLayout';
-import TenantList from './pages/super-admin/TenantList';
-import Dashboard from './pages/super-admin/Dashboard';
-import PlatformLogin from './components/PlatformLogin';
+import LoginPage from './modules/b2b/pages/LoginPage';
+import DashboardPage from './modules/b2b/pages/DashboardPage';
+import ActivationPage from './modules/b2b/pages/ActivationPage';
+import InvitationsPage from './modules/b2b/pages/InvitationsPage';
+import InvitationAcceptPage from './modules/b2b/pages/InvitationAcceptPage';
+import ProtectedRoute from './core/components/ProtectedRoute';
+import firebaseAuthService from './core/firebase/authService';
+import { auth } from './core/firebase/config';
+import RoleManagementPage from './modules/b2b/pages/RoleManagementPage';
+import FarmerManagementPage from './modules/domains/farming/pages/FarmerManagementPage';
+import PlatformAdminRoute from './core/components/PlatformAdminRoute';
+import SuperAdminLayout from './modules/platform/layouts/SuperAdminLayout';
+import TenantList from './modules/platform/pages/TenantListPage';
+import Dashboard from './modules/platform/pages/DashboardPage';
+import PlatformLogin from './modules/platform/pages/LoginPage';
 
-import apiService from './services/api';
+import apiService from './core/api/b2bClient';
 import './styles/main.css';
 
 function App() {

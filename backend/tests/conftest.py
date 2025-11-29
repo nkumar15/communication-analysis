@@ -13,9 +13,9 @@ import secrets
 
 # Import app components
 from app.main import app
-from app.database import get_db
-from app.db_models import Base
-from app.config import settings
+from core.database import get_db
+from core.models.base import Base
+from core.config import settings
 
 
 # Test database URL (shared connection)
@@ -58,10 +58,10 @@ async def api_client(db_session):
         yield db_session
     
     # Override auth dependency to verify mock tokens
-    from app.middleware.auth import get_current_user, bearer_scheme
+    from core.middleware.auth import get_current_user, bearer_scheme
     from fastapi import Depends, HTTPException, status
     from fastapi.security import HTTPAuthorizationCredentials
-    import json
+    import json 
     import base64
     
     async def override_get_current_user(
@@ -98,6 +98,74 @@ async def api_client(db_session):
         yield client
     
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def platform_admin_setup(db_session: AsyncSession):
+    """Setup System Tenant, Platform Admin Role, and User"""
+    from sqlalchemy import select
+    from services.platform.models import PlatformTenant, PlatformRole, PlatformUser
+    from core.constants import RoleName
+    
+    # 1. Check/Create System Tenant (PlatformTenant)
+    # Check for ANY existing platform tenant due to singleton constraint
+    result = await db_session.execute(select(PlatformTenant))
+    system_tenant = result.scalars().first()
+    
+    if not system_tenant:
+        system_tenant = PlatformTenant(
+            name="System Tenant",
+            firebase_tenant_id="system-platform",
+            oidc_provider_id="oidc.generic",
+            is_active=True
+        )
+        db_session.add(system_tenant)
+        await db_session.flush()
+    
+    # 2. Check/Create Platform Admin Role
+    result = await db_session.execute(
+        select(PlatformRole)
+        .where(PlatformRole.platform_tenant_id == system_tenant.id)
+        .where(PlatformRole.name == RoleName.PLATFORM_ADMIN)
+    )
+    role = result.scalar_one_or_none()
+    
+    if not role:
+        role = PlatformRole(
+            platform_tenant_id=system_tenant.id,
+            name=RoleName.PLATFORM_ADMIN,
+            display_name="Platform Admin",
+            is_system_role=True
+        )
+        db_session.add(role)
+        await db_session.flush()
+    
+    # 3. Check/Create Platform Admin User
+    result = await db_session.execute(
+        select(PlatformUser).where(PlatformUser.email == "admin@system.local")
+    )
+    admin_user = result.scalar_one_or_none()
+    
+    if not admin_user:
+        admin_user = PlatformUser(
+            platform_tenant_id=system_tenant.id,
+            platform_role_id=role.id,
+            email="admin@system.local",
+            firebase_uid=f"firebase-admin-{uuid4().hex}",
+            display_name="Platform Admin",
+            is_active=True
+        )
+        db_session.add(admin_user)
+        await db_session.flush()
+    
+    return {
+        "tenant": system_tenant,
+        "user": admin_user,
+        "token": encode_mock_jwt(create_mock_firebase_token(
+            uid=admin_user.firebase_uid,
+            email=admin_user.email
+        ))
+    }
 
 
 # Helper functions (not fixtures - just plain functions)
@@ -146,7 +214,7 @@ async def create_test_tenant(
     activation_status: str = "active"
 ):
     """Create a test tenant"""
-    from app.db_models import TenantModel
+    from services.b2b.models import TenantModel
     
     if domain == "test.com":
         domain = f"test-{uuid4().hex[:8]}.com"
@@ -180,7 +248,7 @@ async def create_platform_tenant(
     oidc_provider_id: str = None
 ):
     """Create the platform tenant (singleton) - Idempotent"""
-    from app.db_models import PlatformTenant, PlatformRole
+    from services.platform.models import PlatformTenant, PlatformRole
     from sqlalchemy import select
     
     # Check if exists (singleton)
@@ -229,7 +297,7 @@ async def create_platform_user(
     name: str = None
 ):
     """Create a platform user - Idempotent"""
-    from app.db_models import PlatformUser, PlatformRole
+    from services.platform.models import PlatformUser, PlatformRole
     from sqlalchemy import select
     
     # Check if exists
@@ -274,8 +342,8 @@ async def create_test_user(
     name: str = None
 ):
     """Create a test user"""
-    from app.db_models import UserModel
-    from app.rbac_models import Role
+    from services.b2b.models import UserModel
+    from services.b2b.models.rbac import Role
     from sqlalchemy import select
     
     # Get role by slug
@@ -307,7 +375,7 @@ async def create_test_invitation(
     expires_in_days: int = 7
 ):
     """Create a test invitation"""
-    from app.db_models import InvitationModel
+    from services.b2b.models import InvitationModel
     
     invitation = InvitationModel(
         tenant_id=tenant_id,
