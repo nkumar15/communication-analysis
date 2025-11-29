@@ -51,8 +51,9 @@ setup: ## Initial project setup (create .env files, install dependencies)
 	@echo "$(GREEN)✓ Setup complete!$(NC)"
 	@echo "$(BLUE)Next steps:$(NC)"
 	@echo "  1. Edit .env, backend/.env, and frontend/.env"
-	@echo "  2. Place Firebase credentials in secrets/firebase-credentials.json"
-	@echo "  3. Run 'make up' to start services"
+	@echo "  2. Set REACT_APP_API_URL and REACT_APP_PLATFORM_API_URL in frontend/.env"
+	@echo "  3. Place Firebase credentials in secrets/firebase-credentials.json"
+	@echo "  4. Run 'make up' to start services (or 'make dev' for local frontend)"
 
 status: ## Show status of all services and configuration
 	@echo "$(BLUE)=== Service Status ===$(NC)"
@@ -66,6 +67,7 @@ status: ## Show status of all services and configuration
 	@echo "B2B API:        http://localhost:8000/docs"
 	@echo "Platform API:   http://localhost:8001/docs"
 	@echo "B2C API:        http://localhost:8002/docs"
+	@echo "Domain API:     http://localhost:8003/docs"
 	@echo "PostgreSQL:     localhost:5432"
 
 ##@ Docker Services
@@ -78,6 +80,7 @@ up: ## Start all services (Postgres + Backend)
 	@echo "B2B API:      http://localhost:8000/docs"
 	@echo "Platform API: http://localhost:8001/docs"
 	@echo "B2C API:      http://localhost:8002/docs"
+	@echo "Domain API:   http://localhost:8003/docs"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
@@ -92,7 +95,7 @@ build: ## Build/rebuild Docker images
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
 logs: ## View all backend API logs (follow mode)
-	docker-compose logs -f b2b-api platform-api b2c-api
+	docker-compose logs -f b2b-api platform-api b2c-api domain-api
 
 logs-b2b: ## View B2B API logs
 	docker-compose logs -f b2b-api
@@ -102,6 +105,9 @@ logs-platform: ## View Platform API logs
 
 logs-b2c: ## View B2C API logs
 	docker-compose logs -f b2c-api
+
+logs-domain: ## View Domain API logs
+	docker-compose logs -f domain-api
 
 logs-all: ## View all service logs (follow mode)
 	docker-compose logs -f
@@ -180,7 +186,7 @@ frontend-build: ## Build frontend for production
 
 up-backend: ## Start only backend services (for local frontend dev)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 
 dev: ## Start full development environment (backend docker + frontend local)
@@ -199,6 +205,9 @@ shell-platform: ## Open shell in Platform API container
 shell-b2c: ## Open shell in B2C API container
 	docker-compose exec b2c-api /bin/bash
 
+shell-domain: ## Open shell in Domain API container
+	docker-compose exec domain-api /bin/bash
+
 clean: ## Clean up containers, volumes, and build artifacts
 	@echo "$(BLUE)Cleaning up...$(NC)"
 	docker-compose down -v
@@ -213,24 +222,22 @@ clean-all: clean ## Complete cleanup including node_modules
 
 ##@ Testing & Validation
 
-test: ## Run all tests (alias for test-integration)
-	@$(MAKE) test-integration
+test-api: ## Run all API integration tests
+	@echo "$(BLUE)Running API integration tests...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v
+	@echo "$(GREEN)✓ API tests complete$(NC)"
 
-test-api: ## Run all backend integration tests
-	docker-compose exec backend pytest tests/e2e_api/
+test-platform-api: ## Run Platform API tests
+	@echo "$(BLUE)Running Platform API tests...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/platform/ -v
 
-test-platform-api: ## Run Platform tests
-	docker-compose exec backend pytest tests/e2e_api/platform/
+test-b2b-api: ## Run B2B API tests
+	@echo "$(BLUE)Running B2B API tests...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/ -v
 
-test-b2b-api: ## Run B2B tests
-	docker-compose exec backend pytest tests/e2e_api/b2b/
-
-test-core-api: ## Run Core tests
-	docker-compose exec backend pytest tests/e2e_api/core/
-
-test-coverage: ## Run tests with coverage report
-	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	docker-compose exec backend python -m pytest tests/ -v --cov=app --cov-report=html --cov-report=term
+test-core-api: ## Run Core API tests
+	@echo "$(BLUE)Running Core API tests...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/core/ -v
 
 test-browser: ## Run E2E browser tests
 	@echo "$(BLUE)Running E2E browser tests...$(NC)"
@@ -238,25 +245,14 @@ test-browser: ## Run E2E browser tests
 	docker-compose up -d
 	@echo "$(YELLOW)Waiting for services to be ready...$(NC)"
 	@sleep 10
-	docker-compose run --rm e2e-tests
+	docker-compose run --rm e2e-tests pytest tests/e2e_browser/ -v
 	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
 
-test-invitation: ## Run invitation flow tests only
-	@echo "$(BLUE)Testing invitation flow...$(NC)"
-	docker-compose exec backend python -m pytest tests/b2b/test_invitation_flow.py -v
-
-test-activation: ## Run activation flow tests only
-	@echo "$(BLUE)Testing activation flow...$(NC)"
-	docker-compose exec backend python -m pytest tests/b2b/test_activation_flow.py -v
-
-test-security: ## Run security tests only
-	@echo "$(BLUE)Running security tests...$(NC)"
-	docker-compose exec backend python -m pytest tests/platform/test_platform_security.py -v
-
-test-install: ## Install test dependencies in backend container
-	@echo "$(BLUE)Installing test dependencies...$(NC)"
-	docker-compose exec backend pip install -r requirements-test.txt
-	@echo "$(GREEN)✓ Test dependencies installed$(NC)"
+test-all: ## Run all tests (API + Browser)
+	@echo "$(BLUE)Running all tests...$(NC)"
+	@$(MAKE) test-api
+	@$(MAKE) test-browser
+	@echo "$(GREEN)✓ All tests complete$(NC)"
 
 test-env: ## Validate environment configuration
 	@echo "$(BLUE)Checking environment configuration...$(NC)"

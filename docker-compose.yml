@@ -79,6 +79,27 @@ services:
         condition: service_healthy
     command: uvicorn services.b2c.main:app --host 0.0.0.0 --port 8002 --reload
 
+  #  Domain Microservice - Domain Logic
+  domain-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: domain
+    container_name: sso_domain_api
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn services.domains.main:app --host 0.0.0.0 --port 8003 --reload
+
   frontend:
     build:
       context: ./frontend

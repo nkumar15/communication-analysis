@@ -95,11 +95,26 @@ CMD ["uvicorn", "services.platform.main:app", "--host", "0.0.0.0", "--port", "80
 FROM base AS b2c
 USER appuser
 COPY --from=builder /install /usr/local
-COPY --chown=appuser:appuser core /app/core
-COPY --chown=appuser:appuser services/b2c /app/services/b2c
-COPY --chown=appuser:appuser migrations /app/migrations
+# Copy code
+COPY core/ /app/core/
+COPY services/b2c/ /app/services/b2c/
+COPY services/__init__.py /app/services/
+WORKDIR /app
 EXPOSE 8002
 CMD ["uvicorn", "services.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
+
+# --- Domain Microservice ---
+FROM base AS domain
+USER appuser
+# Copy installed deps from builder
+COPY --from=builder /install /usr/local
+# Copy code
+COPY core/ /app/core/
+COPY services/domains/ /app/services/domains/
+COPY services/__init__.py /app/services/
+WORKDIR /app
+EXPOSE 8003
+CMD ["uvicorn", "services.domains.main:app", "--host", "0.0.0.0", "--port", "8003"]
 
 # ==========================================
 # 5. Test Runner Stage (Development)
