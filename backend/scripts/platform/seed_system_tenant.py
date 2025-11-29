@@ -117,12 +117,10 @@ def main():
     )
     parser.add_argument(
         "--firebase-tenant-id",
-        default="platform-system",
         help="Firebase Tenant ID for platform (from GCIP)"
     )
     parser.add_argument(
         "--oidc-provider",
-        default="platform-oidc",
         help="OIDC Provider ID"
     )
     parser.add_argument(
@@ -138,11 +136,39 @@ def main():
     
     args = parser.parse_args()
     
+    # Interactive mode
+    firebase_tenant_id = args.firebase_tenant_id
+    oidc_provider = args.oidc_provider
+    name = args.name
+    domain = args.domain
+    
+    if not firebase_tenant_id:
+        print("🌱 Enter Platform Tenant Details:")
+        firebase_tenant_id = input("   Firebase Tenant ID [platform-system]: ").strip() or "platform-system"
+        
+        oidc_input = input("   OIDC Provider ID [platform-oidc]: ").strip()
+        if oidc_input:
+            oidc_provider = oidc_input
+        else:
+            oidc_provider = "platform-oidc"
+            
+        name_input = input("   Platform Name [SaaS Platform]: ").strip()
+        if name_input:
+            name = name_input
+            
+        domain_input = input("   Email Domain [platform.local]: ").strip()
+        if domain_input:
+            domain = domain_input
+    
+    # Ensure defaults if non-interactive but args missing
+    if not oidc_provider:
+        oidc_provider = "platform-oidc"
+
     asyncio.run(seed_platform_system(
-        firebase_tenant_id=args.firebase_tenant_id,
-        oidc_provider_id=args.oidc_provider,
-        platform_name=args.name,
-        email_domain=args.domain
+        firebase_tenant_id=firebase_tenant_id,
+        oidc_provider_id=oidc_provider,
+        platform_name=name,
+        email_domain=domain
     ))
 
 if __name__ == "__main__":

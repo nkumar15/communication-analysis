@@ -102,7 +102,7 @@ ps: ## List running services
 
 migrate: ## Run database migrations
 	@echo "Running migrations... "
-	docker-compose exec backend python app/migrations/run_migrations.py
+	docker-compose exec platform-api python /app/migrations/run_migrations.py
 	@echo "✓ Migrations complete"
 
 db-shell: ## Open PostgreSQL shell
@@ -116,9 +116,12 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 		[Yy]*) \
 			docker-compose down -v; \
 			docker-compose up -d postgres; \
+			docker-compose up -d platform-api; \
+			docker-compose up -d b2b-api; \
+			docker-compose up -d b2c-api; \
+			docker-compose up -d frontend; \
+			docker-compose up -d e2e-tests; \
 			sleep 5; \
-			docker-compose up -d backend; \
-			sleep 3; \
 			$(MAKE) migrate; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
 			;; \
@@ -128,29 +131,17 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	esac
 
 
-b2b-seed: ## Seed B2B Tenant (interactive)
-	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@python3 -m backend.scripts.b2b.tenant_cli create-local
+platform-seed: ## Seed System Tenant (Platform)
+	@echo "$(BLUE)Seeding System Tenant...$(NC)"
+	@docker-compose exec platform-api python /app/scripts/platform/seed_system_tenant.py
 
 platform-create-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
-	@python3 -m backend.scripts.platform.create_platform_admin
+	@docker-compose exec platform-api python /app/scripts/platform/create_platform_admin.py
 
-platform-seed: ## Seed System Tenant (Platform)
-	@echo "$(BLUE)Seeding System Tenant...$(NC)"
-	@python3 -m backend.scripts.platform.seed_system_tenant
-
-setup-saas-admin: platform-seed ## Setup SaaS Admin Console (run after initial setup)
-	@echo "$(BLUE)SaaS Admin Console Setup$(NC)"
-	@echo "$(YELLOW)Step 1/2: System Tenant seeded$(NC)"
-	@echo "$(YELLOW)Step 2/2: Create platform admin user$(NC)"
-	@echo "$(YELLOW)Run: make platform-create-admin EMAIL=your-email@company.com$(NC)"
-	@echo "$(GREEN)✓ Setup ready for platform admin creation$(NC)"
-
-b2b-create-local: ## Create a local test tenant (interactive)
-	@echo "$(BLUE)Creating local tenant...$(NC)"
-	docker-compose exec -it backend python -m scripts.b2b.tenant_cli create-local
-	@echo "$(GREEN)✓ Tenant created$(NC)"
+b2b-seed: ## Seed B2B Tenant (interactive)
+	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_cli.py create-local
 
 ##@ Frontend
 

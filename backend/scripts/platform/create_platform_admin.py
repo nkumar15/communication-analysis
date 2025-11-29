@@ -23,7 +23,7 @@ from sqlalchemy.orm import sessionmaker
 
 from services.platform.models import PlatformTenant, PlatformRole, PlatformUser
 from core.config import settings
-from core.firebase.auth_service import firebase_auth_service
+from core.utils.firebase import firebase_auth_service
 import firebase_admin
 from firebase_admin import auth, tenant_mgt
 
@@ -150,7 +150,6 @@ def main():
     )
     parser.add_argument(
         "--email",
-        required=True,
         help="Email address for the platform user"
     )
     parser.add_argument(
@@ -165,10 +164,29 @@ def main():
     
     args = parser.parse_args()
     
+    # Interactive mode if email not provided
+    email = args.email
+    name = args.name
+    role = args.role
+    
+    if not email:
+        print("📝 Enter Platform Admin Details:")
+        email = input("   Email: ").strip()
+        if not email:
+            print("❌ Email is required!")
+            sys.exit(1)
+            
+        if not name:
+            name_input = input(f"   Name [{email.split('@')[0]}]: ").strip()
+            if name_input:
+                name = name_input
+                
+        # Optional: prompt for role if needed, but default is usually fine
+    
     asyncio.run(create_platform_admin(
-        email=args.email,
-        name=args.name,
-        role_name=args.role
+        email=email,
+        name=name,
+        role_name=role
     ))
 
 if __name__ == "__main__":

@@ -29,7 +29,6 @@ from core.rbac import (
 # Middleware (re-exported from app.middleware)
 from core.middleware import (
     get_current_user,
-    verify_platform_admin,
 )
 
 __all__ = [
@@ -50,5 +49,4 @@ __all__ = [
     "get_user_permissions",
     # Middleware
     "get_current_user",
-    "verify_platform_admin",
 ]

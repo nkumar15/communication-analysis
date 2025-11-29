@@ -9,9 +9,8 @@ Welcome to the documentation hub for the Enterprise SSO project.
 
 - **[Development Guide](./guides/development.md)**: Setup, local development, and coding standards.
 - **[Contributing](./guides/contributing.md)**: Guidelines for submitting PRs and reporting issues.
-- **[SaaS Admin Setup](./guides/admin-setup.md)**: How to configure the SaaS platform for the first time.
 - **[Platform Admin Guide](./guides/platform-admin.md)**: Using the Super Admin Console and platform features.
-- **[Tenant Admin Guide](./guides/admin-guide.md)**: Instructions for tenant administrators.
+- **[Tenant Admin Guide](./guides/tenant-admin.md)**: Instructions for tenant administrators.
 
 ### 🏗️ Architecture
 *Technical design, concepts, and data flows.*

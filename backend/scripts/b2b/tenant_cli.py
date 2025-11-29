@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import AsyncSessionLocal
 from services.b2b.models import TenantModel, UserModel, InvitationModel
-from core.firebase.auth_service import firebase_auth_service
+from core.utils.firebase import firebase_auth_service
 from core.constants import RoleName
 from scripts.core.firebase_admin_cli import create_firebase_tenant, configure_oidc_provider
 from core.email import email_service
