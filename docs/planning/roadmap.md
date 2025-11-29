@@ -55,11 +55,19 @@ All tenant onboarding phases complete! See [Completed Phases](./completed-phases
   - Security isolation from regular tenants
 
 - ✅ **Microservices Architecture** (2025-11-29)
-  - Split backend into 3 independent services (B2B, Platform, B2C)
+  - Split backend into 4 independent services (B2B, Platform, B2C, Domain)
   - Moved migrations to top-level
   - Updated Docker Compose for multi-service deployment
   - Created unified test app for e2e testing
   - All 24 integration tests passing
+
+- ✅ **DevOps Foundation & Docker Optimization** (2025-11-29)
+  - Unified multi-stage Dockerfile (b2b, platform, b2c, domain, test targets)
+  - Fast build caching for development and testing
+  - Interactive setup scripts (platform-seed, platform-create-admin, b2b-seed)
+  - Makefile modernization (logs-*, shell-*, up-backend, dev workflows)
+  - Frontend environment configuration (localhost API URLs)
+  - Comprehensive documentation updates
 
 - ✅ **E2E Browser Testing Infrastructure** (2025-11-28)
   - Playwright integration with Docker
@@ -70,13 +78,13 @@ All tenant onboarding phases complete! See [Completed Phases](./completed-phases
 
 ---
 
-## ⏸️ Deferred Phases
+## ⏭️ Next Priority
 
-### Phase 4: DevOps & Observability (Paused)
-- Multi-stage Dockerfiles
-- CI/CD pipelines
-- Structured logging
-- OpenTelemetry setup
+### Phase 4: CI/CD & Observability
+- [ ] GitHub Actions CI/CD pipeline
+- [ ] Structured logging (JSON format)
+- [ ] OpenTelemetry traces and metrics
+- [ ] Automated deployment workflows
 
 ---
 
@@ -391,5 +399,5 @@ docs/
 
 ---
 
-**Last Updated:** 2025-11-23  
-**Current Version:** Phase 5 Complete
+**Last Updated:** 2025-11-29  
+**Current Version:** Phase 4 DevOps Foundation Complete

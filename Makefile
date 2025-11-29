@@ -168,11 +168,6 @@ frontend-install: ## Install frontend dependencies (locally)
 	cd frontend && npm install
 	@echo "$(GREEN)✓ Frontend dependencies installed$(NC)"
 
-frontend-install-docker: ## Install frontend dependencies (in Docker)
-	@echo "$(BLUE)Installing frontend dependencies in Docker...$(NC)"
-	docker-compose run --rm frontend npm install
-	@echo "$(GREEN)✓ Frontend dependencies installed$(NC)"
-
 frontend-start: ## Start frontend dev server
 	@echo "$(BLUE)Starting frontend...$(NC)"
 	cd frontend && npm start
