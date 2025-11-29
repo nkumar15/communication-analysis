@@ -169,11 +169,12 @@ Frontend                    Backend                 Firebase
 ### Development (docker-compose)
 ```yaml
 services:
-  b2b-api:      # Port 8000
-  platform-api: # Port 8001
-  b2c-api:      # Port 8002
+  b2b-api:      # target: b2b
+  platform-api: # target: platform
+  b2c-api:      # target: b2c
   postgres:     # Port 5432
   frontend:     # Port 3000
+  e2e-tests:    # target: test
 ```
 
 ### Production (Recommended)
@@ -266,6 +267,25 @@ services:
 ### Frontend Tests
 - **Component Tests** - React Testing Library
 - **E2E Tests** - Playwright/Cypress (future)
+
+---
+
+## Build Strategy
+
+### Unified Dockerfile
+We use a single `backend/Dockerfile` with multi-stage builds to support all environments:
+
+1.  **Base**: Common system dependencies.
+2.  **Builder**: Installs Python dependencies (cached).
+3.  **Test-Base**: Adds Playwright and test tools (cached).
+4.  **Production Targets** (`b2b`, `platform`, `b2c`): Copy only service-specific code. Lean images.
+5.  **Test Target** (`test`): Copies all code for e2e testing.
+
+**Benefits:**
+- Single source of truth
+- Fast local testing (aggressive caching)
+- Lean production images
+- Consistent environment
 
 ---
 

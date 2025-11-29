@@ -1,38 +1,39 @@
-# Base stage with common dependencies
+# Unified Dockerfile for Enterprise SSO
+# Supports: B2B, Platform, B2C microservices AND E2E Testing
+
+# ==========================================
+# 1. Base Stage (Common Runtime)
+# ==========================================
 FROM python:3.11-slim AS base
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (common for all services)
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Production stage
-FROM base AS production
-
-# Copy application code
-COPY . .
-
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
 
-EXPOSE 8000
+# ==========================================
+# 2. Builder Stage (Dependency Caching)
+# ==========================================
+FROM base AS builder
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+WORKDIR /install
 
-# Test stage with browser automation support
-FROM base AS test
+COPY requirements.txt .
+# Install production deps to /install
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Playwright system dependencies
+# ==========================================
+# 3. Test Base Stage (Heavy Test Deps)
+# ==========================================
+FROM base AS test-base
+
+# Install Playwright system dependencies (Heavy, but cached)
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libnspr4 \
@@ -54,22 +55,58 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy test requirements
+# Install test python dependencies
+COPY requirements.txt .
 COPY requirements-test.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-test.txt
 
-# Install test dependencies
-RUN pip install --no-cache-dir -r requirements-test.txt
-
-# Copy application code
-COPY . .
-
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
-
-# Install Playwright browsers
+# Install Playwright browsers (Heavy, cached)
 RUN playwright install chromium
 
-EXPOSE 8000
+# ==========================================
+# 4. Production Stages (Microservices)
+# ==========================================
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# --- B2B Microservice ---
+FROM base AS b2b
+USER appuser
+# Copy installed deps from builder
+COPY --from=builder /install /usr/local
+# Copy only necessary code
+COPY --chown=appuser:appuser core /app/core
+COPY --chown=appuser:appuser services/domains /app/services/domains
+COPY --chown=appuser:appuser services/b2b /app/services/b2b
+COPY --chown=appuser:appuser migrations /app/migrations
+EXPOSE 8000
+CMD ["uvicorn", "services.b2b.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# --- Platform Microservice ---
+FROM base AS platform
+USER appuser
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appuser core /app/core
+COPY --chown=appuser:appuser services/platform /app/services/platform
+COPY --chown=appuser:appuser migrations /app/migrations
+EXPOSE 8001
+CMD ["uvicorn", "services.platform.main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+# --- B2C Microservice ---
+FROM base AS b2c
+USER appuser
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appuser core /app/core
+COPY --chown=appuser:appuser services/b2c /app/services/b2c
+COPY --chown=appuser:appuser migrations /app/migrations
+EXPOSE 8002
+CMD ["uvicorn", "services.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
+
+# ==========================================
+# 5. Test Runner Stage (Development)
+# ==========================================
+FROM test-base AS test
+USER appuser
+# Copy EVERYTHING for testing
+COPY --chown=appuser:appuser . /app
+ENV PYTHONPATH=/app
+CMD ["python", "-m", "pytest", "tests/"]

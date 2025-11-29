@@ -234,6 +234,17 @@ Verify that tenants cannot access each other's data and regular users cannot acc
 make test-security
 ```
 
+### 4. E2E Browser Testing (Playwright)
+
+Run full end-to-end tests using a headless browser against the Dockerized stack.
+
+```bash
+# Run all browser tests
+make test-browser
+```
+
+**Note on Caching:** The build uses a unified multi-stage Dockerfile. The `test` stage caches system and python dependencies (including Playwright browsers), so subsequent runs are very fast.
+
 ### 4. End-to-End Activation Test
 
 **Complete flow:**
@@ -452,11 +463,14 @@ docker-compose logs backend
 # Common issues:
 # - Missing Firebase credentials
 # - Database connection failed
-# - Port 8000 already in use
+# - Port 8000 already in use (check for old containers)
 
 # Fix:
 make down
-make up
+# If port still in use:
+docker-compose down -v
+# Check for zombie containers:
+docker ps
 ```
 
 ### Database errors
