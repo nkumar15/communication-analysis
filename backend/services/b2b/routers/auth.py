@@ -13,6 +13,12 @@ from core.middleware import get_current_user
 from core.database import get_db
 from core.constants import B2BRoleName
 
+# Import structured logging
+from core.logging import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/api/b2b/auth", tags=["authentication"])
 
@@ -26,19 +32,25 @@ async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = De
     the corresponding tenant, returning the Firebase tenant ID that
     the frontend needs to set the auth context.
     """
+    logger.info("tenant_resolution_started", email=request.email)
+    
     # Extract domain from email
     domain = tenant_service.extract_domain_from_email(request.email)
     
     if not domain:
+        logger.warning("invalid_email_format", email=request.email)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email address"
         )
     
+    logger.debug("domain_extracted", domain=domain, email=request.email)
+    
     # Look up tenant by domain
     tenant = await tenant_service.get_tenant_by_domain(db, domain)
     
     if not tenant:
+        logger.warning("tenant_not_found", domain=domain, email=request.email)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No tenant found for domain: {domain}"
@@ -46,6 +58,12 @@ async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = De
     
     # Get primary auth provider
     primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
+    
+    logger.info("tenant_resolved",
+                tenant_id=str(tenant.id),
+                tenant_name=tenant.name,
+                domain=domain,
+                has_auth_provider=primary_provider is not None)
     
     return TenantResolutionResponse(
         tenant_id=tenant.id,

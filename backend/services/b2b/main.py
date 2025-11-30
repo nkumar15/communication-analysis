@@ -15,6 +15,13 @@ from core.config import settings
 from core.database import init_db, close_db
 from core.utils.firebase import firebase_auth_service
 
+# Import logging
+from core.logging import setup_logging, get_logger
+from core.logging.middleware import LoggingMiddleware
+
+# Get logger for this module
+logger = get_logger(__name__)
+
 # Import B2B routers
 from services.b2b.routers import auth, activation, invitations, users, roles
 
@@ -25,20 +32,26 @@ from services.domains.farming.routers import farmers
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    # Startup
-    print("🚀 Starting B2B API microservice...")
+    # Startup - Initialize logging FIRST
+    setup_logging(
+        environment=settings.log_environment,
+        log_level=settings.log_level
+    )
+    logger.info("b2b_api_starting", service="b2b-api", port=8000)
+    
     await init_db()
     firebase_auth_service.initialize()
-    print("✓ Database connection established")
-    print("✓ Firebase Admin SDK initialized")
-    print("✓ B2B API ready on port 8000")
+    logger.info("b2b_api_ready", 
+                database="connected",
+                firebase="initialized",
+                service="b2b-api")
     
     yield
     
     # Shutdown
-    print("Shutting down B2B API...")
+    logger.info("b2b_api_shutting_down", service="b2b-api")
     await close_db()
-    print("✓ Connections closed")
+
 
 
 # Create FastAPI application
@@ -59,6 +72,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add structured logging middleware
+app.add_middleware(LoggingMiddleware)
 
 # Include B2B routers
 app.include_router(auth.router)

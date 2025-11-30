@@ -25,11 +25,20 @@ class Settings(BaseSettings):
     resend_api_key: Optional[str] = None
     
     # CORS
-    allowed_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://localhost:8000,http://localhost:8001"
+    
+    # Logging Configuration
+    log_environment: str = "local"  # local, gcp, aws, production
+    log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_json_indent: Optional[int] = 2  # Pretty print JSON in local, None for production
+    
+    # Cloud Provider Configuration (for logging)
+    gcp_project_id: Optional[str] = None
+    aws_region: Optional[str] = None
     
     @property
     def allowed_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.allowed_origins.split(",")]
+        return [origin.strip() for origin in self.cors_origins.split(",")]
     
     @property
     def firebase_credentials_path_resolved(self) -> str:
