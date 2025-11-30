@@ -17,7 +17,7 @@ from core.config import settings
 from core.middleware import get_current_user
 
 
-router = APIRouter(prefix="/api/activate", tags=["activation"])
+router = APIRouter(prefix="/api/b2b/activation", tags=["activation"])
 
 
 # Request/Response models

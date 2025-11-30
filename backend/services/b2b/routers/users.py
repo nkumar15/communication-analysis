@@ -14,7 +14,7 @@ from core.middleware import get_current_active_user, get_current_user
 
 
 
-router = APIRouter(prefix="/api/users", tags=["users"])
+router = APIRouter(prefix="/api/b2b/users", tags=["users"])
 
 
 # Response Models

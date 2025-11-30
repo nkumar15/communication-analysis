@@ -69,7 +69,7 @@ class TestMultiTenantIsolation:
         ))
         
         response = await api_client.get(
-            "/api/invitations/list",
+            "/api/b2b/invitations/list",
             headers={"Authorization": f"Bearer {jwt_a}"}
         )
         
@@ -113,7 +113,7 @@ class TestMultiTenantIsolation:
         ))
         
         response = await api_client.delete(
-            f"/api/invitations/{inv_b.id}",
+            f"/api/b2b/invitations/{inv_b.id}",
             headers={"Authorization": f"Bearer {jwt_a}"}
         )
         

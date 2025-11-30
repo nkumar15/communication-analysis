@@ -22,7 +22,7 @@ from services.b2b.rbac import (
 from services.domains.farming.models import Farmer
 from services.domains.farming.schemas.farmers import FarmerCreate, FarmerUpdate, FarmerResponse
 
-router = APIRouter(prefix="/api/farmers", tags=["farmers"])
+router = APIRouter(prefix="/api/b2b/farmers", tags=["farmers"])
 
 
 @router.post("", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)

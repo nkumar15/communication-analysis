@@ -7,7 +7,7 @@ class ApiService {
      * Resolve tenant from email
      */
     async resolveTenant(email) {
-        const response = await fetch(`${API_BASE_URL}/api/auth/resolve-tenant`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/auth/resolve-tenant`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -59,7 +59,7 @@ class ApiService {
 
             const headers = await this.getAuthHeaders();
 
-            const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            const response = await fetch(`${API_BASE_URL}/api/b2b/auth/me`, {
                 method: 'GET',
                 headers,
             });
@@ -88,7 +88,7 @@ class ApiService {
             console.log('🔄 Syncing user with backend...');
             const headers = await this.getAuthHeaders(forceRefresh);
 
-            const response = await fetch(`${API_BASE_URL}/api/auth/sync-user`, {
+            const response = await fetch(`${API_BASE_URL}/api/b2b/auth/sync-user`, {
                 method: 'POST',
                 headers,
             });
@@ -146,11 +146,11 @@ class ApiService {
 
     // Convenience methods for roles and farmers
     async getRoles() {
-        return this.get('/api/roles');
+        return this.get('/api/b2b/roles');
     }
 
     async getFarmers() {
-        return this.get('/api/farmers');
+        return this.get('/api/b2b/farmers');
     }
 }
 

@@ -50,7 +50,7 @@ class TestInvitationFlow:
         
         # Send invitation
         response = await api_client.post(
-            "/api/invitations/invite",
+            "/api/b2b/invitations/invite",
             json={"email": f"admin@{tenant.domain}", "role": B2BRoleName.ADMIN},
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
@@ -83,7 +83,7 @@ class TestInvitationFlow:
         ))
         
         response = await api_client.post(
-            "/api/invitations/invite",
+            "/api/b2b/invitations/invite",
             json={"email": f"user@{tenant.domain}", "role": B2BRoleName.VIEWER},
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
@@ -115,7 +115,7 @@ class TestInvitationFlow:
         ))
         
         response = await api_client.post(
-            "/api/invitations/invite",
+            "/api/b2b/invitations/invite",
             json={"email": "user@different.com", "role": B2BRoleName.VIEWER},
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
@@ -140,7 +140,7 @@ class TestInvitationFlow:
         )
         
         response = await api_client.get(
-            f"/api/invitations/accept/{invitation.invitation_token}"
+            f"/api/b2b/invitations/accept/{invitation.invitation_token}"
         )
         
         assert response.status_code == 200
@@ -180,7 +180,7 @@ class TestInvitationFlow:
         ))
         
         response = await api_client.post(
-            f"/api/invitations/join?token={invitation.invitation_token}",
+            f"/api/b2b/invitations/join?token={invitation.invitation_token}",
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
@@ -227,7 +227,7 @@ class TestInvitationFlow:
         ))
         
         response = await api_client.post(
-            f"/api/invitations/join?token={invitation.invitation_token}",
+            f"/api/b2b/invitations/join?token={invitation.invitation_token}",
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
@@ -265,7 +265,7 @@ class TestInvitationFlow:
         
         # Try to create duplicate
         response = await api_client.post(
-            "/api/invitations/invite",
+            "/api/b2b/invitations/invite",
             json={"email": f"user@{tenant.domain}", "role": B2BRoleName.VIEWER},
             headers={"Authorization": f"Bearer {jwt_token}"}
         )

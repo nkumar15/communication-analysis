@@ -14,7 +14,7 @@ from core.database import get_db
 from core.constants import B2BRoleName
 
 
-router = APIRouter(prefix="/api/auth", tags=["authentication"])
+router = APIRouter(prefix="/api/b2b/auth", tags=["authentication"])
 
 
 @router.post("/resolve-tenant", response_model=TenantResolutionResponse)
@@ -119,7 +119,7 @@ async def get_current_user_info(
     
     if existing_user:
         # User exists, use default role (it won't overwrite existing role_id)
-        user_role = RoleName.VIEWER
+        user_role = B2BRoleName.VIEWER
     else:
         # New user, check invitation (including accepted ones for initial role assignment)
         result = await db.execute(
@@ -130,7 +130,7 @@ async def get_current_user_info(
         invitation = result.scalar_one_or_none()
         
         # Use role from invitation if exists, otherwise default to 'viewer'
-        user_role = invitation.role if invitation else RoleName.VIEWER
+        user_role = invitation.role if invitation else B2BRoleName.VIEWER
     
     # Create or update user
     user = await user_service.create_or_update_user(
@@ -192,7 +192,7 @@ async def sync_user(
     
     if existing_user:
         # User exists, use default role (it won't overwrite existing role_id)
-        user_role = RoleName.VIEWER
+        user_role = B2BRoleName.VIEWER
     else:
         # New user, check invitation (including accepted ones for initial role assignment)
         result = await db.execute(
@@ -203,7 +203,7 @@ async def sync_user(
         invitation = result.scalar_one_or_none()
         
         # Use role from invitation if exists, otherwise default to 'viewer'
-        user_role = invitation.role if invitation else RoleName.VIEWER   
+        user_role = invitation.role if invitation else B2BRoleName.VIEWER   
     
     # Create or update user
     user = await user_service.create_or_update_user(

@@ -22,7 +22,7 @@ from services.b2b.schemas.roles import (
     UpdateRolePermissionsRequest
 )
 
-router = APIRouter(prefix="/api/roles", tags=["roles"])
+router = APIRouter(prefix="/api/b2b/roles", tags=["roles"])
 
 
 @router.get("", response_model=list[RoleResponse])

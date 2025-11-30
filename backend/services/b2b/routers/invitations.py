@@ -17,7 +17,7 @@ from core.email import email_service
 from core.config import settings
 
 
-router = APIRouter(prefix="/api/invitations", tags=["invitations"])
+router = APIRouter(prefix="/api/b2b/invitations", tags=["invitations"])
 
 
 from core.constants import B2BRoleName

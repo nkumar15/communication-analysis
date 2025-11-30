@@ -24,7 +24,7 @@ const ActivationPage = () => {
     const validateToken = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_BASE_URL}/api/activate/validate/${token}`);
+            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/validate/${token}`);
 
             if (!response.ok) {
                 const data = await response.json();
@@ -49,7 +49,7 @@ const ActivationPage = () => {
             setStep('sso-login');
 
             // Get Firebase tenant info
-            const response = await fetch(`${API_BASE_URL}/api/activate/tenant-info/${tenantInfo.tenant_id}`);
+            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/tenant-info/${tenantInfo.tenant_id}`);
             const config = await response.json();
 
             console.log('🔐 Initiating SSO with:', config);
@@ -85,7 +85,7 @@ const ActivationPage = () => {
             setLoading(true);
 
             const headers = await api.getAuthHeaders();
-            const response = await fetch(`${API_BASE_URL}/api/activate/complete`, {
+            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/complete`, {
                 method: 'POST',
                 headers: {
                     ...headers,

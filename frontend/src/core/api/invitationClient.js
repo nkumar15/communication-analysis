@@ -28,7 +28,7 @@ const invitationApi = {
      */
     inviteUser: async (email, role = 'manager') => {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/invitations/invite`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/invite`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ email, role }),
@@ -48,7 +48,7 @@ const invitationApi = {
      */
     listInvitations: async () => {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/invitations/list`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/list`, {
             method: 'GET',
             headers,
         });
@@ -68,7 +68,7 @@ const invitationApi = {
      */
     cancelInvitation: async (invitationId) => {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/invitations/${invitationId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/${invitationId}`, {
             method: 'DELETE',
             headers,
         });
@@ -88,7 +88,7 @@ const invitationApi = {
      */
     resendInvitation: async (invitationId) => {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/invitations/resend/${invitationId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/resend/${invitationId}`, {
             method: 'POST',
             headers,
         });
@@ -107,7 +107,7 @@ const invitationApi = {
      * @returns {Promise} Invitation details
      */
     validateInvitation: async (token) => {
-        const response = await fetch(`${API_BASE_URL}/api/invitations/accept/${token}`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/accept/${token}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -129,7 +129,7 @@ const invitationApi = {
      */
     joinTenant: async (token) => {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/invitations/join?token=${token}`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/join?token=${token}`, {
             method: 'POST',
             headers,
         });
@@ -147,7 +147,7 @@ const invitationApi = {
      */
     getUserStats: async () => {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/users/stats`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/users/stats`, {
             method: 'GET',
             headers,
         });
@@ -165,7 +165,7 @@ const invitationApi = {
      */
     getUsers: async () => {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/users/list`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/users/list`, {
             method: 'GET',
             headers,
         });
