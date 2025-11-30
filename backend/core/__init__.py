@@ -18,15 +18,7 @@ from core.database import (
     current_tenant_id,
 )
 
-# RBAC (re-exported from app.rbac)
-from core.rbac import (
-    require_permission,
-    require_role,
-    has_permission,
-    get_user_permissions,
-)
-
-# Middleware (re-exported from app.middleware)
+# Middleware (shared token decode)
 from core.middleware import (
     get_current_user,
 )
@@ -42,11 +34,7 @@ __all__ = [
     "engine",
     "AsyncSessionLocal",
     "current_tenant_id",
-    # RBAC
-    "require_permission",
-    "require_role",
-    "has_permission",
-    "get_user_permissions",
     # Middleware
     "get_current_user",
 ]
+
