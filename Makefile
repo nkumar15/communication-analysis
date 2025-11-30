@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs build migrate shell db-shell clean frontend-install frontend-start frontend-build test seed-system-tenant create-platform-admin setup-saas-admin
+.PHONY: help setup status up down restart build logs logs-b2b logs-platform logs-b2c logs-domain logs-all ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed frontend-install frontend-start frontend-build up-backend dev shell-b2b shell-platform shell-b2c shell-domain clean clean-all test-api test-platform-api test-b2b-api test-core-api test-browser test-all test-env
 
 # Default target
 .DEFAULT_GOAL := help
