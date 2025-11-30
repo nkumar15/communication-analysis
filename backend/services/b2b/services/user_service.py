@@ -18,6 +18,7 @@ class UserService:
             select(UserModel)
             .where(UserModel.id == user_id)
             .where(UserModel.is_active == True)
+            .where(UserModel.deleted_at.is_(None))
         )
         user_model = result.scalar_one_or_none()
         
@@ -33,6 +34,7 @@ class UserService:
             .where(UserModel.tenant_id == tenant_id)
             .where(UserModel.firebase_uid == firebase_uid)
             .where(UserModel.is_active == True)
+            .where(UserModel.deleted_at.is_(None))
         )
         user_model = result.scalar_one_or_none()
         
@@ -117,7 +119,9 @@ class UserService:
     async def update_last_login(self, db: AsyncSession, user_id: UUID):
         """Update user's last login timestamp"""
         result = await db.execute(
-            select(UserModel).where(UserModel.id == user_id)
+            select(UserModel)
+            .where(UserModel.id == user_id)
+            .where(UserModel.deleted_at.is_(None))
         )
         user = result.scalar_one_or_none()
         
@@ -125,6 +129,33 @@ class UserService:
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()
             await db.commit()
+            
+    async def delete_user(self, db: AsyncSession, user_id: UUID) -> bool:
+        """
+        Soft delete a user
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        result = await db.execute(
+            select(UserModel)
+            .where(UserModel.id == user_id)
+            .where(UserModel.deleted_at.is_(None))
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            return False
+            
+        user.deleted_at = datetime.utcnow()
+        user.is_active = False
+        
+        await db.commit()
+        return True
     
     async def _model_to_pydantic(self, model: UserModel, db: AsyncSession = None) -> User:
         """Convert SQLAlchemy model to Pydantic model"""

@@ -95,15 +95,21 @@ async def get_platform_stats(
     """Get global platform statistics"""
     
     # Total Tenants
-    total_tenants = await db.scalar(select(func.count(TenantModel.id)))
+    total_tenants = await db.scalar(
+        select(func.count(TenantModel.id)).where(TenantModel.deleted_at.is_(None))
+    )
     
     # Active Tenants
     active_tenants = await db.scalar(
-        select(func.count(TenantModel.id)).where(TenantModel.activation_status == 'active')
+        select(func.count(TenantModel.id))
+        .where(TenantModel.activation_status == 'active')
+        .where(TenantModel.deleted_at.is_(None))
     )
     
     # Total Users
-    total_users = await db.scalar(select(func.count(UserModel.id)))
+    total_users = await db.scalar(
+        select(func.count(UserModel.id)).where(UserModel.deleted_at.is_(None))
+    )
     
     return PlatformStats(
         total_tenants=total_tenants or 0,
@@ -120,7 +126,7 @@ async def list_tenants(
     _: dict = Depends(verify_platform_admin)
 ):
     """List all tenants with basic stats"""
-    query = select(TenantModel)
+    query = select(TenantModel).where(TenantModel.deleted_at.is_(None))
     
     if search:
         query = query.where(
@@ -190,6 +196,42 @@ async def create_tenant(
     )
     
     return {"id": new_tenant.id, "message": "Tenant created successfully"}
+
+@router.delete("/tenants/{tenant_id}")
+async def delete_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(verify_platform_admin)
+):
+    """
+    Soft delete a tenant (Admin only)
+    
+    This will:
+    1. Set deleted_at timestamp
+    2. Set is_active = False
+    3. Log the action
+    """
+    # Use tenant service to perform soft delete
+    success = await tenant_service.delete_tenant(db, tenant_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant {tenant_id} not found"
+        )
+        
+    # Log action
+    from services.platform.middleware.platform_auth import log_platform_action
+    await log_platform_action(
+        admin=current_user,
+        action="delete_tenant",
+        resource_type="tenant",
+        resource_id=tenant_id,
+        details={"soft_delete": True},
+        db=db
+    )
+    
+    return {"message": "Tenant deleted successfully"}
 
 class ImpersonationResponse(BaseModel):
     token: str

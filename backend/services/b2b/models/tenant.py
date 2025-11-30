@@ -1,9 +1,9 @@
-from core.models.base import Base, TimestampMixin
+from core.models.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-class TenantModel(Base, TimestampMixin):
+class TenantModel(Base, TimestampMixin, SoftDeleteMixin):
     """Customer Tenant ORM model"""
     __tablename__ = "tenants"
     __table_args__ = {'schema': 'b2b'}

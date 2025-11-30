@@ -1,4 +1,4 @@
-from core.models.base import Base, TimestampMixin
+from core.models.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -22,7 +22,7 @@ class PlatformRole(Base, TimestampMixin):
     is_system_role = Column(Boolean, default=False, nullable=False)  # Cannot delete if true
 
 
-class PlatformUser(Base, TimestampMixin):
+class PlatformUser(Base, TimestampMixin, SoftDeleteMixin):
     """
     Platform User model - ALL platform users (admins, support, billing, etc.)
     

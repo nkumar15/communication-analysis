@@ -22,7 +22,9 @@ class AuthProviderService:
     async def get_by_id(db: AsyncSession, provider_id: UUID) -> Optional[AuthProvider]:
         """Get auth provider by ID"""
         result = await db.execute(
-            select(AuthProvider).where(AuthProvider.id == provider_id)
+            select(AuthProvider)
+            .where(AuthProvider.id == provider_id)
+            .where(AuthProvider.deleted_at.is_(None))
         )
         return result.scalar_one_or_none()
     
@@ -33,7 +35,7 @@ class AuthProviderService:
         active_only: bool = True
     ) -> List[AuthProvider]:
         """Get all auth providers for a tenant"""
-        query = select(AuthProvider).where(AuthProvider.tenant_id == tenant_id)
+        query = select(AuthProvider).where(AuthProvider.tenant_id == tenant_id).where(AuthProvider.deleted_at.is_(None))
         
         if active_only:
             query = query.where(AuthProvider.is_active == True)
@@ -52,7 +54,8 @@ class AuthProviderService:
                 and_(
                     AuthProvider.tenant_id == tenant_id,
                     AuthProvider.is_primary == True,
-                    AuthProvider.is_active == True
+                    AuthProvider.is_active == True,
+                    AuthProvider.deleted_at.is_(None)
                 )
             )
         )
@@ -69,7 +72,8 @@ class AuthProviderService:
             select(AuthProvider).where(
                 and_(
                     AuthProvider.tenant_id == tenant_id,
-                    AuthProvider.provider_id == provider_id
+                    AuthProvider.provider_id == provider_id,
+                    AuthProvider.deleted_at.is_(None)
                 )
             )
         )
@@ -88,7 +92,8 @@ class AuthProviderService:
                 select(AuthProvider).where(
                     and_(
                         AuthProvider.tenant_id == provider_data.tenant_id,
-                        AuthProvider.is_primary == True
+                        AuthProvider.is_primary == True,
+                        AuthProvider.deleted_at.is_(None)
                     )
                 )
             )
@@ -97,7 +102,8 @@ class AuthProviderService:
                 select(AuthProvider).where(
                     and_(
                         AuthProvider.tenant_id == provider_data.tenant_id,
-                        AuthProvider.is_primary == True
+                        AuthProvider.is_primary == True,
+                        AuthProvider.deleted_at.is_(None)
                     )
                 )
             )).scalars().all()
@@ -142,7 +148,8 @@ class AuthProviderService:
                     and_(
                         AuthProvider.tenant_id == provider.tenant_id,
                         AuthProvider.is_primary == True,
-                        AuthProvider.id != provider_id
+                        AuthProvider.id != provider_id,
+                        AuthProvider.deleted_at.is_(None)
                     )
                 )
             )).scalars().all()

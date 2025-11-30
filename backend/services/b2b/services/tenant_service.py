@@ -24,6 +24,7 @@ class TenantService:
             select(TenantModel)
             .where(TenantModel.domain == domain.lower())
             .where(TenantModel.is_active == True)
+            .where(TenantModel.deleted_at.is_(None))
         )
         tenant_model = result.scalar_one_or_none()
         
@@ -47,6 +48,7 @@ class TenantService:
             select(TenantModel)
             .where(TenantModel.id == tenant_id)
             .where(TenantModel.is_active == True)
+            .where(TenantModel.deleted_at.is_(None))
         )
         tenant_model = result.scalar_one_or_none()
         
@@ -70,6 +72,7 @@ class TenantService:
             select(TenantModel)
             .where(TenantModel.firebase_tenant_id == firebase_tenant_id)
             .where(TenantModel.is_active == True)
+            .where(TenantModel.deleted_at.is_(None))
         )
         tenant_model = result.scalar_one_or_none()
         
@@ -92,6 +95,7 @@ class TenantService:
         result = await db.execute(
             select(TenantModel)
             .where(TenantModel.activation_token == token)
+            .where(TenantModel.deleted_at.is_(None))
         )
         tenant_model = result.scalar_one_or_none()
         
@@ -137,6 +141,35 @@ class TenantService:
         await db.refresh(tenant)
         
         return self._model_to_pydantic(tenant)
+    
+    async def delete_tenant(self, db: AsyncSession, tenant_id: UUID) -> bool:
+        """
+        Soft delete a tenant
+        
+        Args:
+            db: Database session
+            tenant_id: Tenant ID
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        from datetime import datetime
+        
+        result = await db.execute(
+            select(TenantModel)
+            .where(TenantModel.id == tenant_id)
+            .where(TenantModel.deleted_at.is_(None))
+        )
+        tenant = result.scalar_one_or_none()
+        
+        if not tenant:
+            return False
+            
+        tenant.deleted_at = datetime.utcnow()
+        tenant.is_active = False
+        
+        await db.commit()
+        return True
     
     def extract_domain_from_email(self, email: str) -> str:
         """
