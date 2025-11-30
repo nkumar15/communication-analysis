@@ -61,10 +61,10 @@ function TenantList() {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h1 style={{ margin: 0 }}>Tenant Management</h1>
+            <div className="platform-page-header">
+                <h1 className="platform-page-title">Tenant Management</h1>
                 <button
-                    className="saas-btn saas-btn-primary"
+                    className="platform-btn platform-btn-primary"
                     onClick={() => setShowModal(true)}
                 >
                     + Create Tenant
@@ -72,24 +72,24 @@ function TenantList() {
             </div>
 
             {stats && (
-                <div className="saas-stats-grid">
-                    <div className="saas-stat-card">
-                        <div className="saas-stat-label">Total Tenants</div>
-                        <div className="saas-stat-value">{stats.total_tenants}</div>
+                <div className="platform-stats-grid">
+                    <div className="platform-stat-card">
+                        <div className="platform-stat-label">Total Tenants</div>
+                        <div className="platform-stat-value">{stats.total_tenants}</div>
                     </div>
-                    <div className="saas-stat-card">
-                        <div className="saas-stat-label">Active Tenants</div>
-                        <div className="saas-stat-value">{stats.active_tenants}</div>
+                    <div className="platform-stat-card">
+                        <div className="platform-stat-label">Active Tenants</div>
+                        <div className="platform-stat-value">{stats.active_tenants}</div>
                     </div>
-                    <div className="saas-stat-card">
-                        <div className="saas-stat-label">Total Users</div>
-                        <div className="saas-stat-value">{stats.total_users}</div>
+                    <div className="platform-stat-card">
+                        <div className="platform-stat-label">Total Users</div>
+                        <div className="platform-stat-value">{stats.total_users}</div>
                     </div>
                 </div>
             )}
 
-            <div className="saas-table-container">
-                <table className="saas-table">
+            <div className="platform-table-container">
+                <table className="platform-table">
                     <thead>
                         <tr>
                             <th>Tenant Name</th>
@@ -106,7 +106,7 @@ function TenantList() {
                                 <td>{tenant.name}</td>
                                 <td>{tenant.domain}</td>
                                 <td>
-                                    <span className={`saas-badge ${tenant.status === 'active' ? 'active' : 'pending'}`}>
+                                    <span className={`platform-badge ${tenant.status === 'active' ? 'active' : 'pending'}`}>
                                         {tenant.status}
                                     </span>
                                 </td>
@@ -114,7 +114,7 @@ function TenantList() {
                                 <td>{formatDateTime(tenant.created_at)}</td>
                                 <td>
                                     <button
-                                        className="saas-btn saas-btn-primary"
+                                        className="platform-btn platform-btn-primary"
                                         onClick={() => handleImpersonate(tenant.id)}
                                         style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
                                     >

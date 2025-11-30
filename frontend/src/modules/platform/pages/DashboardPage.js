@@ -30,28 +30,30 @@ function Dashboard() {
 
     return (
         <div>
-            <h1 style={{ marginBottom: '2rem' }}>Dashboard</h1>
+            <div className="platform-page-header">
+                <h1 className="platform-page-title">Dashboard</h1>
+            </div>
 
             {stats && (
-                <div className="saas-stats-grid">
-                    <div className="saas-stat-card">
-                        <div className="saas-stat-label">Total Tenants</div>
-                        <div className="saas-stat-value">{stats.total_tenants}</div>
+                <div className="platform-stats-grid">
+                    <div className="platform-stat-card">
+                        <div className="platform-stat-label">Total Tenants</div>
+                        <div className="platform-stat-value">{stats.total_tenants}</div>
                     </div>
-                    <div className="saas-stat-card">
-                        <div className="saas-stat-label">Active Tenants</div>
-                        <div className="saas-stat-value">{stats.active_tenants}</div>
+                    <div className="platform-stat-card">
+                        <div className="platform-stat-label">Active Tenants</div>
+                        <div className="platform-stat-value">{stats.active_tenants}</div>
                     </div>
-                    <div className="saas-stat-card">
-                        <div className="saas-stat-label">Total Users</div>
-                        <div className="saas-stat-value">{stats.total_users}</div>
+                    <div className="platform-stat-card">
+                        <div className="platform-stat-label">Total Users</div>
+                        <div className="platform-stat-value">{stats.total_users}</div>
                     </div>
                 </div>
             )}
 
-            <div className="content-card">
-                <h2>Recent Activity</h2>
-                <p style={{ color: '#a0a0b0' }}>No recent activity to show.</p>
+            <div className="platform-card">
+                <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1f2937' }}>Recent Activity</h2>
+                <p style={{ color: '#6b7280' }}>No recent activity to show.</p>
             </div>
         </div>
     );

@@ -1,8 +1,10 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import platformApiService from '../../../core/api/platformClient';
+import '../styles/platform.css';
 
 function SuperAdminLayout() {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleLogout = async () => {
         try {
@@ -13,41 +15,43 @@ function SuperAdminLayout() {
         }
     };
 
+    const isActive = (path) => location.pathname.includes(path);
+
     return (
-        <div className="saas-layout">
-            <aside className="saas-sidebar">
-                <div className="saas-brand">
-                    <span>⚡ SaaS Admin</span>
+        <div className="platform-layout">
+            <aside className="platform-sidebar">
+                <div className="platform-brand">
+                    <span>⚡ SaaS Platform</span>
                 </div>
 
-                <nav className="saas-nav">
-                    <Link to="/super-admin/dashboard" className="saas-nav-item active">
+                <nav className="platform-nav">
+                    <Link to="/super-admin/dashboard" className={`platform-nav-item ${isActive('/dashboard') ? 'active' : ''}`}>
                         <span>📊 Dashboard</span>
                     </Link>
-                    <Link to="/super-admin/tenants" className="saas-nav-item">
+                    <Link to="/super-admin/tenants" className={`platform-nav-item ${isActive('/tenants') ? 'active' : ''}`}>
                         <span>🏢 Tenants</span>
                     </Link>
-                    <Link to="/super-admin/analytics" className="saas-nav-item">
+                    <Link to="/super-admin/analytics" className={`platform-nav-item ${isActive('/analytics') ? 'active' : ''}`}>
                         <span>📈 Analytics</span>
                     </Link>
-                    <Link to="/super-admin/settings" className="saas-nav-item">
+                    <Link to="/super-admin/settings" className={`platform-nav-item ${isActive('/settings') ? 'active' : ''}`}>
                         <span>⚙️ Settings</span>
                     </Link>
                 </nav>
             </aside>
 
-            <main className="saas-main">
-                <header className="saas-header">
-                    <div className="saas-header-title">Platform Overview</div>
-                    <div className="saas-user-menu">
-                        <span className="saas-badge active">Platform Admin</span>
-                        <button onClick={handleLogout} className="saas-btn saas-btn-outline">
+            <main className="platform-main">
+                <header className="platform-header">
+                    <div className="platform-header-title">Platform Overview</div>
+                    <div className="platform-user-menu">
+                        <span className="platform-badge">Platform Admin</span>
+                        <button onClick={handleLogout} className="platform-btn platform-btn-outline">
                             Logout
                         </button>
                     </div>
                 </header>
 
-                <div className="saas-content">
+                <div className="platform-content">
                     <Outlet />
                 </div>
             </main>

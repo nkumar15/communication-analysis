@@ -14,6 +14,8 @@ import PlatformAdminRoute from './core/components/PlatformAdminRoute';
 import SuperAdminLayout from './modules/platform/layouts/SuperAdminLayout';
 import TenantList from './modules/platform/pages/TenantListPage';
 import Dashboard from './modules/platform/pages/DashboardPage';
+import AnalyticsPage from './modules/platform/pages/AnalyticsPage';
+import SettingsPage from './modules/platform/pages/SettingsPage';
 import PlatformLogin from './modules/platform/pages/LoginPage';
 
 import apiService from './core/api/b2bClient';
@@ -112,6 +114,8 @@ function App() {
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="tenants" element={<TenantList />} />
+                    <Route path="analytics" element={<AnalyticsPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
                 </Route>
                 {/* Platform Admin Login */}
                 <Route path="/platform-login" element={<PlatformLogin />} />
