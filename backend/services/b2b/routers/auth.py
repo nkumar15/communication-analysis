@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from services.b2b.schemas import TenantResolutionRequest, TenantResolutionResponse, UserResponse
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
+from services.b2b.services.auth_provider_service import auth_provider_service
 from core.utils.firebase import firebase_auth_service
 from services.b2b.models import InvitationModel
 from core.middleware import get_current_user
@@ -43,12 +44,15 @@ async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = De
             detail=f"No tenant found for domain: {domain}"
         )
     
+    # Get primary auth provider
+    primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
+    
     return TenantResolutionResponse(
         tenant_id=tenant.id,
         tenant_name=tenant.name,
         domain=tenant.domain,
         firebase_tenant_id=tenant.firebase_tenant_id,
-        oidc_provider_id=tenant.oidc_provider_id
+        primary_provider_id=primary_provider.provider_id if primary_provider else None
     )
 
 

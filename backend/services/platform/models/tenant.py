@@ -15,7 +15,6 @@ class PlatformTenant(Base, TimestampMixin):
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     name = Column(String(255), nullable=False, default='SaaS Platform')
     firebase_tenant_id = Column(String(255), unique=True, nullable=False)
-    oidc_provider_id = Column(String(255), nullable=True)
     
     # Configuration
     email_domain = Column(String(255), nullable=True)

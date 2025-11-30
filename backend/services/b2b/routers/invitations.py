@@ -386,12 +386,16 @@ async def validate_invitation(
     # Get tenant info
     tenant = await tenant_service.get_tenant_by_id(db, invitation.tenant_id)
     
+    # Get primary auth provider
+    from services.b2b.services.auth_provider_service import auth_provider_service
+    primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
+    
     # Return MINIMAL data to prevent PII leakage
     # Note: tenant_id removed, inviter_name removed
     return {
         "tenant_name": tenant.name,
         "firebase_tenant_id": tenant.firebase_tenant_id,
-        "oidc_provider_id": tenant.oidc_provider_id,
+        "oidc_provider_id":primary_provider.provider_id if primary_provider else None,
         "role": invitation.role,
         "email": invitation.email  # Keep for UI display to user
     }

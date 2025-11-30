@@ -157,7 +157,6 @@ class TenantService:
             name=model.name,
             domain=model.domain,
             firebase_tenant_id=model.firebase_tenant_id,
-            oidc_provider_id=model.oidc_provider_id,
             activation_token=model.activation_token,
             activation_status=model.activation_status,
             activation_expires_at=model.activation_expires_at,

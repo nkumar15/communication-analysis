@@ -49,13 +49,42 @@ async def seed_platform_system(
             platform_tenant = PlatformTenant(
                 name=platform_name,
                 firebase_tenant_id=firebase_tenant_id,
-                oidc_provider_id=oidc_provider_id,
                 email_domain=email_domain
             )
             db.add(platform_tenant)
-            await db.commit()
+            await db.flush()
             await db.refresh(platform_tenant)
-            print(f"   ✅ Platform Tenant created: {platform_tenant.name}")
+            
+            print(f"   ✅ Platform Tenant: {platform_tenant.id}")
+            
+            # 2. Create auth provider record for platform
+            print(f"\n2️⃣ Creating Platform Auth Provider...")
+            from services.platform.models.auth_provider import PlatformAuthProvider
+            
+            # Check if auth provider already exists
+            result = await db.execute(
+                select(PlatformAuthProvider).where(
+                    PlatformAuthProvider.platform_tenant_id == platform_tenant.id
+                )
+            )
+            existing_provider = result.scalar_one_or_none()
+            
+            if not existing_provider:
+                auth_provider = PlatformAuthProvider(
+                    platform_tenant_id=platform_tenant.id,
+                    provider_type='oidc',  # Default to OIDC
+                    provider_id=oidc_provider_id,
+                    display_name='Platform SSO',
+                    is_primary=True,
+                    is_active=True
+                )
+                db.add(auth_provider)
+                await db.flush()
+                print(f"   ✅ Auth Provider: {oidc_provider_id}")
+            else:
+                print(f"   ℹ️  Auth Provider already exists")
+            
+            # 3. Seed Platform Roles
         else:
             print(f"   ℹ️  Platform Tenant already exists: {platform_tenant.name}")
         

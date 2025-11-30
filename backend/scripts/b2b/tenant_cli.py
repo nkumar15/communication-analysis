@@ -96,7 +96,6 @@ async def create_tenant_async(
                 name=company,
                 domain=domain.lower(),
                 firebase_tenant_id=firebase_tenant_id,
-                oidc_provider_id=provider_id,
                 activation_token=activation_token,
                 activation_status='pending',
                 activation_expires_at=expires_at,
@@ -121,6 +120,22 @@ async def create_tenant_async(
                 await db.execute(text(stmt))
             await db.commit()
             click.echo("✅ RBAC data seeded")
+            
+            # 4c. Create auth provider record
+            click.echo("\n📍 Step 4c: Creating auth provider record...")
+            from services.b2b.models.auth_provider import AuthProvider
+            auth_provider = AuthProvider(
+                tenant_id=tenant.id,
+                provider_type='oidc',  # For now, only OIDC via create command
+                provider_id=provider_id,
+                display_name=f"{oidc_provider.title()} SSO",
+                is_primary=True,
+                is_active=True
+            )
+            db.add(auth_provider)
+            await db.commit()
+            click.echo(f"✅ Auth provider created: {oidc_provider}")
+
         
             # 5. Create admin invitation (not user yet)
             click.echo("\n📍 Step 5: Creating admin invitation...")
@@ -210,7 +225,6 @@ async def create_local_async(
                 name=company,
                 domain=domain.lower(),
                 firebase_tenant_id=firebase_tenant_id,
-                oidc_provider_id=oidc_provider_id,
                 activation_token=activation_token,
                 activation_status='pending',
                 activation_expires_at=expires_at,
@@ -252,6 +266,30 @@ async def create_local_async(
             
             await db.commit()
             click.echo("✅ RBAC data seeded")
+            
+            # 2c. Create auth provider record
+            click.echo("\n📍 Step 2c: Creating auth provider record...")
+            from services.b2b.models.auth_provider import AuthProvider
+            
+            # Detect provider type from provider_id (e.g., 'oidc.auth0' -> 'oidc')
+            provider_type = 'oidc'  # Default
+            if oidc_provider_id.startswith('saml.'):
+                provider_type = 'saml'
+            elif oidc_provider_id.startswith('oidc.'):
+                provider_type = 'oidc'
+            
+            auth_provider = AuthProvider(
+                tenant_id=tenant.id,
+                provider_type=provider_type,
+                provider_id=oidc_provider_id,
+                display_name=f"{company} SSO",
+                is_primary=True,
+                is_active=True
+            )
+            db.add(auth_provider)
+            await db.commit()
+            click.echo(f"✅ Auth provider created: {oidc_provider_id}")
+
         
             # 3. Create admin invitation
             click.echo("\n📍 Step 3: Creating admin invitation...")

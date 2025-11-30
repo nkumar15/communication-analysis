@@ -12,7 +12,6 @@ class TenantModel(Base, TimestampMixin):
     name = Column(String(255), nullable=False)
     domain = Column(String(255), unique=True, nullable=False, index=True)
     firebase_tenant_id = Column(String(255), unique=True, nullable=False)
-    oidc_provider_id = Column(String(255), nullable=True)
     
     # Activation fields
     activation_token = Column(String(64), unique=True, nullable=True, index=True)

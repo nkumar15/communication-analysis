@@ -116,7 +116,6 @@ async def platform_admin_setup(db_session: AsyncSession):
         system_tenant = PlatformTenant(
             name="System Tenant",
             firebase_tenant_id="system-platform",
-            oidc_provider_id="oidc.generic",
             is_active=True
         )
         db_session.add(system_tenant)
@@ -210,7 +209,6 @@ async def create_test_tenant(
     name: str = "Test Company",
     domain: str = "test.com",
     firebase_tenant_id: str = None,
-    oidc_provider_id: str = "oidc.auth0",
     activation_status: str = "active"
 ):
     """Create a test tenant"""
@@ -223,7 +221,6 @@ async def create_test_tenant(
         name=name,
         domain=domain,
         firebase_tenant_id=firebase_tenant_id or f"tenant-{uuid4().hex[:8]}",
-        oidc_provider_id=oidc_provider_id,
         activation_status=activation_status,
         is_active=True
     )
@@ -244,8 +241,7 @@ async def create_test_tenant(
 async def create_platform_tenant(
     db_session: AsyncSession,
     name: str = "SaaS Platform System",
-    firebase_tenant_id: str = None,
-    oidc_provider_id: str = None
+    firebase_tenant_id: str = None
 ):
     """Create the platform tenant (singleton) - Idempotent"""
     from services.platform.models import PlatformTenant, PlatformRole
@@ -259,12 +255,10 @@ async def create_platform_tenant(
     
     suffix = uuid4().hex[:8]
     firebase_tenant_id = firebase_tenant_id or f"platform-{suffix}"
-    oidc_provider_id = oidc_provider_id or f"platform-oidc-{suffix}"
     
     tenant = PlatformTenant(
         name=name,
         firebase_tenant_id=firebase_tenant_id,
-        oidc_provider_id=oidc_provider_id,
         email_domain="platform.local",
         is_active=True
     )

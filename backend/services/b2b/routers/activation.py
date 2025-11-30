@@ -109,11 +109,15 @@ async def get_tenant_for_activation(
             detail="Tenant not found"
         )
     
+    # Get primary auth provider
+    from services.b2b.services.auth_provider_service import auth_provider_service
+    primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
+    
     return {
         "tenant_id": tenant.id,
         "tenant_name": tenant.name,
         "firebase_tenant_id": tenant.firebase_tenant_id,
-        "oidc_provider_id": tenant.oidc_provider_id
+        "oidc_provider_id": primary_provider.provider_id if primary_provider else None
     }
 
 

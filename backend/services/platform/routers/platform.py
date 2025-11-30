@@ -70,9 +70,19 @@ async def get_platform_config(db: AsyncSession = Depends(get_db)):
             detail="Platform configuration not found. Please run seed script."
         )
         
+    # Fetch primary auth provider
+    from services.platform.models.auth_provider import PlatformAuthProvider
+    auth_result = await db.execute(
+        select(PlatformAuthProvider)
+        .where(PlatformAuthProvider.platform_tenant_id == tenant.id)
+        .where(PlatformAuthProvider.is_primary == True)
+        .where(PlatformAuthProvider.is_active == True)
+    )
+    auth_provider = auth_result.scalar_one_or_none()
+    
     return PlatformConfigResponse(
         firebase_tenant_id=tenant.firebase_tenant_id,
-        oidc_provider_id=tenant.oidc_provider_id or 'oidc.generic',
+        oidc_provider_id=auth_provider.provider_id if auth_provider else 'oidc.generic',
         tenant_name=tenant.name
     )
 
@@ -161,7 +171,6 @@ async def create_tenant(
         name=request.name,
         domain=request.domain,
         firebase_tenant_id=f"tenant-{request.domain.replace('.', '-')}", # Placeholder
-        oidc_provider_id=f"oidc-{request.domain.replace('.', '-')}",     # Placeholder
         activation_status='pending'
     )
     
