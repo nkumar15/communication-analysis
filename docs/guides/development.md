@@ -586,6 +586,150 @@ make migrate
 # Don't set RESEND_API_KEY
 # Emails will print to console
 # Look for boxed output with activation URL
+---
+
+## Structured Logging
+
+The application uses `structlog` for cloud-adaptive structured logging across all microservices.
+
+### Configuration
+
+Logging behavior is controlled by environment variables in `.env`:
+
+```bash
+LOG_ENVIRONMENT=local    # local, gcp, aws, production
+LOG_LEVEL=INFO          # DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_JSON_INDENT=2       # Pretty print JSON (local only)
+
+# For cloud deployments
+GCP_PROJECT_ID=your-project-id
+AWS_REGION=us-east-1
+```
+
+### Log Formats
+
+**Local Development** (`LOG_ENVIRONMENT=local`):
+- Human-readable colored console output
+- Key-value pairs for easy scanning
+- Example:
+  ```
+  2025-12-01T07:11:42Z [info] b2b_api_ready
+    database=connected
+    firebase=initialized
+    service=b2b-api
+  ```
+
+**GCP** (`LOG_ENVIRONMENT=gcp`):
+- JSON format with GCP Cloud Logging fields
+- Includes `severity`, `timestamp`, `logging.googleapis.com/trace`
+- Compatible with Cloud Logging ingestion
+
+**AWS** (`LOG_ENVIRONMENT=aws`):
+- JSON format for CloudWatch Logs
+- Includes `level`, `timestamp` (Unix ms), `aws_request_id`
+- Compatible with CloudWatch ingestion
+
+### Request Tracing
+
+All HTTP requests automatically get:
+- **`request_id`**: Unique UUID for each request
+- **HTTP metadata**: method, path, client IP, user-agent
+- **User context**: tenant_id, user_id (from JWT when available)
+- **Duration tracking**: Request completion time in milliseconds
+
+**Example log chain for a single request:**
+```
+[info] request_started request_id=abc-123 http_method=POST
+[info] tenant_resolution_started request_id=abc-123 email=user@company.com
+[warning] tenant_not_found request_id=abc-123 domain=company.com
+[info] request_completed request_id=abc-123 duration_ms=45 status_code=404
+```
+
+All logs with the same `request_id` belong to the same request, enabling distributed tracing.
+
+### Usage in Code
+
+```python
+from core.logging import get_logger
+
+logger = get_logger(__name__)
+
+# Simple log
+logger.info("user_created", user_id="123", email="user@example.com")
+
+# Warning with context
+logger.warning("payment_failed", 
+               user_id="123",
+               amount=99.99,
+               reason="insufficient_funds")
+
+# Error with exception
+try:
+    risky_operation()
+except Exception as e:
+    logger.error("operation_failed",
+                 operation="risky_operation",
+                 exc_info=True)  # Includes stack trace
+```
+
+**Context is automatically added** via middleware:
+- `request_id` - unique per request
+- `tenant_id` - from JWT token
+- `user_id` - from JWT token
+- `http_method`, `http_path` - HTTP metadata
+- `client_ip` - request origin
+
+### Viewing Logs
+
+**All services:**
+```bash
+make logs              # All containers
+make logs-b2b          # B2B API only
+make logs-platform     # Platform API only
+make logs-b2c          # B2C API only
+make logs-domain       # Domain API only
+```
+
+**Filter by request ID:**
+```bash
+docker-compose logs b2b-api | grep "request_id=abc-123"
+```
+
+**Follow logs in real-time:**
+```bash
+make logs-b2b ARGS="-f"
+```
+
+### Production Deployment
+
+1. **Set environment for cloud provider:**
+   ```bash
+   LOG_ENVIRONMENT=gcp
+   GCP_PROJECT_ID=my-project
+   ```
+
+2. **Logs automatically output JSON** compatible with cloud logging services
+
+3. **Configure log aggregation:**
+   - GCP: Logs auto-collected by Cloud Logging
+   - AWS: Configure CloudWatch Logs agent
+   - Other: Use Fluentd/Logstash to forward to your log aggregator
+
+### Utilities
+
+**PII Sanitization:**
+```python
+from core.logging.utils import mask_email, sanitize_pii
+
+# Mask email
+masked = mask_email("user@example.com")  # "u***@example.com"
+
+# Sanitize dictionary (masks common PII fields)
+data = sanitize_pii({"email": "user@example.com", "ssn": "123-45-6789"})
+```
+
+---
+
 ## Debugging & Troubleshooting
 
 ### View Logs

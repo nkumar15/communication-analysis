@@ -16,24 +16,39 @@ from core.config import settings
 from core.database import init_db, close_db
 from core.utils.firebase import firebase_auth_service
 
+# Import logging
+from core.logging import setup_logging, get_logger
+from core.logging.middleware import LoggingMiddleware
+
+# Get logger for this module
+logger = get_logger(__name__)
+
+# Import B2C routers (placeholder for future workspace management)
+# from services.b2c.routers import workspaces
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    # Startup
-    print("🚀 Starting B2C API microservice...")
+    # Startup - Initialize logging FIRST
+    setup_logging(
+        environment=settings.log_environment,
+        log_level=settings.log_level
+    )
+    logger.info("b2c_api_starting", service="b2c-api", port=8002)
+    
     await init_db()
     firebase_auth_service.initialize()
-    print("✓ Database connection established")
-    print("✓ Firebase Admin SDK initialized")
-    print("✓ B2C API ready on port 8002")
+    logger.info("b2c_api_ready",
+                database="connected",
+                firebase="initialized",
+                service="b2c-api")
     
     yield
     
     # Shutdown
-    print("Shutting down B2C API...")
+    logger.info("b2c_api_shutting_down", service="b2c-api")
     await close_db()
-    print("✓ Connections closed")
 
 
 # Create FastAPI application
@@ -54,6 +69,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add structured logging middleware
+app.add_middleware(LoggingMiddleware)
 
 # TODO: Include B2C routers when implemented
 # from services.b2c.routers import workspaces, profiles

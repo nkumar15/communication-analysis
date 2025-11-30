@@ -12,6 +12,13 @@ from core.config import settings
 from core.database import init_db, close_db
 from core.utils.firebase import firebase_auth_service
 
+# Import logging
+from core.logging import setup_logging, get_logger
+from core.logging.middleware import LoggingMiddleware
+
+# Get logger for this module
+logger = get_logger(__name__)
+
 # Import domain-specific routers
 from services.domains.farming.routers import farmers
 
@@ -19,20 +26,25 @@ from services.domains.farming.routers import farmers
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    # Startup
-    print("🚀 Starting Domain API microservice...")
+    # Startup - Initialize logging FIRST
+    setup_logging(
+        environment=settings.log_environment,
+        log_level=settings.log_level
+    )
+    logger.info("domain_api_starting", service="domain-api", port=8003)
+    
     await init_db()
     firebase_auth_service.initialize()
-    print("✓ Database connection established")
-    print("✓ Firebase Admin SDK initialized")
-    print("✓ Domain API ready on port 8003")
+    logger.info("domain_api_ready",
+                database="connected",
+                firebase="initialized",
+                service="domain-api")
     
     yield
     
     # Shutdown
-    print("Shutting down Domain API...")
+    logger.info("domain_api_shutting_down", service="domain-api")
     await close_db()
-    print("✓ Connections closed")
 
 
 # Create FastAPI application
@@ -53,6 +65,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add structured logging middleware
+app.add_middleware(LoggingMiddleware)
 
 # Include domain-specific routers
 app.include_router(farmers.router)

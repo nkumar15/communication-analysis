@@ -252,6 +252,57 @@ services:
 
 ---
 
+## Observability & Monitoring
+
+### Structured Logging
+
+All microservices use `structlog` for cloud-adaptive structured logging:
+
+**Local Development:**
+- Human-readable colored console output
+- Key-value format for easy debugging
+
+**Production (GCP/AWS):**
+- JSON format compatible with cloud logging services
+- Automatic severity mapping
+- Trace context injection
+
+**Request Tracing:**
+- Every HTTP request gets unique `request_id`
+- All logs for same request share the ID
+- Enables distributed tracing across services
+- Automatic context injection (HTTP metadata, user/tenant info)
+
+**Log Structure:**
+```json
+{
+  "severity": "INFO",
+  "timestamp": "2025-12-01T07:11:42.717558Z",
+  "message": "request_completed",
+  "request_id": "abc-123-def-456",
+  "http_method": "POST",
+  "http_path": "/api/tenants",
+  "tenant_id": "uuid",
+  "user_id": "uuid",
+  "duration_ms": 45,
+  "status_code": 200
+}
+```
+
+**Configuration:**
+- `LOG_ENVIRONMENT`: local, gcp, aws, production
+- `LOG_LEVEL`: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- Environment-specific formatters auto-selected
+
+### Future Monitoring
+
+- [ ] OpenTelemetry traces
+- [ ] Prometheus metrics
+- [ ] Datadog/New Relic integration
+- [ ] Real-time alerting
+
+---
+
 ## Testing Architecture
 
 ### Backend Tests
