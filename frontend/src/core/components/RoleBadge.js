@@ -3,10 +3,20 @@ import React from 'react';
 const RoleBadge = ({ role }) => {
     const getRoleStyle = () => {
         switch (role.toLowerCase()) {
+            case 'owner':
+                return {
+                    backgroundColor: '#FEE2E2',
+                    color: '#DC2626'
+                };
             case 'admin':
                 return {
                     backgroundColor: '#EDE9FE',
                     color: '#7C3AED'
+                };
+            case 'viewer':
+                return {
+                    backgroundColor: '#D1FAE5',
+                    color: '#059669'
                 };
             case 'field_manager':
             case 'manager': // Legacy support
@@ -30,8 +40,12 @@ const RoleBadge = ({ role }) => {
 
     const getDisplayName = () => {
         switch (role.toLowerCase()) {
+            case 'owner':
+                return 'Owner';
             case 'admin':
                 return 'Admin';
+            case 'viewer':
+                return 'Viewer';
             case 'field_manager':
             case 'manager':
                 return 'Field Manager';

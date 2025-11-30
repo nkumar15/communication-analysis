@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../context/AuthContext';
-import apiService from '../../../core/api/b2bClient';
+import platformApiService from '../../../core/api/platformClient';
 import { formatDateTime } from '../../../utils/dateUtils';
 import CreateTenantModal from '../components/CreateTenantModal';
 
@@ -18,8 +16,8 @@ function TenantList() {
     const fetchData = async () => {
         try {
             const [tenantsData, statsData] = await Promise.all([
-                apiService.get('/api/platform/tenants'),
-                apiService.get('/api/platform/stats')
+                platformApiService.getTenants(),
+                platformApiService.getStats()
             ]);
             setTenants(tenantsData);
             setStats(statsData);
@@ -37,7 +35,7 @@ function TenantList() {
 
         setLoading(true);
         try {
-            const response = await apiService.post(`/api/platform/tenants/${tenantId}/impersonate`);
+            const response = await platformApiService.impersonateTenant(tenantId);
 
             // Store impersonation state
             localStorage.setItem('impersonating', 'true');

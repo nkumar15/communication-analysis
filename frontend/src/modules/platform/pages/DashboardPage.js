@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../../../core/api/b2bClient';
+import platformApiService from '../../../core/api/platformClient';
 
 function Dashboard() {
     const [stats, setStats] = useState(null);
@@ -8,7 +8,7 @@ function Dashboard() {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const data = await apiService.get('/api/platform/stats');
+                const data = await platformApiService.getStats();
                 setStats(data);
             } catch (error) {
                 console.error('Error fetching stats:', error);

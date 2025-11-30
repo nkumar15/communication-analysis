@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import apiService from '../api/b2bClient';
+import { auth } from '../firebase/config';
 
 /**
  * Custom hook for authentication and authorization
  * Provides current user info, role checking, and permission helpers
+ * NOTE: This is for B2B users only. Platform admins should not use this hook.
  */
 export const useAuth = () => {
     const [user, setUser] = useState(null);
@@ -18,6 +20,18 @@ export const useAuth = () => {
         try {
             setLoading(true);
             setError(null);
+
+            // Check if this is a platform admin - skip B2B API call
+            const tenantId = localStorage.getItem('firebase_tenant_id') || auth.tenantId;
+            const isPlatformAdmin = tenantId && (tenantId.includes('platform') || tenantId.includes('system'));
+
+            if (isPlatformAdmin) {
+                console.log('⚠️ useAuth: Skipping B2B API call for platform admin');
+                setUser(null);
+                setLoading(false);
+                return;
+            }
+
             const userData = await apiService.getCurrentUser();
             setUser(userData);
         } catch (err) {
@@ -49,10 +63,10 @@ export const useAuth = () => {
         if (!user || !user.role) return false;
 
         const permissions = {
-            dashboard: ['admin', 'field_manager'],
-            users: ['admin', 'field_manager'],
-            roles: ['admin', 'field_manager'],
-            farmers: ['admin', 'field_manager', 'field_agent']
+            dashboard: ['owner', 'admin', 'viewer', 'field_manager'], // All roles can view dashboard
+            users: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage users
+            roles: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage roles
+            farmers: ['owner', 'admin', 'field_manager', 'field_agent'] // All except Viewer
         };
 
         return permissions[feature]?.includes(user.role) || false;
@@ -66,8 +80,12 @@ export const useAuth = () => {
         if (!user) return 'Loading...';
 
         switch (user.role) {
+            case 'owner':
+                return 'All Users (Organization Owner)';
             case 'admin':
                 return 'All Users (Organization-wide)';
+            case 'viewer':
+                return 'View Only';
             case 'field_manager':
                 return 'Your Team';
             case 'field_agent':
@@ -84,14 +102,22 @@ export const useAuth = () => {
     const getInvitableRoles = () => {
         if (!user) return [];
 
-        if (user.role === 'admin') {
+        if (user.role === 'owner') {
             return [
+                { value: 'owner', label: 'Owner' },
                 { value: 'admin', label: 'Admin' },
-                { value: 'field_manager', label: 'Field Manager' },
-                { value: 'field_agent', label: 'Field Agent' }
+                { value: 'viewer', label: 'Viewer' }
             ];
         }
 
+        if (user.role === 'admin') {
+            return [
+                { value: 'admin', label: 'Admin' },
+                { value: 'viewer', label: 'Viewer' }
+            ];
+        }
+
+        // Legacy support for field_manager
         if (user.role === 'field_manager') {
             return [
                 { value: 'field_agent', label: 'Field Agent' }

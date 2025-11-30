@@ -1,13 +1,13 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
-import apiService from '../../../core/api/b2bClient';
+import platformApiService from '../../../core/api/platformClient';
 
 function SuperAdminLayout() {
     const navigate = useNavigate();
 
     const handleLogout = async () => {
         try {
-            await apiService.logout();
-            navigate('/login');
+            await platformApiService.logout();
+            navigate('/platform-login');
         } catch (error) {
             console.error('Logout failed:', error);
         }

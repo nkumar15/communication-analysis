@@ -41,19 +41,19 @@ function App() {
                 console.log('🔔 Auth state changed:', user.email);
 
                 // Check if this is a platform admin tenant
-                // Platform admins should NOT call sync-user (they use /api/platform/auth/me)
+                // Platform admins should NOT call B2B sync-user
                 const tenantId = localStorage.getItem('firebase_tenant_id') || auth.tenantId;
                 const isPlatformAdmin = tenantId && (tenantId.includes('platform') || tenantId.includes('system'));
 
                 if (!isPlatformAdmin) {
-                    // User already signed in from previous session - sync with backend
+                    // Regular B2B user - sync with backend
                     try {
                         await apiService.syncUser();
                     } catch (error) {
                         console.error('❌ Error syncing user:', error);
                     }
                 } else {
-                    console.log('⚠️ Skipping syncUser for platform admin in App.js');
+                    console.log('⚠️ Skipping B2B syncUser for platform admin');
                 }
             }
         });

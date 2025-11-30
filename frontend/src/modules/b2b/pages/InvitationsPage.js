@@ -7,7 +7,7 @@ import RoleBadge from '../../../core/components/RoleBadge';
 import StatusBadge from '../../../core/components/StatusBadge';
 import ActionMenu from '../components/ActionMenu';
 import AdminLayout from '../layouts/AdminLayout';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../core/hooks/useAuth';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 const InvitationsPage = () => {

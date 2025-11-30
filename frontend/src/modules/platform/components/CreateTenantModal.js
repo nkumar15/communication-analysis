@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import apiService from '../../../core/api/b2bClient';
+import platformApiService from '../../../core/api/platformClient';
 
 function CreateTenantModal({ onClose, onCreated }) {
     const [formData, setFormData] = useState({
@@ -24,7 +24,7 @@ function CreateTenantModal({ onClose, onCreated }) {
         setError(null);
 
         try {
-            await apiService.post('/api/platform/tenants', formData);
+            await platformApiService.createTenant(formData);
             onCreated();
             onClose();
         } catch (err) {

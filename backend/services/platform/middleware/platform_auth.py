@@ -46,6 +46,11 @@ async def verify_platform_admin(
     firebase_uid = decoded_token.get("uid")
     email = decoded_token.get("email")
     
+    # DEBUG: Log what we're looking for
+    print(f"🔍 Platform Auth - Looking for user:")
+    print(f"   Firebase UID: {firebase_uid}")
+    print(f"   Email: {email}")
+    
     if not firebase_uid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,6 +66,8 @@ async def verify_platform_admin(
         .where(PlatformUser.is_active == True)
     )
     user_role_pair = result.first()
+    
+    print(f"   Found user: {user_role_pair is not None}")
     
     if not user_role_pair:
         raise HTTPException(

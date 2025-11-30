@@ -48,6 +48,15 @@ class ApiService {
      */
     async getCurrentUser() {
         try {
+            // Check if this is a platform admin - don't call B2B endpoint
+            const tenantId = localStorage.getItem('firebase_tenant_id');
+            const isPlatformAdmin = tenantId && (tenantId.includes('platform') || tenantId.includes('system'));
+
+            if (isPlatformAdmin) {
+                console.log('⚠️ b2bClient: Skipping getCurrentUser for platform admin');
+                return null;
+            }
+
             const headers = await this.getAuthHeaders();
 
             const response = await fetch(`${API_BASE_URL}/api/auth/me`, {

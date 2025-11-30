@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { auth } from '../firebase/config';
-import apiService from '../api/b2bClient';
 
 function PlatformAdminRoute({ children }) {
     const [isAuthorized, setIsAuthorized] = useState(null);
@@ -27,7 +26,7 @@ function PlatformAdminRoute({ children }) {
                 localStorage.setItem('token', token);
 
                 // Fetch user details from PLATFORM admin endpoint (not regular auth endpoint)
-                const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+                const API_URL = process.env.REACT_APP_PLATFORM_API_URL || 'http://localhost:8001';
                 const response = await fetch(`${API_URL}/api/platform/auth/me`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
