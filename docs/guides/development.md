@@ -658,5 +658,71 @@ Before deploying to production:
 
 ---
 
-**Last Updated:** 2025-11-23  
-**Version:** 1.0
+**Last Updated:** 2025-11-30  
+**Version:** 1.1
+
+---
+
+## 🕒 Timezone Handling
+
+The application is designed to be timezone-agnostic in the backend and timezone-aware in the frontend.
+
+### Backend (UTC Only)
+- **Rule:** ALWAYS store and manipulate dates in **UTC**.
+- **Utility:** Use `core.utils.get_utc_now()` instead of `datetime.utcnow()`.
+- **Reason:** `datetime.utcnow()` returns a "naive" datetime (no timezone info), which can cause ambiguity. `get_utc_now()` returns a timezone-aware UTC datetime.
+
+```python
+from core.utils import get_utc_now
+
+# Correct
+created_at = get_utc_now()
+
+# Incorrect
+created_at = datetime.utcnow()
+```
+
+### Frontend (Local Time)
+- **Rule:** Display dates in the user's **local timezone**.
+- **Utility:** Use `src/utils/dateUtils.js`.
+
+```javascript
+import { formatDateTime } from '../utils/dateUtils';
+
+// Displays: "Oct 27, 2023, 10:00 AM" (in user's local time)
+<span>{formatDateTime(tenant.created_at)}</span>
+```
+
+---
+
+## 🗑️ Soft Delete
+
+We use a "Soft Delete" mechanism for critical entities (`Tenant`, `User`, `AuthProvider`) to preserve data for audit and recovery.
+
+### Implementation
+- **Mixin:** `core.models.base.SoftDeleteMixin` adds:
+    - `deleted_at` (Timestamp, nullable)
+    - `is_deleted` (Property)
+- **Database:** Rows remain in the table but `deleted_at` is set.
+- **Filtering:** Services automatically filter out soft-deleted records.
+
+### Usage
+
+**In Models:**
+```python
+from core.models.base import SoftDeleteMixin
+
+class TenantModel(Base, TimestampMixin, SoftDeleteMixin):
+    ...
+```
+
+**In Services:**
+```python
+# Delete (Soft)
+await tenant_service.delete_tenant(db, tenant_id)
+
+# Query (Automatically filters deleted)
+# The service methods include .where(Model.deleted_at.is_(None))
+tenant = await tenant_service.get_tenant_by_id(db, tenant_id)
+```
+

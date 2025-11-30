@@ -22,6 +22,7 @@ This ensures complete separation from customer tenant systems for security and c
 | `platform_roles` | Platform-specific roles (admin, support, billing) |
 | `platform_users` | Platform administrators and staff |
 | `platform_audit_log` | Audit trail for all platform actions |
+| `auth_providers` | Configuration for OIDC/SAML providers (Platform & B2B) |
 
 ### Separation from Customer System
 
@@ -242,6 +243,36 @@ POST /api/platform/tenants
 **Impersonate Tenant Admin**
 ```bash
 POST /api/platform/tenants/{tenant_id}/impersonate
+```
+
+**Delete Customer Tenant (Soft Delete)**
+```bash
+DELETE /api/platform/tenants/{tenant_id}
+```
+- Marks tenant as deleted (`deleted_at` set).
+- Tenant users can no longer login.
+- Data is preserved for audit/recovery.
+
+---
+
+## 🔐 OIDC Configuration
+
+The system now supports **multiple authentication providers** per tenant via the `auth_providers` table.
+
+### Structure
+- **Tenant**: Has many `AuthProvider`s.
+- **AuthProvider**:
+    - `provider_type`: `oidc`, `saml`, `google`, etc.
+    - `provider_id`: The ID in Firebase (e.g., `oidc.okta`).
+    - `is_primary`: Determines which provider is used for the default login flow.
+
+### Managing Providers
+Currently, providers are managed via the CLI or direct database access. Future updates will add UI management.
+
+```bash
+# View providers for a tenant
+docker compose exec -T postgres psql -U sso_user -d sso_db -c \
+  "SELECT * FROM b2b.auth_providers WHERE tenant_id = '...';"
 ```
 
 ---

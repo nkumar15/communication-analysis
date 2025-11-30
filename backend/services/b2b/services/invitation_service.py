@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from services.b2b.models import InvitationModel
+from services.b2b.models import InvitationModel, TenantModel, Role
 from services.b2b.schemas import Invitation
+from core.utils import get_utc_now
 import secrets  # For timing-attack resistant comparison
 
 
@@ -36,7 +37,7 @@ class InvitationService:
         Returns:
             Created Invitation
         """
-        expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+        expires_at = get_utc_now() + timedelta(days=expires_in_days)
         
         invitation = InvitationModel(
             tenant_id=tenant_id,
@@ -102,7 +103,7 @@ class InvitationService:
             select(InvitationModel)
             .where(InvitationModel.tenant_id == tenant_id)
             .where(InvitationModel.accepted_at.is_(None))
-            .where(InvitationModel.expires_at > datetime.utcnow())
+            .where(InvitationModel.expires_at > get_utc_now())
             .order_by(InvitationModel.created_at.desc())
         )
         invitation_models = result.scalars().all()
@@ -137,7 +138,7 @@ class InvitationService:
         if not invitation:
             return None
         
-        invitation.accepted_at = datetime.utcnow()
+        invitation.accepted_at = get_utc_now()
         invitation.accepted_by = accepted_by_user_id
         invitation.accepted_from_ip = ip_address
         await db.commit()

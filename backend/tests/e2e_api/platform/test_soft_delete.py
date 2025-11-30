@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.b2b.models import TenantModel
 from core.database import get_db
+from uuid import uuid4
 
 @pytest.mark.asyncio
 class TestSoftDelete:
@@ -26,10 +27,11 @@ class TestSoftDelete:
         5. Verify persistence in DB (soft deleted)
         """
         # 1. Create Tenant
+        suffix = uuid4().hex[:8]
         tenant_data = {
-            "name": "Soft Delete Test",
-            "domain": "soft-delete.com",
-            "admin_email": "admin@soft-delete.com"
+            "name": f"Soft Delete Test {suffix}",
+            "domain": f"soft-delete-{suffix}.com",
+            "admin_email": f"admin-{suffix}@soft-delete.com"
         }
         
         response = await api_client.post(

@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.b2b.models import TenantModel
 from services.b2b.schemas import Tenant
+from core.utils import get_utc_now
 
 
 class TenantService:
@@ -121,7 +122,6 @@ class TenantService:
         Returns:
             Updated Tenant
         """
-        from datetime import datetime
         
         result = await db.execute(
             select(TenantModel).where(TenantModel.id == tenant_id)
@@ -133,7 +133,7 @@ class TenantService:
         
         # Update tenant status
         tenant.activation_status = 'active'
-        tenant.activated_at = datetime.utcnow()
+        tenant.activated_at = get_utc_now()
         tenant.activated_by = activated_by_user_id
         tenant.activation_token = None  # Clear token after activation
         
@@ -153,7 +153,6 @@ class TenantService:
         Returns:
             True if deleted, False if not found
         """
-        from datetime import datetime
         
         result = await db.execute(
             select(TenantModel)
@@ -165,7 +164,7 @@ class TenantService:
         if not tenant:
             return False
             
-        tenant.deleted_at = datetime.utcnow()
+        tenant.deleted_at = get_utc_now()
         tenant.is_active = False
         
         await db.commit()

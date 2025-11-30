@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from core.utils.firebase import firebase_auth_service
 from services.platform.models import PlatformUser, PlatformRole, PlatformAuditLog
+from core.utils import get_utc_now
 from core.database import get_db
 from datetime import datetime
 from typing import Optional
@@ -70,7 +71,7 @@ async def verify_platform_admin(
     platform_user, platform_role = user_role_pair
     
     # Update last login timestamp
-    platform_user.last_login_at = datetime.utcnow()
+    platform_user.last_login_at = get_utc_now()
     await db.commit()
     
     return {

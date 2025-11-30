@@ -7,7 +7,8 @@ import RoleBadge from '../../../core/components/RoleBadge';
 import StatusBadge from '../../../core/components/StatusBadge';
 import ActionMenu from '../components/ActionMenu';
 import AdminLayout from '../layouts/AdminLayout';
-import useAuth from '../../../core/hooks/useAuth';
+import { useAuth } from '../../../context/AuthContext';
+import { formatDateTime } from '../../../utils/dateUtils';
 
 const InvitationsPage = () => {
     const [stats, setStats] = useState(null);
@@ -112,11 +113,11 @@ const InvitationsPage = () => {
 
     const formatDate = (dateString) => {
         if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+        try {
+            return formatDateTime(dateString);
+        } catch (e) {
+            return dateString;
+        }
     };
 
     const filterData = (data, type) => {

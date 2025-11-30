@@ -11,13 +11,15 @@ import click
 import argparse
 import string
 from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add backend directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from core.config import settings
 from core.database import AsyncSessionLocal
@@ -26,6 +28,7 @@ from core.utils.firebase import firebase_auth_service
 from core.constants import RoleName
 from scripts.core.firebase_admin_cli import create_firebase_tenant, configure_oidc_provider
 from core.email import email_service
+from core.utils import get_utc_now
 
 
 @click.group()
@@ -85,7 +88,7 @@ async def create_tenant_async(
         # 3. Generate activation token
         click.echo("\n📍 Step 3: Generating activation token...")
         activation_token = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + timedelta(hours=48)
+        expires_at = get_utc_now() + timedelta(hours=48)
         click.echo(f"✅ Activation token generated (expires in 48 hours)")
         
         # 4. Create tenant in database
@@ -214,7 +217,7 @@ async def create_local_async(
         # 1. Generate activation token
         click.echo("📍 Step 1: Generating activation token...")
         activation_token = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + timedelta(hours=48)
+        expires_at = get_utc_now() + timedelta(hours=48)
         click.echo(f"✅ Activation token generated (expires in 48 hours)")
         
         # 2. Create tenant in database

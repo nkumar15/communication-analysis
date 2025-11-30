@@ -11,6 +11,7 @@ from uuid import UUID
 
 from core.database import get_db
 from core.config import settings
+from core.utils import get_utc_now
 from services.platform.middleware.platform_auth import verify_platform_admin
 from services.platform.models import PlatformTenant, PlatformUser
 from services.b2b.models import TenantModel, UserModel
@@ -294,14 +295,14 @@ async def impersonate_tenant_admin(
         )
     
     # 3. Generate short-lived impersonation token (15 minutes)
-    expiry = datetime.utcnow() + timedelta(minutes=15)
+    expiry = get_utc_now() + timedelta(minutes=15)
     
     payload = {
         "uid": admin_user.firebase_uid,
         "email": admin_user.email,
         "tenant_id": str(tenant_id),
         "impersonated_by": current_user.get("uid"),
-        "iat": datetime.utcnow().timestamp(),
+        "iat": get_utc_now().timestamp(),
         "exp": expiry.timestamp()
     }
     

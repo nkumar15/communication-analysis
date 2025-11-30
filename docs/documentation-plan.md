@@ -51,10 +51,10 @@ To provide a clear, role-based navigation path for developers and administrators
     - **SSO Setup:** Configuring their IdP.
 
 ## 🧹 Cleanup Actions
-- [ ] Rename `docs/guides/admin-guide.md` -> `docs/guides/tenant-admin.md`
-- [ ] Merge `docs/guides/admin-setup.md` into `docs/guides/tenant-admin.md` (if redundant)
-- [ ] Simplify `README.md` to remove duplicate "How to" content that belongs in `development.md`.
-- [ ] Ensure `docs/guides/development.md` is the **single source** for testing instructions.
+- [x] Rename `docs/guides/admin-guide.md` -> `docs/guides/tenant-admin.md`
+- [x] Merge `docs/guides/admin-setup.md` into `docs/guides/tenant-admin.md` (if redundant)
+- [x] Simplify `README.md` to remove duplicate "How to" content that belongs in `development.md`.
+- [x] Ensure `docs/guides/development.md` is the **single source** for testing instructions.
 
 ## 📏 Rules
 1. **Don't Duplicate:** If it's in `development.md`, link to it from `README.md`. Don't copy-paste.

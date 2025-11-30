@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import insert
 from services.b2b.models import UserModel
 from services.b2b.schemas import User
 from core.constants import RoleName
+from core.utils import get_utc_now
 
 
 class UserService:
@@ -66,7 +67,7 @@ class UserService:
         Returns:
             Created or updated User
         """
-        now = datetime.utcnow()
+        now = get_utc_now()
         
         # Using PostgreSQL's ON CONFLICT (UPSERT)
         stmt = insert(UserModel).values(
@@ -126,8 +127,8 @@ class UserService:
         user = result.scalar_one_or_none()
         
         if user:
-            user.last_login = datetime.utcnow()
-            user.updated_at = datetime.utcnow()
+            user.last_login = get_utc_now()
+            user.updated_at = get_utc_now()
             await db.commit()
             
     async def delete_user(self, db: AsyncSession, user_id: UUID) -> bool:
@@ -151,7 +152,7 @@ class UserService:
         if not user:
             return False
             
-        user.deleted_at = datetime.utcnow()
+        user.deleted_at = get_utc_now()
         user.is_active = False
         
         await db.commit()

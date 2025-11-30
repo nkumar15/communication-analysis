@@ -16,6 +16,7 @@ from tests.test_app import app  # Unified test app with all routers
 from core.database import get_db
 from core.models.base import Base
 from core.config import settings
+from core.utils import get_utc_now
 
 
 # Test database URL (shared connection)
@@ -187,9 +188,9 @@ def create_mock_firebase_token(
         },
         "iss": "https://securetoken.google.com/test-project",
         "aud": "test-project",
-        "auth_time": int(datetime.utcnow().timestamp()),
-        "iat": int(datetime.utcnow().timestamp()),
-        "exp": int((datetime.utcnow() + timedelta(hours=1)).timestamp()),
+        "auth_time": int(get_utc_now().timestamp()),
+        "iat": int(get_utc_now().timestamp()),
+        "exp": int((get_utc_now() + timedelta(hours=1)).timestamp()),
     }
 
 
@@ -377,7 +378,7 @@ async def create_test_invitation(
         role=role,
         invitation_token=secrets.token_urlsafe(32),
         invited_by=invited_by,
-        expires_at=datetime.utcnow() + timedelta(days=expires_in_days)
+        expires_at=get_utc_now() + timedelta(days=expires_in_days)
     )
     db_session.add(invitation)
     await db_session.flush()

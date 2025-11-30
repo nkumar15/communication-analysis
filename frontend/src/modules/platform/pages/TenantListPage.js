@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import apiService from '../../../core/api/b2bClient';
+import { formatDateTime } from '../../../utils/dateUtils';
 import CreateTenantModal from '../components/CreateTenantModal';
 
 function TenantList() {
@@ -110,7 +113,7 @@ function TenantList() {
                                     </span>
                                 </td>
                                 <td>{tenant.user_count}</td>
-                                <td>{new Date(tenant.created_at).toLocaleDateString()}</td>
+                                <td>{formatDateTime(tenant.created_at)}</td>
                                 <td>
                                     <button
                                         className="saas-btn saas-btn-primary"

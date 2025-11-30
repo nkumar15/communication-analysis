@@ -100,6 +100,16 @@ The user will receive an email with an invitation link.
 
 ---
 
+## 🔐 SSO Configuration
+
+Your organization connects to the platform using **Single Sign-On (SSO)**.
+
+- **Primary Provider**: The main identity provider (e.g., Okta, Azure AD) used for logging in.
+- **Configuration**: Currently managed by the Platform Support team.
+- **Changes**: If you need to update your SSO settings (e.g., rotate certificates, change issuer), please contact support.
+
+---
+
 ## 🔐 Permissions
 
 **All Users Can:**
