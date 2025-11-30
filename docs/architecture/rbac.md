@@ -260,4 +260,44 @@ has_permission(user_id, 'roles', 'write', db)    # Can manage roles
 
 ---
 
-For more details, see `app/rbac/` source code.
+---
+
+## 🏗️ Role Definition & Seeding Strategy
+
+The system distinguishes between **Standard Roles** (SaaS infrastructure) and **Domain Roles** (Business logic).
+
+### 1. Platform Roles (Standard)
+Defined in `backend/scripts/platform/seed_system_tenant.py`.
+- **Scope**: Global (Platform Tenant).
+- **Roles**:
+    - `platform_admin`: Super admin.
+    - `support_staff`: Read-only/Support access.
+    - `billing_manager`: Finance access.
+
+### 2. B2B Tenant Roles (Standard + Domain)
+Defined in PostgreSQL function `seed_tenant_roles` (Migration `015`).
+This function is automatically called whenever a new tenant is created.
+
+#### Standard Roles (Infrastructure)
+Every SaaS tenant needs these:
+- **Admin** (`admin`): Full access to `users`, `roles`, `dashboard`.
+- **Member** (Optional): Basic access.
+
+#### Domain Roles (Business Specific)
+Specific to the application's domain (e.g., Farming, Healthcare, CRM).
+- **Field Manager** (`field_manager`): Can manage agents and farmers.
+- **Field Agent** (`field_agent`): Can only access assigned farmers.
+
+### How to Add New Domain Roles
+To introduce a new domain role (e.g., "Auditor"):
+
+1.  **Define Resources**: Add 'audits' to `resources` table.
+2.  **Update Seeder**: Modify `seed_tenant_roles` function in migration:
+    ```sql
+    -- Create Role
+    INSERT INTO roles (name, ...) VALUES ('auditor', ...);
+    -- Assign Permissions
+    INSERT INTO role_permissions ... VALUES (v_auditor_id, v_audits_id, v_read_id);
+    ```
+3.  **Apply**: The new role will be created for all *new* tenants. Run a migration script to backfill *existing* tenants.
+

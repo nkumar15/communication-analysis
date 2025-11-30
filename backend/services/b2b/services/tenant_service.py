@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.b2b.models import TenantModel
 from services.b2b.schemas import Tenant
+from services.b2b.services.role_template_service import role_template_service
 from core.utils import get_utc_now
 
 

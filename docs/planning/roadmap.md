@@ -134,6 +134,9 @@ Example:
 ### 🟡 Medium Priority (3-6 Months)
 
 #### RBAC Enhancement (See detailed plan below)
+- [ ] **Create Role API** (Day 2 Requirement)
+  - `POST /api/roles` endpoint for tenant admins
+  - Allow creation of custom roles with specific permissions
 - [ ] **Configurable tenant-specific RBAC**
   - Custom role creation UI
   - Permission matrix management
