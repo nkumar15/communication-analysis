@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS resources (
     category VARCHAR(50),                        -- Group in UI: 'Administration', 'Core'
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     
     CONSTRAINT unique_resource_name UNIQUE(name)
 );
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS actions (
     name VARCHAR(50) NOT NULL,                  -- 'read', 'write', 'delete', 'invite'
     display_name VARCHAR(100) NOT NULL,         -- 'View', 'Create/Edit', 'Delete'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     
     CONSTRAINT unique_action_name UNIQUE(name)
 );
@@ -60,6 +62,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     resource_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
     action_id UUID NOT NULL REFERENCES actions(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     
     CONSTRAINT unique_role_resource_action UNIQUE(role_id, resource_id, action_id)
 );

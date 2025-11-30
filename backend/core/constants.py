@@ -2,12 +2,19 @@
 Application Constants
 """
 
-class RoleName:
+class B2BRoleName:
     """
     Role slugs used in code logic.
     These must match the 'name' column in the roles table.
-    """
+    """ 
+    OWNER = "owner"
     ADMIN = "admin"
-    FIELD_MANAGER = "field_manager"
-    FIELD_AGENT = "field_agent"
+    VIEWER = "viewer"
+
+
+class PlatformRoleName:
+    """
+    Role slugs used in code logic.
+    These must match the 'name' column in the roles table.
+    """ 
     PLATFORM_ADMIN = "platform_admin"

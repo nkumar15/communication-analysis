@@ -11,7 +11,7 @@ from core.utils.firebase import firebase_auth_service
 from services.b2b.models import InvitationModel
 from core.middleware import get_current_user
 from core.database import get_db
-from core.constants import RoleName
+from core.constants import B2BRoleName
 
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -119,7 +119,7 @@ async def get_current_user_info(
     
     if existing_user:
         # User exists, use default role (it won't overwrite existing role_id)
-        user_role = RoleName.FIELD_AGENT
+        user_role = RoleName.VIEWER
     else:
         # New user, check invitation (including accepted ones for initial role assignment)
         result = await db.execute(
@@ -129,8 +129,8 @@ async def get_current_user_info(
         )
         invitation = result.scalar_one_or_none()
         
-        # Use role from invitation if exists, otherwise default to 'field_agent'
-        user_role = invitation.role if invitation else RoleName.FIELD_AGENT
+        # Use role from invitation if exists, otherwise default to 'viewer'
+        user_role = invitation.role if invitation else RoleName.VIEWER
     
     # Create or update user
     user = await user_service.create_or_update_user(
@@ -192,7 +192,7 @@ async def sync_user(
     
     if existing_user:
         # User exists, use default role (it won't overwrite existing role_id)
-        user_role = RoleName.FIELD_AGENT
+        user_role = RoleName.VIEWER
     else:
         # New user, check invitation (including accepted ones for initial role assignment)
         result = await db.execute(
@@ -202,8 +202,8 @@ async def sync_user(
         )
         invitation = result.scalar_one_or_none()
         
-        # Use role from invitation if exists, otherwise default to 'field_agent'
-        user_role = invitation.role if invitation else RoleName.FIELD_AGENT
+        # Use role from invitation if exists, otherwise default to 'viewer'
+        user_role = invitation.role if invitation else RoleName.VIEWER   
     
     # Create or update user
     user = await user_service.create_or_update_user(

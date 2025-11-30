@@ -25,7 +25,7 @@ from core.config import settings
 from core.database import AsyncSessionLocal
 from services.b2b.models import TenantModel, UserModel, InvitationModel
 from core.utils.firebase import firebase_auth_service
-from core.constants import RoleName
+from core.constants import B2BRoleName
 from scripts.core.firebase_admin_cli import create_firebase_tenant, configure_oidc_provider
 from core.email import email_service
 from core.utils import get_utc_now
@@ -148,7 +148,7 @@ async def create_tenant_async(
                 db=db,
                 tenant_id=tenant.id,
                 email=admin_email,
-                role=RoleName.ADMIN,
+                role=B2BRoleName.OWNER,
                 invitation_token=activation_token,  # Reuse activation token
                 invited_by=None,  # CLI-created, no inviter
                 expires_in_days=2  # 48 hours, same as activation
@@ -302,7 +302,7 @@ async def create_local_async(
                 db=db,
                 tenant_id=tenant.id,
                 email=admin_email,
-                role=RoleName.ADMIN,
+                role=B2BRoleName.ADMIN,
                 invitation_token=activation_token,
                 invited_by=None,
                 expires_in_days=2

@@ -22,27 +22,39 @@ CREATE INDEX IF NOT EXISTS idx_role_templates_is_default ON b2b.role_templates(i
 
 INSERT INTO b2b.role_templates (name, display_name, description, is_system_role, is_default, permissions) VALUES
 (
-    'admin', 
-    'Admin', 
-    'System administrator with full access', 
+    'owner', 
+    'Owner', 
+    'Primary administrator with total control over account, billing, security, and users', 
     TRUE, 
     TRUE,
     '[
         {"resource": "dashboard", "actions": ["read"]},
         {"resource": "users", "actions": ["read", "write", "delete", "invite"]},
-        {"resource": "roles", "actions": ["read", "write"]},
-        {"resource": "farmers", "actions": ["read", "write", "delete"]}
+        {"resource": "roles", "actions": ["read", "write"]}
     ]'::jsonb
 ),
 (
-    'member', 
-    'Member', 
-    'Standard member with basic access', 
+    'admin', 
+    'Admin', 
+    'Administrator with management and configuration capabilities', 
     TRUE, 
     TRUE,
     '[
         {"resource": "dashboard", "actions": ["read"]},
-        {"resource": "users", "actions": ["read"]}
+        {"resource": "users", "actions": ["read", "write", "invite"]},
+        {"resource": "roles", "actions": ["read", "write"]}
+    ]'::jsonb
+),
+(
+    'viewer', 
+    'Viewer', 
+    'Read-only access to content, reports, and dashboards', 
+    TRUE, 
+    TRUE,
+    '[
+        {"resource": "dashboard", "actions": ["read"]},
+        {"resource": "users", "actions": ["read"]},
+        {"resource": "roles", "actions": ["read"]}
     ]'::jsonb
 )
 ON CONFLICT (name) DO UPDATE SET

@@ -20,11 +20,13 @@ from core.config import settings
 router = APIRouter(prefix="/api/invitations", tags=["invitations"])
 
 
+from core.constants import B2BRoleName
+
 # Request/Response Models
 class InviteUserRequest(BaseModel):
     """Request to invite a new user"""
     email: str
-    role: str = 'field_agent'  # Default to field_agent (lowest permission)
+    role: str = B2BRoleName.VIEWER  # Default to viewer (lowest permission)
 
 
 class InviteUserResponse(BaseModel):
@@ -56,9 +58,9 @@ async def invite_user(
     Permission required: users:invite
     
     Role restrictions:
-    - Admin: Can invite admin, field_manager, field_agent
-    - Field Manager: Can only invite field_agent
-    - Field Agent: Cannot invite (no permission)
+    - Owner: Can invite Owner, Admin, Viewer
+    - Admin: Can invite Admin, Viewer
+    - Viewer: Cannot invite (no permission)
     """
     from services.b2b.rbac import has_permission
     
@@ -90,23 +92,28 @@ async def invite_user(
     current_user_role = current_user.get('role')  # Role slug from current_user
     requested_role = request.role
     
-    # Admin can invite anyone
-    # Field Manager can only invite field_agent (NOT other field_managers)
-    # Field Agent cannot invite anyone (should not reach here due to permission check)
-    if current_user_role == 'field_manager':
-        if requested_role != 'field_agent':
+    # Validate requested role exists in system
+    valid_roles = [B2BRoleName.OWNER, B2BRoleName.ADMIN, B2BRoleName.VIEWER]
+    if requested_role not in valid_roles:
+         raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid role: {requested_role}"
+        )
+
+    # Owner can invite anyone
+    if current_user_role == B2BRoleName.OWNER:
+        pass # Allowed
+        
+    # Admin can invite Admin or Viewer (but NOT Owner)
+    elif current_user_role == B2BRoleName.ADMIN:
+        if requested_role == B2BRoleName.OWNER:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Field managers can only invite field agents"
-            )
-    elif current_user_role == 'admin':
-        # Admin can invite admin, field_manager, or field_agent
-        if requested_role not in ['admin', 'field_manager', 'field_agent']:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid role: {requested_role}"
+                detail="Admins cannot invite Owners"
             )
     else:
+        # Other roles (like Viewer) should be caught by permission check above, 
+        # but as a safety net:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to invite users"

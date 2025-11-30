@@ -5,7 +5,7 @@ Tests access control and isolation
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.constants import RoleName
+from core.constants import B2BRoleName
 from services.platform.models import PlatformUser, PlatformRole
 from core.config import settings
 

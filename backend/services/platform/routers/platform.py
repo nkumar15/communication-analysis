@@ -253,7 +253,7 @@ async def impersonate_tenant_admin(
     import jwt
     from datetime import timedelta
     from core.config import settings
-    from core.constants import RoleName
+    from core.constants import PlatformRoleName, B2BRoleName
     from services.b2b.models import Role
     
     # 1. Fetch tenant
@@ -263,50 +263,69 @@ async def impersonate_tenant_admin(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Tenant {tenant_id} not found"
         )
-    
-    # 2. Find tenant's admin user
-    admin_role_result = await db.execute(
+     # 2. Find an admin user to impersonate (Owner or Admin)
+    # Fetch both roles
+    roles_result = await db.execute(
         select(Role)
         .where(Role.tenant_id == tenant_id)
-        .where(Role.name == RoleName.ADMIN)
+        .where(Role.name.in_([B2BRoleName.OWNER, B2BRoleName.ADMIN]))
     )
-    admin_role = admin_role_result.scalar_one_or_none()
+    roles = roles_result.scalars().all()
     
-    if not admin_role:
+    owner_role = next((r for r in roles if r.name == B2BRoleName.OWNER), None)
+    admin_role = next((r for r in roles if r.name == B2BRoleName.ADMIN), None)
+    
+    target_user = None
+    
+    # Try to find an active Owner user first
+    if owner_role:
+        user_result = await db.execute(
+            select(UserModel)
+            .where(UserModel.tenant_id == tenant_id)
+            .where(UserModel.role_id == owner_role.id)
+            .where(UserModel.is_active == True)
+            .limit(1)
+        )
+        target_user = user_result.scalar_one_or_none()
+    
+    # Fallback: Try to find an active Admin user if no Owner user found
+    if not target_user and admin_role:
+        user_result = await db.execute(
+            select(UserModel)
+            .where(UserModel.tenant_id == tenant_id)
+            .where(UserModel.role_id == admin_role.id)
+            .where(UserModel.is_active == True)
+            .limit(1)
+        )
+        target_user = user_result.scalar_one_or_none()
+    
+    if not target_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Admin role not found for tenant {tenant_id}"
+            detail=f"No active owner or admin user found for tenant {tenant_id}"
         )
     
-    # Find a user with admin role
-    admin_user_result = await db.execute(
-        select(UserModel)
-        .where(UserModel.tenant_id == tenant_id)
-        .where(UserModel.role_id == admin_role.id)
-        .where(UserModel.is_active == True)
-        .limit(1)
-    )
-    admin_user = admin_user_result.scalar_one_or_none()
+    # 3. Generate impersonation token
+    # Create a short-lived JWT for the target user
+    expiration = timedelta(minutes=60)
     
-    if not admin_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No active admin user found for tenant {tenant_id}"
-        )
-    
-    # 3. Generate short-lived impersonation token (15 minutes)
-    expiry = get_utc_now() + timedelta(minutes=15)
+    # We need to get the user's firebase_uid to create a proper token
+    # But since we are impersonating, we might want to create a custom token
+    # For now, we'll create a session token that the frontend can use
     
     payload = {
-        "uid": admin_user.firebase_uid,
-        "email": admin_user.email,
-        "tenant_id": str(tenant_id),
-        "impersonated_by": current_user.get("uid"),
-        "iat": get_utc_now().timestamp(),
-        "exp": expiry.timestamp()
+        "sub": target_user.firebase_uid,
+        "email": target_user.email,
+        "tenant_id": str(tenant.id),
+        "role": B2BRoleName.OWNER if (owner_role and target_user.role_id == owner_role.id) else B2BRoleName.ADMIN,
+        "type": "impersonation",
+        "impersonator": current_user["email"],
+        "exp": datetime.utcnow() + expiration
     }
     
-    token = jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+    
+
     
     # 4. Log impersonation action
     from services.platform.middleware.platform_auth import log_platform_action
@@ -316,16 +335,16 @@ async def impersonate_tenant_admin(
         action="impersonate_tenant_admin",
         resource_type="tenant",
         resource_id=tenant_id,
-        details={"target_user_email": admin_user.email},
+        details={"target_user_email": target_user.email},
         db=db
     )
     
     return ImpersonationResponse(
         token=token,
-        tenant_id=tenant_id,
+        tenant_id=tenant.id,
         tenant_name=tenant.name,
-        admin_email=admin_user.email,
-        redirect_url="/dashboard"
+        admin_email=target_user.email,
+        redirect_url=f"{settings.frontend_url}/auth/impersonate?token={token}"
     )
 
 

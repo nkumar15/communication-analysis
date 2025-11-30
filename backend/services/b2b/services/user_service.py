@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 from services.b2b.models import UserModel
 from services.b2b.schemas import User
-from core.constants import RoleName
+from core.constants import B2BRoleName
 from core.utils import get_utc_now
 
 
@@ -51,7 +51,7 @@ class UserService:
         email: str, 
         firebase_uid: str,
         name: Optional[str] = None,
-        role: str = RoleName.FIELD_AGENT
+        role: str = B2BRoleName.VIEWER
     ) -> User:
         """
         Create or update user from Firebase token using UPSERT
@@ -62,7 +62,7 @@ class UserService:
             email: User email
             firebase_uid: Firebase user ID
             name: User display name
-            role: User role (default: field_agent)
+            role: User role (default: viewer)
             
         Returns:
             Created or updated User

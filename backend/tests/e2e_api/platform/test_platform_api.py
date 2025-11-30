@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
 
-from core.constants import RoleName
+from core.constants import PlatformRoleName
 from services.b2b.models.rbac import Role
 from services.b2b.models import TenantModel, UserModel
 from tests.conftest import create_test_tenant, create_test_user, create_mock_firebase_token, encode_mock_jwt

@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import uuid4
-from core.constants import RoleName
+from core.constants import B2BRoleName
 from services.b2b.models.rbac import Role
 from services.b2b.models import TenantModel, UserModel
 from tests.conftest import create_test_tenant, create_mock_firebase_token, encode_mock_jwt
@@ -29,7 +29,7 @@ async def tenant_with_admin(db_session: AsyncSession):
     result = await db_session.execute(
         select(Role)
         .where(Role.tenant_id == tenant.id)
-        .where(Role.name == RoleName.ADMIN)
+        .where(Role.name == B2BRoleName.ADMIN)
     )
     admin_role = result.scalars().first()
     

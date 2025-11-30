@@ -7,7 +7,9 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from services.platform.models import PlatformUser, PlatformRole
+from core.constants import PlatformRoleName, B2BRoleName
 from services.b2b.models import TenantModel
+from services.b2b.models.rbac import Role
 from core.config import settings
 
 from tests.conftest import (
@@ -162,7 +164,7 @@ class TestPlatformAdmin:
             db_session,
             platform_tenant_id=platform_tenant.id,
             email="admin@platform.net",
-            role_name="platform_admin"
+            role_name=PlatformRoleName.PLATFORM_ADMIN
         )
         
         # Setup target tenant
@@ -171,8 +173,9 @@ class TestPlatformAdmin:
             db_session,
             tenant_id=target_tenant.id,
             email=f"admin@{target_tenant.domain}",
-            role_slug="admin"
+            role_slug=B2BRoleName.ADMIN
         )
+        assert target_admin.role_id is not None, "Admin user created without role!"
         
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=platform_admin.firebase_uid,

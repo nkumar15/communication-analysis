@@ -106,7 +106,7 @@ async def platform_admin_setup(db_session: AsyncSession):
     """Setup System Tenant, Platform Admin Role, and User"""
     from sqlalchemy import select
     from services.platform.models import PlatformTenant, PlatformRole, PlatformUser
-    from core.constants import RoleName
+    from core.constants import PlatformRoleName
     
     # 1. Check/Create System Tenant (PlatformTenant)
     # Check for ANY existing platform tenant due to singleton constraint
@@ -126,14 +126,14 @@ async def platform_admin_setup(db_session: AsyncSession):
     result = await db_session.execute(
         select(PlatformRole)
         .where(PlatformRole.platform_tenant_id == system_tenant.id)
-        .where(PlatformRole.name == RoleName.PLATFORM_ADMIN)
+        .where(PlatformRole.name == PlatformRoleName.PLATFORM_ADMIN)
     )
     role = result.scalar_one_or_none()
     
     if not role:
         role = PlatformRole(
             platform_tenant_id=system_tenant.id,
-            name=RoleName.PLATFORM_ADMIN,
+            name=PlatformRoleName.PLATFORM_ADMIN,
             display_name="Platform Admin",
             is_system_role=True
         )
@@ -229,12 +229,9 @@ async def create_test_tenant(
     await db_session.flush()  # Use flush instead of commit
     await db_session.refresh(tenant)
     
-    # Seed roles for this tenant (crucial for RBAC)
-    from sqlalchemy import text
-    await db_session.execute(
-        text("SELECT seed_tenant_roles(:tenant_id)"),
-        {"tenant_id": tenant.id}
-    )
+    # Seed roles for this tenant using RoleTemplateService
+    from services.b2b.services.role_template_service import role_template_service
+    await role_template_service.seed_tenant_roles(db_session, tenant.id)
     
     return tenant
 
