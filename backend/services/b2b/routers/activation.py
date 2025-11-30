@@ -195,11 +195,12 @@ async def complete_activation(
             detail="User not found for this tenant"
         )
     
-    # Verify user has admin role
-    if user.role != 'admin':
+    # Verify user has owner or admin role (owner is default for activation)
+    from core.constants import B2BRoleName
+    if user.role not in [B2BRoleName.OWNER, B2BRoleName.ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can activate tenants"
+            detail="Only owners or admins can activate tenants"
         )
     
     # Mark invitation as accepted
