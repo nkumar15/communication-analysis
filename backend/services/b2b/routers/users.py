@@ -6,9 +6,9 @@ from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
 
-from services.b2b.models import UserModel, InvitationModel, Role
 from core.database import get_db
-from core.middleware import get_current_active_user, get_current_user
+from core.middleware import get_current_user
+from services.b2b.middleware import get_current_active_user
 
 # Placeholder block removed - moved logic into list_users endpoint
 

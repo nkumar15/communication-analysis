@@ -8,7 +8,8 @@ from uuid import UUID
 import secrets
 
 from core.database import get_db
-from core.middleware import get_current_user, get_current_active_user
+from core.middleware import get_current_user
+from services.b2b.middleware import get_current_active_user
 from services.b2b.rbac import require_permission
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
