@@ -85,7 +85,11 @@ function PlatformLogin() {
 
         } catch (err) {
             console.error('❌ Platform login error:', err);
-            setError(err.message || 'Authentication failed. Please try again.');
+            if (err.code === 'auth/operation-not-allowed') {
+                setError('Login provider not enabled. Please ask admin to enable Email/Password or OIDC for this tenant.');
+            } else {
+                setError(err.message || 'Authentication failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }

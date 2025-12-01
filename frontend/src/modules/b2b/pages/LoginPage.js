@@ -37,7 +37,8 @@ function LoginPage() {
 
             // Step 3: Initiate OIDC sign-in with redirect
             // Use the provider ID from tenant config, or fall back to 'oidc.generic'
-            const providerId = tenantInfo.oidc_provider_id || 'oidc.generic';
+            // Backend returns primary_provider_id (from auth_providers table)
+            const providerId = tenantInfo.primary_provider_id || tenantInfo.oidc_provider_id || 'oidc.generic';
             console.log('🔍 Step 3: Initiating OIDC sign-in with provider:', providerId);
 
             // Popup flow returns the result directly
@@ -70,7 +71,11 @@ function LoginPage() {
 
         } catch (err) {
             console.error('❌ Login error:', err);
-            setError(err.message || 'Authentication failed. Please try again.');
+            if (err.code === 'auth/operation-not-allowed') {
+                setError('Login provider not enabled. Please ask admin to enable Email/Password or OIDC for this tenant.');
+            } else {
+                setError(err.message || 'Authentication failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
