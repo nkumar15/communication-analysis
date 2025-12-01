@@ -119,9 +119,10 @@ ps: ## List running services
 ##@ Database
 
 migrate: ## Run database migrations
-	@echo "Running migrations... "
-	docker-compose exec platform-api python /app/migrations/run_migrations.py
-	@echo "✓ Migrations complete"
+	@echo "$(BLUE)Running database migrations...$(NC)"
+	@docker-compose exec platform-api python /app/migrations/run_migrations.py
+	@echo "$(GREEN)✓ Migrations complete$(NC)"
+
 
 db-shell: ## Open PostgreSQL shell
 	docker-compose exec postgres psql -U sso_user -d sso_db
@@ -157,7 +158,12 @@ platform-create-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
 	@docker-compose exec platform-api python /app/scripts/platform/create_platform_admin.py
 
-b2b-seed: ## Seed B2B Tenant (interactive)
+b2b-seed-roles-templates: ## Seed domain-specific roles-templates
+	@echo "$(BLUE)Seeding domain data...$(NC)"
+	@docker-compose run --rm b2b-api python /app/scripts/b2b/seed_domain_data.py
+	@echo "$(GREEN)✓ Domain data seeded$(NC)"
+
+b2b-invite: ## Invite B2B Tenant (interactive)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
 	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_cli.py create-local
 

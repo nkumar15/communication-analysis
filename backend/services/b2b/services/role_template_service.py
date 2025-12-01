@@ -29,6 +29,30 @@ class RoleTemplateService:
             # 4. Assign Permissions
             await self._assign_permissions(db, role, template.permissions, resources, actions)
 
+    async def get_all_templates(self, db: AsyncSession) -> List[RoleTemplate]:
+        """
+        Get all available role templates
+        """
+        result = await db.execute(select(RoleTemplate))
+        return result.scalars().all()
+
+    async def get_template(self, db: AsyncSession, template_id: UUID) -> RoleTemplate:
+        """
+        Get a specific template by ID
+        """
+        result = await db.execute(
+            select(RoleTemplate).where(RoleTemplate.id == template_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def assign_permissions_from_template(self, db: AsyncSession, role: Role, template: RoleTemplate) -> None:
+        """
+        Assign permissions to a role based on a template
+        """
+        resources = await self._get_resource_map(db)
+        actions = await self._get_action_map(db)
+        await self._assign_permissions(db, role, template.permissions, resources, actions)
+
     async def _get_default_templates(self, db: AsyncSession) -> List[RoleTemplate]:
         result = await db.execute(
             select(RoleTemplate).where(RoleTemplate.is_default == True)

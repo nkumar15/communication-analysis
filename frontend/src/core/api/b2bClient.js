@@ -149,6 +149,49 @@ class ApiService {
         return this.get('/api/b2b/roles');
     }
 
+    async getRoleTemplates() {
+        return this.get('/api/b2b/roles/templates');
+    }
+
+    async createRole(data) {
+        return this.post('/api/b2b/roles', data);
+    }
+
+    async deleteRole(roleId) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/roles/${roleId}`, {
+            method: 'DELETE',
+            headers,
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`DELETE /api/b2b/roles/${roleId} failed: ${response.status} - ${error}`);
+        }
+        return response.json();
+    }
+
+    async updateRolePermissions(roleId, permissions) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/roles/${roleId}/permissions`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ permissions }),
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`PUT /api/b2b/roles/${roleId}/permissions failed: ${response.status} - ${error}`);
+        }
+        return response.json();
+    }
+
+    async getResources() {
+        return this.get('/api/b2b/roles/resources/all');
+    }
+
+    async getActions() {
+        return this.get('/api/b2b/roles/actions/all');
+    }
+
     async getFarmers() {
         return this.get('/api/b2b/farmers');
     }

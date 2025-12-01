@@ -37,6 +37,20 @@ class PermissionResponse(BaseModel):
         from_attributes = True
 
 
+class RoleTemplateResponse(BaseModel):
+    """Role template information"""
+    id: UUID
+    name: str
+    display_name: str
+    description: Optional[str]
+    is_system_role: bool
+    is_default: bool
+    permissions: list[dict]
+
+    class Config:
+        from_attributes = True
+
+
 class RoleResponse(BaseModel):
     """Role with basic information"""
     id: UUID
@@ -78,3 +92,12 @@ class UpdateRolePermissionsRequest(BaseModel):
                 ]
             }
         }
+
+
+class CreateRoleRequest(BaseModel):
+    """Request to create a new role"""
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    template_id: Optional[UUID] = None
+    permissions: Optional[list[dict]] = None  # [{"resource_id": "...", "action_id": "..."}]

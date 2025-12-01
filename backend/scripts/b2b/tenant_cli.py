@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ #!/usr/bin/env python3
 """
 Tenant CLI - Sales team tool for provisioning tenants
 Usage: python -m cli.tenant_cli create --company "Acme Corp" --domain "acme.com" ...
@@ -109,22 +109,13 @@ async def create_tenant_async(
             await db.refresh(tenant)
             click.echo(f"✅ Tenant created: ID {tenant.id}")
             
-            # 4b. Seed RBAC data
-            click.echo("\n📍 Step 4b: Seeding RBAC data...")
-            from pathlib import Path
-            from sqlalchemy import text
-            seed_path = Path(__file__).parent / "006_rbac_seed_data_simple.sql"
-            seed_sql_template = seed_path.read_text()
-            # Replace placeholder with actual tenant UUID
-            seed_sql = seed_sql_template.replace("{tenant_id}", f"'{tenant.id}'")
-            # Split by semicolon and execute each statement separately
-            statements = [stmt.strip() for stmt in seed_sql.split(';') if stmt.strip() and not stmt.strip().startswith('--')]
-            for stmt in statements:
-                await db.execute(text(stmt))
-            await db.commit()
-            click.echo("✅ RBAC data seeded")
+            # 4b. Seed roles from templates
+            click.echo("\n📍 Step 4b: Seeding roles from templates...")
+            from services.b2b.services.role_template_service import role_template_service
+            await role_template_service.seed_tenant_roles(db, tenant.id)
+            click.echo("✅ Roles seeded from templates")
             
-            # 4c. Create auth provider record
+            # 4b. Create auth provider record
             click.echo("\n📍 Step 4c: Creating auth provider record...")
             from services.b2b.models.auth_provider import AuthProvider
             auth_provider = AuthProvider(
@@ -238,37 +229,11 @@ async def create_local_async(
             await db.refresh(tenant)
             click.echo(f"✅ Tenant created: ID {tenant.id}")
             
-            # 2b. Seed RBAC data
-            click.echo("\n📍 Step 2b: Seeding RBAC data...")
-            from pathlib import Path
-            from sqlalchemy import text
-            seed_path = Path(__file__).parent / "006_rbac_seed_data_simple.sql"
-            seed_sql_template = seed_path.read_text()
-            # Replace placeholder with actual tenant UUID
-            seed_sql = seed_sql_template.replace("{tenant_id}", f"'{tenant.id}'")
-            
-            # Remove comments and split by semicolon
-            import re
-            # Remove SQL comments (-- style)
-            lines = seed_sql.split('\n')
-            cleaned_lines = [line.split('--')[0] for line in lines]  # Remove inline comments
-            cleaned_sql = '\n'.join(cleaned_lines)
-            
-            # Split by semicolon and execute each statement separately
-            statements = [stmt.strip() for stmt in cleaned_sql.split(';') if stmt.strip()]
-            
-            click.echo(f"   Found {len(statements)} SQL statements to execute")
-            for i, stmt in enumerate(statements, 1):
-                try:
-                    click.echo(f"   Executing statement {i}/{len(statements)}...")
-                    await db.execute(text(stmt))
-                except Exception as e:
-                    click.echo(f"   ⚠️  Error in statement {i}: {str(e)}")
-                    click.echo(f"   Statement preview: {stmt[:100]}...")
-                    raise
-            
-            await db.commit()
-            click.echo("✅ RBAC data seeded")
+            # 2b. Seed roles from templates
+            click.echo("\n📍 Step 2b: Seeding roles from templates...")
+            from services.b2b.services.role_template_service import role_template_service
+            await role_template_service.seed_tenant_roles(db, tenant.id)
+            click.echo("✅ Roles seeded from templates")
             
             # 2c. Create auth provider record
             click.echo("\n📍 Step 2c: Creating auth provider record...")
