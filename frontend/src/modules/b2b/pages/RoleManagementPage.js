@@ -57,7 +57,7 @@ const RoleManagementPage = () => {
                     p.actions.forEach(actionName => {
                         const action = actions.find(a => a.name === actionName);
                         if (action) {
-                            newPerms[`${resource.id}-${action.id}`] = true;
+                            newPerms[`${resource.id}___${action.id}`] = true; // Use ___ as delimiter to avoid UUID conflicts
                         }
                     });
                 }
@@ -67,7 +67,7 @@ const RoleManagementPage = () => {
     };
 
     const handlePermissionChange = (resourceId, actionId) => {
-        const key = `${resourceId}-${actionId}`;
+        const key = `${resourceId}___${actionId}`; // Use ___ as delimiter
         setSelectedPermissions(prev => ({
             ...prev,
             [key]: !prev[key]
@@ -82,12 +82,13 @@ const RoleManagementPage = () => {
             const permissionsList = Object.keys(selectedPermissions)
                 .filter(key => selectedPermissions[key])
                 .map(key => {
-                    const [resourceId, actionId] = key.split('-');
+                    const [resourceId, actionId] = key.split('___'); // Split on ___ delimiter
                     return { resource_id: resourceId, action_id: actionId };
                 });
 
             const roleData = {
                 ...newRole,
+                template_id: newRole.template_id || null, // Convert empty string to null
                 permissions: permissionsList
             };
 
@@ -124,7 +125,12 @@ const RoleManagementPage = () => {
 
                 <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-end' }}>
                     <button
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={() => {
+                            setShowCreateModal(true);
+                            if (templates.length > 0) {
+                                handleTemplateChange(templates[0].id);
+                            }
+                        }}
                         style={{
                             backgroundColor: '#4F46E5',
                             color: 'white',
@@ -239,15 +245,17 @@ const RoleManagementPage = () => {
                                     />
                                 </div>
                                 <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Template (Optional)</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
+                                        Template <span style={{ color: '#DC2626' }}>*</span>
+                                    </label>
                                     <select
                                         value={newRole.template_id}
                                         onChange={(e) => handleTemplateChange(e.target.value)}
+                                        required
                                         style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #D1D5DB' }}
                                     >
-                                        <option value="">-- Select a template --</option>
                                         {templates.map(t => (
-                                            <option key={t.id} value={t.id}>{t.display_name} ({t.name})</option>
+                                            <option key={t.id} value={t.id}>{t.display_name}</option>
                                         ))}
                                     </select>
                                     <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>
@@ -279,7 +287,7 @@ const RoleManagementPage = () => {
                                                             <td key={action.id} style={{ padding: '8px 12px', textAlign: 'center' }}>
                                                                 <input
                                                                     type="checkbox"
-                                                                    checked={!!selectedPermissions[`${resource.id}-${action.id}`]}
+                                                                    checked={!!selectedPermissions[`${resource.id}___${action.id}`]}
                                                                     onChange={() => handlePermissionChange(resource.id, action.id)}
                                                                     style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                                                                 />

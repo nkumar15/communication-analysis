@@ -75,8 +75,9 @@ async def create_role(
     db.add(role)
     await db.flush()
 
-    # Apply template if provided
-    if request.template_id:
+    # Apply template ONLY if explicit permissions are NOT provided
+    # If permissions ARE provided, they are authoritative (UI sends full list including template perms)
+    if request.template_id and not request.permissions:
         template = await role_template_service.get_template(db, request.template_id)
         if not template:
             raise HTTPException(
@@ -85,46 +86,19 @@ async def create_role(
             )
         await role_template_service.assign_permissions_from_template(db, role, template)
     
-    # Apply custom permissions if provided (overrides template if both present, or adds to it)
+    # Apply custom permissions if provided
+    # Use a set to track which permissions we're adding in this request
+    added_in_request = set()
+    
     if request.permissions:
-        # If template was used, we might want to clear existing permissions first if the intent is "replace"
-        # But for now let's assume "append/overwrite" logic or just "use provided list"
-        
-        # If we want to strictly follow "manual selection overrides template", we should probably
-        # just use the manual list if provided.
-        
-        # Let's support:
-        # 1. Template only -> use template perms
-        # 2. Permissions only -> use provided perms
-        # 3. Both -> Apply template, then add/overwrite with provided perms (or maybe just use provided perms if the UI sends the full set)
-        
-        # UI logic will likely be: User selects template -> UI pre-fills checkboxes -> User modifies -> UI sends FULL list of permissions.
-        # So if permissions are sent, we should probably rely on them.
-        
-        # However, to be safe and support "template + extra", let's just add them.
-        # But wait, if the UI sends the FULL list, we should probably clear any template-added ones first to avoid duplicates or stale ones?
-        # Actually, if the UI sends the full list, we should probably NOT apply the template logic in backend, OR clear it.
-        
-        # Better approach: If `permissions` is provided, use ONLY that. If not, use `template_id`.
-        # But the request model allows both.
-        
-        # Let's stick to: If `permissions` is provided, use it. If `template_id` is provided AND `permissions` is empty/None, use template.
-        pass
-
-    if request.permissions:
-        # If permissions are explicitly provided, we use them (and they might have been pre-filled from template in UI)
-        # So we don't need to call assign_permissions_from_template if permissions are present.
-        # BUT, if we want to support "create from template" API call without sending full perms list, we need the template logic.
-        
-        # Refined Logic:
-        # 1. If template_id provided, apply template permissions.
-        # 2. If permissions provided, apply them (upsert/add).
-        # This allows "Template + Extra" or "Just Template" or "Just Custom".
-        # If UI sends full list, it shouldn't send template_id if it wants full control, OR it sends template_id just for reference?
-        # Let's assume UI sends full list if modified.
-        
         for perm in request.permissions:
-            # Check if exists (if template already added it)
+            perm_key = (perm['resource_id'], perm['action_id'])
+            
+            # Skip if we've already added this permission in this request
+            if perm_key in added_in_request:
+                continue
+            
+            # Check if this permission already exists in DB (just in case)
             result = await db.execute(
                 select(RolePermission).where(
                     RolePermission.role_id == role.id,
@@ -132,13 +106,17 @@ async def create_role(
                     RolePermission.action_id == perm['action_id']
                 )
             )
-            if not result.scalar_one_or_none():
+            existing = result.scalar_one_or_none()
+            
+            # Only add if it doesn't exist
+            if not existing:
                 role_perm = RolePermission(
                     role_id=role.id,
                     resource_id=perm['resource_id'],
                     action_id=perm['action_id']
                 )
                 db.add(role_perm)
+                added_in_request.add(perm_key)
     
     await db.commit()
     await db.refresh(role)
