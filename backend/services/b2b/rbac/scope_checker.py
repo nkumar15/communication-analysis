@@ -45,15 +45,10 @@ async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]
         )
         return [row[0] for row in result]
     
-    # Field Manager sees self + users they invited
+   # Field Manager sees all users in tenant (simplified - no hierarchy)
     if role.name == 'field_manager':
         result = await db.execute(
-            select(UserModel.id).where(
-                or_(
-                    UserModel.id == user_id,
-                    UserModel.invited_by == user_id
-                )
-            )
+            select(UserModel.id).where(UserModel.tenant_id == user.tenant_id)
         )
         return [row[0] for row in result]
     

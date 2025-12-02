@@ -63,9 +63,6 @@ CREATE TABLE IF NOT EXISTS b2b.users (
     role VARCHAR(20) DEFAULT 'viewer',
     role_id UUID,  -- FK to roles table (added in 002_rbac.sql)
     
-    -- Hierarchy tracking
-    invited_by UUID,  -- FK to users(id) - self-referential
-    
     -- Status and timestamps
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     last_login TIMESTAMP WITH TIME ZONE,
@@ -83,7 +80,6 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON b2b.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON b2b.users(firebase_uid);
 CREATE INDEX IF NOT EXISTS idx_users_role ON b2b.users(role);
 CREATE INDEX IF NOT EXISTS idx_users_role_id ON b2b.users(role_id);
-CREATE INDEX IF NOT EXISTS idx_users_invited_by ON b2b.users(invited_by);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON b2b.users(deleted_at) WHERE deleted_at IS NULL;
 
 -- ============================================================================
@@ -122,7 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_invitations_email ON b2b.invitations(email);
 CREATE INDEX IF NOT EXISTS idx_invitations_expires_at ON b2b.invitations(expires_at);
 CREATE INDEX IF NOT EXISTS idx_invitations_accepted_by ON b2b.invitations(accepted_by);
 CREATE INDEX IF NOT EXISTS idx_invitations_deleted_at ON b2b.invitations(deleted_at) WHERE deleted_at IS NULL;
-
+CREATE INDEX IF NOT EXISTS idx_invitations_invited_by ON b2b.invitations(invited_by);
 -- ============================================================================
 -- COMMENTS FOR DOCUMENTATION
 -- ============================================================================
@@ -137,7 +133,6 @@ COMMENT ON COLUMN b2b.tenants.firebase_tenant_id IS 'Firebase GCIP tenant identi
 
 COMMENT ON COLUMN b2b.users.role IS 'Legacy role field: admin, field_manager, field_agent';
 COMMENT ON COLUMN b2b.users.role_id IS 'RBAC role reference (replaces legacy role field)';
-COMMENT ON COLUMN b2b.users.invited_by IS 'User who invited this user (for hierarchy)';
 
 COMMENT ON COLUMN b2b.invitations.invitation_token IS 'Secure token for invitation acceptance link';
 COMMENT ON COLUMN b2b.invitations.accepted_at IS 'Timestamp when invitation was accepted (NULL if pending)';

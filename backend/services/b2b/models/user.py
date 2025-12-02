@@ -1,7 +1,6 @@
 from core.models.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 
 class UserModel(Base, TimestampMixin, SoftDeleteMixin):
     """Customer Tenant User ORM model"""
@@ -16,10 +15,6 @@ class UserModel(Base, TimestampMixin, SoftDeleteMixin):
     
     # RBAC fields
     role_id = Column(UUID(as_uuid=True), ForeignKey('b2b.roles.id'), nullable=True, index=True)
-    invited_by = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id'), nullable=True, index=True)
     
     is_active = Column(Boolean, default=True, nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)
-    
-    # Self-referential relationship for invitation hierarchy
-    invited_users = relationship("UserModel", backref="inviter", remote_side=[id], foreign_keys=[invited_by])

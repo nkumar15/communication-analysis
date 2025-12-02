@@ -141,7 +141,6 @@ async def create_tenant_async(
                 email=owner_email,
                 role=B2BRoleName.OWNER,
                 invitation_token=activation_token,  # Reuse activation token
-                invited_by=None,  # CLI-created, no inviter
                 expires_in_days=2  # 48 hours, same as activation
             )
             click.echo(f"✅ Admin invitation created: {owner_email}")
@@ -269,7 +268,6 @@ async def create_local_async(
                 email=owner_email,
                 role=B2BRoleName.OWNER,
                 invitation_token=activation_token,
-                invited_by=None,
                 expires_in_days=2
             )
             click.echo(f"✅ Admin invitation created: {owner_email}")

@@ -195,10 +195,6 @@ CREATE TABLE IF NOT EXISTS b2b.role_permissions (
 ALTER TABLE b2b.users ADD CONSTRAINT fk_users_role_id 
     FOREIGN KEY (role_id) REFERENCES b2b.roles(id);
 
--- Add foreign key constraint to users.invited_by (self-referential)
-ALTER TABLE b2b.users ADD CONSTRAINT fk_users_invited_by 
-    FOREIGN KEY (invited_by) REFERENCES b2b.users(id);
-
 -- ============================================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
