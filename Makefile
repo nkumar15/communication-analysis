@@ -136,10 +136,10 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			docker-compose down -v; \
 			docker-compose up -d postgres; \
 			docker-compose up -d platform-api; \
-			docker-compose up -d b2b-api; \
-			docker-compose up -d b2c-api; \
-			docker-compose up -d frontend; \
-			docker-compose up -d e2e-tests; \
+# 			docker-compose up -d b2b-api; \
+# 			docker-compose up -d b2c-api; \
+# 			docker-compose up -d frontend; \
+# 			docker-compose up -d e2e-tests; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \

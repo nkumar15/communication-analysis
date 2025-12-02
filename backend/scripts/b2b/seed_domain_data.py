@@ -27,19 +27,26 @@ if __name__ == "__main__":
     from services.b2b.models.role_template import RoleTemplate
 
     async def seed_domain_resources(db: AsyncSession) -> None:
-        """Seed domain-specific resources"""
+        """
+        Seed DOMAIN-SPECIFIC resources (Agriculture Business)
+        
+        ⚠️ WARNING: This is NOT SaaS boilerplate!
+        These resources are specific to the agriculture deployment.
+        For a different domain (e.g., ecommerce), replace 'farmers' with 
+        domain-appropriate resources like 'products', 'orders', 'inventory', etc.
+        """
         result = await db.execute(select(Resource).where(Resource.name == 'farmers'))
         if result.scalar_one_or_none():
             print("✓ Domain resources already seeded")
             return
         
-        print("Seeding domain resources...")
+        print("Seeding domain resources (Agriculture)...")
         domain_resources = [
             Resource(
                 name='farmers',
                 display_name='Farmer Management',
-                category='domain',
-                description='Farmer onboarding and data management'
+                category='Domain',  # Use 'Domain' category to distinguish from boilerplate
+                description='Farmer onboarding and data management (agriculture-specific)'
             ),
         ]
         db.add_all(domain_resources)
