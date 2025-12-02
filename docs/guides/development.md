@@ -219,7 +219,7 @@ make b2b-seed
 For production use, create tenant with full Firebase automation:
 
 ```bash
-docker-compose exec b2b-api python /app/scripts/b2b/tenant_cli.py create \
+docker-compose exec b2b-api python /app/scripts/b2b/tenant_onboard.py create \
   --company "Acme Corp" \
   --domain "acme.com" \
   --admin-email "admin@acme.com" \

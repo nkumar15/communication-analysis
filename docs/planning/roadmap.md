@@ -381,7 +381,7 @@ docs/
 - Firebase: `frontend/src/services/firebaseAuthService.js`
 
 **CLI:**
-- Tenant provisioning: `backend/cli/tenant_cli.py`
+- Tenant provisioning: `backend/cli/tenant_onboard.py`
 - Email service: `backend/cli/email_service.py`
 
 ---

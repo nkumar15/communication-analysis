@@ -40,24 +40,24 @@ def cli():
 @cli.command()
 @click.option('--company', required=True, help='Company name')
 @click. option('--domain', required=True, help='Email domain (e.g., acme.com)')
-@click.option('--admin-email', required=True, help='Admin email address')
+@click.option('--owner-email', required=True, help='Owner email address')
 @click.option('--oidc-provider', required=True,
               type=click.Choice(['auth0', 'okta', 'google', 'azure']),
               help='OIDC provider type')
 @click.option('--oidc-client-id', required=True, help='OIDC Client ID')
 @click.option('--oidc-client-secret', required=True, help='OIDC Client Secret')
 @click.option('--oidc-issuer', required=True, help='OIDC Issuer URL')
-def create(company, domain, admin_email, oidc_provider,
+def create(company, domain, owner_email, oidc_provider,
            oidc_client_id, oidc_client_secret, oidc_issuer):
     """Create a new tenant with pre-configured SSO"""
     asyncio.run(create_tenant_async(
-        company, domain, admin_email, oidc_provider,
+        company, domain, owner_email, oidc_provider,
         oidc_client_id, oidc_client_secret, oidc_issuer
     ))
 
 
 async def create_tenant_async(
-    company, domain, admin_email, oidc_provider,
+    company, domain, owner_email, oidc_provider,
     oidc_client_id, oidc_client_secret, oidc_issuer
 ):
     """Async tenant creation logic"""
@@ -138,13 +138,13 @@ async def create_tenant_async(
             admin_invitation = await invitation_service.create_invitation(
                 db=db,
                 tenant_id=tenant.id,
-                email=admin_email,
+                email=owner_email,
                 role=B2BRoleName.OWNER,
                 invitation_token=activation_token,  # Reuse activation token
                 invited_by=None,  # CLI-created, no inviter
                 expires_in_days=2  # 48 hours, same as activation
             )
-            click.echo(f"✅ Admin invitation created: {admin_email}")
+            click.echo(f"✅ Admin invitation created: {owner_email}")
         finally:
             await db.close()
         
@@ -154,12 +154,12 @@ async def create_tenant_async(
         activation_url = f"{frontend_url}/activate/{activation_token}"
         
         email_service.send_activation_email(
-            admin_email,
+            owner_email,
             company,
             activation_url,
             expires_at
         )
-        click.echo(f"✅ Activation email sent to {admin_email}")
+        click.echo(f"✅ Activation email sent to {owner_email}")
         
         # Summary
         click.echo("\n" + "=" * 70)
@@ -167,7 +167,7 @@ async def create_tenant_async(
         click.echo("=" * 70)
         click.echo(f"Company:          {company}")
         click.echo(f"Domain:           {domain}")
-        click.echo(f"Admin Email:      {admin_email}")
+        click.echo(f"Owner Email:      {owner_email}")
         click.echo(f"Firebase Tenant:  {firebase_tenant_id}")
         click.echo(f"OIDC Provider:    {provider_id}")
         click.echo(f"Activation URL:   {activation_url}")
@@ -187,16 +187,16 @@ async def create_tenant_async(
 @click.option('--oidc-provider-id', prompt='OIDC Provider ID (e.g., oidc.auth0)', help='Existing OIDC provider ID')
 @click.option('--company', prompt='Company Name', help='Company name')
 @click.option('--domain', prompt='Domain (e.g., test.com)', help='Email domain')
-@click.option('--admin-email', prompt='Admin Email', help='Admin email address')
-def create_local(firebase_tenant_id, oidc_provider_id, company, domain, admin_email):
+@click.option('--owner-email', prompt='Owner Email', help='Owner email address')
+def create_local(firebase_tenant_id, oidc_provider_id, company, domain, owner_email):
     """Create tenant using existing Firebase tenant (DB only - for testing)"""
     asyncio.run(create_local_async(
-        firebase_tenant_id, oidc_provider_id, company, domain, admin_email
+        firebase_tenant_id, oidc_provider_id, company, domain, owner_email
     ))
 
 
 async def create_local_async(
-    firebase_tenant_id, oidc_provider_id, company, domain, admin_email
+    firebase_tenant_id, oidc_provider_id, company, domain, owner_email
 ):
     """Create tenant in local DB using existing Firebase tenant"""
     
@@ -266,13 +266,13 @@ async def create_local_async(
             admin_invitation = await invitation_service.create_invitation(
                 db=db,
                 tenant_id=tenant.id,
-                email=admin_email,
-                role=B2BRoleName.ADMIN,
+                email=owner_email,
+                role=B2BRoleName.OWNER,
                 invitation_token=activation_token,
                 invited_by=None,
                 expires_in_days=2
             )
-            click.echo(f"✅ Admin invitation created: {admin_email}")
+            click.echo(f"✅ Admin invitation created: {owner_email}")
         finally:
             await db.close()
         
@@ -282,12 +282,12 @@ async def create_local_async(
         activation_url = f"{frontend_url}/activate/{activation_token}"
         
         email_service.send_activation_email(
-            admin_email,
+            owner_email,
             company,
             activation_url,
             expires_at
         )
-        click.echo(f"✅ Activation email sent to {admin_email}")
+        click.echo(f"✅ Activation email sent to {owner_email}")
         
         # Summary
         click.echo("\n" + "=" * 70)
@@ -295,13 +295,13 @@ async def create_local_async(
         click.echo("=" * 70)
         click.echo(f"Company:          {company}")
         click.echo(f"Domain:           {domain}")
-        click.echo(f"Admin Email:      {admin_email}")
+        click.echo(f"Owner Email:      {owner_email}")
         click.echo(f"Firebase Tenant:  {firebase_tenant_id}")
         click.echo(f"OIDC Provider:    {oidc_provider_id}")
         click.echo(f"Activation URL:   {activation_url}")
         click.echo(f"Expires:          {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
         click.echo("=" * 70)
-        click.echo("\n✅ Next: Admin will receive activation email")
+        click.echo("\n✅ Next: Owner will receive activation email")
         
     except Exception as e:
         click.echo(f"\n❌ Error: {str(e)}", err=True)

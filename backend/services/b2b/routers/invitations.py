@@ -16,6 +16,7 @@ from services.b2b.services.user_service import user_service
 from services.b2b.schemas import Invitation
 from core.email import email_service
 from core.config import settings
+from core.constants import B2BRoleName
 
 
 router = APIRouter(prefix="/api/b2b/invitations", tags=["invitations"])
@@ -207,7 +208,7 @@ async def list_invitations(
     from services.b2b.models import InvitationModel
     
     # Check admin role
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can view invitations"
@@ -249,7 +250,7 @@ async def cancel_invitation(
     from services.b2b.models import InvitationModel
     
     # Check admin role
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can cancel invitations"
@@ -303,7 +304,7 @@ async def resend_invitation(
     from services.b2b.models import InvitationModel
     
     # Check admin role
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can resend invitations"

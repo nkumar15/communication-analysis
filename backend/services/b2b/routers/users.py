@@ -9,9 +9,13 @@ from uuid import UUID
 from core.database import get_db
 from core.middleware import get_current_user
 from services.b2b.middleware import get_current_active_user
+from services.b2b.models import InvitationModel
+from services.b2b.rbac import get_accessible_user_ids
+from services.b2b.models import UserModel
+from services.b2b.models import Role
+
 
 # Placeholder block removed - moved logic into list_users endpoint
-
 
 
 router = APIRouter(prefix="/api/b2b/users", tags=["users"])

@@ -8,7 +8,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.b2b.models import UserModel, Role
 from services.domains.farming.models import Farmer
-
+from core.constants import B2BRoleName
 
 async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]:
     """
@@ -39,7 +39,7 @@ async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]
         return [user_id]
     
     # Admin sees all users in tenant
-    if role.name == 'admin':
+    if role.name in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
         result = await db.execute(
             select(UserModel.id).where(UserModel.tenant_id == user.tenant_id)
         )
@@ -92,7 +92,7 @@ async def get_accessible_farmers_query(user_id: UUID, db: AsyncSession):
         return select(Farmer).where(Farmer.created_by == user_id)
     
     # Admin sees all farmers in tenant
-    if role.name == 'admin':
+    if role.name in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
         return select(Farmer).where(Farmer.tenant_id == user.tenant_id)
     
     # Field Manager sees farmers created by team

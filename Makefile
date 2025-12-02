@@ -165,7 +165,7 @@ b2b-seed-roles-templates: ## Seed domain-specific roles-templates
 
 b2b-invite: ## Invite B2B Tenant (interactive)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_cli.py create-local
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local
 
 ##@ Frontend
 

@@ -10,7 +10,7 @@ Complete guide for tenant provisioning and activation testing.
 
 ```bash
 # Full tenant setup (creates Firebase + DB)
-docker-compose exec backend python -m cli.tenant_cli create \
+docker-compose exec backend python -m cli.tenant_onboard create \
   --company "CompanyName" \
   --domain "company.com" \
   --admin-email "admin@company.com" \
@@ -20,7 +20,7 @@ docker-compose exec backend python -m cli.tenant_cli create \
   --oidc-issuer "https://company.auth0.com"
 
 # Quick testing (reuse existing Firebase tenant)
-docker-compose exec backend python -m cli.tenant_cli create-local \
+docker-compose exec backend python -m cli.tenant_onboard create-local \
   --firebase-tenant-id "YourTenant-abc123" \
   --oidc-provider-id "oidc.auth0" \
   --company "TestCompany" \
@@ -28,7 +28,7 @@ docker-compose exec backend python -m cli.tenant_cli create-local \
   --admin-email "admin@test.com"
 
 # List tenants
-docker-compose exec backend python -m cli.tenant_cli list-tenants --domain company.com
+docker-compose exec backend python -m cli.tenant_onboard list-tenants --domain company.com
 ```
 
 ### Makefile Commands
@@ -50,7 +50,7 @@ make clean       # Stop and remove all containers
 
 ```bash
 # Step 1: Create tenant with Firebase + OIDC + DB
-docker-compose exec backend python -m cli.tenant_cli create \
+docker-compose exec backend python -m cli.tenant_onboard create \
   --company "Acme Corporation" \
   --domain "acme.com" \
   --admin-email "admin@acme.com" \
@@ -107,7 +107,7 @@ make reset-db
 make reset-db
 
 # 2. Create local tenant (when prompted, say 'n')
-docker-compose exec backend python -m cli.tenant_cli create-local \
+docker-compose exec backend python -m cli.tenant_onboard create-local \
   --firebase-tenant-id "AcmeCorporation-abc123" \
   --oidc-provider-id "oidc.auth0" \
   --company "AcmeTest" \
@@ -210,7 +210,7 @@ users:
 ### Scenario 1: Fresh Full Setup
 ```bash
 # Create everything from scratch
-docker-compose exec backend python -m cli.tenant_cli create ...
+docker-compose exec backend python -m cli.tenant_onboard create ...
 # Copy Firebase tenant ID from output
 # Use for future testing
 ```
@@ -221,7 +221,7 @@ docker-compose exec backend python -m cli.tenant_cli create ...
 make reset-db
 
 # Reuse Firebase tenant
-docker-compose exec backend python -m cli.tenant_cli create-local \
+docker-compose exec backend python -m cli.tenant_onboard create-local \
   --firebase-tenant-id "SavedTenant-abc123" \
   --oidc-provider-id "oidc.auth0" \
   ...
@@ -233,11 +233,11 @@ docker-compose exec backend python -m cli.tenant_cli create-local \
 ### Scenario 3: Multiple Tenants (Same Firebase)
 ```bash
 # Create different domains, same Firebase tenant
-docker-compose exec backend python -m cli.tenant_cli create-local \
+docker-compose exec backend python -m cli.tenant_onboard create-local \
   --firebase-tenant-id "SharedTenant-abc123" \
   --domain "companyA.com" ...
 
-docker-compose exec backend python -m cli.tenant_cli create-local \
+docker-compose exec backend python -m cli.tenant_onboard create-local \
   --firebase-tenant-id "SharedTenant-abc123" \
   --domain "companyB.com" ...
 ```
@@ -325,7 +325,7 @@ docker-compose exec backend python -m cli.tenant_cli create-local \
 
 ```bash
 # 1. First time only - get Firebase tenant ID
-docker-compose exec backend python -m cli.tenant_cli create \
+docker-compose exec backend python -m cli.tenant_onboard create \
   --company "MyCompany" --domain "mycompany.com" \
   --admin-email "admin@mycompany.com" \
   --oidc-provider "auth0" \

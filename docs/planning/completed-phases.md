@@ -18,7 +18,7 @@
 - [x] Test migration
 
 ## Phase 2: Python CLI Tool ✅ COMPLETE
-- [x] Create tenant_cli.py script
+- [x] Create tenant_onboard.py script
 - [x] Implement Firebase tenant creation
 - [x] Implement OIDC provider configuration
 - [x] Implement activation token generation
