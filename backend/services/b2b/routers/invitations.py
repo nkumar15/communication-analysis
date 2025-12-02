@@ -185,11 +185,11 @@ async def invite_user(
         invitation_url=invitation_url,
         expires_at=invitation.expires_at
     )
-    
+
     return InviteUserResponse(
         invitation_id=invitation.id,
         email=invitation.email,
-        status="sent",
+        status="sent",  
         message=f"Invitation sent to {request.email}"
     )
 
@@ -202,16 +202,17 @@ async def list_invitations(
     """
     List all invitations for current tenant
     
-    - Requires admin role
+    - Requires invitations:read permission
     - Shows pending and accepted invitations
     """
     from services.b2b.models import InvitationModel
+    from services.b2b.rbac import has_permission
     
-    # Check admin role
-    if current_user.get('role') not in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
+    # Check permission using RBAC
+    if not await has_permission(current_user['id'], 'invitations', 'read', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can view invitations"
+            detail="You do not have permission to view invitations"
         )
     
     result = await db.execute(
@@ -244,16 +245,17 @@ async def cancel_invitation(
     """
     Cancel/delete a pending invitation
     
-    - Requires admin role
+    - Requires invitations:delete permission
     - Only pending invitations can be cancelled
     """
     from services.b2b.models import InvitationModel
+    from services.b2b.rbac import has_permission
     
-    # Check admin role
-    if current_user.get('role') not in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
+    # Check permission using RBAC
+    if not await has_permission(current_user['id'], 'invitations', 'delete', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can cancel invitations"
+            detail="You do not have permission to cancel invitations"
         )
     
     # Get invitation
@@ -298,16 +300,17 @@ async def resend_invitation(
     """
     Resend invitation email
     
-    - Requires admin role
+    - Requires invitations:write permission
     - Only pending, non-expired invitations
     """
     from services.b2b.models import InvitationModel
+    from services.b2b.rbac import has_permission
     
-    # Check admin role
-    if current_user.get('role') not in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
+    # Check permission using RBAC
+    if not await has_permission(current_user['id'], 'invitations', 'write', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can resend invitations"
+            detail="You do not have permission to resend invitations"
         )
     
     # Get invitation

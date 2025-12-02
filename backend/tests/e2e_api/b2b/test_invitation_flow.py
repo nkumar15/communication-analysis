@@ -36,8 +36,8 @@ class TestInvitationFlow:
         owner = await create_test_user(
             db_session,
             tenant_id=tenant.id,
-            email=f"owner@{tenant.domain}",
-            role_slug=B2BRoleName.OWNER
+            email=f"admin@{tenant.domain}",
+            role_slug=B2BRoleName.ADMIN
         )
         
         # Create mock JWT for owner
@@ -51,13 +51,13 @@ class TestInvitationFlow:
         # Send invitation
         response = await api_client.post(
             "/api/b2b/invitations/invite",
-            json={"email": f"admin@{tenant.domain}", "role": B2BRoleName.ADMIN},
+            json={"email": f"newadmin@{tenant.domain}", "role": B2BRoleName.ADMIN},
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
         assert response.status_code == 200
         data = response.json()
-        assert data["email"] == f"admin@{tenant.domain}"
+        assert data["email"] == f"newadmin@{tenant.domain}"
         assert data["status"] == "sent"
         assert "invitation_id" in data
     

@@ -159,6 +159,12 @@ async def get_dashboard_stats(user_id: UUID, db: AsyncSession) -> dict:
             "my_farmers": 0
         }
     
+    total_users = 0
+    total_farmers = 0
+    my_farmers = 0
+    accessible_user_ids = []
+    
+    '''
     # Get accessible user IDs
     accessible_user_ids = await get_accessible_user_ids(user_id, db)
     
@@ -182,7 +188,7 @@ async def get_dashboard_stats(user_id: UUID, db: AsyncSession) -> dict:
         select(func.count(Farmer.id)).where(Farmer.created_by == user_id)
     )
     my_farmers = my_farmers_result.scalar()
-    
+    '''
     return {
         "total_users": total_users,
         "total_farmers": total_farmers,
