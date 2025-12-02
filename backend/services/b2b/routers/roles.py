@@ -231,7 +231,7 @@ async def list_roles(
         .where(Role.tenant_id == current_user['tenant_id'])
         .where(Role.is_active == True)
         .where(Role.deleted_at.is_(None))
-        .order_by(Role.name)
+        .order_by(Role.is_system_role.desc(), Role.name)
     )
     roles = result.scalars().all()
     
