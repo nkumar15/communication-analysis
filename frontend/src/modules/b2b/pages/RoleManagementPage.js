@@ -150,8 +150,8 @@ const RoleManagementPage = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
-                                    <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Name</th>
                                     <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Display Name</th>
+                                    <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Name</th>
                                     <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Permissions</th>
                                     <th style={{ padding: '12px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Actions</th>
                                 </tr>
@@ -159,8 +159,17 @@ const RoleManagementPage = () => {
                             <tbody>
                                 {roles.map((role) => (
                                     <tr key={role.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                                        <td style={{ padding: '16px 24px', fontWeight: '500', color: '#111827' }}>{role.name}</td>
-                                        <td style={{ padding: '16px 24px', color: '#6B7280' }}>{role.display_name}</td>
+                                        <td style={{ padding: '16px 24px', fontWeight: '500', color: '#111827' }}>{role.display_name}</td>
+                                        <td style={{ padding: '16px 24px', color: '#6B7280', fontSize: '13px' }}>
+                                            <code style={{
+                                                backgroundColor: '#F3F4F6',
+                                                padding: '2px 6px',
+                                                borderRadius: '3px',
+                                                fontSize: '12px'
+                                            }}>
+                                                {role.name}
+                                            </code>
+                                        </td>
                                         <td style={{ padding: '16px 24px', color: '#6B7280' }}>
                                             {role.permissions && role.permissions.length > 0 ? (
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>

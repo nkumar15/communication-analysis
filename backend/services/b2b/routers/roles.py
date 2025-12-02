@@ -4,7 +4,7 @@ Role Management API Router
 Endpoints for viewing and managing roles and permissions.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from uuid import UUID
@@ -120,7 +120,38 @@ async def create_role(
     
     await db.commit()
     await db.refresh(role)
-    return role
+    
+    # Format permissions from the request for response (they were just created)
+    permissions_list = []
+    if request.permissions:
+        for perm in request.permissions:
+            # Find resource and action names from the IDs
+            from uuid import UUID as UUIDType
+            resource_uuid = UUIDType(perm['resource_id']) if isinstance(perm['resource_id'], str) else perm['resource_id']
+            action_uuid = UUIDType(perm['action_id']) if isinstance(perm['action_id'], str) else perm['action_id']
+            
+            res_result = await db.execute(select(Resource).where(Resource.id == resource_uuid))
+            resource = res_result.scalar_one_or_none()
+            
+            act_result = await db.execute(select(Action).where(Action.id == action_uuid))
+            action = act_result.scalar_one_or_none()
+            
+            if resource and action:
+                permissions_list.append({
+                    "id": str(resource_uuid) + str(action_uuid),  # Dummy ID
+                    "resource": resource.name,
+                    "action": action.name
+                })
+    
+    return {
+        "id": str(role.id),
+        "name": role.name,
+        "display_name": role.display_name,
+        "description": role.description,
+        "is_system_role": role.is_system_role,
+        "is_active": role.is_active,
+        "permissions": permissions_list
+    }
 
 
 @router.delete("/{role_id}")
@@ -153,12 +184,27 @@ async def delete_role(
             detail="Cannot delete system roles"
         )
 
-    # Delete permissions first (cascade should handle this but being explicit is safer)
-    await db.execute(
-        RolePermission.__table__.delete().where(RolePermission.role_id == role_id)
-    )
+    # Check if any users are assigned to this role
+    # We need to import UserModel here to avoid circular imports or use string reference if possible, 
+    # but since we're in a router, we can import from models
+    from services.b2b.models.user import UserModel
     
-    await db.delete(role)
+    user_count_result = await db.execute(
+        select(func.count(UserModel.id))
+        .where(UserModel.role_id == role_id)
+        .where(UserModel.tenant_id == current_user['tenant_id'])
+        .where(UserModel.deleted_at.is_(None))
+    )
+    user_count = user_count_result.scalar_one()
+    
+    if user_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete role because it is assigned to {user_count} user(s)"
+        )
+
+    # Soft delete: set deleted_at timestamp
+    role.deleted_at = func.now()
     await db.commit()
     
     return {"message": "Role deleted successfully"}
@@ -176,12 +222,41 @@ async def list_roles(
     """
     result = await db.execute(
         select(Role)
+        .options(
+            selectinload(Role.permissions)
+            .selectinload(RolePermission.resource),
+            selectinload(Role.permissions)
+            .selectinload(RolePermission.action)
+        )
         .where(Role.tenant_id == current_user['tenant_id'])
         .where(Role.is_active == True)
+        .where(Role.deleted_at.is_(None))
         .order_by(Role.name)
     )
     roles = result.scalars().all()
-    return roles
+    
+    # Format response with permissions
+    result_list = []
+    for role in roles:
+        permissions_list = []
+        for perm in role.permissions:
+            permissions_list.append({
+                "id": str(perm.id),
+                "resource": perm.resource.name,
+                "action": perm.action.name
+            })
+        
+        result_list.append({
+            "id": str(role.id),
+            "name": role.name,
+            "display_name": role.display_name,
+            "description": role.description,
+            "is_system_role": role.is_system_role,
+            "is_active": role.is_active,
+            "permissions": permissions_list
+        })
+    
+    return result_list
 
 
 @router.get("/{role_id}", response_model=RoleDetailResponse)
@@ -205,6 +280,7 @@ async def get_role_details(
         )
         .where(Role.id == role_id)
         .where(Role.tenant_id == current_user['tenant_id'])
+        .where(Role.deleted_at.is_(None))
     )
     role = result.scalar_one_or_none()
     

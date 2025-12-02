@@ -59,6 +59,7 @@ class RoleResponse(BaseModel):
     description: Optional[str]
     is_system_role: bool
     is_active: bool
+    permissions: Optional[list[dict]] = []  # Simple permission format for list view
     
     class Config:
         from_attributes = True

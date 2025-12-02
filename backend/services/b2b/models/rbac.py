@@ -18,6 +18,7 @@ class Role(Base, TimestampMixin):
     description = Column(Text)
     is_system_role = Column(Boolean, default=False)  # Cannot be deleted
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
     
     # Relationships
     tenant = relationship(TenantModel)

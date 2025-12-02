@@ -193,11 +193,12 @@ class TestRoleManagement:
         
         assert response.status_code == 200
         
-        # Verify gone
+        # Verify soft deleted
         result = await db_session.execute(
             select(Role).where(Role.id == role_id)
         )
-        assert result.scalar_one_or_none() is None
+        role = result.scalar_one()
+        assert role.deleted_at is not None
 
     @pytest.mark.asyncio
     async def test_delete_system_role_fails(self, api_client: AsyncClient, role_test_data, db_session):
@@ -220,3 +221,114 @@ class TestRoleManagement:
         
         assert response.status_code == 400
         assert "system role" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_soft_delete_role(self, api_client: AsyncClient, role_test_data, db_session):
+        """Test that deleting a role performs a soft delete"""
+        token = role_test_data["token"]
+        tenant_id = role_test_data["tenant"].id
+        
+        # 1. Create a role
+        role_name = f"soft_delete_test_{uuid4().hex[:8]}"
+        payload = {
+            "name": role_name,
+            "display_name": "Soft Delete Test",
+            "description": "Testing soft delete"
+        }
+        
+        response = await api_client.post(
+            "/api/b2b/roles",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        role_id = response.json()["id"]
+        
+        # 2. Delete the role
+        response = await api_client.delete(
+            f"/api/b2b/roles/{role_id}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        
+        # 3. Verify it's gone from list API
+        response = await api_client.get(
+            "/api/b2b/roles",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        roles = response.json()
+        assert not any(r["id"] == role_id for r in roles)
+        
+        # 4. Verify it's gone from detail API
+        response = await api_client.get(
+            f"/api/b2b/roles/{role_id}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 404
+        
+        # 5. Verify it still exists in DB with deleted_at set
+        result = await db_session.execute(
+            select(Role).where(Role.id == role_id)
+        )
+        role = result.scalar_one()
+        assert role.deleted_at is not None
+        assert role.tenant_id == tenant_id
+
+    @pytest.mark.asyncio
+    async def test_delete_assigned_role_fails(self, api_client: AsyncClient, role_test_data, db_session):
+        """Test that a role assigned to a user cannot be deleted"""
+        token = role_test_data["token"]
+        tenant_id = role_test_data["tenant"].id
+        
+        # 1. Create a role
+        role_name = f"assigned_role_{uuid4().hex[:8]}"
+        payload = {
+            "name": role_name,
+            "display_name": "Assigned Role",
+            "description": "Testing assigned role deletion"
+        }
+        
+        response = await api_client.post(
+            "/api/b2b/roles",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        role_id = response.json()["id"]
+        
+        # 2. Create a user assigned to this role
+        user = await create_test_user(
+            db_session,
+            tenant_id=tenant_id,
+            email=f"user_{uuid4().hex[:8]}@{role_test_data['tenant'].domain}",
+            role_slug=role_name # This helper might need update or we assign manually
+        )
+        
+        # Manually assign role_id since create_test_user might look up by slug which might not work for custom roles immediately if not cached/handled
+        # Or better, just update the user
+        from services.b2b.models import UserModel
+        from uuid import UUID
+        
+        # Update user with the specific role_id
+        await db_session.execute(
+            select(UserModel).where(UserModel.id == user.id)
+        )
+        # We need to use update statement or fetch and update
+        # Let's just update the user's role_id directly via SQL to be sure
+        from sqlalchemy import update
+        await db_session.execute(
+            update(UserModel)
+            .where(UserModel.id == user.id)
+            .values(role_id=UUID(role_id))
+        )
+        await db_session.commit()
+        
+        # 3. Try to delete the role
+        response = await api_client.delete(
+            f"/api/b2b/roles/{role_id}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        assert response.status_code == 400
+        assert "assigned to 1 user" in response.json()["detail"]
