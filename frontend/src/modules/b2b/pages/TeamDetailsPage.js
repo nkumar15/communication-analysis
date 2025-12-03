@@ -4,7 +4,6 @@ import teamApi from '../../../core/api/teamClient';
 import AdminLayout from '../layouts/AdminLayout';
 import TeamRoleBadge from '../components/TeamRoleBadge';
 import { formatDateTime } from '../../../utils/dateUtils';
-import { UserPlusIcon, TrashIcon, PencilIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 const TeamDetailsPage = () => {
     const { teamId } = useParams();
@@ -127,53 +126,146 @@ const TeamDetailsPage = () => {
         }
     };
 
-    if (loading) return <AdminLayout><div>Loading...</div></AdminLayout>;
-    if (!team) return <AdminLayout><div>Team not found</div></AdminLayout>;
+    if (loading) {
+        return (
+            <AdminLayout title="Team Details" subtitle="View and manage team members">
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+                    <p>Loading team details...</p>
+                </div>
+            </AdminLayout>
+        );
+    }
+
+    if (!team) {
+        return (
+            <AdminLayout title="Team Details" subtitle="View and manage team members">
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>❌</div>
+                    <p>Team not found</p>
+                </div>
+            </AdminLayout>
+        );
+    }
 
     return (
-        <AdminLayout>
-            <div className="p-6">
-                {/* Header */}
-                <div className="mb-6">
-                    <button
-                        onClick={() => navigate('/b2b/teams')}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
-                    >
-                        <ArrowLeftIcon className="h-4 w-4 mr-1" />
-                        Back to Teams
-                    </button>
+        <AdminLayout title={team.name} subtitle={team.description || 'Team details and members'}>
+            <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+                {/* Back Button */}
+                <button
+                    onClick={() => navigate('/b2b/teams')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '14px',
+                        color: '#6B7280',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        marginBottom: '24px',
+                        padding: '8px 0',
+                        transition: 'color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.target.style.color = '#374151'}
+                    onMouseLeave={(e) => e.target.style.color = '#6B7280'}
+                >
+                    <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Teams
+                </button>
 
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <div className="flex items-center">
-                                <h1 className="text-2xl font-bold text-gray-900">{team.name}</h1>
-                                {team.is_default && (
-                                    <span className="ml-3 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                        Default Team
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">{team.description || 'No description'}</p>
+                {/* Header with Team Name and Actions */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '24px',
+                    flexWrap: 'wrap',
+                    gap: '16px'
+                }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <h1 style={{
+                                fontSize: '28px',
+                                fontWeight: '700',
+                                color: '#111827',
+                                margin: 0
+                            }}>
+                                🏢 {team.name}
+                            </h1>
+                            {team.is_default && (
+                                <span style={{
+                                    padding: '4px 12px',
+                                    borderRadius: '9999px',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    backgroundColor: '#d1fae5',
+                                    color: '#065f46',
+                                    border: '1px solid #10b981'
+                                }}>
+                                    ✓ Default Team
+                                </span>
+                            )}
                         </div>
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={() => setShowEditModal(true)}
-                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
-                            >
-                                <PencilIcon className="-ml-0.5 mr-2 h-4 w-4" aria-hidden="true" />
-                                Edit Team
-                            </button>
-                            <button
-                                onClick={() => {
-                                    loadAvailableUsers();
-                                    setShowAddMemberModal(true);
-                                }}
-                                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
-                            >
-                                <UserPlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-                                Add Member
-                            </button>
-                        </div>
+                        <p style={{ fontSize: '14px', color: '#6B7280', margin: 0 }}>
+                            {team.description || 'No description'}
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                            onClick={() => setShowEditModal(true)}
+                            style={{
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                border: '2px solid #e5e7eb',
+                                background: 'white',
+                                color: '#374151',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                            onMouseLeave={(e) => e.target.style.background = 'white'}
+                        >
+                            <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            ✏️ Edit Team
+                        </button>
+                        <button
+                            onClick={() => {
+                                loadAvailableUsers();
+                                setShowAddMemberModal(true);
+                            }}
+                            style={{
+                                padding: '10px 18px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                            onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                            </svg>
+                            👤 Add Member
+                        </button>
                     </div>
                 </div>
 
@@ -228,7 +320,9 @@ const TeamDetailsPage = () => {
                                             onClick={() => handleRemoveMember(member.user_id)}
                                             className="text-red-600 hover:text-red-900"
                                         >
-                                            <TrashIcon className="h-5 w-5" />
+                                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </div>
@@ -245,145 +339,363 @@ const TeamDetailsPage = () => {
 
             {/* Add Member Modal */}
             {showAddMemberModal && (
-                <div className="fixed z-10 inset-0 overflow-y-auto">
-                    <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '20px'
+                }} onClick={() => setShowAddMemberModal(false)}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '520px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                        overflow: 'hidden'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        {/* Header with Gradient */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            padding: '24px',
+                            color: 'white'
+                        }}>
+                            <h2 style={{
+                                margin: 0,
+                                fontSize: '24px',
+                                fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span style={{ fontSize: '28px' }}>👤</span>
+                                Add Team Member
+                            </h2>
+                            <p style={{
+                                margin: '8px 0 0 0',
+                                fontSize: '14px',
+                                opacity: 0.9
+                            }}>
+                                Add an existing user to this team
+                            </p>
                         </div>
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                            <form onSubmit={handleAddMember}>
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                Add Team Member
-                                            </h3>
-                                            <div className="mt-4 space-y-4">
-                                                <div>
-                                                    <label htmlFor="user-select" className="block text-sm font-medium text-gray-700">
-                                                        Select User
-                                                    </label>
-                                                    <select
-                                                        id="user-select"
-                                                        required
-                                                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                                                        value={newMemberId}
-                                                        onChange={(e) => setNewMemberId(e.target.value)}
-                                                    >
-                                                        <option value="">Select a user...</option>
-                                                        {availableUsers.map(user => (
-                                                            <option key={user.id} value={user.id}>
-                                                                {user.name || user.email} ({user.email})
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label htmlFor="role-select" className="block text-sm font-medium text-gray-700">
-                                                        Team Role
-                                                    </label>
-                                                    <select
-                                                        id="role-select"
-                                                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                                                        value={newMemberRole}
-                                                        onChange={(e) => setNewMemberRole(e.target.value)}
-                                                    >
-                                                        <option value="team_manager">Manager</option>
-                                                        <option value="team_member">Member</option>
-                                                        <option value="team_viewer">Viewer</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="submit"
-                                        disabled={addingMember}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        {addingMember ? 'Adding...' : 'Add'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                        onClick={() => setShowAddMemberModal(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+
+                        <form onSubmit={handleAddMember} style={{ padding: '28px' }}>
+                            <div style={{ marginBottom: '24px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Select User <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <select
+                                    id="user-select"
+                                    required
+                                    value={newMemberId}
+                                    onChange={(e) => setNewMemberId(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        fontSize: '14px',
+                                        backgroundColor: '#f9fafb',
+                                        color: '#111827',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#667eea';
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#e5e7eb';
+                                        e.target.style.backgroundColor = '#f9fafb';
+                                    }}
+                                >
+                                    <option value="">Select a user...</option>
+                                    {availableUsers.map(user => (
+                                        <option key={user.id} value={user.id}>
+                                            {user.name || user.email} ({user.email})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: '28px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Team Role
+                                </label>
+                                <select
+                                    id="role-select"
+                                    value={newMemberRole}
+                                    onChange={(e) => setNewMemberRole(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        fontSize: '14px',
+                                        backgroundColor: '#f9fafb',
+                                        color: '#111827',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#667eea';
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#e5e7eb';
+                                        e.target.style.backgroundColor = '#f9fafb';
+                                    }}
+                                >
+                                    <option value="team_manager">Team Manager</option>
+                                    <option value="team_member">Member</option>
+                                    <option value="team_viewer">Viewer</option>
+                                </select>
+                            </div>
+
+                            <div style={{
+                                display: 'flex',
+                                gap: '12px',
+                                justifyContent: 'flex-end'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddMemberModal(false)}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        background: 'white',
+                                        color: '#374151',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={addingMember}
+                                    style={{
+                                        padding: '12px 28px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: addingMember ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: addingMember ? 'not-allowed' : 'pointer',
+                                        boxShadow: addingMember ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => !addingMember && (e.target.style.transform = 'translateY(-2px)')}
+                                    onMouseLeave={(e) => !addingMember && (e.target.style.transform = 'translateY(0)')}
+                                >
+                                    {addingMember ? '⏳ Adding...' : '✨ Add Member'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
             {/* Edit Team Modal */}
             {showEditModal && (
-                <div className="fixed z-10 inset-0 overflow-y-auto">
-                    <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '20px'
+                }} onClick={() => setShowEditModal(false)}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '520px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                        overflow: 'hidden'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        {/* Header with Gradient */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            padding: '24px',
+                            color: 'white'
+                        }}>
+                            <h2 style={{
+                                margin: 0,
+                                fontSize: '24px',
+                                fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span style={{ fontSize: '28px' }}>✏️</span>
+                                Edit Team
+                            </h2>
+                            <p style={{
+                                margin: '8px 0 0 0',
+                                fontSize: '14px',
+                                opacity: 0.9
+                            }}>
+                                Update team details
+                            </p>
                         </div>
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                            <form onSubmit={handleUpdateTeam}>
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                Edit Team
-                                            </h3>
-                                            <div className="mt-4 space-y-4">
-                                                <div>
-                                                    <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700">
-                                                        Team Name
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        id="edit-name"
-                                                        required
-                                                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                                                        value={editName}
-                                                        onChange={(e) => setEditName(e.target.value)}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label htmlFor="edit-desc" className="block text-sm font-medium text-gray-700">
-                                                        Description
-                                                    </label>
-                                                    <textarea
-                                                        id="edit-desc"
-                                                        rows="3"
-                                                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                                                        value={editDesc}
-                                                        onChange={(e) => setEditDesc(e.target.value)}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="submit"
-                                        disabled={saving}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        {saving ? 'Saving...' : 'Save Changes'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                        onClick={() => setShowEditModal(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+
+                        <form onSubmit={handleUpdateTeam} style={{ padding: '28px' }}>
+                            <div style={{ marginBottom: '24px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Team Name <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="edit-name"
+                                    required
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        border: '2px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        backgroundColor: '#f9fafb',
+                                        color: '#111827',
+                                        transition: 'all 0.2s',
+                                        outline: 'none'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#667eea';
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#e5e7eb';
+                                        e.target.style.backgroundColor = '#f9fafb';
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '28px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Description
+                                </label>
+                                <textarea
+                                    id="edit-desc"
+                                    rows="3"
+                                    value={editDesc}
+                                    onChange={(e) => setEditDesc(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        border: '2px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        backgroundColor: '#f9fafb',
+                                        color: '#111827',
+                                        transition: 'all 0.2s',
+                                        outline: 'none',
+                                        resize: 'vertical',
+                                        fontFamily: 'inherit'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#667eea';
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#e5e7eb';
+                                        e.target.style.backgroundColor = '#f9fafb';
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{
+                                display: 'flex',
+                                gap: '12px',
+                                justifyContent: 'flex-end'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditModal(false)}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        background: 'white',
+                                        color: '#374151',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    style={{
+                                        padding: '12px 28px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: saving ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: saving ? 'not-allowed' : 'pointer',
+                                        boxShadow: saving ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => !saving && (e.target.style.transform = 'translateY(-2px)')}
+                                    onMouseLeave={(e) => !saving && (e.target.style.transform = 'translateY(0)')}
+                                >
+                                    {saving ? '⏳ Saving...' : '💾 Save Changes'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

@@ -4,7 +4,6 @@ import teamApi from '../../../core/api/teamClient';
 import AdminLayout from '../layouts/AdminLayout';
 import { useAuth } from '../../../core/hooks/useAuth';
 import { formatDateTime } from '../../../utils/dateUtils';
-import { PlusIcon, UsersIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 
 const TeamsPage = () => {
     const [teams, setTeams] = useState([]);
@@ -71,72 +70,119 @@ const TeamsPage = () => {
         }
     };
 
+    if (loading) {
+        return (
+            <AdminLayout title="Teams" subtitle="Manage teams and their members">
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+                    <p>Loading teams...</p>
+                </div>
+            </AdminLayout>
+        );
+    }
+
     return (
-        <AdminLayout>
-            <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
+        <AdminLayout title="Teams" subtitle="Manage teams and their members">
+            <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+                {/* Header with Create Button */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '24px'
+                }}>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Teams</h1>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#111827', margin: '0 0 4px 0' }}>
+                            🏢 Teams
+                        </h1>
+                        <p style={{ fontSize: '14px', color: '#6B7280', margin: 0 }}>
                             Manage teams and their members
                         </p>
                     </div>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        style={{
+                            padding: '12px 20px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: 'white',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                        onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                     >
-                        <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                        <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
                         Create Team
                     </button>
                 </div>
 
+                {/* Error Message */}
                 {error && (
-                    <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-4">
-                        <div className="flex">
-                            <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                            <div className="ml-3">
-                                <p className="text-sm text-red-700">{error}</p>
-                            </div>
-                        </div>
+                    <div style={{
+                        marginBottom: '24px',
+                        padding: '12px 16px',
+                        backgroundColor: '#FEE2E2',
+                        border: '1px solid #FCA5A5',
+                        borderLeft: '4px solid #EF4444',
+                        borderRadius: '6px',
+                        color: '#991B1B',
+                        fontSize: '14px'
+                    }}>
+                        ❌ {error}
                     </div>
                 )}
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-6">
-                    <div className="bg-white overflow-hidden shadow rounded-lg">
-                        <div className="p-5">
-                            <div className="flex items-center">
-                                <div className="flex-shrink-0">
-                                    <UsersIcon className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                    gap: '20px',
+                    marginBottom: '32px'
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '24px',
+                        borderRadius: '12px',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                        border: '1px solid #E5E7EB'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ fontSize: '32px' }}>👥</div>
+                            <div>
+                                <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px', textTransform: 'uppercase', fontWeight: '600' }}>
+                                    Total Teams
                                 </div>
-                                <div className="ml-5 w-0 flex-1">
-                                    <dl>
-                                        <dt className="text-sm font-medium text-gray-500 truncate">Total Teams</dt>
-                                        <dd>
-                                            <div className="text-lg font-medium text-gray-900">{stats?.total_teams || 0}</div>
-                                        </dd>
-                                    </dl>
+                                <div style={{ fontSize: '24px', fontWeight: '700', color: '#111827' }}>
+                                    {stats?.total_teams || 0}
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white overflow-hidden shadow rounded-lg">
-                        <div className="p-5">
-                            <div className="flex items-center">
-                                <div className="flex-shrink-0">
-                                    <UsersIcon className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '24px',
+                        borderRadius: '12px',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                        border: '1px solid #E5E7EB'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ fontSize: '32px' }}>⭐</div>
+                            <div>
+                                <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px', textTransform: 'uppercase', fontWeight: '600' }}>
+                                    My Teams
                                 </div>
-                                <div className="ml-5 w-0 flex-1">
-                                    <dl>
-                                        <dt className="text-sm font-medium text-gray-500 truncate">My Teams</dt>
-                                        <dd>
-                                            <div className="text-lg font-medium text-gray-900">{stats?.user_teams_count || 0}</div>
-                                        </dd>
-                                    </dl>
+                                <div style={{ fontSize: '24px', fontWeight: '700', color: '#111827' }}>
+                                    {stats?.user_teams_count || 0}
                                 </div>
                             </div>
                         </div>
@@ -144,118 +190,262 @@ const TeamsPage = () => {
                 </div>
 
                 {/* Teams List */}
-                <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                    <ul className="divide-y divide-gray-200">
-                        {teams.map((team) => (
-                            <li key={team.id}>
-                                <div className="block hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/b2b/teams/${team.id}`)}>
-                                    <div className="px-4 py-4 sm:px-6">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center">
-                                                <p className="text-sm font-medium text-indigo-600 truncate">{team.name}</p>
-                                                {team.is_default && (
-                                                    <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                        Default
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="ml-2 flex-shrink-0 flex">
-                                                <p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                                    {team.member_count} members
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="mt-2 sm:flex sm:justify-between">
-                                            <div className="sm:flex">
-                                                <p className="flex items-center text-sm text-gray-500">
-                                                    {team.description || 'No description'}
-                                                </p>
-                                            </div>
-                                            <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                                                <p>
-                                                    Created {formatDateTime(team.created_at)}
-                                                </p>
-                                            </div>
-                                        </div>
+                <div style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #E5E7EB',
+                    overflow: 'hidden'
+                }}>
+                    {teams.length === 0 ? (
+                        <div style={{ padding: '60px 24px', textAlign: 'center', color: '#9CA3AF' }}>
+                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                            <p style={{ fontSize: '16px', margin: 0 }}>No teams found. Create one to get started.</p>
+                        </div>
+                    ) : (
+                        teams.map((team, index) => (
+                            <div
+                                key={team.id}
+                                onClick={() => navigate(`/b2b/teams/${team.id}`)}
+                                style={{
+                                    padding: '20px 24px',
+                                    borderBottom: index < teams.length - 1 ? '1px solid #F3F4F6' : 'none',
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.15s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <h3 style={{
+                                            margin: 0,
+                                            fontSize: '16px',
+                                            fontWeight: '600',
+                                            color: '#3b82f6'
+                                        }}>
+                                            {team.name}
+                                        </h3>
+                                        {team.is_default && (
+                                            <span style={{
+                                                padding: '4px 12px',
+                                                borderRadius: '9999px',
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                backgroundColor: '#d1fae5',
+                                                color: '#065f46',
+                                                border: '1px solid #10b981'
+                                            }}>
+                                                ✓ Default
+                                            </span>
+                                        )}
                                     </div>
+                                    <span style={{
+                                        padding: '4px 12px',
+                                        borderRadius: '9999px',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        backgroundColor: '#f3f4f6',
+                                        color: '#374151'
+                                    }}>
+                                        👤 {team.member_count || 0} members
+                                    </span>
                                 </div>
-                            </li>
-                        ))}
-                        {teams.length === 0 && !loading && (
-                            <li className="px-4 py-8 text-center text-gray-500">
-                                No teams found. Create one to get started.
-                            </li>
-                        )}
-                    </ul>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <p style={{ margin: 0, fontSize: '14px', color: '#6B7280' }}>
+                                        {team.description || 'No description'}
+                                    </p>
+                                    <p style={{ margin: 0, fontSize: '13px', color: '#9CA3AF' }}>
+                                        Created {formatDateTime(team.created_at)}
+                                    </p>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 
             {/* Create Team Modal */}
             {showCreateModal && (
-                <div className="fixed z-10 inset-0 overflow-y-auto">
-                    <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '20px'
+                }} onClick={() => setShowCreateModal(false)}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '520px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                        overflow: 'hidden'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        {/* Header with Gradient */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            padding: '24px',
+                            color: 'white'
+                        }}>
+                            <h2 style={{
+                                margin: 0,
+                                fontSize: '24px',
+                                fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span style={{ fontSize: '28px' }}>🏢</span>
+                                Create New Team
+                            </h2>
+                            <p style={{
+                                margin: '8px 0 0 0',
+                                fontSize: '14px',
+                                opacity: 0.9
+                            }}>
+                                Organize your users into teams
+                            </p>
                         </div>
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                            <form onSubmit={handleCreateTeam}>
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                                                Create New Team
-                                            </h3>
-                                            <div className="mt-4 space-y-4">
-                                                <div>
-                                                    <label htmlFor="team-name" className="block text-sm font-medium text-gray-700">
-                                                        Team Name
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        name="team-name"
-                                                        id="team-name"
-                                                        required
-                                                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                                                        value={newTeamName}
-                                                        onChange={(e) => setNewTeamName(e.target.value)}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label htmlFor="team-desc" className="block text-sm font-medium text-gray-700">
-                                                        Description
-                                                    </label>
-                                                    <textarea
-                                                        name="team-desc"
-                                                        id="team-desc"
-                                                        rows="3"
-                                                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                                                        value={newTeamDesc}
-                                                        onChange={(e) => setNewTeamDesc(e.target.value)}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="submit"
-                                        disabled={creating}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        {creating ? 'Creating...' : 'Create'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                        onClick={() => setShowCreateModal(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+
+                        {/* Form Body */}
+                        <form onSubmit={handleCreateTeam} style={{ padding: '28px' }}>
+                            {/* Team Name Field */}
+                            <div style={{ marginBottom: '24px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Team Name <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="team-name"
+                                    id="team-name"
+                                    required
+                                    value={newTeamName}
+                                    onChange={(e) => setNewTeamName(e.target.value)}
+                                    placeholder="e.g., Engineering Team"
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        border: '2px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        backgroundColor: '#f9fafb',
+                                        color: '#111827',
+                                        transition: 'all 0.2s',
+                                        outline: 'none'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#667eea';
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#e5e7eb';
+                                        e.target.style.backgroundColor = '#f9fafb';
+                                    }}
+                                />
+                            </div>
+
+                            {/* Description Field */}
+                            <div style={{ marginBottom: '28px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Description
+                                </label>
+                                <textarea
+                                    name="team-desc"
+                                    id="team-desc"
+                                    rows="3"
+                                    value={newTeamDesc}
+                                    onChange={(e) => setNewTeamDesc(e.target.value)}
+                                    placeholder="Brief description of this team's purpose..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        border: '2px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        backgroundColor: '#f9fafb',
+                                        color: '#111827',
+                                        transition: 'all 0.2s',
+                                        outline: 'none',
+                                        resize: 'vertical',
+                                        fontFamily: 'inherit'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#667eea';
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#e5e7eb';
+                                        e.target.style.backgroundColor = '#f9fafb';
+                                    }}
+                                />
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '12px',
+                                justifyContent: 'flex-end'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreateModal(false)}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        background: 'white',
+                                        color: '#374151',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={creating}
+                                    style={{
+                                        padding: '12px 28px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: creating ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: creating ? 'not-allowed' : 'pointer',
+                                        boxShadow: creating ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => !creating && (e.target.style.transform = 'translateY(-2px)')}
+                                    onMouseLeave={(e) => !creating && (e.target.style.transform = 'translateY(0)')}
+                                >
+                                    {creating ? '⏳ Creating...' : '✨ Create Team'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

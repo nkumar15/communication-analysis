@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import invitationApi from '../../../core/api/invitationClient';
+import b2bClient from '../../../core/api/b2bClient';
 import StatCard from '../../../core/components/StatCard';
 import TabNav from '../../platform/components/TabNav';
 import RoleBadge from '../../../core/components/RoleBadge';
@@ -21,9 +22,12 @@ const InvitationsPage = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [email, setEmail] = useState('');
+    const [availableRoles, setAvailableRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [selectedRole, setSelectedRole] = useState('field_manager');
+    const [selectedTeam, setSelectedTeam] = useState('');
     const navigate = useNavigate();
     const { user, getInvitableRoles, getScopeLabel } = useAuth();
 
@@ -45,6 +49,42 @@ const InvitationsPage = () => {
             setStats(statsData);
             setUsers(usersData);
 
+            // Fetch roles separately to not block main data load
+            try {
+                const rolesData = await b2bClient.getRoles();
+
+                // Format roles for dropdown
+                const roles = rolesData.map(r => ({
+                    value: r.name,
+                    label: r.display_name || r.name.charAt(0).toUpperCase() + r.name.slice(1),
+                    disabled: r.name === 'owner' // Disable owner role
+                }));
+
+                // Ensure we have at least Admin and Viewer if API returns empty (fallback)
+                if (roles.length === 0) {
+                    roles.push(
+                        { value: 'admin', label: 'Admin', disabled: false },
+                        { value: 'viewer', label: 'Viewer', disabled: false }
+                    );
+                }
+
+                setAvailableRoles(roles);
+
+                // Set default role to first available non-disabled role
+                if (roles.length > 0 && !selectedRole) {
+                    const defaultRole = roles.find(r => !r.disabled) || roles[0];
+                    setSelectedRole(defaultRole.value);
+                }
+            } catch (err) {
+                console.error('Failed to load roles:', err);
+                // Fallback roles on error
+                setAvailableRoles([
+                    { value: 'admin', label: 'Admin', disabled: false },
+                    { value: 'viewer', label: 'Viewer', disabled: false }
+                ]);
+                setSelectedRole('admin');
+            }
+
             // Try to load invitations (admin only)
             try {
                 const invitationsData = await invitationApi.listInvitations();
@@ -64,8 +104,7 @@ const InvitationsPage = () => {
         }
     };
 
-    const [selectedRole, setSelectedRole] = useState('field_manager'); // default role
-    const [selectedTeam, setSelectedTeam] = useState('');
+
     const handleInvite = async (e) => {
         e.preventDefault();
         setError('');
@@ -460,61 +499,146 @@ const InvitationsPage = () => {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        zIndex: 100
+                        zIndex: 1000,
+                        padding: '20px'
                     }} onClick={() => setShowInviteModal(false)}>
-                        <div className="card" style={{ width: '100%', maxWidth: '500px', margin: '20px' }} onClick={(e) => e.stopPropagation()}>
-                            <h2 style={{ marginTop: 0 }}>Invite User</h2>
-                            <form onSubmit={handleInvite}>
-                                <div style={{ marginBottom: '20px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
-                                        Email Address
+                        <div style={{
+                            width: '100%',
+                            maxWidth: '520px',
+                            background: 'white',
+                            borderRadius: '16px',
+                            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                            overflow: 'hidden'
+                        }} onClick={(e) => e.stopPropagation()}>
+                            {/* Header with Gradient */}
+                            <div style={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                padding: '24px',
+                                color: 'white'
+                            }}>
+                                <h2 style={{
+                                    margin: 0,
+                                    fontSize: '24px',
+                                    fontWeight: '700',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}>
+                                    <span style={{ fontSize: '28px' }}>✉️</span>
+                                    Invite User
+                                </h2>
+                                <p style={{
+                                    margin: '8px 0 0 0',
+                                    fontSize: '14px',
+                                    opacity: 0.9
+                                }}>
+                                    Send an invitation to join your team
+                                </p>
+                            </div>
+
+                            {/* Form Body */}
+                            <form onSubmit={handleInvite} style={{ padding: '28px' }}>
+                                {/* Email Field */}
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '8px',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        color: '#374151'
+                                    }}>
+                                        Email Address <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="manager@yourcompany.com"
+                                        placeholder="colleague@yourcompany.com"
                                         required
                                         style={{
                                             width: '100%',
-                                            padding: '12px',
-                                            border: '1px solid #D1D5DB',
-                                            borderRadius: '6px',
-                                            fontSize: '14px'
+                                            padding: '12px 16px',
+                                            border: '2px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            backgroundColor: '#f9fafb',
+                                            color: '#111827',
+                                            transition: 'all 0.2s',
+                                            outline: 'none'
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#667eea';
+                                            e.target.style.backgroundColor = 'white';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#e5e7eb';
+                                            e.target.style.backgroundColor = '#f9fafb';
                                         }}
                                     />
-                                    <small style={{ color: '#6B7280', fontSize: '13px', display: 'block', marginTop: '6px' }}>
-                                        Email must match your company domain
+                                    <small style={{
+                                        color: '#6B7280',
+                                        fontSize: '12px',
+                                        display: 'block',
+                                        marginTop: '6px',
+                                        fontStyle: 'italic'
+                                    }}>
+                                        Must match your company domain
                                     </small>
                                 </div>
-                                <div style={{ marginBottom: '16px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: '#374151' }}>
-                                        Role
+
+                                {/* Role Field */}
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        color: '#374151'
+                                    }}>
+                                        Role <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
                                     <select
                                         value={selectedRole}
                                         onChange={(e) => setSelectedRole(e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '8px 12px',
-                                            borderRadius: '6px',
-                                            border: '1px solid #D1D5DB',
-                                            fontSize: '14px'
+                                            padding: '12px 16px',
+                                            borderRadius: '8px',
+                                            border: '2px solid #e5e7eb',
+                                            fontSize: '14px',
+                                            backgroundColor: '#f9fafb',
+                                            color: '#111827',
+                                            cursor: 'pointer',
+                                            outline: 'none',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#667eea';
+                                            e.target.style.backgroundColor = 'white';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#e5e7eb';
+                                            e.target.style.backgroundColor = '#f9fafb';
                                         }}
                                     >
-                                        {getInvitableRoles().map(role => (
-                                            <option key={role.value} value={role.value}>
-                                                {role.label}
+                                        {availableRoles.map(role => (
+                                            <option
+                                                key={role.id || role.value}
+                                                value={role.name || role.value}
+                                                disabled={role.disabled}
+                                            >
+                                                {role.display_name || role.label || role.name} {role.disabled ? '(Cannot Invite)' : ''}
                                             </option>
                                         ))}
                                     </select>
                                 </div>
 
-                                <div style={{ marginBottom: '24px' }}>
+                                {/* Team Assignment */}
+                                <div style={{ marginBottom: '28px' }}>
                                     <TeamSelector
                                         value={selectedTeam}
                                         onChange={setSelectedTeam}
@@ -522,26 +646,70 @@ const InvitationsPage = () => {
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                                    {user?.role === 'field_manager' && (
-                                        <small style={{ color: '#6B7280', fontSize: '12px', display: 'block', marginTop: '6px' }}>
-                                            As a Field Manager, you can only invite Field Agents
+                                {/* Field Manager Note */}
+                                {user?.role === 'field_manager' && (
+                                    <div style={{
+                                        marginBottom: '24px',
+                                        padding: '12px',
+                                        background: '#fef3c7',
+                                        border: '1px solid #fbbf24',
+                                        borderRadius: '8px'
+                                    }}>
+                                        <small style={{
+                                            color: '#92400e',
+                                            fontSize: '13px',
+                                            display: 'block',
+                                            fontWeight: '500'
+                                        }}>
+                                            ℹ️ As a Field Manager, you can only invite Field Agents
                                         </small>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '12px',
+                                    justifyContent: 'flex-end',
+                                    paddingTop: '8px'
+                                }}>
                                     <button
                                         type="button"
                                         onClick={() => setShowInviteModal(false)}
-                                        className="button button-secondary"
+                                        style={{
+                                            padding: '12px 24px',
+                                            borderRadius: '8px',
+                                            border: '2px solid #e5e7eb',
+                                            background: 'white',
+                                            color: '#374151',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                                        onMouseLeave={(e) => e.target.style.background = 'white'}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="button button-primary"
+                                        style={{
+                                            padding: '12px 28px',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                            color: 'white',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                        onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                                     >
-                                        Send Invitation
+                                        📨 Send Invitation
                                     </button>
                                 </div>
                             </form>

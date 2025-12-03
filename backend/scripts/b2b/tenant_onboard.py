@@ -292,7 +292,6 @@ async def create_local_async(
                 tenant_id=tenant.id,
                 email=owner_email,
                 role=B2BRoleName.OWNER,
-                role=B2BRoleName.OWNER,
                 invitation_token=activation_token,
                 team_id=default_team.id,
                 expires_in_days=2

@@ -75,21 +75,22 @@ function TenantList() {
 
     const getStatusBadge = (status) => {
         const styles = {
-            active: { bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399' },
-            pending: { bg: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24' },
-            inactive: { bg: 'rgba(107, 114, 128, 0.2)', color: '#9ca3af' }
+            active: { bg: '#d1fae5', color: '#065f46', border: '#10b981' },
+            pending: { bg: '#fef3c7', color: '#92400e', border: '#f59e0b' },
+            inactive: { bg: '#e5e7eb', color: '#374151', border: '#9ca3af' }
         };
 
         const style = styles[status] || styles.inactive;
 
         return (
             <span style={{
-                padding: '0.25rem 0.75rem',
+                padding: '0.35rem 0.85rem',
                 borderRadius: '9999px',
                 fontSize: '0.75rem',
-                fontWeight: '500',
+                fontWeight: '600',
                 backgroundColor: style.bg,
                 color: style.color,
+                border: `1px solid ${style.border}`,
                 textTransform: 'capitalize'
             }}>
                 {status}
@@ -152,7 +153,14 @@ function TenantList() {
                                 <td>
                                     <Link
                                         to={`/platform/tenants/${tenant.id}`}
-                                        style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}
+                                        style={{
+                                            color: '#3b82f6',
+                                            textDecoration: 'none',
+                                            fontWeight: '600',
+                                            transition: 'color 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.color = '#2563eb'}
+                                        onMouseLeave={(e) => e.target.style.color = '#3b82f6'}
                                     >
                                         {tenant.name}
                                     </Link>
@@ -209,13 +217,14 @@ function TenantList() {
                                                 style={{
                                                     fontSize: '0.75rem',
                                                     padding: '0.3rem 0.6rem',
-                                                    background: 'rgba(245, 158, 11, 0.2)',
-                                                    color: '#fcd34d',
-                                                    border: '1px solid rgba(245, 158, 11, 0.3)'
+                                                    background: '#f97316',
+                                                    color: 'white',
+                                                    border: '1px solid #ea580c',
+                                                    fontWeight: '500'
                                                 }}
                                                 title="Resend Activation Email"
                                             >
-                                                Resend Invite
+                                                📧 Resend Invite
                                             </button>
                                         )}
                                     </div>
