@@ -129,6 +129,50 @@ class PlatformApiService {
         }
         return response.json();
     }
+    /**
+     * Onboard a new tenant (full workflow)
+     */
+    async onboardTenant(tenantData) {
+        return this.post('/api/platform/tenants/onboard', tenantData);
+    }
+
+    /**
+     * Get tenant details
+     */
+    async getTenantDetails(tenantId) {
+        return this.get(`/api/platform/tenants/${tenantId}/details`);
+    }
+
+    /**
+     * Resend activation email
+     */
+    async resendActivation(tenantId) {
+        return this.post(`/api/platform/tenants/${tenantId}/resend-activation`);
+    }
+
+    /**
+     * Deactivate tenant
+     */
+    async deactivateTenant(tenantId) {
+        return this.patch(`/api/platform/tenants/${tenantId}/deactivate`);
+    }
+
+    /**
+     * Generic PATCH request with auth headers
+     */
+    async patch(path, data) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'PATCH',
+            headers,
+            body: data ? JSON.stringify(data) : undefined
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`PATCH ${path} failed: ${response.status} - ${error}`);
+        }
+        return response.json();
+    }
 }
 
 export default new PlatformApiService();

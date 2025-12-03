@@ -29,6 +29,7 @@ class InviteUserRequest(BaseModel):
     """Request to invite a new user"""
     email: str
     role: str = B2BRoleName.VIEWER  # Default to viewer (lowest permission)
+    team_id: UUID | None = None  # Optional team assignment
 
 
 class InviteUserResponse(BaseModel):
@@ -36,6 +37,7 @@ class InviteUserResponse(BaseModel):
     email: str
     status: str
     message: str
+    team_id: UUID | None = None
 
 
 class InvitationListResponse(BaseModel):
@@ -43,6 +45,7 @@ class InvitationListResponse(BaseModel):
     email: str
     role: str
     invited_by: UUID | None
+    team_id: UUID | None
     expires_at: datetime
     accepted_at:datetime | None
     created_at: datetime
@@ -65,6 +68,7 @@ async def invite_user(
     - Viewer: Cannot invite (no permission)
     """
     from services.b2b.rbac import has_permission
+    from services.b2b.models import Team
     
     # Check if user has invite permission
     if not await has_permission(current_user['id'], 'users', 'invite', db):
@@ -89,6 +93,22 @@ async def invite_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Email domain must match tenant domain ({tenant.domain})"
         )
+    
+    # Validate team if provided
+    if request.team_id:
+        team_result = await db.execute(
+            select(Team).where(
+                Team.id == request.team_id,
+                Team.tenant_id == current_user['tenant_id'],
+                Team.deleted_at.is_(None)
+            )
+        )
+        team = team_result.scalar_one_or_none()
+        if not team:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Team not found"
+            )
     
     # RBAC: Check what roles the current user can invite
     current_user_role = current_user.get('role')  # Role slug from current_user
@@ -167,6 +187,7 @@ async def invite_user(
         role=request.role,
         invitation_token=invitation_token,
         invited_by=current_user['id'],
+        team_id=request.team_id,
         expires_at=datetime.now(timezone.utc) + timedelta(days=7)
     )
     db.add(invitation)
@@ -190,7 +211,8 @@ async def invite_user(
         invitation_id=invitation.id,
         email=invitation.email,
         status="sent",  
-        message=f"Invitation sent to {request.email}"
+        message=f"Invitation sent to {request.email}",
+        team_id=invitation.team_id
     )
 
 
@@ -228,6 +250,7 @@ async def list_invitations(
             email=inv.email,
             role=inv.role,
             invited_by=inv.invited_by,
+            team_id=inv.team_id,
             expires_at=inv.expires_at,
             accepted_at=inv.accepted_at,
             created_at=inv.created_at
@@ -504,14 +527,47 @@ async def join_tenant(
     client_ip = request.client.host if request.client else None
     
     # Mark invitation as accepted with audit trail
-    # Update invitation as accepted
     invitation.accepted_at = datetime.now(timezone.utc)
     invitation.accepted_by = user_id
     invitation.accepted_from_ip = client_ip
+    
+    # Handle Team Assignment
+    from services.b2b.services import team_service
+    
+    if invitation.team_id:
+        # Add to specific team from invitation
+        try:
+            await team_service.add_team_member(
+                db=db,
+                team_id=invitation.team_id,
+                user_id=user_id,
+                team_role="team_member"
+            )
+        except Exception as e:
+            # Log error but don't fail the join process
+            # User is created but team assignment failed
+            pass
+    else:
+        # Add to default team
+        try:
+            default_team = await team_service.get_or_create_default_team(
+                db=db,
+                tenant_id=tenant.id
+            )
+            await team_service.add_team_member(
+                db=db,
+                team_id=default_team.id,
+                user_id=user_id,
+                team_role="team_member"
+            )
+        except Exception as e:
+            pass
+
     await db.commit()
     
     return {
         "message": "Successfully joined tenant",
         "tenant_id": invitation.tenant_id,
-        "role": invitation.role
+        "role": invitation.role,
+        "team_id": invitation.team_id
     }

@@ -232,6 +232,16 @@ async def create_test_tenant(
     # Seed roles for this tenant using RoleTemplateService
     from services.b2b.services.role_template_service import role_template_service
     await role_template_service.seed_tenant_roles(db_session, tenant.id)
+
+    # Create default team
+    from services.b2b.services.team_service import create_team
+    await create_team(
+        db=db_session,
+        tenant_id=tenant.id,
+        name="Default Team",
+        description="Default team for all users",
+        is_default=True
+    )
     
     return tenant
 

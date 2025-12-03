@@ -14,8 +14,17 @@ from core.config import settings
 from core.utils import get_utc_now
 from services.platform.middleware.platform_auth import verify_platform_admin
 from services.platform.models import PlatformTenant, PlatformUser
-from services.b2b.models import TenantModel, UserModel
+from services.b2b.models import TenantModel, UserModel, AuthProvider, Team
 from services.b2b.services.tenant_service import tenant_service
+from services.platform.services.tenant_onboarding_service import tenant_onboarding_service
+from services.platform.schemas.platform_schemas import (
+    TenantOnboardRequest,
+    TenantOnboardResponse,
+    TenantDetailResponse,
+    ResendActivationResponse,
+    DeactivateTenantResponse,
+    AuthProviderInfo
+)
 
 router = APIRouter(
     prefix="/api/platform",
@@ -382,3 +391,182 @@ async def get_platform_admin_info(
         "tenant_id": str(tenant.id),
         "tenant_name": tenant.name
     }
+
+
+# ============================================================================
+# NEW TENANT ONBOARDING ENDPOINTS
+# ============================================================================
+
+@router.post("/tenants/onboard", response_model=TenantOnboardResponse, status_code=status.HTTP_201_CREATED)
+async def onboard_tenant(
+    request: TenantOnboardRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(verify_platform_admin)
+):
+    """
+    Full tenant onboarding workflow
+    
+    Creates Firebase tenant, configures OIDC, seeds roles, creates default team,
+    sends activation email. Replaces the CLI tenant_onboard script.
+    """
+    try:
+        result = await tenant_onboarding_service.onboard_tenant(
+            db=db,
+            company_name=request.company_name,
+            domain=request.domain,
+            owner_email=request.owner_email,
+            oidc_provider=request.oidc_provider,
+            oidc_client_id=request.oidc_client_id,
+            oidc_client_secret=request.oidc_client_secret,
+            oidc_issuer=request.oidc_issuer
+        )
+        
+        # Log action
+        from services.platform.middleware.platform_auth import log_platform_action
+        await log_platform_action(
+            admin=current_user,
+            action="onboard_tenant",
+            resource_type="tenant",
+            resource_id=result["tenant_id"],
+            details={"domain": request.domain, "company": request.company_name},
+            db=db
+        )
+        
+        return TenantOnboardResponse(**result)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get("/tenants/{tenant_id}/details", response_model=TenantDetailResponse)
+async def get_tenant_details(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(verify_platform_admin)
+):
+    """
+    Get detailed tenant information including auth provider and stats
+    """
+    # Get tenant
+    tenant = await db.get(TenantModel, tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant {tenant_id} not found"
+        )
+    
+    # Get user count
+    user_count = await db.scalar(
+        select(func.count(UserModel.id)).where(UserModel.tenant_id == tenant_id)
+    )
+    
+    # Get team count
+    team_count = await db.scalar(
+        select(func.count(Team.id))
+        .where(Team.tenant_id == tenant_id)
+        .where(Team.deleted_at.is_(None))
+    )
+    
+    # Get auth provider
+    auth_result = await db.execute(
+        select(AuthProvider)
+        .where(AuthProvider.tenant_id == tenant_id)
+        .where(AuthProvider.is_primary == True)
+    )
+    auth_provider = auth_result.scalar_one_or_none()
+    
+    auth_info = None
+    if auth_provider:
+        auth_info = AuthProviderInfo(
+            provider_type=auth_provider.provider_type,
+            provider_id=auth_provider.provider_id,
+            display_name=auth_provider.display_name,
+            is_primary=auth_provider.is_primary,
+            is_active=auth_provider.is_active
+        )
+    
+    return TenantDetailResponse(
+        id=tenant.id,
+        name=tenant.name,
+        domain=tenant.domain,
+        firebase_tenant_id=tenant.firebase_tenant_id,
+        activation_status=tenant.activation_status or 'pending',
+        activation_token=tenant.activation_token if tenant.activation_status == 'pending' else None,
+        activation_expires_at=tenant.activation_expires_at,
+        is_active=tenant.is_active,
+        created_at=tenant.created_at,
+        updated_at=tenant.updated_at,
+        user_count=user_count or 0,
+        team_count=team_count or 0,
+        auth_provider=auth_info
+    )
+
+
+@router.post("/tenants/{tenant_id}/resend-activation", response_model=ResendActivationResponse)
+async def resend_activation_email(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(verify_platform_admin)
+):
+    """
+    Regenerate activation token and resend activation email
+    """
+    try:
+        result = await tenant_onboarding_service.resend_activation(db, tenant_id)
+        
+        # Log action
+        from services.platform.middleware.platform_auth import log_platform_action
+        await log_platform_action(
+            admin=current_user,
+            action="resend_activation",
+            resource_type="tenant",
+            resource_id=str(tenant_id),
+            details={},
+            db=db
+        )
+        
+        return ResendActivationResponse(**result)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.patch("/tenants/{tenant_id}/deactivate", response_model=DeactivateTenantResponse)
+async def deactivate_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(verify_platform_admin)
+):
+    """
+    Deactivate a tenant (soft deactivation, preserves data)
+    
+    Different from delete - sets is_active=False but keeps all data
+    """
+    tenant = await db.get(TenantModel, tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant {tenant_id} not found"
+        )
+    
+    tenant.is_active = False
+    await db.commit()
+    
+    # Log action
+    from services.platform.middleware.platform_auth import log_platform_action
+    await log_platform_action(
+        admin=current_user,
+        action="deactivate_tenant",
+        resource_type="tenant",
+        resource_id=str(tenant_id),
+        details={},
+        db=db
+    )
+    
+    return DeactivateTenantResponse(tenant_id=str(tenant_id))

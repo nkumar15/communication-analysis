@@ -11,6 +11,7 @@ const Sidebar = () => {
         { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
         { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles', feature: 'roles' },
+        { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
         { id: 'farmers', label: 'Farmer Management', icon: '🚜', path: '/farmers', feature: 'farmers' }
     ];
 

@@ -14,8 +14,8 @@ from uuid import UUID
 
 from core.database import get_db
 from core.middleware import get_current_user
-from services.b2b.rbac import (
-    require_permission,
+from services.b2b.rbac import require_permission
+from services.domains.farming.scope_checker import (
     get_accessible_farmers_query,
     can_access_farmer
 )

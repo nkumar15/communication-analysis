@@ -9,6 +9,7 @@ import ActionMenu from '../components/ActionMenu';
 import AdminLayout from '../layouts/AdminLayout';
 import { useAuth } from '../../../core/hooks/useAuth';
 import { formatDateTime } from '../../../utils/dateUtils';
+import TeamSelector from '../components/TeamSelector';
 
 const InvitationsPage = () => {
     const [stats, setStats] = useState(null);
@@ -64,6 +65,7 @@ const InvitationsPage = () => {
     };
 
     const [selectedRole, setSelectedRole] = useState('field_manager'); // default role
+    const [selectedTeam, setSelectedTeam] = useState('');
     const handleInvite = async (e) => {
         e.preventDefault();
         setError('');
@@ -71,9 +73,10 @@ const InvitationsPage = () => {
 
         try {
             // Send the selected role directly (new role names)
-            await invitationApi.inviteUser(email, selectedRole);
+            await invitationApi.inviteUser(email, selectedRole, selectedTeam || null);
             setSuccess(`Invitation sent to ${email}`);
             setEmail('');
+            setSelectedTeam('');
             setShowInviteModal(false);
             await loadData();
         } catch (err) {
@@ -488,8 +491,8 @@ const InvitationsPage = () => {
                                         Email must match your company domain
                                     </small>
                                 </div>
-                                <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
+                                <div style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: '#374151' }}>
                                         Role
                                     </label>
                                     <select
@@ -497,12 +500,10 @@ const InvitationsPage = () => {
                                         onChange={(e) => setSelectedRole(e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '12px',
-                                            border: '1px solid #D1D5DB',
+                                            padding: '8px 12px',
                                             borderRadius: '6px',
-                                            fontSize: '14px',
-                                            backgroundColor: 'white',
-                                            color: '#111827'
+                                            border: '1px solid #D1D5DB',
+                                            fontSize: '14px'
                                         }}
                                     >
                                         {getInvitableRoles().map(role => (
@@ -511,6 +512,17 @@ const InvitationsPage = () => {
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <TeamSelector
+                                        value={selectedTeam}
+                                        onChange={setSelectedTeam}
+                                        label="Assign to Team (Optional)"
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                                     {user?.role === 'field_manager' && (
                                         <small style={{ color: '#6B7280', fontSize: '12px', display: 'block', marginTop: '6px' }}>
                                             As a Field Manager, you can only invite Field Agents

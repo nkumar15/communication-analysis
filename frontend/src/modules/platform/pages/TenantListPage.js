@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import platformApiService from '../../../core/api/platformClient';
 import { formatDateTime } from '../../../utils/dateUtils';
 import CreateTenantModal from '../components/CreateTenantModal';
@@ -46,12 +47,57 @@ function TenantList() {
             window.location.href = '/dashboard';
         } catch (error) {
             alert('Failed to impersonate: ' + error.message);
-        } finally {
             setLoading(false);
         }
     };
 
-    if (loading) {
+    const handleDeactivate = async (tenantId, tenantName) => {
+        if (!window.confirm(`Are you sure you want to deactivate ${tenantName}? Users will not be able to login.`)) {
+            return;
+        }
+
+        try {
+            await platformApiService.deactivateTenant(tenantId);
+            fetchData(); // Refresh list
+        } catch (error) {
+            alert('Failed to deactivate: ' + error.message);
+        }
+    };
+
+    const handleResendInvite = async (tenantId) => {
+        try {
+            await platformApiService.resendActivation(tenantId);
+            alert('Activation email resent successfully!');
+        } catch (error) {
+            alert('Failed to resend invite: ' + error.message);
+        }
+    };
+
+    const getStatusBadge = (status) => {
+        const styles = {
+            active: { bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399' },
+            pending: { bg: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24' },
+            inactive: { bg: 'rgba(107, 114, 128, 0.2)', color: '#9ca3af' }
+        };
+
+        const style = styles[status] || styles.inactive;
+
+        return (
+            <span style={{
+                padding: '0.25rem 0.75rem',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: '500',
+                backgroundColor: style.bg,
+                color: style.color,
+                textTransform: 'capitalize'
+            }}>
+                {status}
+            </span>
+        );
+    };
+
+    if (loading && !tenants.length) {
         return (
             <div className="loading-container">
                 <div className="spinner large"></div>
@@ -67,7 +113,7 @@ function TenantList() {
                     className="platform-btn platform-btn-primary"
                     onClick={() => setShowModal(true)}
                 >
-                    + Create Tenant
+                    + Onboard Tenant
                 </button>
             </div>
 
@@ -103,26 +149,86 @@ function TenantList() {
                     <tbody>
                         {tenants.map((tenant) => (
                             <tr key={tenant.id}>
-                                <td>{tenant.name}</td>
-                                <td>{tenant.domain}</td>
                                 <td>
-                                    <span className={`platform-badge ${tenant.status === 'active' ? 'active' : 'pending'}`}>
-                                        {tenant.status}
-                                    </span>
+                                    <Link
+                                        to={`/platform/tenants/${tenant.id}`}
+                                        style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}
+                                    >
+                                        {tenant.name}
+                                    </Link>
                                 </td>
+                                <td>{tenant.domain}</td>
+                                <td>{getStatusBadge(tenant.status)}</td>
                                 <td>{tenant.user_count}</td>
                                 <td>{formatDateTime(tenant.created_at)}</td>
                                 <td>
-                                    <button
-                                        className="platform-btn platform-btn-primary"
-                                        onClick={() => handleImpersonate(tenant.id)}
-                                        style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
-                                    >
-                                        Login As
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <Link
+                                            to={`/platform/tenants/${tenant.id}`}
+                                            className="platform-btn"
+                                            style={{
+                                                fontSize: '0.75rem',
+                                                padding: '0.3rem 0.6rem',
+                                                background: 'rgba(255,255,255,0.1)',
+                                                textDecoration: 'none',
+                                                color: 'white'
+                                            }}
+                                        >
+                                            Details
+                                        </Link>
+
+                                        {tenant.status === 'active' ? (
+                                            <>
+                                                <button
+                                                    className="platform-btn platform-btn-primary"
+                                                    onClick={() => handleImpersonate(tenant.id)}
+                                                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                                                    title="Login as Admin"
+                                                >
+                                                    Login As
+                                                </button>
+                                                <button
+                                                    className="platform-btn"
+                                                    onClick={() => handleDeactivate(tenant.id, tenant.name)}
+                                                    style={{
+                                                        fontSize: '0.75rem',
+                                                        padding: '0.3rem 0.6rem',
+                                                        background: 'rgba(239, 68, 68, 0.2)',
+                                                        color: '#fca5a5',
+                                                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                                                    }}
+                                                    title="Deactivate Tenant"
+                                                >
+                                                    Deactivate
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button
+                                                className="platform-btn"
+                                                onClick={() => handleResendInvite(tenant.id)}
+                                                style={{
+                                                    fontSize: '0.75rem',
+                                                    padding: '0.3rem 0.6rem',
+                                                    background: 'rgba(245, 158, 11, 0.2)',
+                                                    color: '#fcd34d',
+                                                    border: '1px solid rgba(245, 158, 11, 0.3)'
+                                                }}
+                                                title="Resend Activation Email"
+                                            >
+                                                Resend Invite
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
+                        {tenants.length === 0 && (
+                            <tr>
+                                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>
+                                    No tenants found. Click "Onboard Tenant" to create one.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

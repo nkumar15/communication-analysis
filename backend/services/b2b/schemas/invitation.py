@@ -11,6 +11,7 @@ class Invitation(BaseModel):
     role: str = 'member'
     invitation_token: str
     invited_by: Optional[UUID] = None
+    team_id: Optional[UUID] = None
     expires_at: datetime
     accepted_at: Optional[datetime] = None
     accepted_by: Optional[UUID] = None  # Audit: who accepted

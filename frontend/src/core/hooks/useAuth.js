@@ -66,7 +66,8 @@ export const useAuth = () => {
             dashboard: ['owner', 'admin', 'viewer', 'field_manager'], // All roles can view dashboard
             users: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage users
             roles: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage roles
-            farmers: ['owner', 'admin', 'field_manager', 'field_agent'] // All except Viewer
+            farmers: ['owner', 'admin', 'field_manager', 'field_agent'], // All except Viewer
+            teams: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'] // All roles can access teams
         };
 
         return permissions[feature]?.includes(user.role) || false;

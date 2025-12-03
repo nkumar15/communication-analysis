@@ -119,6 +119,73 @@ CREATE INDEX IF NOT EXISTS idx_invitations_expires_at ON b2b.invitations(expires
 CREATE INDEX IF NOT EXISTS idx_invitations_accepted_by ON b2b.invitations(accepted_by);
 CREATE INDEX IF NOT EXISTS idx_invitations_deleted_at ON b2b.invitations(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_invitations_invited_by ON b2b.invitations(invited_by);
+
+-- ============================================================================
+-- TEAMS TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS b2b.teams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES b2b.tenants(id) ON DELETE CASCADE,
+    
+    -- Team information
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_default BOOLEAN DEFAULT FALSE NOT NULL,
+    
+    -- Management
+    created_by UUID REFERENCES b2b.users(id),
+    
+    -- Metadata
+    config_data JSONB DEFAULT '{}'::jsonb,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    
+    -- Constraints
+    CONSTRAINT unique_tenant_team_name UNIQUE(tenant_id, name)
+);
+
+-- Indexes for teams
+CREATE INDEX IF NOT EXISTS idx_teams_tenant_id ON b2b.teams(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_teams_default ON b2b.teams(tenant_id, is_default) WHERE is_default = true;
+CREATE INDEX IF NOT EXISTS idx_teams_created_by ON b2b.teams(created_by);
+CREATE INDEX IF NOT EXISTS idx_teams_deleted_at ON b2b.teams(deleted_at) WHERE deleted_at IS NULL;
+
+-- Ensure only one default team per tenant
+CREATE UNIQUE INDEX IF NOT EXISTS idx_teams_one_default_per_tenant 
+    ON b2b.teams(tenant_id) 
+    WHERE is_default = true AND deleted_at IS NULL;
+
+-- ============================================================================
+-- TEAM MEMBERS TABLE (Many-to-Many)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS b2b.team_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id UUID NOT NULL REFERENCES b2b.teams(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES b2b.users(id) ON DELETE CASCADE,
+    
+    -- Team-specific role
+    team_role VARCHAR(50) NOT NULL DEFAULT 'team_member',
+    
+    -- Timestamps
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Constraints
+    CONSTRAINT unique_team_user UNIQUE(team_id, user_id),
+    CONSTRAINT valid_team_role CHECK (team_role IN ('team_manager', 'team_member', 'team_viewer'))
+);
+
+-- Indexes for team_members
+CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON b2b.team_members(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON b2b.team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_role ON b2b.team_members(team_role);
+
 -- ============================================================================
 -- COMMENTS FOR DOCUMENTATION
 -- ============================================================================
@@ -126,6 +193,8 @@ CREATE INDEX IF NOT EXISTS idx_invitations_invited_by ON b2b.invitations(invited
 COMMENT ON TABLE b2b.tenants IS 'Multi-tenant organizations with Firebase GCIP integration';
 COMMENT ON TABLE b2b.users IS 'User accounts with multi-tenant isolation and RBAC';
 COMMENT ON TABLE b2b.invitations IS 'Pending user invitations with email-based workflow';
+COMMENT ON TABLE b2b.teams IS 'Teams for organizing users within a B2B tenant';
+COMMENT ON TABLE b2b.team_members IS 'Many-to-many relationship between teams and users';
 
 COMMENT ON COLUMN b2b.tenants.activation_token IS 'Single-use token for tenant activation (48-hour expiry)';
 COMMENT ON COLUMN b2b.tenants.activation_status IS 'Status: pending, active, expired';
@@ -136,6 +205,23 @@ COMMENT ON COLUMN b2b.users.role_id IS 'RBAC role reference (replaces legacy rol
 
 COMMENT ON COLUMN b2b.invitations.invitation_token IS 'Secure token for invitation acceptance link';
 COMMENT ON COLUMN b2b.invitations.accepted_at IS 'Timestamp when invitation was accepted (NULL if pending)';
+
+COMMENT ON COLUMN b2b.teams.is_default IS 'Default team where new users are assigned';
+COMMENT ON COLUMN b2b.teams.config_data IS 'Additional team configuration in JSON format';
+COMMENT ON COLUMN b2b.team_members.team_role IS 'User role within this specific team: team_manager, team_member, or team_viewer';
+
+-- ============================================================================
+-- ADDITIONAL COLUMNS FOR TEAMS FEATURE
+-- ============================================================================
+
+-- Add team_id to invitations (optional team assignment)
+ALTER TABLE b2b.invitations ADD COLUMN team_id UUID REFERENCES b2b.teams(id);
+CREATE INDEX IF NOT EXISTS idx_invitations_team_id ON b2b.invitations(team_id);
+COMMENT ON COLUMN b2b.invitations.team_id IS 'Team to assign user upon invitation acceptance (NULL = default team)';
+
+-- Add team_mode to tenants (single vs multiple teams configuration)
+ALTER TABLE b2b.tenants ADD COLUMN team_mode VARCHAR(20) DEFAULT 'multiple' CHECK (team_mode IN ('single', 'multiple'));
+COMMENT ON COLUMN b2b.tenants.team_mode IS 'Team configuration: single (one default team) or multiple (multi-team support)';
 
 -- ============================================================================
 -- FOREIGN KEY CONSTRAINTS (added after all tables exist)

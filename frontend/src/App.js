@@ -5,6 +5,8 @@ import DashboardPage from './modules/b2b/pages/DashboardPage';
 import ActivationPage from './modules/b2b/pages/ActivationPage';
 import InvitationsPage from './modules/b2b/pages/InvitationsPage';
 import InvitationAcceptPage from './modules/b2b/pages/InvitationAcceptPage';
+import TeamsPage from './modules/b2b/pages/TeamsPage';
+import TeamDetailsPage from './modules/b2b/pages/TeamDetailsPage';
 import ProtectedRoute from './core/components/ProtectedRoute';
 import firebaseAuthService from './core/firebase/authService';
 import { auth } from './core/firebase/config';
@@ -13,6 +15,7 @@ import FarmerManagementPage from './modules/domains/farming/pages/FarmerManageme
 import PlatformAdminRoute from './core/components/PlatformAdminRoute';
 import SuperAdminLayout from './modules/platform/layouts/SuperAdminLayout';
 import TenantList from './modules/platform/pages/TenantListPage';
+import TenantDetailsPage from './modules/platform/pages/TenantDetailsPage';
 import Dashboard from './modules/platform/pages/DashboardPage';
 import AnalyticsPage from './modules/platform/pages/AnalyticsPage';
 import SettingsPage from './modules/platform/pages/SettingsPage';
@@ -101,6 +104,8 @@ function App() {
                 {/* New routes */}
                 <Route path="/roles" element={<ProtectedRoute><RoleManagementPage /></ProtectedRoute>} />
                 <Route path="/farmers" element={<ProtectedRoute><FarmerManagementPage /></ProtectedRoute>} />
+                <Route path="/b2b/teams" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
+                <Route path="/b2b/teams/:teamId" element={<ProtectedRoute><TeamDetailsPage /></ProtectedRoute>} />
 
                 {/* SaaS Admin Console */}
                 <Route
@@ -114,6 +119,7 @@ function App() {
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="tenants" element={<TenantList />} />
+                    <Route path="tenants/:tenantId" element={<TenantDetailsPage />} />
                     <Route path="analytics" element={<AnalyticsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                 </Route>

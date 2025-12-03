@@ -20,6 +20,7 @@ class InvitationService:
         role: str,
         invitation_token: str,
         invited_by: Optional[UUID] = None,
+        team_id: Optional[UUID] = None,
         expires_in_days: int = 7
     ) -> Invitation:
         """
@@ -45,6 +46,7 @@ class InvitationService:
             role=role,
             invitation_token=invitation_token,
             invited_by=invited_by,
+            team_id=team_id,
             expires_at=expires_at
         )
         
@@ -204,6 +206,7 @@ class InvitationService:
             role=model.role,
             invitation_token=model.invitation_token,
             invited_by=model.invited_by,
+            team_id=model.team_id,
             expires_at=model.expires_at,
             accepted_at=model.accepted_at,
             accepted_by=model.accepted_by,

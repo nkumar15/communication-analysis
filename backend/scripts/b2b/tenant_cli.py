@@ -130,6 +130,18 @@ async def create_tenant_async(
             await db.commit()
             click.echo(f"✅ Auth provider created: {oidc_provider}")
 
+            # 4d. Create default team
+            click.echo("\n📍 Step 4d: Creating default team...")
+            from services.b2b.services.team_service import create_team
+            default_team = await create_team(
+                db=db,
+                tenant_id=tenant.id,
+                name="Default Team",
+                description="Default team for all users",
+                is_default=True
+            )
+            click.echo(f"✅ Default team created: {default_team.id}")
+
         
             # 5. Create admin invitation (not user yet)
             click.echo("\n📍 Step 5: Creating admin invitation...")
@@ -141,6 +153,7 @@ async def create_tenant_async(
                 email=admin_email,
                 role=B2BRoleName.OWNER,
                 invitation_token=activation_token,  # Reuse activation token
+                team_id=default_team.id,
                 expires_in_days=2  # 48 hours, same as activation
             )
             click.echo(f"✅ Admin invitation created: {admin_email}")
@@ -257,6 +270,18 @@ async def create_local_async(
             await db.commit()
             click.echo(f"✅ Auth provider created: {oidc_provider_id}")
 
+            # 2d. Create default team
+            click.echo("\n📍 Step 2d: Creating default team...")
+            from services.b2b.services.team_service import create_team
+            default_team = await create_team(
+                db=db,
+                tenant_id=tenant.id,
+                name="Default Team",
+                description="Default team for all users",
+                is_default=True
+            )
+            click.echo(f"✅ Default team created: {default_team.id}")
+
         
             # 3. Create admin invitation
             click.echo("\n📍 Step 3: Creating admin invitation...")
@@ -268,6 +293,7 @@ async def create_local_async(
                 email=admin_email,
                 role=B2BRoleName.ADMIN,
                 invitation_token=activation_token,
+                team_id=default_team.id,
                 expires_in_days=2
             )
             click.echo(f"✅ Admin invitation created: {admin_email}")

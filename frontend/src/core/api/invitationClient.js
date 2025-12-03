@@ -26,12 +26,16 @@ const invitationApi = {
      * @param {string} role - User role (manager)
      * @returns {Promise} Invitation response
      */
-    inviteUser: async (email, role = 'manager') => {
+    inviteUser: async (email, role = 'manager', teamId = null) => {
         const headers = await getAuthHeaders();
+        const body = { email, role };
+        if (teamId) {
+            body.team_id = teamId;
+        }
         const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/invite`, {
             method: 'POST',
             headers,
-            body: JSON.stringify({ email, role }),
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) {

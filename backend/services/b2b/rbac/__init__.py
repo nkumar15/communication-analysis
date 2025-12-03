@@ -10,10 +10,11 @@ from .permission_checker import (
 )
 from .scope_checker import (
     get_accessible_user_ids,
-    get_accessible_farmers_query,
-    can_access_farmer,
     can_access_user,
-    get_dashboard_stats
+    get_dashboard_stats,
+    can_manage_team,
+    get_user_team_ids,
+    is_team_manager
 )
 from .decorators import (
     require_permission,
@@ -29,10 +30,11 @@ __all__ = [
     
     # Scope helpers
     'get_accessible_user_ids',
-    'get_accessible_farmers_query',
-    'can_access_farmer',
     'can_access_user',
     'get_dashboard_stats',
+    'can_manage_team',
+    'get_user_team_ids',
+    'is_team_manager',
     
     # Decorators
     'require_permission',
