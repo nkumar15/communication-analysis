@@ -22,11 +22,14 @@ const InvitationsPage = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [email, setEmail] = useState('');
-    const [availableRoles, setAvailableRoles] = useState([]);
+    const [availableRoles, setAvailableRoles] = useState([
+        { value: 'admin', label: 'Admin', disabled: false },
+        { value: 'viewer', label: 'Viewer', disabled: false }
+    ]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [selectedRole, setSelectedRole] = useState('field_manager');
+    const [selectedRole, setSelectedRole] = useState('admin');
     const [selectedTeam, setSelectedTeam] = useState('');
     const navigate = useNavigate();
     const { user, getInvitableRoles, getScopeLabel } = useAuth();
@@ -53,36 +56,33 @@ const InvitationsPage = () => {
             try {
                 const rolesData = await b2bClient.getRoles();
 
-                // Format roles for dropdown
-                const roles = rolesData.map(r => ({
-                    value: r.name,
-                    label: r.display_name || r.name.charAt(0).toUpperCase() + r.name.slice(1),
-                    disabled: r.name === 'owner' // Disable owner role
-                }));
+                if (Array.isArray(rolesData) && rolesData.length > 0) {
+                    // Format roles for dropdown
+                    const roles = rolesData.map(r => ({
+                        value: r.name,
+                        label: r.display_name || r.name.charAt(0).toUpperCase() + r.name.slice(1),
+                        disabled: r.name === 'owner' // Disable owner role
+                    }));
 
-                // Ensure we have at least Admin and Viewer if API returns empty (fallback)
-                if (roles.length === 0) {
-                    roles.push(
-                        { value: 'admin', label: 'Admin', disabled: false },
-                        { value: 'viewer', label: 'Viewer', disabled: false }
-                    );
-                }
+                    // Ensure we have at least Admin and Viewer if API returns empty (fallback)
+                    if (roles.length === 0) {
+                        roles.push(
+                            { value: 'admin', label: 'Admin', disabled: false },
+                            { value: 'viewer', label: 'Viewer', disabled: false }
+                        );
+                    }
 
-                setAvailableRoles(roles);
+                    setAvailableRoles(roles);
 
-                // Set default role to first available non-disabled role
-                if (roles.length > 0 && !selectedRole) {
-                    const defaultRole = roles.find(r => !r.disabled) || roles[0];
-                    setSelectedRole(defaultRole.value);
+                    // Set default role to first available non-disabled role
+                    if (roles.length > 0) {
+                        const defaultRole = roles.find(r => !r.disabled) || roles[0];
+                        setSelectedRole(defaultRole.value);
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load roles:', err);
-                // Fallback roles on error
-                setAvailableRoles([
-                    { value: 'admin', label: 'Admin', disabled: false },
-                    { value: 'viewer', label: 'Viewer', disabled: false }
-                ]);
-                setSelectedRole('admin');
+                // Keep default roles on error
             }
 
             // Try to load invitations (admin only)
