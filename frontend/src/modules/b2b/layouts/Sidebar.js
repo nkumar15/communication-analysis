@@ -11,8 +11,8 @@ const Sidebar = () => {
         { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
         { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
-        { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles', feature: 'roles' },
-        { id: 'farmers', label: 'Farmer Management', icon: '🚜', path: '/farmers', feature: 'farmers' }
+        { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles', feature: 'roles' }
+        // Domain-specific features like 'Farmer Management' should be added in your implementation
     ];
 
     // Filter menu items based on user permissions

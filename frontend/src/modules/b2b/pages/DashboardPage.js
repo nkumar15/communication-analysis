@@ -30,8 +30,8 @@ const DashboardPage = () => {
         }
     };
 
-    // Block field_agent from accessing dashboard
-    if (!authLoading && !hasRole(['admin', 'field_manager'])) {
+    // Block field_agent from accessing dashboard - allow owner, admin, field_manager
+    if (!authLoading && !hasRole(['owner', 'admin', 'field_manager'])) {
         return (
             <AdminLayout title="Access Denied" subtitle="">
                 <div style={{ padding: '60px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>

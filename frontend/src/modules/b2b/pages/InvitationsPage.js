@@ -54,7 +54,9 @@ const InvitationsPage = () => {
 
             // Fetch roles separately to not block main data load
             try {
+                console.log('🔄 Fetching roles from API...');
                 const rolesData = await b2bClient.getRoles();
+                console.log('✅ Roles fetched from API:', rolesData);
 
                 if (Array.isArray(rolesData) && rolesData.length > 0) {
                     // Format roles for dropdown
@@ -64,8 +66,11 @@ const InvitationsPage = () => {
                         disabled: r.name === 'owner' // Disable owner role
                     }));
 
+                    console.log('📋 Formatted roles for dropdown:', roles);
+
                     // Ensure we have at least Admin and Viewer if API returns empty (fallback)
                     if (roles.length === 0) {
+                        console.warn('⚠️ No roles returned from API, using fallback');
                         roles.push(
                             { value: 'admin', label: 'Admin', disabled: false },
                             { value: 'viewer', label: 'Viewer', disabled: false }
@@ -73,15 +78,19 @@ const InvitationsPage = () => {
                     }
 
                     setAvailableRoles(roles);
+                    console.log('✅ availableRoles state updated with', roles.length, 'roles');
 
                     // Set default role to first available non-disabled role
                     if (roles.length > 0) {
                         const defaultRole = roles.find(r => !r.disabled) || roles[0];
                         setSelectedRole(defaultRole.value);
+                        console.log('✅ Default role set to:', defaultRole.value);
                     }
+                } else {
+                    console.warn('⚠️ Roles data is not a valid array or is empty:', rolesData);
                 }
             } catch (err) {
-                console.error('Failed to load roles:', err);
+                console.error('❌ Failed to load roles:', err);
                 // Keep default roles on error
             }
 

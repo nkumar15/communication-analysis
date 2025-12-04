@@ -39,6 +39,24 @@ const teamApi = {
     },
 
     /**
+     * Get available team roles
+     */
+    getTeamRoles: async () => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/teams/team-roles`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to load team roles');
+        }
+
+        return response.json();
+    },
+
+    /**
      * List all teams
      */
     listTeams: async () => {

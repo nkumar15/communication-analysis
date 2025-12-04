@@ -106,6 +106,39 @@ INSERT INTO b2b.role_templates (name, display_name, description, is_system_role,
         
         {"resource": "notifications", "actions": ["read", "write"]}
     ]'::jsonb
+),
+(
+    'team_manager',
+    'Team Manager',
+    'Full control over team membership and settings',
+    FALSE,
+    TRUE,
+    '[
+        {"resource": "team_members", "actions": ["read", "write", "delete", "invite"]},
+        {"resource": "team_settings", "actions": ["read", "write"]}
+    ]'::jsonb
+),
+(
+    'team_member',
+    'Team Member',
+    'Active team participant with standard access',
+    FALSE,
+    TRUE,
+    '[
+        {"resource": "team_members", "actions": ["read"]},
+        {"resource": "team_settings", "actions": ["read"]}
+    ]'::jsonb
+),
+(
+    'team_viewer',
+    'Team Viewer',
+    'Read-only access to team information',
+    FALSE,
+    TRUE,
+    '[
+        {"resource": "team_members", "actions": ["read"]},
+        {"resource": "team_settings", "actions": ["read"]}
+    ]'::jsonb
 )
 ON CONFLICT (name) DO UPDATE SET
     permissions = EXCLUDED.permissions,
@@ -235,6 +268,8 @@ INSERT INTO b2b.resources (name, display_name, category, description) VALUES
     ('roles', 'Role Management', 'Administration', 'Manage roles and permissions'),
     ('invitations', 'Invitations', 'Administration', 'Invite new users to the platform'),
     ('teams', 'Team Management', 'Administration', 'Organize users into teams'),
+    ('team_members', 'Team Members', 'Team Management', 'Manage team membership'),
+    ('team_settings', 'Team Settings', 'Team Management', 'Configure team settings'),
     
     -- Account & Billing
     ('account', 'Account Settings', 'Configuration', 'Manage account configuration and preferences'),

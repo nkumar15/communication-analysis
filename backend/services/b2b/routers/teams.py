@@ -69,6 +69,41 @@ async def get_team_stats(
     )
 
 
+@router.get("/team-roles")
+async def get_team_roles(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get available team role options
+    
+    Returns the list of valid team roles that can be assigned to team members.
+    These are fetched from role templates to allow customization.
+    """
+    from services.b2b.models.role_template import RoleTemplate
+    from sqlalchemy import select
+    
+    # Fetch team role templates
+    result = await db.execute(
+        select(RoleTemplate)
+        .where(RoleTemplate.name.in_(['team_manager', 'team_member', 'team_viewer']))
+        .where(RoleTemplate.is_default == True)
+    )
+    templates = result.scalars().all()
+    
+    # If no templates found, return hardcoded defaults as fallback
+    if not templates:
+        return [
+            {"value": "team_manager", "label": "Team Manager"},
+            {"value": "team_member", "label": "Team Member"},
+            {"value": "team_viewer", "label": "Team Viewer"}
+        ]
+    
+    return [
+        {"value": t.name, "label": t.display_name}
+        for t in templates
+    ]
+
+
 @router.get("/", response_model=List[TeamListResponse])
 async def list_teams(
     current_user: dict = Depends(get_current_active_user),

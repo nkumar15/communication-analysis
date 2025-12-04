@@ -31,6 +31,11 @@ const TeamDetailsPage = () => {
     // Since we don't have a "UserSelector" component yet, I'll assume we might need one or just use ID for now.
     // Actually, let's fetch users to populate a dropdown.
     const [availableUsers, setAvailableUsers] = useState([]);
+    const [teamRoles, setTeamRoles] = useState([
+        { value: 'team_manager', label: 'Team Manager' },
+        { value: 'team_member', label: 'Team Member' },
+        { value: 'team_viewer', label: 'Team Viewer' }
+    ]);
 
     useEffect(() => {
         loadData();
@@ -49,6 +54,18 @@ const TeamDetailsPage = () => {
             // Initialize edit form
             setEditName(teamData.name);
             setEditDesc(teamData.description || '');
+
+            // Fetch team roles from API
+            try {
+                const rolesData = await teamApi.getTeamRoles();
+                console.log('Team roles fetched:', rolesData);
+                if (Array.isArray(rolesData) && rolesData.length > 0) {
+                    setTeamRoles(rolesData);
+                }
+            } catch (roleErr) {
+                console.error('Failed to load team roles, using defaults:', roleErr);
+                // Keep default roles already set in state
+            }
 
         } catch (err) {
             console.error('Failed to load team details:', err);
@@ -467,9 +484,11 @@ const TeamDetailsPage = () => {
                                         e.target.style.backgroundColor = '#f9fafb';
                                     }}
                                 >
-                                    <option value="team_manager">Team Manager</option>
-                                    <option value="team_member">Member</option>
-                                    <option value="team_viewer">Viewer</option>
+                                    {teamRoles.map(role => (
+                                        <option key={role.value} value={role.value}>
+                                            {role.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
