@@ -11,6 +11,7 @@ class TenantModel(Base, TimestampMixin, SoftDeleteMixin):
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     name = Column(String(255), nullable=False)
     domain = Column(String(255), unique=True, nullable=False, index=True)
+    logo_url = Column(String(500), nullable=True)  # Added for branding
     firebase_tenant_id = Column(String(255), unique=True, nullable=False)
     
     # Activation fields

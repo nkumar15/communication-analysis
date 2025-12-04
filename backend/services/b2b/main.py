@@ -23,7 +23,15 @@ from core.logging.middleware import LoggingMiddleware
 logger = get_logger(__name__)
 
 # Import B2B routers
-from services.b2b.routers import auth, activation, invitations, users, roles, teams
+from services.b2b.routers import (
+    auth,
+    activation,
+    invitations,
+    users,
+    roles,
+    teams,
+    account,  # NEW
+)
 
 # Import domain-specific routers that belong to B2B
 from services.domains.farming.routers import farmers
@@ -83,6 +91,7 @@ app.include_router(invitations.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(teams.router)
+app.include_router(account.router)  # NEW: Account settings
 
 # Include domain-specific routers
 app.include_router(farmers.router)

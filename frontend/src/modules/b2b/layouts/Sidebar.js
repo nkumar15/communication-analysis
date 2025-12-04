@@ -11,7 +11,8 @@ const Sidebar = () => {
         { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
         { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
-        { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles', feature: 'roles' }
+        { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles', feature: 'roles' },
+        { id: 'account', label: 'Account Settings', icon: '⚙️', path: '/settings/account', feature: 'account' }
         // Domain-specific features like 'Farmer Management' should be added in your implementation
     ];
 
