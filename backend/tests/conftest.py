@@ -374,7 +374,9 @@ async def create_test_invitation(
     email: str,
     role: str = "field_agent",
     invited_by: UUID = None,
-    expires_in_days: int = 7
+    expires_in_days: int = 7,
+    team_id: UUID = None,  # NEW: Optional team assignment
+    team_role: str = None   # NEW: Optional team role
 ):
     """Create a test invitation"""
     from services.b2b.models import InvitationModel
@@ -385,6 +387,8 @@ async def create_test_invitation(
         role=role,
         invitation_token=secrets.token_urlsafe(32),
         invited_by=invited_by,
+        team_id=team_id,        # NEW
+        team_role=team_role,    # NEW
         expires_at=get_utc_now() + timedelta(days=expires_in_days)
     )
     db_session.add(invitation)

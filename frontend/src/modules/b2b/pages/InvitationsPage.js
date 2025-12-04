@@ -31,6 +31,7 @@ const InvitationsPage = () => {
     const [success, setSuccess] = useState('');
     const [selectedRole, setSelectedRole] = useState('admin');
     const [selectedTeam, setSelectedTeam] = useState('');
+    const [selectedTeamRole, setSelectedTeamRole] = useState('team_member');
     const navigate = useNavigate();
     const { user, getInvitableRoles, getScopeLabel } = useAuth();
 
@@ -121,10 +122,16 @@ const InvitationsPage = () => {
 
         try {
             // Send the selected role directly (new role names)
-            await invitationApi.inviteUser(email, selectedRole, selectedTeam || null);
+            await invitationApi.inviteUser(
+                email,
+                selectedRole,
+                selectedTeam || null,
+                selectedTeam ? selectedTeamRole : null  // Only send team_role if team selected
+            );
             setSuccess(`Invitation sent to ${email}`);
             setEmail('');
             setSelectedTeam('');
+            setSelectedTeamRole('team_member');  // Reset team role
             setShowInviteModal(false);
             await loadData();
         } catch (err) {
@@ -647,13 +654,78 @@ const InvitationsPage = () => {
                                 </div>
 
                                 {/* Team Assignment */}
-                                <div style={{ marginBottom: '28px' }}>
+                                <div style={{ marginBottom: '24px' }}>
                                     <TeamSelector
                                         value={selectedTeam}
-                                        onChange={setSelectedTeam}
+                                        onChange={(teamId) => {
+                                            setSelectedTeam(teamId);
+                                            // Reset team role when team changes
+                                            if (!teamId) setSelectedTeamRole('team_member');
+                                        }}
                                         label="Assign to Team (Optional)"
                                     />
+                                    <small style={{
+                                        color: '#6B7280',
+                                        fontSize: '12px',
+                                        display: 'block',
+                                        marginTop: '6px',
+                                        fontStyle: 'italic'
+                                    }}>
+                                        💡 User will be added to this team upon accepting invitation
+                                    </small>
                                 </div>
+
+                                {/* Team Role (conditional) */}
+                                {selectedTeam && (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <label style={{
+                                            display: 'block',
+                                            marginBottom: '8px',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            color: '#374151'
+                                        }}>
+                                            Team Role <span style={{ color: '#ef4444' }}>*</span>
+                                        </label>
+                                        <select
+                                            value={selectedTeamRole}
+                                            onChange={(e) => setSelectedTeamRole(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 16px',
+                                                borderRadius: '8px',
+                                                border: '2px solid #e5e7eb',
+                                                fontSize: '14px',
+                                                backgroundColor: '#f9fafb',
+                                                color: '#111827',
+                                                cursor: 'pointer',
+                                                outline: 'none',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onFocus={(e) => {
+                                                e.target.style.borderColor = '#667eea';
+                                                e.target.style.backgroundColor = 'white';
+                                            }}
+                                            onBlur={(e) => {
+                                                e.target.style.borderColor = '#e5e7eb';
+                                                e.target.style.backgroundColor = '#f9fafb';
+                                            }}
+                                        >
+                                            <option value="team_member">Team Member</option>
+                                            <option value="team_manager">Team Manager</option>
+                                            <option value="team_viewer">Team Viewer</option>
+                                        </select>
+                                        <small style={{
+                                            color: '#6B7280',
+                                            fontSize: '12px',
+                                            display: 'block',
+                                            marginTop: '6px',
+                                            fontStyle: 'italic'
+                                        }}>
+                                            This determines their permissions within the team
+                                        </small>
+                                    </div>
+                                )}
 
                                 {/* Field Manager Note */}
                                 {user?.role === 'field_manager' && (

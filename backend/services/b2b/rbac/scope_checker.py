@@ -45,7 +45,11 @@ async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]
         )
         return [row[0] for row in result]
     
-    # All other roles see all users in tenant (tenant-wide user management)
+    # Viewers only see themselves
+    if role.name == B2BRoleName.VIEWER:
+        return [user_id]
+    
+    # Other roles (field_manager, etc.) see all users in tenant
     result = await db.execute(
         select(UserModel.id).where(UserModel.tenant_id == user.tenant_id)
     )

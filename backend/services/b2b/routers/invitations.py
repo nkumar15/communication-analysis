@@ -30,6 +30,7 @@ class InviteUserRequest(BaseModel):
     email: str
     role: str = B2BRoleName.VIEWER  # Default to viewer (lowest permission)
     team_id: UUID | None = None  # Optional team assignment
+    team_role: str | None = None  # Team role if team_id is specified
 
 
 class InviteUserResponse(BaseModel):
@@ -188,6 +189,7 @@ async def invite_user(
         invitation_token=invitation_token,
         invited_by=current_user['id'],
         team_id=request.team_id,
+        team_role=request.team_role,  # NEW: Save team role
         expires_at=datetime.now(timezone.utc) + timedelta(days=7)
     )
     db.add(invitation)
@@ -537,11 +539,13 @@ async def join_tenant(
     if invitation.team_id:
         # Add to specific team from invitation
         try:
+            # Use team_role from invitation if specified, otherwise default to team_member
+            team_role = invitation.team_role if invitation.team_role else "team_member"
             await team_service.add_team_member(
                 db=db,
                 team_id=invitation.team_id,
                 user_id=user_id,
-                team_role="team_member"
+                team_role=team_role
             )
         except Exception as e:
             # Log error but don't fail the join process

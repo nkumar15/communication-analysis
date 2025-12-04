@@ -215,9 +215,14 @@ COMMENT ON COLUMN b2b.team_members.team_role IS 'User role within this specific 
 -- ============================================================================
 
 -- Add team_id to invitations (optional team assignment)
-ALTER TABLE b2b.invitations ADD COLUMN team_id UUID REFERENCES b2b.teams(id);
+ALTER TABLE b2b.invitations ADD COLUMN IF NOT EXISTS team_id UUID REFERENCES b2b.teams(id);
 CREATE INDEX IF NOT EXISTS idx_invitations_team_id ON b2b.invitations(team_id);
 COMMENT ON COLUMN b2b.invitations.team_id IS 'Team to assign user upon invitation acceptance (NULL = default team)';
+
+-- Add team_role to invitations (team role for auto-assignment)
+ALTER TABLE b2b.invitations ADD COLUMN IF NOT EXISTS team_role VARCHAR(50);
+COMMENT ON COLUMN b2b.invitations.team_role IS 'Team role to assign if team_id is specified: team_manager, team_member, or team_viewer';
+
 
 -- Add team_mode to tenants (single vs multiple teams configuration)
 ALTER TABLE b2b.tenants ADD COLUMN team_mode VARCHAR(20) DEFAULT 'multiple' CHECK (team_mode IN ('single', 'multiple'));

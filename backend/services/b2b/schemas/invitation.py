@@ -12,6 +12,7 @@ class Invitation(BaseModel):
     invitation_token: str
     invited_by: Optional[UUID] = None
     team_id: Optional[UUID] = None
+    team_role: Optional[str] = None  # NEW: Team role to assign on acceptance
     expires_at: datetime
     accepted_at: Optional[datetime] = None
     accepted_by: Optional[UUID] = None  # Audit: who accepted
@@ -23,11 +24,11 @@ class InvitationRequest(BaseModel):
     """Request to create invitation"""
     email: EmailStr
     role: str = 'member'
+    team_id: Optional[UUID] = None      # NEW: Optional team assignment
+    team_role: Optional[str] = None     # NEW: Team role (required if team_id provided)
 
 class InvitationResponse(BaseModel):
     """Invitation information response"""
     id: UUID
-    email: str
-    role: str
     expires_at: datetime
     invitation_url: str

@@ -23,14 +23,19 @@ const invitationApi = {
     /**
      * Invite a user to join tenant
      * @param {string} email - User email
-     * @param {string} role - User role (manager)
+     * @param {string} role - User role (tenant role)
+     * @param {string} teamId - Optional team ID for auto-assignment
+     * @param {string} teamRole - Optional team role
      * @returns {Promise} Invitation response
      */
-    inviteUser: async (email, role = 'manager', teamId = null) => {
+    inviteUser: async (email, role = 'viewer', teamId = null, teamRole = null) => {
         const headers = await getAuthHeaders();
         const body = { email, role };
         if (teamId) {
             body.team_id = teamId;
+            if (teamRole) {
+                body.team_role = teamRole;
+            }
         }
         const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/invite`, {
             method: 'POST',

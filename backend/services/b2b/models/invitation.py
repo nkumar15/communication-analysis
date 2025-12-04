@@ -18,6 +18,7 @@ class InvitationModel(Base, TimestampMixin):
     # Metadata
     invited_by = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id'), nullable=True)
     team_id = Column(UUID(as_uuid=True), ForeignKey('b2b.teams.id'), nullable=True, index=True)
+    team_role = Column(String(50), nullable=True)  # NEW: Team role for auto-assignment
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     
