@@ -7,30 +7,55 @@ export const Button = ({
     variant = 'primary',
     size = 'md',
     className = '',
+    style = {},
     type = 'button'
 }) => {
-    const baseClasses = 'font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+    const baseStyle = {
+        fontWeight: '600',
+        borderRadius: '8px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        border: 'none',
+        transition: 'background-color 0.2s',
+        opacity: disabled ? 0.5 : 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+    };
 
     const variants = {
-        primary: 'bg-indigo-600 hover:bg-indigo-700 text-white focus:ring-indigo-500',
-        outline: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 focus:ring-indigo-500',
-        danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
+        primary: {
+            backgroundColor: '#4f46e5',
+            color: 'white',
+        },
+        outline: {
+            backgroundColor: 'white',
+            color: '#374151',
+            border: '1px solid #d1d5db',
+        },
+        danger: {
+            backgroundColor: '#dc2626',
+            color: 'white',
+        },
     };
 
     const sizes = {
-        sm: 'px-3 py-1.5 text-sm',
-        md: 'px-4 py-2 text-base',
-        lg: 'px-6 py-3 text-lg',
+        sm: { padding: '6px 12px', fontSize: '14px' },
+        md: { padding: '8px 16px', fontSize: '16px' },
+        lg: { padding: '12px 24px', fontSize: '18px' },
     };
-
-    const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer';
 
     return (
         <button
             type={type}
             onClick={onClick}
             disabled={disabled}
-            className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${disabledClasses} ${className}`}
+            style={{
+                ...baseStyle,
+                ...variants[variant],
+                ...sizes[size],
+                ...style
+            }}
+            className={className}
         >
             {children}
         </button>

@@ -116,13 +116,22 @@ const ActivationPage = () => {
         }
     };
 
+    const pageStyle = {
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#eff6ff',
+        padding: '24px'
+    };
+
     if (step === 'validating' || loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-                <Card className="w-full max-w-md">
-                    <CardContent className="text-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                        <p className="text-gray-600">
+            <div style={pageStyle}>
+                <Card style={{ width: '100%', maxWidth: '450px' }}>
+                    <CardContent style={{ textAlign: 'center', padding: '48px' }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+                        <p style={{ color: '#4b5563' }}>
                             {step === 'validating' ? 'Validating activation link...' : 'Processing...'}
                         </p>
                     </CardContent>
@@ -133,14 +142,14 @@ const ActivationPage = () => {
 
     if (step === 'error') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-pink-100">
-                <Card className="w-full max-w-md">
+            <div style={{ ...pageStyle, backgroundColor: '#fef2f2' }}>
+                <Card style={{ width: '100%', maxWidth: '450px' }}>
                     <CardHeader>
-                        <CardTitle className="text-red-600">❌ Activation Error</CardTitle>
+                        <CardTitle style={{ color: '#dc2626' }}>❌ Activation Error</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-gray-700 mb-4">{error}</p>
-                        <Button onClick={() => navigate('/login')} variant="outline">
+                        <p style={{ color: '#374151', marginBottom: '24px' }}>{error}</p>
+                        <Button onClick={() => navigate('/login')} variant="outline" style={{ width: '100%' }}>
                             Back to Login
                         </Button>
                     </CardContent>
@@ -151,40 +160,46 @@ const ActivationPage = () => {
 
     if (step === 'welcome') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-                <Card className="w-full max-w-2xl">
+            <div style={pageStyle}>
+                <Card style={{ width: '100%', maxWidth: '600px' }}>
                     <CardHeader>
-                        <CardTitle className="text-3xl text-center">
+                        <CardTitle style={{ textAlign: 'center', fontSize: '28px' }}>
                             🎉 Welcome to {tenantInfo?.tenant_name}!
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                            <h3 className="font-semibold text-lg mb-2">Your SSO Account is Ready</h3>
-                            <p className="text-gray-700 mb-4">
+                    <CardContent>
+                        <div style={{
+                            backgroundColor: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '8px',
+                            padding: '24px',
+                            marginBottom: '24px'
+                        }}>
+                            <h3 style={{ fontWeight: '600', fontSize: '18px', marginBottom: '8px', color: '#1e3a8a' }}>Your SSO Account is Ready</h3>
+                            <p style={{ color: '#374151', marginBottom: '16px' }}>
                                 We've set up enterprise single sign-on for your organization.
                                 Let's activate your account in 2 simple steps:
                             </p>
-                            <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                                <li>Test your SSO login</li>
+                            <ol style={{ listStyleType: 'decimal', listStylePosition: 'inside', color: '#374151', paddingLeft: '8px' }}>
+                                <li style={{ marginBottom: '8px' }}>Test your SSO login</li>
                                 <li>Complete activation</li>
                             </ol>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
-                            <p className="text-sm text-gray-600 mb-2">
+                        <div style={{ backgroundColor: '#f9fafb', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '8px' }}>
                                 <strong>Admin Email:</strong> {tenantInfo?.admin_email}
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p style={{ fontSize: '14px', color: '#4b5563', margin: 0 }}>
                                 <strong>Domain:</strong> {tenantInfo?.domain}
                             </p>
                         </div>
 
                         <Button
                             onClick={startSSO}
-                            className="w-full"
                             size="lg"
                             disabled={loading}
+                            style={{ width: '100%' }}
                         >
                             Get Started →
                         </Button>
@@ -196,28 +211,35 @@ const ActivationPage = () => {
 
     if (step === 'complete') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
-                <Card className="w-full max-w-2xl">
+            <div style={{ ...pageStyle, backgroundColor: '#f0fdf4' }}>
+                <Card style={{ width: '100%', maxWidth: '600px' }}>
                     <CardHeader>
-                        <CardTitle className="text-3xl text-center text-green-700">
+                        <CardTitle style={{ textAlign: 'center', color: '#15803d' }}>
                             ✅ SSO Login Successful!
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-                            <p className="text-lg text-gray-700 mb-4">
+                    <CardContent>
+                        <div style={{
+                            backgroundColor: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            borderRadius: '8px',
+                            padding: '24px',
+                            textAlign: 'center',
+                            marginBottom: '24px'
+                        }}>
+                            <p style={{ fontSize: '18px', color: '#374151', marginBottom: '16px' }}>
                                 Your single sign-on is working correctly.
                             </p>
-                            <p className="text-gray-600">
+                            <p style={{ color: '#4b5563', margin: 0 }}>
                                 Click below to activate your account and start using the platform.
                             </p>
                         </div>
 
                         <Button
                             onClick={completeActivation}
-                            className="w-full bg-green-600 hover:bg-green-700"
                             size="lg"
                             disabled={loading}
+                            style={{ width: '100%', backgroundColor: '#16a34a' }}
                         >
                             {loading ? 'Activating...' : 'Activate Account'}
                         </Button>
