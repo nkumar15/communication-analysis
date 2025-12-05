@@ -50,8 +50,10 @@ async def create_farmer(
     )
     
     db.add(farmer)
-    await db.commit()
-    await db.refresh(farmer)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Farmer).where(Farmer.id == farmer.id))
+    farmer = result.scalar_one()
     
     return farmer
 
@@ -137,8 +139,10 @@ async def update_farmer(
     if farmer_data.address is not None:
         farmer.address = farmer_data.address
     
-    await db.commit()
-    await db.refresh(farmer)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Farmer).where(Farmer.id == farmer.id))
+    farmer = result.scalar_one()
     
     return farmer
 
@@ -165,6 +169,6 @@ async def delete_farmer(
     
     farmer = await db.get(Farmer, farmer_id)
     await db.delete(farmer)
-    await db.commit()
+    await db.delete(farmer)
     
     return None

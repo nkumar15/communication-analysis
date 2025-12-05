@@ -32,7 +32,11 @@ async def audit_logs_data(db_session):
     await db_session.commit()
     
     # Generate token
-    token = create_mock_firebase_token(owner.firebase_uid, tenant.firebase_tenant_id)
+    token = create_mock_firebase_token(
+        uid=owner.firebase_uid, 
+        email=owner.email, 
+        firebase_tenant_id=tenant.firebase_tenant_id
+    )
     encoded_token = encode_mock_jwt(token)
     
     return {
@@ -90,7 +94,11 @@ class TestAuditLogsAPI:
         viewer = await create_test_user(db_session, tenant.id, email="viewer@test.com", role_slug="viewer")
         await db_session.commit()
         
-        token = create_mock_firebase_token(viewer.firebase_uid, tenant.firebase_tenant_id)
+        token = create_mock_firebase_token(
+        uid=viewer.firebase_uid, 
+        email=viewer.email,
+        firebase_tenant_id=tenant.firebase_tenant_id
+    )
         encoded_token = encode_mock_jwt(token)
         headers = {"Authorization": f"Bearer {encoded_token}"}
         

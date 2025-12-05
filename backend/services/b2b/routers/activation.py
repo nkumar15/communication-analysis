@@ -72,6 +72,10 @@ async def validate_activation_token(token: str, db: AsyncSession = Depends(get_d
             detail="Tenant is already activated"
         )
     
+    # Set RLS context to allow reading protected invitation
+    from sqlalchemy import text
+    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+    
     # Get invitation for admin email
     invitation = await invitation_service.get_invitation_by_token(db, token)
     
@@ -169,9 +173,12 @@ async def complete_activation(
             )
     else:
         # Mark activation as started (prevents concurrent attempts)
-        tenant_model.activation_started_at = datetime.now(timezone.utc)
-        await db.commit()
-        await db.refresh(tenant_model)
+        tenant_model.activation_code_used_at = datetime.now(timezone.utc)
+        
+        # Flush, re-query with RLS context (FastAPI commits on success)
+        await db.flush()
+        result = await db.execute(select(TenantModel).where(TenantModel.id == tenant_model.id))
+        tenant_model = result.scalar_one()
     
     # Convert to Pydantic model
     tenant = tenant_service._model_to_pydantic(tenant_model)

@@ -7,6 +7,7 @@ CRUD endpoints for projects with team-based scoping:
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List
 from uuid import UUID
 
@@ -58,8 +59,10 @@ async def create_project(
     )
     
     db.add(project)
-    await db.commit()
-    await db.refresh(project)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Project).where(Project.id == project.id))
+    project = result.scalar_one()
     
     return project
 
@@ -153,8 +156,10 @@ async def update_project(
     if project_data.status is not None:
         project.status = project_data.status
     
-    await db.commit()
-    await db.refresh(project)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Project).where(Project.id == project.id))
+    project = result.scalar_one()
     
     return project
 
@@ -184,6 +189,5 @@ async def delete_project(
     
     project = await db.get(Project, project_id)
     await db.delete(project)
-    await db.commit()
     
     return None

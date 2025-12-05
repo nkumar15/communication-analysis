@@ -167,7 +167,7 @@ async def create_team(
         config_data=team.config_data
     )
     
-    await db.commit()
+    # await db.commit() - Handled by dependency
     
     member_count = await team_service.get_team_member_count(db, created_team.id)
     
@@ -274,7 +274,7 @@ async def update_team(
         config_data=updates.config_data
     )
     
-    await db.commit()
+    # await db.commit() - Handled by dependency
     
     member_count = await team_service.get_team_member_count(db, updated_team.id)
     
@@ -326,7 +326,6 @@ async def delete_team(
         )
     
     await team_service.delete_team(db, team_id)
-    await db.commit()
     return {"message": "Team deleted successfully"}
 
 
@@ -426,7 +425,7 @@ async def add_team_member(
         team_role=member.team_role
     )
     
-    await db.commit()
+    # await db.commit() - Handled by dependency
     
     return TeamMemberResponse(
         id=team_member.id,
@@ -473,7 +472,7 @@ async def remove_team_member(
         )
     
     await team_service.remove_team_member(db, team_id, user_id)
-    await db.commit()
+    # await db.commit() - Handled by dependency
     return {"message": "Member removed successfully"}
 
 
@@ -518,7 +517,7 @@ async def update_team_member_role(
         new_role=update.team_role
     )
     
-    await db.commit()
+    # await db.commit() - Handled by dependency
     
     # Get user details
     user = await db.get(UserModel, user_id)
@@ -580,7 +579,7 @@ async def move_user_between_teams(
         team_role=move_request.team_role
     )
     
-    await db.commit()
+    # await db.commit() - Handled by dependency
     
     # Get user details
     user = await db.get(UserModel, user_id)

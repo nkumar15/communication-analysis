@@ -71,7 +71,11 @@ class TestTenantOnboarding:
             assert tenant.is_active == True
             
             # Check Auth Provider
-            from sqlalchemy import select
+            from sqlalchemy import select, text
+            
+            # Explicitly set platform admin context for verification session
+            await db_session.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+            
             auth_provider = await db_session.scalar(
                 select(AuthProvider).where(AuthProvider.tenant_id == tenant_id)
             )

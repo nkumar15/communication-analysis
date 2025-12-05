@@ -41,7 +41,7 @@ class TestMultiTenantIsolation:
             db_session,
             tenant_id=tenant_a.id,
             email=f"admin@{tenant_a.domain}",
-            role_slug="admin"
+            role_slug="owner"
         )
         admin_b = await create_test_user(
             db_session,
@@ -62,10 +62,11 @@ class TestMultiTenantIsolation:
             email=f"user@{tenant_b.domain}"
         )
         
-        # Admin A lists invitations
+        # Owner A lists invitations
         jwt_a = encode_mock_jwt(create_mock_firebase_token(
             uid=admin_a.firebase_uid,
-            email=admin_a.email
+            email=admin_a.email,
+            firebase_tenant_id=tenant_a.firebase_tenant_id
         ))
         
         response = await api_client.get(
@@ -109,7 +110,8 @@ class TestMultiTenantIsolation:
         # Admin A tries to cancel tenant B's invitation
         jwt_a = encode_mock_jwt(create_mock_firebase_token(
             uid=admin_a.firebase_uid,
-            email=admin_a.email
+            email=admin_a.email,
+            firebase_tenant_id=tenant_a.firebase_tenant_id
         ))
         
         response = await api_client.delete(

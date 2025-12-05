@@ -104,6 +104,10 @@ async def get_platform_stats(
 ):
     """Get global platform statistics"""
     
+    # Explicitly set platform admin context
+    from sqlalchemy import text
+    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    
     # Total Tenants
     total_tenants = await db.scalar(
         select(func.count(TenantModel.id)).where(TenantModel.deleted_at.is_(None))
@@ -136,6 +140,11 @@ async def list_tenants(
     _: dict = Depends(verify_platform_admin)
 ):
     """List all tenants with basic stats"""
+    
+    # Explicitly set platform admin context
+    from sqlalchemy import text
+    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    
     query = select(TenantModel).where(TenantModel.deleted_at.is_(None))
     
     if search:
@@ -266,6 +275,10 @@ async def impersonate_tenant_admin(
     from services.b2b.models import Role
     
     # 1. Fetch tenant
+    # Explicitly set platform admin context to ensure RLS bypass works
+    from sqlalchemy import text
+    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    
     tenant = await tenant_service.get_tenant_by_id(db, tenant_id)
     if not tenant:
         raise HTTPException(
@@ -410,6 +423,10 @@ async def onboard_tenant(
     sends activation email. Replaces the CLI tenant_onboard script.
     """
     try:
+        # Explicitly set platform admin context to ensure RLS bypass works
+        from sqlalchemy import text
+        await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+        
         result = await tenant_onboarding_service.onboard_tenant(
             db=db,
             company_name=request.company_name,
@@ -450,6 +467,10 @@ async def get_tenant_details(
     """
     Get detailed tenant information including auth provider and stats
     """
+    # Explicitly set platform admin context
+    from sqlalchemy import text
+    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    
     # Get tenant
     tenant = await db.get(TenantModel, tenant_id)
     if not tenant:

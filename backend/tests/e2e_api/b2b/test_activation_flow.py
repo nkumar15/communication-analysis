@@ -89,7 +89,8 @@ class TestActivationFlow:
         # Simulate owner's SSO login (JWT token from Firebase)
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=owner.firebase_uid,
-            email=owner.email
+            email=owner.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
         ))
 
         # Step 1: Validate activation token (when owner clicks email link)

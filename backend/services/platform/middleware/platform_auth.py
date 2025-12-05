@@ -79,6 +79,8 @@ async def verify_platform_admin(
     
     # Update last login timestamp
     platform_user.last_login_at = get_utc_now()
+    # Note: We avoid committing (or ensure SET LOCAL is applied after) if relying on middleware context
+    # For now, explicit setting in router is safer.
     await db.commit()
     
     return {

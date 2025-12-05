@@ -70,8 +70,10 @@ async def create_task(
     )
     
     db.add(task)
-    await db.commit()
-    await db.refresh(task)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Task).where(Task.id == task.id))
+    task = result.scalar_one()
     
     return task
 
@@ -181,8 +183,10 @@ async def update_task(
     if task_data.due_date is not None:
         task.due_date = task_data.due_date
     
-    await db.commit()
-    await db.refresh(task)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Task).where(Task.id == task.id))
+    task = result.scalar_one()
     
     return task
 
@@ -210,8 +214,10 @@ async def update_task_status(
     task = await db.get(Task, task_id)
     task.status = status
     
-    await db.commit()
-    await db.refresh(task)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Task).where(Task.id == task.id))
+    task = result.scalar_one()
     
     return task
 
@@ -237,6 +243,6 @@ async def delete_task(
     
     task = await db.get(Task, task_id)
     await db.delete(task)
-    await db.commit()
+    await db.delete(task)
     
     return None

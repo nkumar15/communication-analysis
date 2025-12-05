@@ -62,7 +62,9 @@ async def create_team(
     
     db.add(team)
     await db.flush()
-    await db.refresh(team)
+    # Re-query instead of refresh (RLS-compatible)
+    result = await db.execute(select(Team).where(Team.id == team.id))
+    team = result.scalar_one()
     
     return team
 
@@ -189,7 +191,9 @@ async def update_team(
         team.config_data = config_data
     
     await db.flush()
-    await db.refresh(team)
+    # Re-query instead of refresh (RLS-compatible)
+    result = await db.execute(select(Team).where(Team.id == team.id))
+    team = result.scalar_one()
     
     return team
 
@@ -309,7 +313,9 @@ async def add_team_member(
     
     db.add(member)
     await db.flush()
-    await db.refresh(member)
+    # Re-query instead of refresh (RLS-compatible)
+    result = await db.execute(select(TeamMember).where(TeamMember.id == member.id))
+    member = result.scalar_one()
     
     return member
 
@@ -385,7 +391,9 @@ async def update_team_member_role(
     
     member.team_role = new_role
     await db.flush()
-    await db.refresh(member)
+    # Re-query instead of refresh (Standardization)
+    result = await db.execute(select(TeamMember).where(TeamMember.id == member.id))
+    member = result.scalar_one()
     
     return member
 

@@ -125,7 +125,9 @@ class AuthProviderService:
         
         db.add(provider)
         await db.flush()
-        await db.refresh(provider)
+        # Re-query instead of refresh (RLS-compatible)
+        result = await db.execute(select(AuthProvider).where(AuthProvider.id == provider.id))
+        provider = result.scalar_one()
         
         return provider
     
@@ -163,7 +165,9 @@ class AuthProviderService:
             setattr(provider, field, value)
         
         await db.flush()
-        await db.refresh(provider)
+        # Re-query instead of refresh (RLS-compatible)
+        result = await db.execute(select(AuthProvider).where(AuthProvider.id == provider.id))
+        provider = result.scalar_one()
         
         return provider
     

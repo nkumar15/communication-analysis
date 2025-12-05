@@ -96,18 +96,42 @@ PostgreSQL database with 4 logical schemas:
 | **farming** | Domain logic | farmers |
 
 ### Multi-Tenancy Model
-
-**Row-Level Security (RLS):**
-- All B2B tables scoped by `tenant_id`
-- PostgreSQL RLS policies enforce isolation
-- Application sets `app.current_tenant_id` session variable
-
-**Schema Isolation:**
-- Platform admins isolated from B2B tenants
-- B2C workspaces isolated from B2B enterprises
-- Clear data boundaries
-
----
+ 
+ **Row-Level Security (RLS):**
+ - **Enforcement**: PostgreSQL RLS policies scoped by `tenant_id`.
+ - **Context Setting**: Middleware (`b2b_auth.py`) executes `SET LOCAL app.current_tenant_id` for every request.
+ - **Safety**: If context is not set, queries fail (blocking accidental data leakage).
+ 
+ **Schema Isolation:**
+ - **Platform**: `platform` schema (super-admin only).
+ - **B2B**: `b2b` schema (multi-tenant, shared tables).
+ - **B2C**: `b2c` schema (user-centric).
+ - **Domains**: `farming`, `domain` schemas (business logic).
+ 
+ ---
+ 
+ ## Transaction & Data Integrity
+ 
+ ### "Service Flush, Router Commit" Pattern
+ To ensure atomicity and standardization, the backend follows a strict transaction boundary pattern:
+ 
+ 1.  **Services (Business Logic)**:
+     - **NEVER** call `commit()`.
+     - `add()`, `update()`, or `delete()` objects.
+     - Call `await db.flush()` if ID generation or constraints are needed immediately.
+     - Return the object attached to the active session.
+ 
+ 2.  **Routers (API Layer)**:
+     - Receive the object from Service.
+     - Responsible for the final `await db.commit()`.
+     - Or rely on `FastAPI` dependency injection to commit on success (if configured).
+ 
+ **Why?**
+ - Allows composing multiple service calls into a single atomic transaction.
+ - Prevents partial data writes if a later step fails.
+ - Simplifies testing by allowing easy rollbacks.
+ 
+ ---
 
 ## Frontend Architecture
 

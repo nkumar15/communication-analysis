@@ -13,34 +13,15 @@ from tests.conftest import (
     encode_mock_jwt
 )
 
-@pytest_asyncio.fixture
-async def team_test_data(db_session):
-    """Setup tenant and admin user"""
-    tenant = await create_test_tenant(db_session)
-    admin = await create_test_user(
-        db_session, 
-        tenant_id=tenant.id, 
-        email=f"admin@{tenant.domain}",
-        role_slug="admin"
-    )
-    token = encode_mock_jwt(create_mock_firebase_token(
-        uid=admin.firebase_uid,
-        email=admin.email
-    ))
-    return {
-        "tenant": tenant,
-        "admin": admin,
-        "token": token
-    }
-
 @pytest.mark.integration
 class TestTeamManagement:
     """Test team management endpoints"""
 
     @pytest.mark.asyncio
-    async def test_list_teams(self, api_client: AsyncClient, team_test_data):
-        """Test listing teams"""
-        token = team_test_data["token"]
+    async def test_list_teams(self, api_client: AsyncClient, b2b_test_setup):
+        """Test listing all teams""" 
+        setup = b2b_test_setup
+        token = setup["token"]
         
         response = await api_client.get(
             "/api/b2b/teams/",
@@ -55,10 +36,11 @@ class TestTeamManagement:
         assert any(t["is_default"] for t in data)
 
     @pytest.mark.asyncio
-    async def test_create_team(self, api_client: AsyncClient, team_test_data, db_session):
+    async def test_create_team(self, api_client: AsyncClient, b2b_test_setup):
         """Test creating a team"""
-        token = team_test_data["token"]
-        tenant_id = team_test_data["tenant"].id
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant_id = setup["tenant_id"]
         
         team_name = f"Team {uuid4().hex[:8]}"
         payload = {
@@ -77,17 +59,18 @@ class TestTeamManagement:
         assert data["name"] == team_name
         assert data["description"] == "A test team"
         
-        # Verify in DB
-        result = await db_session.execute(
+        # Verify in DB with automatic tenant context
+        result = await setup['session'].execute(
             select(Team).where(Team.id == data["id"])
         )
         team = result.scalar_one()
         assert team.tenant_id == tenant_id
 
     @pytest.mark.asyncio
-    async def test_update_team(self, api_client: AsyncClient, team_test_data):
+    async def test_update_team(self, api_client: AsyncClient, b2b_test_setup):
         """Test updating a team"""
-        token = team_test_data["token"]
+        setup = b2b_test_setup
+        token = setup["token"]
         
         # Create team first
         create_response = await api_client.post(
@@ -95,6 +78,8 @@ class TestTeamManagement:
             json={"name": "Original Name"},
             headers={"Authorization": f"Bearer {token}"}
         )
+        # Debug: Check if create succeeded
+        assert create_response.status_code == 201, f"Create failed with {create_response.status_code}: {create_response.text}"
         team_id = create_response.json()["id"]
         
         # Update
@@ -104,15 +89,16 @@ class TestTeamManagement:
             headers={"Authorization": f"Bearer {token}"}
         )
         
-        assert response.status_code == 200
+        assert response.status_code == 200, f"Update failed with {response.status_code}: {response.text}"
         data = response.json()
         assert data["name"] == "Updated Name"
         assert data["description"] == "Updated Desc"
 
     @pytest.mark.asyncio
-    async def test_delete_team(self, api_client: AsyncClient, team_test_data, db_session):
+    async def test_delete_team(self, api_client: AsyncClient, b2b_test_setup):
         """Test deleting a team"""
-        token = team_test_data["token"]
+        setup = b2b_test_setup
+        token = setup["token"]
         
         # Create team
         create_response = await api_client.post(
@@ -130,18 +116,20 @@ class TestTeamManagement:
         
         assert response.status_code == 200
         
-        # Verify soft deleted
-        result = await db_session.execute(
+        # Verify soft deleted with automatic context
+        result = await setup['session'].execute(
             select(Team).where(Team.id == team_id)
         )
         team = result.scalar_one()
         assert team.deleted_at is not None
 
     @pytest.mark.asyncio
-    async def test_add_team_member(self, api_client: AsyncClient, team_test_data, db_session):
+    async def test_add_team_member(self, api_client: AsyncClient, b2b_test_setup):
         """Test adding a member to a team"""
-        token = team_test_data["token"]
-        tenant = team_test_data["tenant"]
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant_id = setup["tenant_id"]
+        tenant = setup["tenant"]
         
         # Create team
         create_response = await api_client.post(
@@ -151,10 +139,10 @@ class TestTeamManagement:
         )
         team_id = create_response.json()["id"]
         
-        # Create another user
+        # Create another user with tenant-aware session
         user = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
+            setup['session'],
+            tenant_id=tenant_id,
             email=f"member@{tenant.domain}",
             role_slug="viewer"
         )
@@ -172,10 +160,11 @@ class TestTeamManagement:
         assert data["team_role"] == "team_member"
 
     @pytest.mark.asyncio
-    async def test_list_team_members(self, api_client: AsyncClient, team_test_data, db_session):
+    async def test_list_team_members(self, api_client: AsyncClient, b2b_test_setup):
         """Test listing team members"""
-        token = team_test_data["token"]
-        tenant = team_test_data["tenant"]
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
         
         # Create team
         create_response = await api_client.post(
@@ -187,8 +176,8 @@ class TestTeamManagement:
         
         # Add a member
         user = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
+            setup['session'],
+            tenant_id=setup["tenant_id"],
             email=f"list_member@{tenant.domain}",
             role_slug="viewer"
         )
@@ -211,10 +200,11 @@ class TestTeamManagement:
         assert data[0]["team_role"] == "team_manager"
 
     @pytest.mark.asyncio
-    async def test_update_team_member_role(self, api_client: AsyncClient, team_test_data, db_session):
+    async def test_update_team_member_role(self, api_client: AsyncClient, b2b_test_setup):
         """Test updating a team member's role"""
-        token = team_test_data["token"]
-        tenant = team_test_data["tenant"]
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
         
         # Create team & add member
         create_response = await api_client.post(
@@ -225,8 +215,8 @@ class TestTeamManagement:
         team_id = create_response.json()["id"]
         
         user = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
+            setup['session'],
+            tenant_id=setup["tenant_id"],
             email=f"update_role@{tenant.domain}",
             role_slug="viewer"
         )
@@ -248,10 +238,11 @@ class TestTeamManagement:
         assert data["team_role"] == "team_manager"
 
     @pytest.mark.asyncio
-    async def test_remove_team_member(self, api_client: AsyncClient, team_test_data, db_session):
+    async def test_remove_team_member(self, api_client: AsyncClient, b2b_test_setup):
         """Test removing a team member"""
-        token = team_test_data["token"]
-        tenant = team_test_data["tenant"]
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
         
         # Create team & add member
         create_response = await api_client.post(
@@ -262,8 +253,8 @@ class TestTeamManagement:
         team_id = create_response.json()["id"]
         
         user = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
+            setup['session'],
+            tenant_id=setup["tenant_id"],
             email=f"remove_member@{tenant.domain}",
             role_slug="viewer"
         )
@@ -290,10 +281,11 @@ class TestTeamManagement:
         assert len(data) == 0
 
     @pytest.mark.asyncio
-    async def test_move_team_member(self, api_client: AsyncClient, team_test_data, db_session):
+    async def test_move_team_member(self, api_client: AsyncClient, b2b_test_setup):
         """Test moving a user between teams"""
-        token = team_test_data["token"]
-        tenant = team_test_data["tenant"]
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
         
         # Create two teams
         t1_resp = await api_client.post("/api/b2b/teams/", json={"name": "Team 1"}, headers={"Authorization": f"Bearer {token}"})
@@ -304,8 +296,8 @@ class TestTeamManagement:
         
         # Create user and add to Team 1
         user = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
+            setup['session'],
+            tenant_id=setup["tenant_id"],
             email=f"move_member@{tenant.domain}",
             role_slug="viewer"
         )

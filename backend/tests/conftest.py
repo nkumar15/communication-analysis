@@ -20,10 +20,87 @@ from core.utils import get_utc_now
 
 
 # Test database URL (shared connection)
-TEST_DATABASE_URL = "postgresql+asyncpg://sso_user:sso_password@postgres:5432/sso_db"
+TEST_DATABASE_URL = "postgresql+asyncpg://sso_app:sso_app_password@postgres:5432/sso_db"
 
 
 # Create a single test engine and session factory
+test_engine = None
+test_session_factory = None
+
+
+# ============================================================================
+# Tenant-Aware Session Wrapper
+# ============================================================================
+
+class TenantAwareSession:
+    """
+    Wrapper around AsyncSession that automatically manages tenant context.
+    
+    This ensures ALL database operations respect RLS tenant isolation.
+    Tenant context is set automatically before any database operation.
+    """
+    def __init__(self, session: AsyncSession, tenant_id: UUID):
+        self._session = session
+        self._tenant_id = tenant_id
+        self._context_set = False
+    
+    async def _ensure_context(self):
+        """
+        Automatically set tenant context before any operation.
+        
+        Note: SET LOCAL is transaction-scoped, so we re-set it for each execute()
+        to handle cases where transactions have been committed/rolled back.
+        """
+        from sqlalchemy import text
+        await self._session.execute(
+            text(f"SET LOCAL app.current_tenant_id = '{str(self._tenant_id)}'")
+        )
+    
+    async def execute(self, *args, **kwargs):
+        """Execute with automatic tenant context"""
+        await self._ensure_context()
+        return await self._session.execute(*args, **kwargs)
+    
+    async def commit(self):
+        await self._session.commit()
+        self._context_set = False  # Reset for next transaction
+    
+    async def rollback(self):
+        await self._session.rollback()
+        self._context_set = False
+    
+    async def flush(self):
+        await self._ensure_context()
+        await self._session.flush()
+    
+    async def refresh(self, instance):
+        await self._ensure_context()
+        await self._session.refresh(instance)
+    
+    def add(self, instance):
+        self._session.add(instance)
+    
+    async def delete(self, instance):
+        await self._ensure_context()
+        await self._session.delete(instance)
+    
+    async def begin(self):
+        return await self._session.begin()
+    
+    async def begin_nested(self):
+        return await self._session.begin_nested()
+    
+    async def close(self):
+        await self._session.close()
+    
+    # Delegate all other methods to underlying session
+    def __getattr__(self, name):
+        return getattr(self._session, name)
+
+
+# ============================================================================
+# Test Database Fixtures
+# ============================================================================
 
 @pytest_asyncio.fixture(scope="function")
 async def test_db_engine():
@@ -101,31 +178,51 @@ async def api_client(db_session):
     ):
         """Enrich token with user data from database"""
         firebase_uid = decoded_token.get('uid')
-        if not firebase_uid:
+        firebase_tenant_id = decoded_token.get('firebase', {}).get('tenant')
+        
+        if not firebase_uid or not firebase_tenant_id:
             raise HTTPException(status_code=401, detail="Invalid token")
             
-        result = await db_session.execute(select(UserModel).where(UserModel.firebase_uid == firebase_uid))
-        user = result.scalar_one_or_none()
+        # 1. Resolve Tenant UUID (No RLS on tenants table)
+        from sqlalchemy import text
+        tenant_result = await db_session.execute(
+            text("SELECT id FROM b2b.tenants WHERE firebase_tenant_id = :tid"),
+            {"tid": firebase_tenant_id}
+        )
+        tenant_row = tenant_result.first()
         
-        if not user:
+        if not tenant_row:
+            raise HTTPException(status_code=401, detail="Tenant not found")
+            
+        # 2. Set RLS Context
+        await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_row.id}'"))
+        
+        # 3. Lookup User (RLS Enabled - now safe)
+        result = await db_session.execute(
+            text("SELECT id, email, firebase_uid, tenant_id, role_id, is_active FROM b2b.users WHERE firebase_uid = :uid AND deleted_at IS NULL"),
+            {"uid": firebase_uid}
+        )
+        user_row = result.first()
+        
+        if not user_row:
             raise HTTPException(status_code=401, detail="User not found")
         
         # Fetch role slug and display name
         role_slug = None
         role_display_name = None
-        if user.role_id:
-            role_result = await db_session.execute(select(Role).where(Role.id == user.role_id))
+        if user_row.role_id:
+            role_result = await db_session.execute(select(Role).where(Role.id == user_row.role_id))
             role_obj = role_result.scalar_one_or_none()
             if role_obj:
                 role_slug = role_obj.name
                 role_display_name = role_obj.display_name
 
         return {
-            "id": user.id,
-            "email": user.email,
-            "firebase_uid": user.firebase_uid,
-            "tenant_id": user.tenant_id,
-            "role_id": user.role_id,
+            "id": user_row.id,
+            "email": user_row.email,
+            "firebase_uid": user_row.firebase_uid,
+            "tenant_id": user_row.tenant_id,
+            "role_id": user_row.role_id,
             "role": role_slug,
             "role_display_name": role_display_name
         }
@@ -202,12 +299,82 @@ async def platform_admin_setup(db_session: AsyncSession):
         "user": admin_user,
         "token": encode_mock_jwt(create_mock_firebase_token(
             uid=admin_user.firebase_uid,
-            email=admin_user.email
+            email=admin_user.email,
+            firebase_tenant_id=system_tenant.firebase_tenant_id
         ))
     }
 
 
 # Helper functions (not fixtures - just plain functions)
+
+async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
+    """
+    Set tenant context for RLS in test database session
+    
+    Call this before making verification queries in tests to ensure
+    RLS policies allow the SELECT operations.
+    
+    Example:
+        await set_tenant_context(db_session, tenant.id)
+        result = await db_session.execute(select(Team).where(Team.id == team_id))
+        team = result.scalar_one()
+    """
+    from sqlalchemy import text
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'"))
+
+
+@pytest_asyncio.fixture
+async def b2b_test_setup(db_session: AsyncSession):
+    """
+    Standard B2B test setup with tenant + admin user + tenant-aware session.
+    
+    This fixture creates a complete test environment with automatic tenant isolation:
+    - Creates a test tenant
+    - Creates an admin user  
+    - Generates an auth token
+    - Returns a TenantAwareSession that automatically sets RLS context
+    
+    Usage:
+        async def test_something(api_client, b2b_test_setup):
+            setup = b2b_test_setup
+            # API calls with token
+            response = await api_client.post(..., headers={"Authorization": f"Bearer {setup['token']}"})
+            # Database verification with automatic context
+            result = await setup['session'].execute(select(Team).where(...))
+    """
+    # Step 1: Create tenant (which will set its own context for role seeding)
+    tenant = await create_test_tenant(db_session)
+    
+    # Step 2: Create TenantAwareSession for this tenant
+    tenant_session = TenantAwareSession(db_session, tenant.id)
+    
+    # Step 3: Create admin user using tenant-aware session
+    admin = await create_test_user(
+        tenant_session,  # Use tenant-aware session
+        tenant_id=tenant.id,
+        email=f"admin@{tenant.domain}",
+        role_slug="admin"
+    )
+    
+    # Step 4: Create token
+    token = encode_mock_jwt(create_mock_firebase_token(
+        uid=admin.firebase_uid,
+        email=admin.email,
+        firebase_tenant_id=tenant.firebase_tenant_id # FIX: Use actual tenant ID
+    ))
+    
+    return {
+        "tenant": tenant,
+        "admin": admin,
+        "token": token,
+        "session": tenant_session,  # Use this for all DB operations
+        "tenant_id": tenant.id,
+    }
+
+
+
+
+
 def create_mock_firebase_token(
     uid: str,
     email: str,
@@ -253,6 +420,7 @@ async def create_test_tenant(
 ):
     """Create a test tenant"""
     from services.b2b.models import TenantModel
+    from sqlalchemy import text
     
     if domain == "test.com":
         domain = f"test-{uuid4().hex[:8]}.com"
@@ -267,6 +435,9 @@ async def create_test_tenant(
     db_session.add(tenant)
     await db_session.flush()  # Use flush instead of commit
     await db_session.refresh(tenant)
+    
+    # Set tenant context for RLS before inserting tenant-scoped data
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant.id)}'"))
     
     # Seed roles for this tenant using RoleTemplateService
     from services.b2b.services.role_template_service import role_template_service
@@ -393,6 +564,11 @@ async def create_test_user(
     )
     role = result.scalar_one_or_none()
     
+    from sqlalchemy import text
+    
+    # Set RLS context for this user's tenant
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'"))
+    
     user = UserModel(
         tenant_id=tenant_id,
         email=email,
@@ -419,6 +595,10 @@ async def create_test_invitation(
 ):
     """Create a test invitation"""
     from services.b2b.models import InvitationModel
+    from sqlalchemy import text
+    
+    # Set RLS context for this invitation's tenant
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'"))
     
     invitation = InvitationModel(
         tenant_id=tenant_id,

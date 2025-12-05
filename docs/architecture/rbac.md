@@ -234,6 +234,9 @@ async def delete_farmer(
 - `users` - User management
 - `roles` - Role management
 - `farmers` - Farmer management
+- `projects` - Project management
+- `tasks` - Task management
+- `comments` - Commenting system
 
 ### Actions
 - `read` - View/list data

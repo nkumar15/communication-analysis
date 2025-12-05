@@ -138,8 +138,10 @@ class TenantService:
         tenant.activated_by = activated_by_user_id
         tenant.activation_token = None  # Clear token after activation
         
-        await db.commit()
-        await db.refresh(tenant)
+        await db.flush()
+        # Re-query instead of refresh (RLS-compatible)
+        result = await db.execute(select(TenantModel).where(TenantModel.id == tenant.id))
+        tenant = result.scalar_one()
         
         return self._model_to_pydantic(tenant)
     
@@ -168,7 +170,7 @@ class TenantService:
         tenant.deleted_at = get_utc_now()
         tenant.is_active = False
         
-        await db.commit()
+        await db.flush()
         return True
     
     def extract_domain_from_email(self, email: str) -> str:

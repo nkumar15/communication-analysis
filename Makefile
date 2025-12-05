@@ -128,20 +128,20 @@ ps: ## List running services
 
 ##@ Database
 
-migrate: ## Run database migrations
-	@echo "$(BLUE)Running database migrations...$(NC)"
-	@docker-compose exec platform-api python /app/migrations/run_migrations.py
-	@echo "$(GREEN)✓ Migrations complete$(NC)"
+db-shell: ## Open PostgreSQL shell
+	docker-compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 db-setup-auth: ## Setup app user and permissions
 	@echo "$(BLUE)Setting up application user and permissions...$(NC)"
-	@docker-compose exec -T postgres psql -U sso_user -d sso_db -f /app/scripts/init_auth_db.sql
-	@docker-compose exec -T postgres psql -U sso_user -d sso_db -f /app/scripts/grant_permissions.sql
+	@docker-compose exec -T postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f /app/scripts/init_auth_db.sql
+	@docker-compose exec -T postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f /app/scripts/grant_permissions.sql
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
-
-db-shell: ## Open PostgreSQL shell
-	docker-compose exec postgres psql -U sso_user -d sso_db
+migrate: ## Run database migrations
+	@echo "$(BLUE)Running database migrations...$(NC)"
+	@docker-compose exec dbmigrate python /app/migrations/run_migrations.py
+	@$(MAKE) db-setup-auth
+	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
 reset-db: ## Reset database (WARNING: deletes all data!)
 	@echo "$(YELLOW)⚠ This will delete all data!$(NC)"
@@ -156,6 +156,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			docker-compose up -d b2c-api; \
 			docker-compose up -d frontend; \
 			docker-compose up -d e2e-tests; \
+			docker-compose up -d dbmigrate; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
@@ -280,6 +281,8 @@ test-env: ## Validate environment configuration
 			echo "$(YELLOW)✗ $$file missing$(NC)"; \
 		fi \
 	done
+	@echo "$(GREEN)✓ Environment configuration validated$(NC)"
+
 ##@ API Gateway
 
 gateway-health: ## Test gateway health check

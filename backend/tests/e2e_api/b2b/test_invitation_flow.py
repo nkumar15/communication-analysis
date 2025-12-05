@@ -79,7 +79,8 @@ class TestInvitationFlow:
         
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=viewer.firebase_uid,
-            email=viewer.email
+            email=viewer.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
         response = await api_client.post(
@@ -100,7 +101,8 @@ class TestInvitationFlow:
         db_session: AsyncSession
     ):
         """Invitation to wrong domain is rejected"""
-        domain = f"company-{UUID(int=0).hex[:8]}.com" # Random-ish but consistent for this test
+        from uuid import uuid4
+        domain = f"company-{uuid4().hex[:8]}.com" # Random domain to avoid collision
         tenant = await create_test_tenant(db_session, domain=domain)
         admin = await create_test_user(
             db_session,
@@ -111,7 +113,8 @@ class TestInvitationFlow:
         
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=admin.firebase_uid,
-            email=admin.email
+            email=admin.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
         response = await api_client.post(
@@ -260,7 +263,8 @@ class TestInvitationFlow:
         
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=admin.firebase_uid,
-            email=admin.email
+            email=admin.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
         # Try to create duplicate
@@ -301,12 +305,14 @@ class TestInvitationFlow:
             created_by=admin.id
         )
         db_session.add(team)
-        await db_session.commit()
+        db_session.add(team)
+        await db_session.flush()
         await db_session.refresh(team)
         
         jwt_token = encode_mock_jwt(create_mock_firebase_token(
             uid=admin.firebase_uid,
-            email=admin.email
+            email=admin.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
         # Send invitation with team assignment
@@ -364,7 +370,8 @@ class TestInvitationFlow:
             created_by=admin.id
         )
         db_session.add(team)
-        await db_session.commit()
+        db_session.add(team)
+        await db_session.flush()
         await db_session.refresh(team)
         
         # Create invitation with team assignment

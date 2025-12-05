@@ -51,8 +51,10 @@ class InvitationService:
         )
         
         db.add(invitation)
-        await db.commit()
-        await db.refresh(invitation)
+        # Flush and re-query with RLS context (router handles commit)
+        await db.flush()
+        result = await db.execute(select(InvitationModel).where(InvitationModel.id == invitation.id))
+        invitation = result.scalar_one()
         
         return self._model_to_pydantic(invitation)
     
@@ -143,8 +145,10 @@ class InvitationService:
         invitation.accepted_at = get_utc_now()
         invitation.accepted_by = accepted_by_user_id
         invitation.accepted_from_ip = ip_address
-        await db.commit()
-        await db.refresh(invitation)
+        # Flush and re-query with RLS context (router handles commit)
+        await db.flush()
+        result = await db.execute(select(InvitationModel).where(InvitationModel.id == invitation.id))
+        invitation = result.scalar_one()
         
         return self._model_to_pydantic(invitation)
     
@@ -168,7 +172,8 @@ class InvitationService:
         
         if invitation:
             await db.delete(invitation)
-            await db.commit()
+            await db.delete(invitation)
+            await db.flush()
     
     async def cleanup_expired_invitations(
         self,
@@ -194,7 +199,7 @@ class InvitationService:
         for invitation in expired_invitations:
             await db.delete(invitation)
         
-        await db.commit()
+        await db.flush()
         return count
     
     def _model_to_pydantic(self, model: InvitationModel) -> Invitation:

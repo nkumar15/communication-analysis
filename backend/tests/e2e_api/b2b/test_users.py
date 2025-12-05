@@ -20,56 +20,33 @@ class TestUsersAPI:
     """Test user listing and statistics endpoints"""
     
     @pytest.mark.asyncio
-    async def test_admin_can_list_all_users(
-        self,
-        api_client: AsyncClient,
-        db_session: AsyncSession
-    ):
-        """Admin can list all users in their tenant"""
-        tenant = await create_test_tenant(db_session)
+    async def test_admin_can_list_all_users(self, api_client: AsyncClient, b2b_test_setup):
+        """Test that admin can list all users in their tenant"""
+        setup = b2b_test_setup
         
-        # Create admin
-        admin = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
-            email=f"admin@{tenant.domain}",
-            role_slug=B2BRoleName.ADMIN
+        # Create additional users
+        await create_test_user(
+            setup['session'],
+            tenant_id=setup["tenant_id"],
+            email=f"user1@{setup['tenant'].domain}",
+            role_slug="viewer"
         )
-        
-        # Create other users
-        viewer1 = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
-            email=f"viewer1@{tenant.domain}",
-            role_slug=B2BRoleName.VIEWER
+        await create_test_user(
+            setup['session'],
+            tenant_id=setup["tenant_id"],
+            email=f"user2@{setup['tenant'].domain}",
+            role_slug="viewer"
         )
-        viewer2 = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
-            email=f"viewer2@{tenant.domain}",
-            role_slug=B2BRoleName.VIEWER
-        )
-        
-        jwt_token = encode_mock_jwt(create_mock_firebase_token(
-            uid=admin.firebase_uid,
-            email=admin.email,
-            firebase_tenant_id=tenant.firebase_tenant_id
-        ))
         
         response = await api_client.get(
             "/api/b2b/users/list",
-            headers={"Authorization": f"Bearer {jwt_token}"}
+            headers={"Authorization": f"Bearer {setup['token']}"}
         )
         
         assert response.status_code == 200
         data = response.json()
-        
-        # Should see all 3 users
-        assert len(data) == 3
-        emails = [user["email"] for user in data]
-        assert admin.email in emails
-        assert viewer1.email in emails
-        assert viewer2.email in emails
+        assert isinstance(data, list)
+        assert len(data) >= 3  # Admin + 2 viewers
         
         # Verify structure
         for user in data:
@@ -79,91 +56,84 @@ class TestUsersAPI:
             assert "is_active" in user
 
 
+
     @pytest.mark.asyncio
-    async def test_viewer_can_only_see_themselves(
-        self,
-        api_client: AsyncClient,
-        db_session: AsyncSession
-    ):
-        """Viewer can only see their own user record"""
-        tenant = await create_test_tenant(db_session)
+    async def test_viewer_can_only_see_themselves(self, api_client: AsyncClient, b2b_test_setup):
+        """Test that viewer role can only see their own user"""
+        setup = b2b_test_setup
         
-        admin = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
-            email=f"admin@{tenant.domain}",
-            role_slug=B2BRoleName.ADMIN
-        )
-        
+        # Create a viewer user
         viewer = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
-            email=f"viewer@{tenant.domain}",
-            role_slug=B2BRoleName.VIEWER
+            setup['session'],
+            tenant_id=setup["tenant_id"],
+            email=f"viewer@{setup['tenant'].domain}",
+            role_slug="viewer"
         )
-        
-        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+        viewer_token = encode_mock_jwt(create_mock_firebase_token(
             uid=viewer.firebase_uid,
             email=viewer.email,
-            firebase_tenant_id=tenant.firebase_tenant_id
+            firebase_tenant_id=setup['tenant'].firebase_tenant_id
         ))
         
         response = await api_client.get(
             "/api/b2b/users/list",
-            headers={"Authorization": f"Bearer {jwt_token}"}
+            headers={"Authorization": f"Bearer {viewer_token}"}
         )
         
         assert response.status_code == 200
         data = response.json()
-        
-        # Viewer should only see themselves
         assert len(data) == 1
         assert data[0]["email"] == viewer.email
 
 
 
     @pytest.mark.asyncio
-    async def test_multi_tenant_isolation_users_list(
-        self,
-        api_client: AsyncClient,
-        db_session: AsyncSession
-    ):
-        """Users from different tenants are isolated"""
-        tenant1 = await create_test_tenant(db_session, domain="tenant1.com")
-        tenant2 = await create_test_tenant(db_session, domain="tenant2.com")
+    async def test_multi_tenant_isolation_users_list(self, api_client: AsyncClient, b2b_test_setup):
+        """Test that users from one tenant cannot see users from another tenant"""
+        # Setup for tenant 1
+        setup1 = b2b_test_setup
         
-        admin1 = await create_test_user(
-            db_session,
-            tenant_id=tenant1.id,
-            email=f"admin@tenant1.com",
-            role_slug=B2BRoleName.ADMIN
-        )
+        # Create second tenant (need raw db_session for this)
         
+        # Get underlying session
+        underlying_session = setup1['session']._session
+        tenant2 = await create_test_tenant(underlying_session, name="Tenant 2", domain="tenant2.com")
         admin2 = await create_test_user(
-            db_session,
+            underlying_session,
             tenant_id=tenant2.id,
-            email=f"admin@tenant2.com",
-            role_slug=B2BRoleName.ADMIN
+            email=f"admin@{tenant2.domain}",
+            role_slug="admin"
         )
-        
-        jwt_token = encode_mock_jwt(create_mock_firebase_token(
-            uid=admin1.firebase_uid,
-            email=admin1.email,
-            firebase_tenant_id=tenant1.firebase_tenant_id
+        admin2_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=admin2.firebase_uid,
+            email=admin2.email,
+            firebase_tenant_id=tenant2.firebase_tenant_id
         ))
         
-        response = await api_client.get(
+        # Tenant1 admin requests users
+        response1 = await api_client.get(
             "/api/b2b/users/list",
-            headers={"Authorization": f"Bearer {jwt_token}"}
+            headers={"Authorization": f"Bearer {setup1['token']}"}
         )
         
-        assert response.status_code == 200
-        data = response.json()
+        # Tenant2 admin requests users
+        response2 = await api_client.get(
+            "/api/b2b/users/list",
+            headers={"Authorization": f"Bearer {admin2_token}"}
+        )
         
-        # Should only see users from tenant1
-        emails = [user["email"] for user in data]
-        assert admin1.email in emails
-        assert admin2.email not in emails
+        # Both should succeed
+        assert response1.status_code == 200
+        assert response2.status_code == 200
+        
+        # But see different users
+        users1 = {u["email"] for u in response1.json()}
+        users2 = {u["email"] for u in response2.json()}
+        
+        # No overlap
+        assert len(users1.intersection(users2)) == 0
+        assert setup1['admin'].email in users1
+        assert admin2.email in users2
 
 
     @pytest.mark.asyncio

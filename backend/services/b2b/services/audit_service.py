@@ -54,7 +54,10 @@ class AuditService:
             
             # Since this method might be called directly or via background task,
             # let's use a context manager for a fresh session to be safe and independent.
+            # CRITICAL: We MUST set the RLS context for the fresh session
             async with AsyncSessionLocal() as session:
+                from sqlalchemy import text
+                await session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
                 session.add(audit_log)
                 await session.commit()
                 

@@ -99,7 +99,7 @@ class TenantOnboardingService:
                 is_active=True
             )
             db.add(tenant)
-            await db.commit()
+            await db.flush()
             await db.refresh(tenant)
             
             # 5. Seed roles from templates
@@ -115,7 +115,7 @@ class TenantOnboardingService:
                 is_active=True
             )
             db.add(auth_provider)
-            await db.commit()
+            await db.flush()
             
             # 7. Create default team
             default_team = await create_team(
@@ -147,6 +147,9 @@ class TenantOnboardingService:
                 activation_url,
                 expires_at
             )
+            
+            # Commit the entire transaction at the end to ensure RLS context (SET LOCAL) was active throughout
+            await db.commit()
             
             return {
                 "tenant_id": str(tenant.id),
@@ -200,7 +203,7 @@ class TenantOnboardingService:
         tenant.activation_expires_at = new_expires_at
         tenant.activation_status = 'pending'  # Reset if expired
         
-        await db.commit()
+        await db.flush()
         
         # Get admin invitation to resend email
         result = await db.execute(
@@ -216,7 +219,7 @@ class TenantOnboardingService:
             # Update invitation token too
             invitation.invitation_token = new_token
             invitation.expires_at = new_expires_at
-            await db.commit()
+            await db.flush()
             
             # Resend email
             frontend_url = settings.frontend_url or "http://localhost:3000"
@@ -228,6 +231,8 @@ class TenantOnboardingService:
                 activation_url,
                 new_expires_at
             )
+        
+        await db.commit()
         
         return {
             "tenant_id": str(tenant_id),

@@ -90,8 +90,10 @@ async def create_comment(
     )
     
     db.add(comment)
-    await db.commit()
-    await db.refresh(comment)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Comment).where(Comment.id == comment.id))
+    comment = result.scalar_one()
     
     return comment
 
@@ -165,8 +167,10 @@ async def update_comment(
     if comment_data.content is not None:
         comment.content = comment_data.content
     
-    await db.commit()
-    await db.refresh(comment)
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(Comment).where(Comment.id == comment.id))
+    comment = result.scalar_one()
     
     return comment
 
@@ -201,6 +205,6 @@ async def delete_comment(
         )
     
     await db.delete(comment)
-    await db.commit()
+    await db.delete(comment)
     
     return None

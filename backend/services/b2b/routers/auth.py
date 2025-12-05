@@ -113,6 +113,10 @@ async def get_current_user_info(
             detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
         )
     
+    # Set RLS Context for this request
+    from sqlalchemy import text
+    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+    
     
     # Check if user already exists by Firebase UID OR by email
     existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
@@ -132,8 +136,12 @@ async def get_current_user_info(
             # Update Firebase UID if it's a temporary one (starts with "oidc-")
             if existing_user_by_email.firebase_uid.startswith('oidc-'):
                 existing_user_by_email.firebase_uid = firebase_uid
-                await db.commit()
-                await db.refresh(existing_user_by_email)
+                # Flush, re-query with RLS context (FastAPI commits on success)
+                await db.flush()
+                result = await db.execute(
+                    select(UserModel).where(UserModel.id == existing_user_by_email.id)
+                )
+                existing_user_by_email = result.scalar_one()
             existing_user = await user_service._model_to_pydantic(existing_user_by_email, db)
     
     if existing_user:
@@ -207,6 +215,10 @@ async def sync_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
         )
+    
+    # Set RLS Context for this request
+    from sqlalchemy import text
+    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
     
     # Check if user already exists to preserve their role
     existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)

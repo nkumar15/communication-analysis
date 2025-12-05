@@ -118,8 +118,10 @@ async def create_role(
                 db.add(role_perm)
                 added_in_request.add(perm_key)
     
-    await db.commit()
-    await db.refresh(role)
+    # Flush to DB, re-query with RLS context (endpoint handles commit on return)
+    await db.flush()
+    result = await db.execute(select(Role).where(Role.id == role.id))
+    role = result.scalar_one()
     
     # Format permissions from the request for response (they were just created)
     permissions_list = []
@@ -205,7 +207,8 @@ async def delete_role(
 
     # Soft delete: set deleted_at timestamp
     role.deleted_at = func.now()
-    await db.commit()
+    await db.flush() # Ensure deleted_at is set before return
+    # await db.commit() - Handled by dependency
     
     return {"message": "Role deleted successfully"}
 
@@ -351,7 +354,7 @@ async def update_role_permissions(
         )
         db.add(role_perm)
     
-    await db.commit()
+    # await db.commit() - Handled by dependency
     
     return {"message": "Permissions updated successfully"}
 

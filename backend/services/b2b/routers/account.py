@@ -83,10 +83,11 @@ async def update_account_settings(
         tenant.name = updates.name.strip()
     
     if updates.logo_url is not None:
-        tenant.logo_url = updates.logo_url.strip() if updates.logo_url.strip() else None
+        tenant.logo_url = updates.logo_url.strip()
     
-    await db.commit()
-    await db.refresh(tenant)
+    # FastAPI's dependency injection for AsyncSession handles commit/rollback automatically
+    # No explicit flush or re-query is needed here unless specific RLS context or
+    # database-generated values are required immediately before the transaction ends.
     
     return AccountSettingsResponse(
         name=tenant.name,

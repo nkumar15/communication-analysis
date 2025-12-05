@@ -26,11 +26,13 @@ class TestAuthAPI:
         db_session: AsyncSession
     ):
         """Resolve tenant from email address domain"""
-        tenant = await create_test_tenant(db_session, domain="example.com")
+        from uuid import uuid4
+        domain = f"example-{uuid4().hex[:8]}.com"
+        tenant = await create_test_tenant(db_session, domain=domain)
         
         response = await api_client.post(
             "/api/b2b/auth/resolve-tenant",
-            json={"email": "user@example.com"}
+            json={"email": f"user@{domain}"}
         )
         
         assert response.status_code == 200

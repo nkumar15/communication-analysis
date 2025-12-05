@@ -112,8 +112,13 @@ class UserService:
                 )
                 user_model.role_id = role_obj.id
         
-        await db.commit()
-        await db.refresh(user_model)
+        # Flush to DB and re-query with RLS context still active
+        # Router will handle commit() to maintain transaction boundaries
+        await db.flush()
+        result = await db.execute(
+            select(UserModel).where(UserModel.id == user_model.id)
+        )
+        user_model = result.scalar_one()
         
         return await self._model_to_pydantic(user_model, db)
     
@@ -129,7 +134,7 @@ class UserService:
         if user:
             user.last_login = get_utc_now()
             user.updated_at = get_utc_now()
-            await db.commit()
+            await db.flush()
             
     async def delete_user(self, db: AsyncSession, user_id: UUID) -> bool:
         """
@@ -155,7 +160,7 @@ class UserService:
         user.deleted_at = get_utc_now()
         user.is_active = False
         
-        await db.commit()
+        await db.flush()
         return True
     
     async def _model_to_pydantic(self, model: UserModel, db: AsyncSession = None) -> User:

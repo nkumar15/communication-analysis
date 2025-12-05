@@ -17,6 +17,22 @@ services:
       timeout: 5s
       retries: 5
 
+  dbmigrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: b2b
+    container_name: sso_dbmigrate
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+    command: uvicorn services.b2b.main:app --host 0.0.0.0 --port 9000 --reload
+
   # B2B Microservice - Tenant Management
   b2b-api:
     build:
@@ -28,8 +44,8 @@ services:
       - ./backend/.env
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    # environment:
+    #   DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
@@ -49,8 +65,8 @@ services:
       - ./backend/.env
     ports:
       - "8001:8001"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    # environment:
+    #   DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
@@ -70,8 +86,8 @@ services:
       - ./backend/.env
     ports:
       - "8002:8002"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    # environment:
+    #   DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
@@ -91,8 +107,8 @@ services:
       - ./backend/.env
     ports:
       - "8003:8003"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    # environment:
+    #   DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
@@ -139,8 +155,10 @@ services:
       dockerfile: Dockerfile
       target: test
     container_name: sso_e2e_tests
+    env_file:
+      - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - FRONTEND_URL=http://frontend:3000
       - API_URL=http://b2b-api:8000
     volumes:

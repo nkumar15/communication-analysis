@@ -327,7 +327,8 @@ async def cancel_invitation(
     
     # Delete invitation
     await db.delete(invitation)
-    await db.commit()
+    await db.delete(invitation)
+    # await db.commit() - Handled by dependency
     
     return {"message": "Invitation cancelled successfully"}
 
@@ -550,6 +551,11 @@ async def join_tenant(
     invitation.accepted_by = user_id
     invitation.accepted_from_ip = client_ip
     
+    # Flush, re-query with RLS context (FastAPI commits on success)
+    await db.flush()
+    result = await db.execute(select(InvitationModel).where(InvitationModel.id == invitation.id))
+    invitation = result.scalar_one()
+    
     # Handle Team Assignment
     from services.b2b.services import team_service
     
@@ -584,7 +590,7 @@ async def join_tenant(
         except Exception as e:
             pass
 
-    await db.commit()
+    # await db.commit() - Handled by dependency
 
     # Log audit event
     background_tasks.add_task(

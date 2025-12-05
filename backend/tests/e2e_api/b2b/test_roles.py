@@ -16,34 +16,15 @@ from tests.conftest import (
     encode_mock_jwt
 )
 
-@pytest_asyncio.fixture
-async def role_test_data(db_session):
-    """Setup tenant and admin user"""
-    tenant = await create_test_tenant(db_session)
-    admin = await create_test_user(
-        db_session, 
-        tenant_id=tenant.id, 
-        email=f"admin@{tenant.domain}",
-        role_slug="admin"
-    )
-    token = encode_mock_jwt(create_mock_firebase_token(
-        uid=admin.firebase_uid,
-        email=admin.email
-    ))
-    return {
-        "tenant": tenant,
-        "admin": admin,
-        "token": token
-    }
-
 @pytest.mark.integration
 class TestRoleManagement:
     """Test role management endpoints"""
 
     @pytest.mark.asyncio
-    async def test_list_templates(self, api_client: AsyncClient, role_test_data):
+    async def test_list_templates(self, api_client: AsyncClient, b2b_test_setup):
         """Test listing role templates"""
-        token = role_test_data["token"]
+        setup = b2b_test_setup
+        token = setup["token"]
         
         response = await api_client.get(
             "/api/b2b/roles/templates",
@@ -60,10 +41,11 @@ class TestRoleManagement:
         assert "viewer" in names
 
     @pytest.mark.asyncio
-    async def test_create_role_no_template(self, api_client: AsyncClient, role_test_data, db_session):
+    async def test_create_role_no_template(self, api_client: AsyncClient, b2b_test_setup):
         """Test creating a role without a template"""
-        token = role_test_data["token"]
-        tenant_id = role_test_data["tenant"].id
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant_id = setup["tenant_id"]
         
         role_name = f"custom_role_{uuid4().hex[:8]}"
         payload = {
@@ -84,17 +66,18 @@ class TestRoleManagement:
         assert data["display_name"] == "Custom Role"
         assert data["is_system_role"] is False
         
-        # Verify in DB
-        result = await db_session.execute(
+        # Verify in DB with automatic context
+        result = await setup['session'].execute(
             select(Role).where(Role.id == data["id"])
         )
         role = result.scalar_one()
         assert role.tenant_id == tenant_id
 
     @pytest.mark.asyncio
-    async def test_create_role_with_template(self, api_client: AsyncClient, role_test_data, db_session):
+    async def test_create_role_with_template(self, api_client: AsyncClient, b2b_test_setup):
         """Test creating a role from a template"""
-        token = role_test_data["token"]
+        setup = b2b_test_setup
+        token = setup["token"]
         
         # Get admin template
         response = await api_client.get(
@@ -121,16 +104,17 @@ class TestRoleManagement:
         data = response.json()
         role_id = data["id"]
         
-        # Verify permissions were copied
-        result = await db_session.execute(
+        # Verify permissions were copied with automatic context  
+        result = await setup['session'].execute(
             select(RolePermission).where(RolePermission.role_id == role_id)
         )
         permissions = result.scalars().all()
         assert len(permissions) > 0
 
     @pytest.mark.asyncio
-    async def test_create_role_with_custom_permissions(self, api_client: AsyncClient, role_test_data, db_session):
-        token = role_test_data["token"]
+    async def test_create_role_with_custom_permissions(self, api_client: AsyncClient, b2b_test_setup):
+        setup = b2b_test_setup
+        token = setup["token"]
         
         # Get resources and actions first
         resources_response = await api_client.get("/api/b2b/roles/resources/all", headers={"Authorization": f"Bearer {token}"})
@@ -168,9 +152,10 @@ class TestRoleManagement:
         assert detail['permissions'][0]['action']['id'] == action_id
 
     @pytest.mark.asyncio
-    async def test_delete_role(self, api_client: AsyncClient, role_test_data, db_session):
+    async def test_delete_role(self, api_client: AsyncClient, b2b_test_setup):
         """Test deleting a role"""
-        token = role_test_data["token"]
+        setup = b2b_test_setup
+        token = setup["token"]
         
         # Create a role first
         role_name = f"to_delete_{uuid4().hex[:8]}"
@@ -193,21 +178,22 @@ class TestRoleManagement:
         
         assert response.status_code == 200
         
-        # Verify soft deleted
-        result = await db_session.execute(
+        # Verify soft deleted with automatic context
+        result = await setup['session'].execute(
             select(Role).where(Role.id == role_id)
         )
         role = result.scalar_one()
         assert role.deleted_at is not None
 
     @pytest.mark.asyncio
-    async def test_delete_system_role_fails(self, api_client: AsyncClient, role_test_data, db_session):
+    async def test_delete_system_role_fails(self, api_client: AsyncClient, b2b_test_setup):
         """Test that system roles cannot be deleted"""
-        token = role_test_data["token"]
-        tenant_id = role_test_data["tenant"].id
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant_id = setup["tenant_id"]
         
-        # Find a system role (e.g. admin)
-        result = await db_session.execute(
+        # Find a system role (e.g. admin) with automatic context
+        result = await setup['session'].execute(
             select(Role)
             .where(Role.tenant_id == tenant_id)
             .where(Role.name == "admin")
@@ -223,10 +209,11 @@ class TestRoleManagement:
         assert "system role" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_soft_delete_role(self, api_client: AsyncClient, role_test_data, db_session):
+    async def test_soft_delete_role(self, api_client: AsyncClient, b2b_test_setup):
         """Test that deleting a role performs a soft delete"""
-        token = role_test_data["token"]
-        tenant_id = role_test_data["tenant"].id
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant_id = setup["tenant_id"]
         
         # 1. Create a role
         role_name = f"soft_delete_test_{uuid4().hex[:8]}"
@@ -267,8 +254,8 @@ class TestRoleManagement:
         )
         assert response.status_code == 404
         
-        # 5. Verify it still exists in DB with deleted_at set
-        result = await db_session.execute(
+        # 5. Verify it still exists in DB with deleted_at set (automatic context)
+        result = await setup['session'].execute(
             select(Role).where(Role.id == role_id)
         )
         role = result.scalar_one()
@@ -276,10 +263,11 @@ class TestRoleManagement:
         assert role.tenant_id == tenant_id
 
     @pytest.mark.asyncio
-    async def test_delete_assigned_role_fails(self, api_client: AsyncClient, role_test_data, db_session):
+    async def test_delete_assigned_role_fails(self, api_client: AsyncClient, b2b_test_setup):
         """Test that a role assigned to a user cannot be deleted"""
-        token = role_test_data["token"]
-        tenant_id = role_test_data["tenant"].id
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant_id = setup["tenant_id"]
         
         # 1. Create a role
         role_name = f"assigned_role_{uuid4().hex[:8]}"
@@ -297,11 +285,11 @@ class TestRoleManagement:
         assert response.status_code == 200
         role_id = response.json()["id"]
         
-        # 2. Create a user assigned to this role
+        # 2. Create a user assigned to this role (with automatic context)
         user = await create_test_user(
-            db_session,
+            setup['session'],
             tenant_id=tenant_id,
-            email=f"user_{uuid4().hex[:8]}@{role_test_data['tenant'].domain}",
+            email=f"user_{uuid4().hex[:8]}@{setup['tenant'].domain}",
             role_slug=role_name # This helper might need update or we assign manually
         )
         
@@ -311,18 +299,18 @@ class TestRoleManagement:
         from uuid import UUID
         
         # Update user with the specific role_id
-        await db_session.execute(
+        await setup['session'].execute(
             select(UserModel).where(UserModel.id == user.id)
         )
         # We need to use update statement or fetch and update
         # Let's just update the user's role_id directly via SQL to be sure
         from sqlalchemy import update
-        await db_session.execute(
+        await setup['session'].execute(
             update(UserModel)
             .where(UserModel.id == user.id)
             .values(role_id=UUID(role_id))
         )
-        await db_session.commit()
+        await setup['session'].flush() # Use flush instead of commit to keep session open if needed
         
         # 3. Try to delete the role
         response = await api_client.delete(

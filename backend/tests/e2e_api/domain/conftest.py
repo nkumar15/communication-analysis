@@ -59,7 +59,8 @@ async def domain_test_data(db_session):
     )
     owner_token = encode_mock_jwt(create_mock_firebase_token(
         uid=owner.firebase_uid,
-        email=owner.email
+        email=owner.email,
+        firebase_tenant_id=tenant.firebase_tenant_id
     ))
     
     # Get default team
@@ -78,6 +79,8 @@ async def domain_test_data(db_session):
         is_default=False
     )
     db_session.add(other_team)
+    from sqlalchemy import text
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
     await db_session.flush()
     
     # Create team member for default team
@@ -96,7 +99,8 @@ async def domain_test_data(db_session):
     
     team_member_token = encode_mock_jwt(create_mock_firebase_token(
         uid=team_member.firebase_uid,
-        email=team_member.email
+        email=team_member.email,
+        firebase_tenant_id=tenant.firebase_tenant_id
     ))
     
     # Create member for other team
@@ -115,7 +119,8 @@ async def domain_test_data(db_session):
     
     other_team_member_token = encode_mock_jwt(create_mock_firebase_token(
         uid=other_team_member.firebase_uid,
-        email=other_team_member.email
+        email=other_team_member.email,
+        firebase_tenant_id=tenant.firebase_tenant_id
     ))
     
     # Create second tenant for isolation tests
@@ -128,7 +133,8 @@ async def domain_test_data(db_session):
     )
     tenant2_owner_token = encode_mock_jwt(create_mock_firebase_token(
         uid=tenant2_owner.firebase_uid,
-        email=tenant2_owner.email
+        email=tenant2_owner.email,
+        firebase_tenant_id=tenant2.firebase_tenant_id
     ))
     
     # Get tenant2 default team
@@ -172,6 +178,8 @@ async def team_project(db_session, domain_test_data):
         created_by=domain_test_data["owner"].id
     )
     db_session.add(project)
+    from sqlalchemy import text
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{domain_test_data['tenant'].id}'"))
     await db_session.flush()
     await db_session.refresh(project)
     return project.id
@@ -190,6 +198,8 @@ async def other_team_project(db_session, domain_test_data):
         created_by=domain_test_data["owner"].id
     )
     db_session.add(project)
+    from sqlalchemy import text
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{domain_test_data['tenant'].id}'"))
     await db_session.flush()
     await db_session.refresh(project)
     return project.id
@@ -208,6 +218,8 @@ async def tenant2_project(db_session, domain_test_data):
         created_by=domain_test_data["tenant2_owner"].id
     )
     db_session.add(project)
+    from sqlalchemy import text
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{domain_test_data['tenant2'].id}'"))
     await db_session.flush()
     await db_session.refresh(project)
     return project.id
@@ -227,6 +239,8 @@ async def team_task(db_session, team_project, domain_test_data):
         created_by=domain_test_data["owner"].id
     )
     db_session.add(task)
+    from sqlalchemy import text
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{domain_test_data['tenant'].id}'"))
     await db_session.flush()
     await db_session.refresh(task)
     return task.id
@@ -244,6 +258,8 @@ async def team_comment(db_session, team_task, domain_test_data):
         created_by=domain_test_data["owner"].id
     )
     db_session.add(comment)
+    from sqlalchemy import text
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{domain_test_data['tenant'].id}'"))
     await db_session.flush()
     await db_session.refresh(comment)
     return comment.id

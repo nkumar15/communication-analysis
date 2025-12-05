@@ -143,6 +143,55 @@ docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
 ```
 
 ---
+ 
+ ## Coding Standards & Best Practices
+ 
+ ### 1. Transaction Management ("Flush vs Commit")
+ 
+ **Rule**: Services `flush()`, Routers `commit()`.
+ 
+ - **Services**:
+   - Write business logic.
+   - Use `await db.flush()` to generate IDs or check constraints.
+   - **NEVER** call `await db.commit()`.
+   - Leave the transaction open so routers can chain multiple services.
+ 
+ - **Routers**:
+   - Orchestrate services.
+   - Call `await db.commit()` at the very end of the endpoint.
+   - Handle exceptions and rollback if needed.
+ 
+ ### 2. Writing Tests with RLS
+ 
+ The system uses Row-Level Security (RLS). Your tests must set the tenant context or they will fail with `InsufficientPrivilegeError`.
+ 
+ **Using `b2b_test_setup` (Recommended):**
+ This fixture provides a pre-configured `TenantAwareSession` that handles RLS automatically.
+ 
+ ```python
+ async def test_example(api_client, b2b_test_setup):
+     setup = b2b_test_setup
+     session = setup['session']  # TenantAwareSession
+     
+     # This automatically executes SET LOCAL app.current_tenant_id...
+     result = await session.execute(select(User))
+ ```
+ 
+ **Using Raw Session (e.g., Domain tests):**
+ If you use a raw `db_session`, you **MUST** manually set the context before querying RLS-protected tables.
+ 
+ ```python
+ from sqlalchemy import text
+ 
+ async def test_manual_context(db_session, tenant):
+     # Set context
+     await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+     
+     # Now you can query
+     await db_session.execute(select(Project)...)
+ ```
+ 
+ ---
 
 ## Platform Administration (CLI)
 
