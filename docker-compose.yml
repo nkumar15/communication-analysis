@@ -124,8 +124,7 @@ services:
       - "3000:3000"
     environment:
       # Browser runs on host machine, so use localhost URLs
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_PLATFORM_API_URL=http://localhost:8001
+      - REACT_APP_API_URL=http://localhost:8080
       - WDS_SOCKET_PORT=0
     volumes:
       - ./frontend:/app

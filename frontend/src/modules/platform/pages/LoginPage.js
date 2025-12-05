@@ -22,7 +22,7 @@ function PlatformLogin() {
             // Fetch platform configuration
             try {
                 // Use platform API (port 8001) not B2B API (port 8000)
-                const PLATFORM_API_URL = process.env.REACT_APP_PLATFORM_API_URL || 'http://localhost:8001';
+                const PLATFORM_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
                 const response = await fetch(`${PLATFORM_API_URL}/api/platform/config`);
 
                 if (!response.ok) {

@@ -1,6 +1,6 @@
 import firebaseAuthService from '../firebase/authService';
 
-const API_BASE_URL = process.env.REACT_APP_PLATFORM_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 /**
  * Platform Admin API Client
