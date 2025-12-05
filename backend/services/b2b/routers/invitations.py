@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -13,6 +13,7 @@ from services.b2b.middleware import get_current_active_user
 from services.b2b.rbac import require_permission
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
+from services.b2b.services.audit_service import log_audit_background
 from services.b2b.schemas import Invitation
 from core.email import email_service
 from core.config import settings
@@ -55,6 +56,8 @@ class InvitationListResponse(BaseModel):
 @router.post("/invite", response_model=InviteUserResponse)
 async def invite_user(
     request: InviteUserRequest,
+    background_tasks: BackgroundTasks,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -207,6 +210,19 @@ async def invite_user(
         role=request.role,
         invitation_url=invitation_url,
         expires_at=invitation.expires_at
+    )
+
+    # Log audit event
+    background_tasks.add_task(
+        log_audit_background,
+        tenant_id=current_user['tenant_id'],
+        event_type="user.invited",
+        resource_type="invitation",
+        actor_id=current_user['id'],
+        resource_id=invitation.id,
+        details={"email": request.email, "role": request.role, "team_id": str(request.team_id) if request.team_id else None},
+        ip_address=req.client.host if req.client else None,
+        user_agent=req.headers.get("User-Agent")
     )
 
     return InviteUserResponse(
@@ -442,6 +458,7 @@ async def validate_invitation(
 async def join_tenant(
     token: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     decoded_token: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -568,6 +585,19 @@ async def join_tenant(
             pass
 
     await db.commit()
+
+    # Log audit event
+    background_tasks.add_task(
+        log_audit_background,
+        tenant_id=tenant.id,
+        event_type="user.accepted_invite",
+        resource_type="invitation",
+        actor_id=user_id,
+        resource_id=invitation.id,
+        details={"email": email, "role": invitation.role},
+        ip_address=client_ip,
+        user_agent=request.headers.get("User-Agent")
+    )
     
     return {
         "message": "Successfully joined tenant",

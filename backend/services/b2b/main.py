@@ -30,46 +30,31 @@ from services.b2b.routers import (
     users,
     roles,
     teams,
-    account,  # NEW
+    account,
+    audit_logs,  # NEW
 )
-
-# Import domain-specific routers that belong to B2B
-from services.domains.farming.routers import farmers
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    # Startup - Initialize logging FIRST
-    setup_logging(
-        environment=settings.log_environment,
-        log_level=settings.log_level
-    )
-    logger.info("b2b_api_starting", service="b2b-api", port=8000)
-    
+    # Startup
+    logger.info("service_startup")
     await init_db()
     firebase_auth_service.initialize()
-    logger.info("b2b_api_ready", 
-                database="connected",
-                firebase="initialized",
-                service="b2b-api")
+    logger.info("service_ready")
     
     yield
     
     # Shutdown
-    logger.info("b2b_api_shutting_down", service="b2b-api")
+    logger.info("service_shutdown")
     await close_db()
 
 
-
-# Create FastAPI application
 app = FastAPI(
     title="B2B Tenant Management API",
-    description="Multi-tenant B2B SaaS API for enterprise tenant management, authentication, and RBAC",
+    description="API for managing B2B tenants, users, and roles",
     version="1.0.0",
-    lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc"
+    lifespan=lifespan
 )
 
 # Configure CORS
@@ -81,9 +66,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add structured logging middleware
-app.add_middleware(LoggingMiddleware)
-
 # Include B2B routers
 app.include_router(auth.router)
 app.include_router(activation.router)
@@ -91,10 +73,10 @@ app.include_router(invitations.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(teams.router)
-app.include_router(account.router)  # NEW: Account settings
+app.include_router(account.router)
+app.include_router(audit_logs.router)  # NEW: Audit Logs
 
-# Include domain-specific routers
-app.include_router(farmers.router)
+
 
 
 @app.get("/")

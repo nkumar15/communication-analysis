@@ -7,6 +7,7 @@ import InvitationsPage from './modules/b2b/pages/InvitationsPage';
 import InvitationAcceptPage from './modules/b2b/pages/InvitationAcceptPage';
 import TeamsPage from './modules/b2b/pages/TeamsPage';
 import TeamDetailsPage from './modules/b2b/pages/TeamDetailsPage';
+import AuditLogsPage from './modules/b2b/pages/AuditLogsPage';
 import AccountSettingsPage from './modules/b2b/pages/AccountSettingsPage';
 import ProtectedRoute from './core/components/ProtectedRoute';
 import firebaseAuthService from './core/firebase/authService';
@@ -111,6 +112,7 @@ function App() {
                 <Route path="/tasks/:taskId" element={<ProtectedRoute><TaskDetailPage /></ProtectedRoute>} />
                 <Route path="/b2b/teams" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
                 <Route path="/b2b/teams/:teamId" element={<ProtectedRoute><TeamDetailsPage /></ProtectedRoute>} />
+                <Route path="/audit-logs" element={<ProtectedRoute><AuditLogsPage /></ProtectedRoute>} />
                 <Route path="/settings/account" element={<ProtectedRoute><AccountSettingsPage /></ProtectedRoute>} />
 
                 {/* SaaS Admin Console */}

@@ -13,6 +13,7 @@ const Sidebar = () => {
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
         { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
         { id: 'roles', label: 'Role Management', icon: '🛡️', path: '/roles', feature: 'roles' },
+        { id: 'audit_logs', label: 'Audit Logs', icon: '🔍', path: '/audit-logs', feature: 'audit_logs' },
         { id: 'account', label: 'Account Settings', icon: '⚙️', path: '/settings/account', feature: 'account' }
     ];
 

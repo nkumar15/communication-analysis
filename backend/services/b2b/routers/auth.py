@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,6 +7,7 @@ from services.b2b.schemas import TenantResolutionRequest, TenantResolutionRespon
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
 from services.b2b.services.auth_provider_service import auth_provider_service
+from services.b2b.services.audit_service import log_audit_background
 from core.utils.firebase import firebase_auth_service
 from services.b2b.models import InvitationModel
 from core.middleware import get_current_user
@@ -173,6 +174,8 @@ async def get_current_user_info(
 
 @router.post("/sync-user")
 async def sync_user(
+    background_tasks: BackgroundTasks,
+    request: Request,
     decoded_token: Dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -231,6 +234,19 @@ async def sync_user(
         firebase_uid=firebase_uid,
         name=name,
         role=user_role  # Use determined role
+    )
+    
+    # Log audit event
+    background_tasks.add_task(
+        log_audit_background,
+        tenant_id=tenant.id,
+        event_type="auth.login",
+        resource_type="user",
+        actor_id=user.id,
+        resource_id=user.id,
+        details={"email": email, "method": "sso_sync"},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent")
     )
     
     return {

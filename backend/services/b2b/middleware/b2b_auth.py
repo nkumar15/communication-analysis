@@ -58,3 +58,27 @@ async def get_current_active_user(
         "role": role_slug,
         "role_display_name": role_display_name
     }
+
+
+def require_role(allowed_roles: list[str]):
+    """
+    Dependency factory to enforce role-based access control.
+    
+    Args:
+        allowed_roles: List of role slugs allowed to access the endpoint.
+        
+    Returns:
+        Dependency function that checks the user's role.
+    """
+    async def role_checker(current_user: Dict[str, Any] = Depends(get_current_active_user)):
+        if not current_user.get("role"):
+            raise HTTPException(status_code=403, detail="User has no role assigned")
+            
+        if current_user["role"] not in allowed_roles:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Operation not permitted. Required roles: {', '.join(allowed_roles)}"
+            )
+        return current_user
+        
+    return role_checker

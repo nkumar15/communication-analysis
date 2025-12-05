@@ -195,6 +195,47 @@ class ApiService {
     async getFarmers() {
         return this.get('/api/b2b/farmers');
     }
+
+    /**
+     * Get audit logs with pagination and filtering
+     * @param {Object} params - { page, limit, event_type, start_date, end_date }
+     */
+    async getAuditLogs(params = {}) {
+        const query = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+                query.append(key, value);
+            }
+        });
+        return this.get(`/api/b2b/audit-logs?${query.toString()}`);
+    }
+
+    /**
+     * Export audit logs as CSV
+     * @param {Object} params - { event_type, start_date, end_date }
+     */
+    async exportAuditLogs(params = {}) {
+        const headers = await this.getAuthHeaders();
+        const query = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+                query.append(key, value);
+            }
+        });
+
+        const response = await fetch(`${API_BASE_URL}/api/b2b/audit-logs/export?${query.toString()}`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Export failed: ${response.status} - ${error}`);
+        }
+
+        // Return blob for download
+        return response.blob();
+    }
 }
 
 export default new ApiService();

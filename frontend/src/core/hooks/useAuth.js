@@ -69,7 +69,8 @@ export const useAuth = () => {
             roles: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage roles
             farmers: ['owner', 'admin', 'field_manager', 'field_agent'], // All except Viewer
             teams: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access teams
-            account: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'] // All roles can access account settings
+            account: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access account settings
+            audit_logs: ['owner', 'admin'] // Only Owner and Admin can access audit logs
         };
 
         return permissions[feature]?.includes(user.role) || false;
