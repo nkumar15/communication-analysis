@@ -133,6 +133,12 @@ migrate: ## Run database migrations
 	@docker-compose exec platform-api python /app/migrations/run_migrations.py
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
+db-setup-auth: ## Setup app user and permissions
+	@echo "$(BLUE)Setting up application user and permissions...$(NC)"
+	@docker-compose exec -T postgres psql -U sso_user -d sso_db -f /app/scripts/init_auth_db.sql
+	@docker-compose exec -T postgres psql -U sso_user -d sso_db -f /app/scripts/grant_permissions.sql
+	@echo "$(GREEN)✓ Auth setup complete$(NC)"
+
 
 db-shell: ## Open PostgreSQL shell
 	docker-compose exec postgres psql -U sso_user -d sso_db

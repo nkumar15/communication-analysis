@@ -25,8 +25,6 @@ TEST_DATABASE_URL = "postgresql+asyncpg://sso_user:sso_password@postgres:5432/ss
 
 # Create a single test engine and session factory
 
-
-
 @pytest_asyncio.fixture(scope="function")
 async def test_db_engine():
     """Create test database engine for session"""
@@ -48,7 +46,6 @@ async def db_session(test_db_engine) -> AsyncSession:
             yield session
         finally:
             await session.rollback()
-
 
 
 
