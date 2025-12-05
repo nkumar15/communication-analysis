@@ -85,6 +85,15 @@ All tenant onboarding phases complete! See [Completed Phases](./completed-phases
   - Basic page load tests passing (3/3)
   - Ready for full test scenario implementation
 
+- ✅ **Domain APIs & Multi-Tenancy** (2025-12-05)
+  - Projects, Tasks, and Comments APIs with CRUD operations
+  - Multi-tenant isolation with tenant_id enforcement
+  - Team-based scoping for projects and tasks
+  - RBAC integration with resource-level permissions
+  - Threaded comment system with parent-child relationships
+  - Comprehensive domain API testing (31 tests passing)
+  - Updated documentation with domain architecture guide
+
 ---
 
 ## ⏭️ Next Priority

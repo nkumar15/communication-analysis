@@ -1,0 +1,192 @@
+"""
+Integration tests for Tasks API
+
+Tests cover:
+- CRUD operations  
+- Project relationship
+- Status transitions
+- Team member assignment
+- Multi-tenant isolation
+"""
+import pytest
+from uuid import uuid4
+
+
+class TestTasksAPI:
+    """Test suite for Tasks endpoints"""
+    
+    @pytest.mark.asyncio
+    async def test_create_task(self, api_client, domain_test_data, team_project):
+        """Test creating a task"""
+        response = await api_client.post(
+            "/api/b2b/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "project_id": str(team_project),
+                "title": "New Task",
+                "description": "Task description"
+            }
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["title"] == "New Task"
+        assert data["status"] == "todo"
+    
+    @pytest.mark.asyncio
+    async def test_create_task_with_assignment(
+        self,
+        api_client,
+        domain_test_data,
+        team_project
+    ):
+        """Test creating task with team member assignment"""
+        response = await api_client.post(
+            "/api/b2b/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "project_id": str(team_project),
+                "title": "Assigned Task",
+                "assigned_to": str(domain_test_data['team_member'].id)
+            }
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["assigned_to"] == str(domain_test_data['team_member'].id)
+    
+    @pytest.mark.asyncio
+    async def test_cannot_assign_non_team_member(
+        self,
+        api_client,
+        domain_test_data,
+        team_project
+    ):
+        """Test cannot assign task to non-team member"""
+        response = await api_client.post(
+            "/api/b2b/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "project_id": str(team_project),
+                "title": "Task",
+                "assigned_to": str(domain_test_data['other_team_member'].id)
+            }
+        )
+        assert response.status_code == 400
+    
+    @pytest.mark.asyncio
+    async def test_list_tasks_by_project(
+        self,
+        api_client,
+        domain_test_data,
+        team_project,
+        team_task
+    ):
+        """Test filtering tasks by project"""
+        response = await api_client.get(
+            f"/api/b2b/tasks?project_id={team_project}",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 200
+        tasks = response.json()
+        assert len(tasks) >= 1
+        assert all(t["project_id"] == str(team_project) for t in tasks)
+    
+    @pytest.mark.asyncio
+    async def test_list_tasks_by_status(
+        self,
+        api_client,
+        domain_test_data,
+        team_task
+    ):
+        """Test filtering tasks by status"""
+        response = await api_client.get(
+            "/api/b2b/tasks?status=todo",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 200
+        tasks = response.json()
+        assert all(t["status"] == "todo" for t in tasks)
+    
+    @pytest.mark.asyncio
+    async def test_get_task(self, api_client, domain_test_data, team_task):
+        """Test getting specific task"""
+        response = await api_client.get(
+            f"/api/b2b/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == str(team_task)
+    
+    @pytest.mark.asyncio
+    async def test_update_task(self, api_client, domain_test_data, team_task):
+        """Test updating task details"""
+        response = await api_client.put(
+            f"/api/b2b/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={"title": "Updated Title"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "Updated Title"
+    
+    @pytest.mark.asyncio
+    async def test_update_task_status_via_patch(
+        self,
+        api_client,
+        domain_test_data,
+        team_task
+    ):
+        """Test status transition via PATCH endpoint"""
+        # todo -> in_progress
+        response = await api_client.patch(
+            f"/api/b2b/tasks/{team_task}/status?status=in_progress",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "in_progress"
+        
+        # in_progress -> done
+        response = await api_client.patch(
+            f"/api/b2b/tasks/{team_task}/status?status=done",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "done"
+    
+    @pytest.mark.asyncio
+    async def test_delete_task(self, api_client, domain_test_data, team_task):
+        """Test deleting a task"""
+        response = await api_client.delete(
+            f"/api/b2b/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 204
+    
+    @pytest.mark.asyncio
+    async def test_non_team_member_cannot_access_task(
+        self,
+        api_client,
+        domain_test_data,
+        team_task
+    ):
+        """Test user from different team cannot access task"""
+        response = await api_client.get(
+            f"/api/b2b/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['other_team_member_token']}"}
+        )
+        assert response.status_code == 403
+
+    
+    @pytest.mark.asyncio
+    async def test_multi_tenant_isolation(
+        self,
+        api_client,
+        domain_test_data,
+        team_task
+    ):
+        """Test tasks are isolated by tenant"""
+        response = await api_client.get(
+            f"/api/b2b/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['tenant2_owner_token']}"}
+        )
+        assert response.status_code == 403

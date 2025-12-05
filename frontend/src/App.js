@@ -12,7 +12,9 @@ import ProtectedRoute from './core/components/ProtectedRoute';
 import firebaseAuthService from './core/firebase/authService';
 import { auth } from './core/firebase/config';
 import RoleManagementPage from './modules/b2b/pages/RoleManagementPage';
-import FarmerManagementPage from './modules/domains/farming/pages/FarmerManagementPage';
+import ProjectsPage from './modules/domains/projects/pages/ProjectsPage';
+import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPage';
+import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
 import PlatformAdminRoute from './core/components/PlatformAdminRoute';
 import SuperAdminLayout from './modules/platform/layouts/SuperAdminLayout';
 import TenantList from './modules/platform/pages/TenantListPage';
@@ -104,7 +106,9 @@ function App() {
 
                 {/* New routes */}
                 <Route path="/roles" element={<ProtectedRoute><RoleManagementPage /></ProtectedRoute>} />
-                <Route path="/farmers" element={<ProtectedRoute><FarmerManagementPage /></ProtectedRoute>} />
+                <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+                <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
+                <Route path="/tasks/:taskId" element={<ProtectedRoute><TaskDetailPage /></ProtectedRoute>} />
                 <Route path="/b2b/teams" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
                 <Route path="/b2b/teams/:teamId" element={<ProtectedRoute><TeamDetailsPage /></ProtectedRoute>} />
                 <Route path="/settings/account" element={<ProtectedRoute><AccountSettingsPage /></ProtectedRoute>} />

@@ -296,7 +296,53 @@ make test-browser
 
 **Note on Caching:** The build uses a unified multi-stage Dockerfile. The `test` stage caches system and python dependencies (including Playwright browsers), so subsequent runs are very fast.
 
-### 4. End-to-End Activation Test
+### 5. Domain API Testing (Projects, Tasks, Comments)
+
+Test the core domain features with multi-tenant isolation and RBAC enforcement.
+
+**Run all domain tests:**
+```bash
+# All domain API tests (31 tests)
+docker-compose run --rm e2e-tests pytest tests/e2e_api/domain/ -v
+
+# Individual test files
+docker-compose run --rm e2e-tests pytest tests/e2e_api/domain/test_projects.py -v
+docker-compose run --rm e2e-tests pytest tests/e2e_api/domain/test_tasks.py -v
+docker-compose run --rm e2e-tests pytest tests/e2e_api/domain/test_comments.py -v
+```
+
+**Test coverage includes:**
+- ✅ CRUD operations for Projects, Tasks, Comments
+- ✅ Multi-tenant isolation (tenants cannot see each other's data)
+- ✅ Team-based scoping (members only see their team's projects)
+- ✅ RBAC permissions (owner, admin, team_member roles)
+- ✅ Task assignment validation
+- ✅ Threaded comment structure
+
+**Manual API testing:**
+```bash
+# 1. Seed domain data (creates resources for permission checks)
+docker-compose exec b2b-api python scripts/b2b/seed_domain_data.py
+
+# 2. Create a tenant with teams
+make reset-db
+
+# 3. Test via Swagger UI
+open http://localhost:8000/docs
+
+# 4. Create project, tasks, and comments via UI
+# Verify multi-tenant isolation by creating a second tenant
+```
+
+**Key test scenarios:**
+- Create project in team → Only team members can see it
+- Create task → Only assignable to team members
+- Add threaded comments → Replies nest correctly
+- Cross-tenant access → Returns 403 Forbidden
+
+See [Domain APIs Architecture](../architecture/domain-apis.md) for complete API documentation.
+
+### 6. End-to-End Activation Test
 
 **Complete flow:**
 

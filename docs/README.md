@@ -16,6 +16,7 @@ Welcome to the documentation hub for the Enterprise SSO project.
 *Technical design, concepts, and data flows.*
 
 - **[Overview](./architecture/overview.md)**: High-level system architecture and tech stack.
+- **[Domain APIs](./architecture/domain-apis.md)**: Projects, Tasks, and Comments APIs.
 - **[RBAC System](./architecture/rbac.md)**: Deep dive into the Role-Based Access Control model.
 - **[UI Components](./architecture/ui-components.md)**: Design system and reusable frontend components.
 - **[Tenant Onboarding Flow](./architecture/flows/tenant-onboarding.md)**: Detailed API sequence diagram for tenant creation.

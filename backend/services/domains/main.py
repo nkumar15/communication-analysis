@@ -20,7 +20,11 @@ from core.logging.middleware import LoggingMiddleware
 logger = get_logger(__name__)
 
 # Import domain-specific routers
-from services.domains.farming.routers import farmers
+from services.domains.projects.routers import (
+    projects_router,
+    tasks_router,
+    comments_router
+)
 
 
 @asynccontextmanager
@@ -50,7 +54,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="Domain Logic API",
-    description="Domain-specific business logic API for farming and other specialized features",
+    description="Domain-specific business logic API for projects, tasks, and comments",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
@@ -70,7 +74,9 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 
 # Include domain-specific routers
-app.include_router(farmers.router)
+app.include_router(projects_router)
+app.include_router(tasks_router)
+app.include_router(comments_router)
 
 
 @app.get("/")

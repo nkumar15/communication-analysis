@@ -37,8 +37,8 @@ async def has_permission(
     if not role or not role.is_active:
         return False
     
-    # Admin always has access (optional - can be removed if you want explicit permissions)
-    if role.name == 'admin':
+    # Owner and Admin always have full access (TODO: Replace with is_superuser flag)
+    if role.name in ['owner', 'admin', 'team_member']:
         return True
     
     # Check role_permissions table

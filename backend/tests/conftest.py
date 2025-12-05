@@ -50,6 +50,9 @@ async def db_session(test_db_engine) -> AsyncSession:
             await session.rollback()
 
 
+
+
+
 @pytest_asyncio.fixture
 async def api_client(db_session):
     """Create API client with dependency overrides"""
@@ -60,8 +63,12 @@ async def api_client(db_session):
     
     # Override auth dependency to verify mock tokens
     from core.middleware.auth import get_current_user, bearer_scheme
+    from services.b2b.middleware.b2b_auth import get_current_active_user
     from fastapi import Depends, HTTPException, status
     from fastapi.security import HTTPAuthorizationCredentials
+    from services.b2b.models.user import UserModel
+    from services.b2b.models.rbac import Role
+    from sqlalchemy import select
     import json 
     import base64
     
@@ -91,9 +98,44 @@ async def api_client(db_session):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
             )
+    
+    async def override_get_current_active_user(
+        decoded_token: dict = Depends(override_get_current_user)
+    ):
+        """Enrich token with user data from database"""
+        firebase_uid = decoded_token.get('uid')
+        if not firebase_uid:
+            raise HTTPException(status_code=401, detail="Invalid token")
+            
+        result = await db_session.execute(select(UserModel).where(UserModel.firebase_uid == firebase_uid))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        # Fetch role slug and display name
+        role_slug = None
+        role_display_name = None
+        if user.role_id:
+            role_result = await db_session.execute(select(Role).where(Role.id == user.role_id))
+            role_obj = role_result.scalar_one_or_none()
+            if role_obj:
+                role_slug = role_obj.name
+                role_display_name = role_obj.display_name
+
+        return {
+            "id": user.id,
+            "email": user.email,
+            "firebase_uid": user.firebase_uid,
+            "tenant_id": user.tenant_id,
+            "role_id": user.role_id,
+            "role": role_slug,
+            "role_display_name": role_display_name
+        }
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
     
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client

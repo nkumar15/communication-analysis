@@ -13,7 +13,7 @@ from core.utils.firebase import firebase_auth_service
 
 # Import ALL routers for testing
 from services.b2b.routers import auth, activation, invitations, users, roles, teams, account
-from services.domains.farming.routers import farmers
+from services.domains.projects.routers import projects, tasks, comments
 from services.platform.routers import platform
 
 
@@ -56,8 +56,10 @@ app.include_router(invitations.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(teams.router)
-app.include_router(account.router)  # NEW
-app.include_router(farmers.router)
+app.include_router(account.router)
+app.include_router(projects.router)
+app.include_router(tasks.router)
+app.include_router(comments.router)
 app.include_router(platform.router)
 
 

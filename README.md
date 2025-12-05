@@ -4,14 +4,25 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 
 ## 🎯 Key Features
 
+### Core Platform
 - **Automated Tenant Onboarding** - CLI-driven tenant provisioning with zero manual configuration
-- **Multi-Tenant Architecture** - Complete data isolation per tenant
+- **Multi-Tenant Architecture** - Complete data isolation per tenant with team-based scoping  
 - **Firebase GCIP** - Google Cloud Identity Platform for enterprise SSO
 - **OIDC Integration** - Auth0, Okta, Azure AD, Google Workspace support
+- **Stateless JWT Auth** - No session management, fully scalable
+
+### User Management
 - **Activation Workflow** - Self-service tenant activation via email link
 - **Invitation System** - Role-based user invitations with email workflow
-- **Stateless JWT Auth** - No session management, fully scalable
-- **Microservices** - Independent B2B, Platform, and B2C services
+- **RBAC** - Granular permission system with resource-level access control
+- **Teams** - Organize users into teams with isolated workspaces
+
+### Domain Features  
+- **Project Management** - Create and manage projects within teams
+- **Task Tracking** - Assign tasks with status transitions and priority levels
+- **Threaded Comments** - Contextual discussions on tasks with nested replies
+- **Multi-Service Architecture** - Independent B2B, Platform, and B2C services
+
 
 ---
 

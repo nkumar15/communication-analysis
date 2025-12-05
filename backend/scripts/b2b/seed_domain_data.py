@@ -28,25 +28,36 @@ if __name__ == "__main__":
 
     async def seed_domain_resources(db: AsyncSession) -> None:
         """
-        Seed DOMAIN-SPECIFIC resources (Agriculture Business)
+        Seed DOMAIN-SPECIFIC resources (Task Management)
         
-        ⚠️ WARNING: This is NOT SaaS boilerplate!
-        These resources are specific to the agriculture deployment.
-        For a different domain (e.g., ecommerce), replace 'farmers' with 
-        domain-appropriate resources like 'products', 'orders', 'inventory', etc.
+        These resources are for the task management and collaboration domain.
+        For a different domain (e.g., ecommerce), replace with domain-appropriate 
+        resources like 'products', 'orders', 'inventory', etc.
         """
-        result = await db.execute(select(Resource).where(Resource.name == 'farmers'))
+        result = await db.execute(select(Resource).where(Resource.name == 'projects'))
         if result.scalar_one_or_none():
             print("✓ Domain resources already seeded")
             return
         
-        print("Seeding domain resources (Agriculture)...")
+        print("Seeding domain resources (Task Management)...")
         domain_resources = [
             Resource(
-                name='farmers',
-                display_name='Farmer Management',
-                category='Domain',  # Use 'Domain' category to distinguish from boilerplate
-                description='Farmer onboarding and data management (agriculture-specific)'
+                name='projects',
+                display_name='Projects',
+                category='Domain',
+                description='Project management and team collaboration'
+            ),
+            Resource(
+                name='tasks',
+                display_name='Tasks',
+                category='Domain',
+                description='Task tracking and assignment'
+            ),
+            Resource(
+                name='comments',
+                display_name='Comments',
+                category='Domain',
+                description='Task comments and discussions'
             ),
         ]
         db.add_all(domain_resources)
@@ -54,44 +65,63 @@ if __name__ == "__main__":
         print(f"✓ Seeded {len(domain_resources)} domain resources")
 
     async def seed_domain_role_templates(db: AsyncSession) -> None:
-        """Seed domain-specific role templates"""
-        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'field_manager'))
-        if result.scalar_one_or_none():
-            print("✓ Domain role templates already seeded")
-            return
+        """
+        Update existing role templates with domain permissions
         
-        print("Seeding domain role templates...")
-        domain_templates = [
-            RoleTemplate(
-                name='field_manager',
-                display_name='Field Manager',
-                description='Manages field operations and farmer relationships',
-                is_system_role=False,
-                is_default=True,  # Agriculture deployment: core role for this business
-                permissions=[
-                    {"resource": "farmers", "actions": ["read", "write", "delete"]},
-                    {"resource": "users", "actions": ["read"]},
-                ]
-            ),
-            RoleTemplate(
-                name='field_agent',
-                display_name='Field Agent',
-                description='Limited access for field operations',
-                is_system_role=False,
-                is_default=True,  # Agriculture deployment: core role for this business
-                permissions=[
-                    {"resource": "farmers", "actions": ["read", "write"]},
-                ]
-            ),
-        ]
-        db.add_all(domain_templates)
-        await db.commit()
-        print(f"✓ Seeded {len(domain_templates)} domain role templates")
+        Adds projects, tasks, and comments permissions to standard roles
+        """
+        print("Updating role templates with domain permissions...")
+        
+        # Update owner role
+        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'owner'))
+        owner = result.scalar_one_or_none()
+        if owner:
+            # Add domain permissions if not already present
+            domain_perms = [
+                {"resource": "projects", "actions": ["read", "write", "delete"]},
+                {"resource": "tasks", "actions": ["read", "write", "delete"]},
+                {"resource": "comments", "actions": ["read", "write", "delete"]},
+            ]
+            for perm in domain_perms: 
+                if perm not in owner.permissions:
+                    owner.permissions.append(perm)
+            await db.commit()
+            print("✓ Updated owner role with domain permissions")
+        
+        # Update admin role
+        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'admin'))
+        admin = result.scalar_one_or_none()
+        if admin:
+            domain_perms = [
+                {"resource": "projects", "actions": ["read", "write", "delete"]},
+                {"resource": "tasks", "actions": ["read", "write", "delete"]},
+                {"resource": "comments", "actions": ["read", "write", "delete"]},
+            ]
+            for perm in domain_perms:
+                if perm not in admin.permissions:
+                    admin.permissions.append(perm)
+            await db.commit()
+            print("✓ Updated admin role with domain permissions")
+        
+        # Update member role
+        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'member'))
+        member = result.scalar_one_or_none()
+        if member:
+            domain_perms = [
+                {"resource": "projects", "actions": ["read"]},
+                {"resource": "tasks", "actions": ["read", "write"]},
+                {"resource": "comments", "actions": ["read", "write"]},
+            ]
+            for perm in domain_perms:
+                if perm not in member.permissions:
+                    member.permissions.append(perm)
+            await db.commit()
+            print("✓ Updated member role with domain permissions")
 
     async def main():
         """Main seeding function"""
         print("\n" + "="*50)
-        print("Domain Data Seeding")
+        print("Domain Data Seeding - Task Management")
         print("="*50 + "\n")
         
         if not database_url:
