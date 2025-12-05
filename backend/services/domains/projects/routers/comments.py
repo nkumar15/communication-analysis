@@ -16,7 +16,7 @@ from services.domains.projects.scope_checker import can_access_task
 from services.domains.projects.models.comment import Comment
 from services.domains.projects.schemas.comments import CommentCreate, CommentUpdate, CommentResponse, CommentResponseWithReplies
 
-router = APIRouter(prefix="/api/b2b/comments", tags=["comments"])
+router = APIRouter(prefix="/api/domain/comments", tags=["comments"])
 
 
 def build_comment_tree(comments: List[Comment]) -> List[dict]:

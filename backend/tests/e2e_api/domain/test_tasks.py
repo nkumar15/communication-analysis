@@ -19,7 +19,7 @@ class TestTasksAPI:
     async def test_create_task(self, api_client, domain_test_data, team_project):
         """Test creating a task"""
         response = await api_client.post(
-            "/api/b2b/tasks",
+            "/api/domain/tasks",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "project_id": str(team_project),
@@ -41,7 +41,7 @@ class TestTasksAPI:
     ):
         """Test creating task with team member assignment"""
         response = await api_client.post(
-            "/api/b2b/tasks",
+            "/api/domain/tasks",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "project_id": str(team_project),
@@ -62,7 +62,7 @@ class TestTasksAPI:
     ):
         """Test cannot assign task to non-team member"""
         response = await api_client.post(
-            "/api/b2b/tasks",
+            "/api/domain/tasks",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "project_id": str(team_project),
@@ -82,7 +82,7 @@ class TestTasksAPI:
     ):
         """Test filtering tasks by project"""
         response = await api_client.get(
-            f"/api/b2b/tasks?project_id={team_project}",
+            f"/api/domain/tasks?project_id={team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -99,7 +99,7 @@ class TestTasksAPI:
     ):
         """Test filtering tasks by status"""
         response = await api_client.get(
-            "/api/b2b/tasks?status=todo",
+            "/api/domain/tasks?status=todo",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -110,7 +110,7 @@ class TestTasksAPI:
     async def test_get_task(self, api_client, domain_test_data, team_task):
         """Test getting specific task"""
         response = await api_client.get(
-            f"/api/b2b/tasks/{team_task}",
+            f"/api/domain/tasks/{team_task}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -121,7 +121,7 @@ class TestTasksAPI:
     async def test_update_task(self, api_client, domain_test_data, team_task):
         """Test updating task details"""
         response = await api_client.put(
-            f"/api/b2b/tasks/{team_task}",
+            f"/api/domain/tasks/{team_task}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={"title": "Updated Title"}
         )
@@ -139,7 +139,7 @@ class TestTasksAPI:
         """Test status transition via PATCH endpoint"""
         # todo -> in_progress
         response = await api_client.patch(
-            f"/api/b2b/tasks/{team_task}/status?status=in_progress",
+            f"/api/domain/tasks/{team_task}/status?status=in_progress",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -147,7 +147,7 @@ class TestTasksAPI:
         
         # in_progress -> done
         response = await api_client.patch(
-            f"/api/b2b/tasks/{team_task}/status?status=done",
+            f"/api/domain/tasks/{team_task}/status?status=done",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -157,7 +157,7 @@ class TestTasksAPI:
     async def test_delete_task(self, api_client, domain_test_data, team_task):
         """Test deleting a task"""
         response = await api_client.delete(
-            f"/api/b2b/tasks/{team_task}",
+            f"/api/domain/tasks/{team_task}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 204
@@ -171,7 +171,7 @@ class TestTasksAPI:
     ):
         """Test user from different team cannot access task"""
         response = await api_client.get(
-            f"/api/b2b/tasks/{team_task}",
+            f"/api/domain/tasks/{team_task}",
             headers={"Authorization": f"Bearer {domain_test_data['other_team_member_token']}"}
         )
         assert response.status_code == 403
@@ -186,7 +186,7 @@ class TestTasksAPI:
     ):
         """Test tasks are isolated by tenant"""
         response = await api_client.get(
-            f"/api/b2b/tasks/{team_task}",
+            f"/api/domain/tasks/{team_task}",
             headers={"Authorization": f"Bearer {domain_test_data['tenant2_owner_token']}"}
         )
         assert response.status_code == 403

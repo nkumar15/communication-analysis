@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs logs-b2b logs-platform logs-b2c logs-domain logs-all ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed frontend-install frontend-start frontend-build up-backend dev shell-b2b shell-platform shell-b2c shell-domain clean clean-all test-api test-platform-api test-b2b-api test-core-api test-browser test-all test-env
+.PHONY: help setup status up down restart build logs logs-b2b logs-platform logs-b2c logs-domain logs-nginx logs-all ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed frontend-install frontend-start frontend-build up-backend dev shell-b2b shell-platform shell-b2c shell-domain gateway-test gateway-health clean clean-all test-api test-platform-api test-b2b-api test-core-api test-browser test-all test-env
 
 # Default target
 .DEFAULT_GOAL := help
@@ -63,24 +63,31 @@ status: ## Show status of all services and configuration
 	@$(MAKE) test-env
 	@echo ""
 	@echo "$(BLUE)=== URLs ===$(NC)"
+	@echo "API Gateway:    http://localhost:8080          (nginx - all APIs)"
+	@echo "  └─ Health:    http://localhost:8080/health"
+	@echo "  └─ B2B Docs:  http://localhost:8080/docs/b2b"
+	@echo "  └─ Plat Docs: http://localhost:8080/docs/platform"
+	@echo "  └─ B2C Docs:  http://localhost:8080/docs/b2c"
+	@echo "  └─ Dom Docs:  http://localhost:8080/docs/domain"
 	@echo "Frontend:       http://localhost:3000"
-	@echo "B2B API:        http://localhost:8000/docs"
-	@echo "Platform API:   http://localhost:8001/docs"
-	@echo "B2C API:        http://localhost:8002/docs"
-	@echo "Domain API:     http://localhost:8003/docs"
+	@echo "B2B API:        http://localhost:8000/docs    (direct)"
+	@echo "Platform API:   http://localhost:8001/docs    (direct)"
+	@echo "B2C API:        http://localhost:8002/docs    (direct)"
+	@echo "Domain API:     http://localhost:8003/docs    (direct)"
 	@echo "PostgreSQL:     localhost:5432"
 
 ##@ Docker Services
 
-up: ## Start all services (Postgres + Backend)
+up: ## Start all services (Postgres + Backend + Gateway)
 	@echo "$(BLUE)Starting services...$(NC)"
 	docker-compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
+	@echo "API Gateway:  http://localhost:8080          (recommended)"
 	@echo "Frontend:     http://localhost:3000"
-	@echo "B2B API:      http://localhost:8000/docs"
-	@echo "Platform API: http://localhost:8001/docs"
-	@echo "B2C API:      http://localhost:8002/docs"
-	@echo "Domain API:   http://localhost:8003/docs"
+	@echo "B2B API:      http://localhost:8000/docs    (direct)"
+	@echo "Platform API: http://localhost:8001/docs    (direct)"
+	@echo "B2C API:      http://localhost:8002/docs    (direct)"
+	@echo "Domain API:   http://localhost:8003/docs    (direct)"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
@@ -108,6 +115,9 @@ logs-b2c: ## View B2C API logs
 
 logs-domain: ## View Domain API logs
 	docker-compose logs -f domain-api
+
+logs-nginx: ## View nginx gateway logs
+	docker-compose logs -f nginx
 
 logs-all: ## View all service logs (follow mode)
 	docker-compose logs -f
@@ -264,3 +274,32 @@ test-env: ## Validate environment configuration
 			echo "$(YELLOW)✗ $$file missing$(NC)"; \
 		fi \
 	done
+##@ API Gateway
+
+gateway-health: ## Test gateway health check
+	@echo "$(BLUE)Testing gateway health...$(NC)"
+	@curl -s http://localhost:8080/health || echo "$(YELLOW)⚠ Gateway not responding$(NC)"
+	@echo ""
+
+gateway-test: ## Test gateway routing to all services
+	@echo "$(BLUE)Testing API Gateway routing...$(NC)"
+	@echo ""
+	@echo "$(BLUE)Gateway Health:$(NC)"
+	@curl -s http://localhost:8080/health && echo "" || echo "$(YELLOW)✗ Gateway unhealthy$(NC)"
+	@echo ""
+	@echo "$(BLUE)Gateway Info:$(NC)"
+	@curl -s http://localhost:8080/gateway/info | python3 -m json.tool 2>/dev/null || echo "$(YELLOW)✗ Gateway info unavailable$(NC)"
+	@echo ""
+	@echo "$(BLUE)B2B API (via gateway):$(NC)"
+	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/b2b/
+	@echo ""
+	@echo "$(BLUE)Platform API (via gateway):$(NC)"
+	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/platform/
+	@echo ""
+	@echo "$(BLUE)B2C API (via gateway):$(NC)"
+	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/b2c/
+	@echo ""
+	@echo "$(BLUE)Domain API (via gateway):$(NC)"
+	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/domain/
+	@echo ""
+	@echo "$(GREEN)✓ Gateway test complete$(NC)"

@@ -23,7 +23,7 @@ class TestCommentsAPI:
     ):
         """Test creating a comment on task"""
         response = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "task_id": str(team_task),
@@ -46,7 +46,7 @@ class TestCommentsAPI:
     ):
         """Test creating a reply to a comment"""
         response = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "task_id": str(team_task),
@@ -68,7 +68,7 @@ class TestCommentsAPI:
         """Test cannot use parent comment from different task"""
         # Create a different task
         resp = await api_client.post(
-            "/api/b2b/tasks",
+            "/api/domain/tasks",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "project_id": str(other_team_project),
@@ -79,7 +79,7 @@ class TestCommentsAPI:
         
         # Create comment on first task
         resp = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "task_id": other_task_id,
@@ -94,7 +94,7 @@ class TestCommentsAPI:
         fake_task = str(uuid4())
         
         response = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "task_id": fake_task,
@@ -115,7 +115,7 @@ class TestCommentsAPI:
         """Test listing comments with threaded structure"""
         # Create a reply
         await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "task_id": str(team_task),
@@ -126,7 +126,7 @@ class TestCommentsAPI:
         
         # List comments
         response = await api_client.get(
-            f"/api/b2b/comments/task/{team_task}",
+            f"/api/domain/comments/task/{team_task}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -148,7 +148,7 @@ class TestCommentsAPI:
         """Test user can update their own comment"""
         # Create comment as team member
         resp = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"},
             json={
                 "task_id": str(team_task),
@@ -159,7 +159,7 @@ class TestCommentsAPI:
         
         # Update own comment
         response = await api_client.put(
-            f"/api/b2b/comments/{comment_id}",
+            f"/api/domain/comments/{comment_id}",
             headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"},
             json={"content": "Updated content"}
         )
@@ -176,7 +176,7 @@ class TestCommentsAPI:
         """Test user cannot update someone else's comment"""
         # Create comment as team member
         resp = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"},
             json={
                 "task_id": str(team_task),
@@ -187,7 +187,7 @@ class TestCommentsAPI:
         
         # Try to update as different user
         response = await api_client.put(
-            f"/api/b2b/comments/{comment_id}",
+            f"/api/domain/comments/{comment_id}",
             headers={"Authorization": f"Bearer {domain_test_data['other_team_member_token']}"},
             json={"content": "Hacked!"}
         )
@@ -202,7 +202,7 @@ class TestCommentsAPI:
     ):
         """Test owner can update any comment"""
         response = await api_client.put(
-            f"/api/b2b/comments/{team_comment}",
+            f"/api/domain/comments/{team_comment}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={"content": "Owner edit"}
         )
@@ -218,7 +218,7 @@ class TestCommentsAPI:
         """Test user can delete their own comment"""
         # Create comment
         resp = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"},
             json={
                 "task_id": str(team_task),
@@ -229,7 +229,7 @@ class TestCommentsAPI:
         
         # Delete own comment
         response = await api_client.delete(
-            f"/api/b2b/comments/{comment_id}",
+            f"/api/domain/comments/{comment_id}",
             headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"}
         )
         assert response.status_code == 204
@@ -243,7 +243,7 @@ class TestCommentsAPI:
     ):
         """Test user from different team cannot comment on task"""
         response = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['other_team_member_token']}"},
             json={
                 "task_id": str(team_task),
@@ -262,7 +262,7 @@ class TestCommentsAPI:
         """Test comments are isolated by tenant"""
         # Tenant 2 owner cannot comment on Tenant 1 task
         response = await api_client.post(
-            "/api/b2b/comments",
+            "/api/domain/comments",
             headers={"Authorization": f"Bearer {domain_test_data['tenant2_owner_token']}"},
             json={
                 "task_id": str(team_task),

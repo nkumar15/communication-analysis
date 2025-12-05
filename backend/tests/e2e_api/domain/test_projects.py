@@ -18,7 +18,7 @@ class TestProjectsAPI:
     async def test_create_project(self, api_client, domain_test_data):
         """Test creating a project"""
         response = await api_client.post(
-            "/api/b2b/projects",
+            "/api/domain/projects",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "team_id": str(domain_test_data['default_team'].id),
@@ -36,7 +36,7 @@ class TestProjectsAPI:
     async def test_create_project_nonexistent_team(self, api_client, domain_test_data):
         """Test project creation with non-existent team fails"""
         response = await api_client.post(
-            "/api/b2b/projects",
+            "/api/domain/projects",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={
                 "team_id": str(uuid4()),
@@ -56,7 +56,7 @@ class TestProjectsAPI:
     ):
         """Test listing projects returns only user's team projects"""
         response = await api_client.get(
-            "/api/b2b/projects",
+            "/api/domain/projects",
             headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"}
         )
         assert response.status_code == 200
@@ -75,7 +75,7 @@ class TestProjectsAPI:
     ):
         """Test owner can see all projects in tenant"""
         response = await api_client.get(
-            "/api/b2b/projects",
+            "/api/domain/projects",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -88,7 +88,7 @@ class TestProjectsAPI:
     async def test_get_project(self, api_client, domain_test_data, team_project):
         """Test getting specific project"""
         response = await api_client.get(
-            f"/api/b2b/projects/{team_project}",
+            f"/api/domain/projects/{team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 200
@@ -99,7 +99,7 @@ class TestProjectsAPI:
     async def test_update_project(self, api_client, domain_test_data, team_project):
         """Test updating project"""
         response = await api_client.put(
-            f"/api/b2b/projects/{team_project}",
+            f"/api/domain/projects/{team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={"name": "Updated Project Name"}
         )
@@ -111,7 +111,7 @@ class TestProjectsAPI:
     async def test_archive_project(self, api_client, domain_test_data, team_project):
         """Test archiving a project"""
         response = await api_client.put(
-            f"/api/b2b/projects/{team_project}",
+            f"/api/domain/projects/{team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
             json={"status": "archived"}
         )
@@ -123,14 +123,14 @@ class TestProjectsAPI:
     async def test_delete_project(self, api_client, domain_test_data, team_project):
         """Test deleting a project"""
         response = await api_client.delete(
-            f"/api/b2b/projects/{team_project}",
+            f"/api/domain/projects/{team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 204
         
         # Verify project is deleted (returns 403 because access check fails first)
         response = await api_client.get(
-            f"/api/b2b/projects/{team_project}",
+            f"/api/domain/projects/{team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 403
@@ -144,7 +144,7 @@ class TestProjectsAPI:
     ):
         """Test user from different team cannot access project"""
         response = await api_client.get(
-            f"/api/b2b/projects/{team_project}",
+            f"/api/domain/projects/{team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['other_team_member_token']}"}
         )
         assert response.status_code == 403
@@ -160,14 +160,14 @@ class TestProjectsAPI:
         """Test projects are isolated by tenant"""
         # Tenant 1 owner cannot see Tenant 2 project
         response = await api_client.get(
-            f"/api/b2b/projects/{tenant2_project}",
+            f"/api/domain/projects/{tenant2_project}",
             headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
         )
         assert response.status_code == 403
         
         # Tenant 2 owner cannot see Tenant 1 project
         response = await api_client.get(
-            f"/api/b2b/projects/{team_project}",
+            f"/api/domain/projects/{team_project}",
             headers={"Authorization": f"Bearer {domain_test_data['tenant2_owner_token']}"}
         )
         assert response.status_code == 403

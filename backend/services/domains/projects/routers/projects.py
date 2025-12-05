@@ -20,7 +20,7 @@ from services.domains.projects.scope_checker import (
 from services.domains.projects.models.project import Project
 from services.domains.projects.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
 
-router = APIRouter(prefix="/api/b2b/projects", tags=["projects"])
+router = APIRouter(prefix="/api/domain/projects", tags=["projects"])
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)

@@ -20,7 +20,7 @@ from services.domains.projects.models.task import Task
 from services.domains.projects.models.project import Project
 from services.domains.projects.schemas.tasks import TaskCreate, TaskUpdate, TaskResponse
 
-router = APIRouter(prefix="/api/b2b/tasks", tags=["tasks"])
+router = APIRouter(prefix="/api/domain/tasks", tags=["tasks"])
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
