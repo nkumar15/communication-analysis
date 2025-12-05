@@ -31,7 +31,7 @@ Tenant
 
 ## Projects API
 
-**Endpoint:** `/api/b2b/projects`
+**Endpoint:** `/api/domain/projects`
 
 ### Features
 
@@ -50,16 +50,16 @@ Tenant
 ### Key Endpoints
 
 ```
-POST   /api/b2b/projects          # Create project
-GET    /api/b2b/projects          # List projects (team-scoped)
-GET    /api/b2b/projects/{id}     # Get project details
-PUT    /api/b2b/projects/{id}     # Update project
-DELETE /api/b2b/projects/{id}     # Delete project
+POST   /api/domain/projects          # Create project
+GET    /api/domain/projects          # List projects (team-scoped)
+GET    /api/domain/projects/{id}     # Get project details
+PUT    /api/domain/projects/{id}     # Update project
+DELETE /api/domain/projects/{id}     # Delete project
 ```
 
 ## Tasks API
 
-**Endpoint:** `/api/b2b/tasks`
+**Endpoint:** `/api/domain/tasks`
 
 ### Features
 
@@ -75,7 +75,7 @@ DELETE /api/b2b/projects/{id}     # Delete project
 todo → in_progress → done
 ```
 
-Status transitions enforced via `PATCH /api/b2b/tasks/{id}/status`
+Status transitions enforced via `PATCH /api/domain/tasks/{id}/status`
 
 ### Access Control
 
@@ -87,12 +87,12 @@ Status transitions enforced via `PATCH /api/b2b/tasks/{id}/status`
 ### Key Endpoints
 
 ```
-POST   /api/b2b/tasks                    # Create task
-GET    /api/b2b/tasks                    # List tasks (filterable)
-GET    /api/b2b/tasks/{id}               # Get task details
-PUT    /api/b2b/tasks/{id}               # Update task
-PATCH  /api/b2b/tasks/{id}/status        # Update status
-DELETE /api/b2b/tasks/{id}               # Delete task
+POST   /api/domain/tasks                    # Create task
+GET    /api/domain/tasks                    # List tasks (filterable)
+GET    /api/domain/tasks/{id}               # Get task details
+PUT    /api/domain/tasks/{id}               # Update task
+PATCH  /api/domain/tasks/{id}/status        # Update status
+DELETE /api/domain/tasks/{id}               # Delete task
 ```
 
 ### Query Parameters
@@ -103,7 +103,7 @@ DELETE /api/b2b/tasks/{id}               # Delete task
 
 ## Comments API
 
-**Endpoint:** `/api/b2b/comments`
+**Endpoint:** `/api/domain/comments`
 
 ### Features
 
@@ -136,10 +136,10 @@ Comment {
 ### Key Endpoints
 
 ```
-POST   /api/b2b/comments              # Create comment
-GET    /api/b2b/comments/task/{id}    # List comments (threaded)
-PUT    /api/b2b/comments/{id}         # Update comment
-DELETE /api/b2b/comments/{id}         # Delete comment
+POST   /api/domain/comments              # Create comment
+GET    /api/domain/comments/task/{id}    # List comments (threaded)
+PUT    /api/domain/comments/{id}         # Update comment
+DELETE /api/domain/comments/{id}         # Delete comment
 ```
 
 ### Response Schemas

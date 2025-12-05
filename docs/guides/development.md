@@ -26,8 +26,7 @@ make setup
 # Add Firebase credentials to secrets/firebase-credentials.json
 
 # IMPORTANT: Set frontend API URLs in frontend/.env
-REACT_APP_API_URL=http://localhost:8000
-REACT_APP_PLATFORM_API_URL=http://localhost:8001
+REACT_APP_API_URL=http://localhost:8080
 
 # 3. Start all services
 make up          # Starts all backend APIs + frontend in Docker
@@ -544,9 +543,7 @@ REACT_APP_FIREBASE_MESSAGING_SENDER_ID=xxx
 REACT_APP_FIREBASE_APP_ID=xxx
 
 # Backend API URLs (IMPORTANT: Must use localhost, not Docker hostnames)
-REACT_APP_API_URL=http://localhost:8000          # B2B API
-REACT_APP_PLATFORM_API_URL=http://localhost:8001 # Platform API
-REACT_APP_API_URL=http://localhost:8000
+REACT_APP_API_URL=http://localhost:8080 # API Gateway
 ```
 
 ---
