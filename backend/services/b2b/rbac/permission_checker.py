@@ -27,13 +27,21 @@ async def has_permission(
     Returns:
         bool: True if user has permission, False otherwise
     """
-    # Get user's role
-    user = await db.get(UserModel, user_id)
+    # Get user's role using explicit query (respects RLS)
+    user_result = await db.execute(
+        select(UserModel).where(UserModel.id == user_id)
+    )
+    user = user_result.scalar_one_or_none()
+    
     if not user or not user.role_id:
         return False
     
-    # Get role
-    role = await db.get(Role, user.role_id)
+    # Get role using explicit query (respects RLS)
+    role_result = await db.execute(
+        select(Role).where(Role.id == user.role_id)
+    )
+    role = role_result.scalar_one_or_none()
+    
     if not role or not role.is_active:
         return False
     
@@ -66,11 +74,21 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     Returns:
         list: List of permission strings like ['farmers:read', 'users:write']
     """
-    user = await db.get(UserModel, user_id)
+    # Get user using explicit query (respects RLS)
+    user_result = await db.execute(
+        select(UserModel).where(UserModel.id == user_id)
+    )
+    user = user_result.scalar_one_or_none()
+    
     if not user or not user.role_id:
         return []
     
-    role = await db.get(Role, user.role_id)
+    # Get role using explicit query (respects RLS)
+    role_result = await db.execute(
+        select(Role).where(Role.id == user.role_id)
+    )
+    role = role_result.scalar_one_or_none()
+    
     if not role or not role.is_active:
         return []
     
@@ -101,9 +119,19 @@ async def get_user_role_name(user_id: UUID, db: AsyncSession) -> str | None:
     Returns:
         str | None: Role name ('admin', 'field_manager', 'field_agent') or None
     """
-    user = await db.get(UserModel, user_id)
+    # Get user using explicit query (respects RLS)
+    user_result = await db.execute(
+        select(UserModel).where(UserModel.id == user_id)
+    )
+    user = user_result.scalar_one_or_none()
+    
     if not user or not user.role_id:
         return None
     
-    role = await db.get(Role, user.role_id)
+    # Get role using explicit query (respects RLS)
+    role_result = await db.execute(
+        select(Role).where(Role.id == user.role_id)
+    )
+    role = role_result.scalar_one_or_none()
+    
     return role.name if role else None

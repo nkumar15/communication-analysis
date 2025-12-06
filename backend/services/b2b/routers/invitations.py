@@ -327,7 +327,6 @@ async def cancel_invitation(
     
     # Delete invitation
     await db.delete(invitation)
-    await db.delete(invitation)
     # await db.commit() - Handled by dependency
     
     return {"message": "Invitation cancelled successfully"}

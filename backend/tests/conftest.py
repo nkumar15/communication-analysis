@@ -556,18 +556,17 @@ async def create_test_user(
     """Create a test user"""
     from services.b2b.models import UserModel
     from services.b2b.models.rbac import Role
-    from sqlalchemy import select
+    from sqlalchemy import select, text
     
-    # Get role by slug
+    # Set RLS context for this user's tenant FIRST
+    # This is CRITICAL because the role query below requires RLS context
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'"))
+    
+    # Get role by slug (now with RLS context set)
     result = await db_session.execute(
         select(Role).where(Role.name == role_slug).where(Role.tenant_id == tenant_id)
     )
     role = result.scalar_one_or_none()
-    
-    from sqlalchemy import text
-    
-    # Set RLS context for this user's tenant
-    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'"))
     
     user = UserModel(
         tenant_id=tenant_id,

@@ -119,5 +119,8 @@ class TestMultiTenantIsolation:
             headers={"Authorization": f"Bearer {jwt_a}"}
         )
         
-        # Should be forbidden
-        assert response.status_code == 403
+        # Should be not found (RLS makes it invisible to tenant A)
+        # RLS policy prevents tenant A from seeing tenant B's invitations,
+        # so the invitation appears to not exist (404) rather than forbidden (403)
+        # This is the correct security behavior - we don't leak that the resource exists
+        assert response.status_code == 404
