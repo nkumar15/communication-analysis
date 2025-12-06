@@ -209,6 +209,21 @@ async def complete_activation(
             detail="Only owners or admins can activate tenants"
         )
     
+    # Verify email matches the invitation
+    # This prevents any owner from activating if they weren't the intended recipient
+    invitation = await invitation_service.get_invitation_by_token(db, request.activation_token)
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found or already accepted"
+        )
+        
+    if user.email != invitation.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User email does not match the invitation email"
+        )
+
     # Mark invitation as accepted
     await invitation_service.accept_invitation(db, request.activation_token)
     

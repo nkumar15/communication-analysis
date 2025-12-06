@@ -362,3 +362,47 @@ result = await tenant_session.execute(select(User))  # RLS auto-applied
 | `pytest -m security` | Run only tests marked as `@pytest.mark.security` |
 | `pytest -k "invitation"` | Run tests matching substring "invitation" |
 | `pytest --pdb` | Drop into debugger on failure |
+
+---
+
+## 🛡️ Security & Middleware Testing (Critical)
+
+**Lesson Learned:** Do not bypass security middleware in tests.
+
+### ❌ Dangerous Pattern: Middleware Overrides
+**NEVER** override the core authentication/authorization middleware (`get_current_active_user`) in `conftest.py` just to simplify tests. 
+
+**Why?**
+- It hides security logic bugs (e.g., missing activation checks, banned user checks).
+- Tests will pass even if the production security logic is broken or missing.
+- It creates a false sense of security.
+
+**Wrong:**
+```python
+# conftest.py
+async def override_get_current_active_user():
+    # Simplistic lookup that skips checks
+    return {"id": "user-1", "role": "admin"} # 🚨 DANGEROUS!
+
+app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+```
+
+### ✅ Correct Pattern: Mock Dependencies, Not Logic
+Mock the **external dependencies** (like token verification), but let the **internal logic** run.
+
+**Correct:**
+1.  Override `get_current_user` (the token verifier) to accept mock tokens.
+2.  Let `get_current_active_user` (the user resolver) run normally.
+3.  It will receive the mock token payload and execute all real DB lookups and security checks.
+
+```python
+# conftest.py
+app.dependency_overrides[get_current_user] = override_verify_token # ✅ Safe
+# Do NOT override get_current_active_user
+```
+
+### Validation Checklist for Security Tests
+- [ ] **Pending Tenants**: ensure unactivated tenants cannot access API.
+- [ ] **Wrong Invitations**: ensure User A cannot accept User B's invitation.
+- [ ] **Email Mismatch**: ensure activating user matches the invited admin email.
+- [ ] **Cross-Tenant**: ensure Tenant A cannot see Tenant B's data (RLS).

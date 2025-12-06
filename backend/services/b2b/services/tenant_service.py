@@ -69,12 +69,13 @@ class TenantService:
             
         Returns:
             Tenant if found, None otherwise
+            
+        Note: Does NOT filter by is_active to allow middleware to check activation_status
         """
         result = await db.execute(
             select(TenantModel)
             .where(TenantModel.firebase_tenant_id == firebase_tenant_id)
-            .where(TenantModel.is_active == True)
-            .where(TenantModel.deleted_at.is_(None))
+            .where(TenantModel.deleted_at.is_(None))  # Only exclude soft-deleted
         )
         tenant_model = result.scalar_one_or_none()
         

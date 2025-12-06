@@ -44,6 +44,14 @@ async def get_current_active_user(
     
     if not tenant:
         raise HTTPException(status_code=401, detail="Tenant not found")
+    
+    # SECURITY: Verify tenant is activated
+    # Pending tenants should not be able to access B2B endpoints
+    if tenant.activation_status != 'active':
+        raise HTTPException(
+            status_code=403, 
+            detail="Tenant is not yet activated. Please complete the activation process."
+        )
 
     # 2. Set RLS Context
     # Now valid queries to private tables (users, teams) will work

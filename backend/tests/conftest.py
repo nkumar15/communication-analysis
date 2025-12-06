@@ -173,63 +173,9 @@ async def api_client(db_session):
                 detail="Invalid token"
             )
     
-    async def override_get_current_active_user(
-        decoded_token: dict = Depends(override_get_current_user)
-    ):
-        """Enrich token with user data from database"""
-        firebase_uid = decoded_token.get('uid')
-        firebase_tenant_id = decoded_token.get('firebase', {}).get('tenant')
-        
-        if not firebase_uid or not firebase_tenant_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-            
-        # 1. Resolve Tenant UUID (No RLS on tenants table)
-        from sqlalchemy import text
-        tenant_result = await db_session.execute(
-            text("SELECT id FROM b2b.tenants WHERE firebase_tenant_id = :tid"),
-            {"tid": firebase_tenant_id}
-        )
-        tenant_row = tenant_result.first()
-        
-        if not tenant_row:
-            raise HTTPException(status_code=401, detail="Tenant not found")
-            
-        # 2. Set RLS Context
-        await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_row.id}'"))
-        
-        # 3. Lookup User (RLS Enabled - now safe)
-        result = await db_session.execute(
-            text("SELECT id, email, firebase_uid, tenant_id, role_id, is_active FROM b2b.users WHERE firebase_uid = :uid AND deleted_at IS NULL"),
-            {"uid": firebase_uid}
-        )
-        user_row = result.first()
-        
-        if not user_row:
-            raise HTTPException(status_code=401, detail="User not found")
-        
-        # Fetch role slug and display name
-        role_slug = None
-        role_display_name = None
-        if user_row.role_id:
-            role_result = await db_session.execute(select(Role).where(Role.id == user_row.role_id))
-            role_obj = role_result.scalar_one_or_none()
-            if role_obj:
-                role_slug = role_obj.name
-                role_display_name = role_obj.display_name
-
-        return {
-            "id": user_row.id,
-            "email": user_row.email,
-            "firebase_uid": user_row.firebase_uid,
-            "tenant_id": user_row.tenant_id,
-            "role_id": user_row.role_id,
-            "role": role_slug,
-            "role_display_name": role_display_name
-        }
-
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
-    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+    # Removed override_get_current_active_user to verify real middleware logic
     
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
