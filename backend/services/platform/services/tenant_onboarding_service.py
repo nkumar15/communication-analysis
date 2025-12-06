@@ -34,55 +34,43 @@ class TenantOnboardingService:
         domain: str,
         owner_email: str,
         oidc_provider: str,
-        oidc_client_id: str,
-        oidc_client_secret: str,
-        oidc_issuer: str
+        oidc_client_id: str = None,
+        oidc_client_secret: str = None,
+        oidc_issuer: str = None,
+        # New optional params for local/test mode
+        firebase_tenant_id: Optional[str] = None,
+        oidc_provider_id: Optional[str] = None
     ) -> dict:
         """
         Complete tenant onboarding workflow
         
-        Steps:
-        1. Create Firebase tenant
-        2. Configure OIDC provider
-        3. Generate activation token
-        4. Create tenant in database
-        5. Seed roles from templates
-        6. Create auth provider record
-        7. Create default team
-        8. Create admin invitation
-        9. Send activation email
-        
         Args:
-            db: Database session
-            company_name: Company/tenant name
-            domain: Email domain (e.g., acme.com)
-            owner_email: Owner/admin email address
-            oidc_provider: Provider type (auth0, okta, google, azure)
-            oidc_client_id: OIDC client ID
-            oidc_client_secret: OIDC client secret
-            oidc_issuer: OIDC issuer URL
-            
-        Returns:
-            dict with tenant info, activation URL, and expiration
-            
-        Raises:
-            Exception: If any step fails
+            ...
+            firebase_tenant_id: Optional existing Firebase tenant ID (skips creation if provided)
+            oidc_provider_id: Optional existing OIDC provider ID (skips config if provided)
         """
         try:
             # Initialize Firebase if not already done
             firebase_auth_service.initialize()
             
-            # 1. Create Firebase tenant
-            firebase_tenant_id = create_firebase_tenant(company_name)
+            # 1. Create OR Use Firebase tenant
+            if not firebase_tenant_id:
+                firebase_tenant_id = create_firebase_tenant(company_name)
             
-            # 2. Configure OIDC provider
-            provider_id = configure_oidc_provider(
-                firebase_tenant_id,
-                oidc_provider,
-                oidc_client_id,
-                oidc_client_secret,
-                oidc_issuer
-            )
+            # 2. Configure OR Use OIDC provider
+            provider_id = oidc_provider_id
+            if not provider_id:
+                if not all([oidc_client_id, oidc_client_secret, oidc_issuer]):
+                     # Validate required params only if we are creating new provider
+                     raise ValueError("OIDC params required when provider_id is not supplied")
+                     
+                provider_id = configure_oidc_provider(
+                    firebase_tenant_id,
+                    oidc_provider,
+                    oidc_client_id,
+                    oidc_client_secret,
+                    oidc_issuer
+                )
             
             # 3. Generate activation token
             activation_token = secrets.token_urlsafe(32)
