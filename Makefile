@@ -102,7 +102,10 @@ build: ## Build/rebuild Docker images
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
 logs: ## View all backend API logs (follow mode)
-	docker-compose logs -f b2b-api platform-api b2c-api domain-api
+	docker-compose logs -f b2b-api platform-api b2c-api domain-api nginx
+
+logs-nginx:
+	docker-compose logs -f nginx
 
 logs-b2b: ## View B2B API logs
 	docker-compose logs -f b2b-api
@@ -157,6 +160,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			docker-compose up -d frontend; \
 			docker-compose up -d e2e-tests; \
 			docker-compose up -d dbmigrate; \
+			docker-compose up -d nginx; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
@@ -204,7 +208,7 @@ frontend-build: ## Build frontend for production
 
 up-backend: ## Start only backend services (for local frontend dev)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 
 dev: ## Start full development environment (backend docker + frontend local)
