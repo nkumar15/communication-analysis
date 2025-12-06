@@ -51,10 +51,8 @@ class TenantAwareSession:
         Note: SET LOCAL is transaction-scoped, so we re-set it for each execute()
         to handle cases where transactions have been committed/rolled back.
         """
-        from sqlalchemy import text
-        await self._session.execute(
-            text(f"SET LOCAL app.current_tenant_id = '{str(self._tenant_id)}'")
-        )
+        from services.b2b.services.rls_service import rls_service
+        await rls_service.set_tenant_context(self._session, self._tenant_id)
     
     async def execute(self, *args, **kwargs):
         """Execute with automatic tenant context"""
@@ -265,8 +263,8 @@ async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
         result = await db_session.execute(select(Team).where(Team.id == team_id))
         team = result.scalar_one()
     """
-    from sqlalchemy import text
-    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'"))
+    from services.b2b.services.rls_service import rls_service
+    await rls_service.set_tenant_context(db_session, tenant_id)
 
 
 @pytest_asyncio.fixture
