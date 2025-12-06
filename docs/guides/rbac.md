@@ -125,7 +125,46 @@ if await can_manage_team(user_id, team_id, db):
     # User can manage this specific team
 ```
 
-### Example Scenario
+### RLS Context Requirements
+
+> [!IMPORTANT]
+> All permission checks require RLS (Row Level Security) context to be set BEFORE calling
+
+The `has_permission()` function queries RLS-protected tables (`users`, `roles`). The middleware automatically sets this context, but if you're calling permission checks outside of a request handler, you must set it manually:
+
+```python
+# ✅ CORRECT: In route handler (middleware sets context automatically)
+@router.get("/api/b2b/resources")
+async def list_resources(
+    current_user: dict = Depends(get_current_active_user),  # Sets RLS context
+    db: AsyncSession = Depends(get_db)
+):
+    # Permission check works because RLS context is already set
+    if not await has_permission(current_user['id'], 'resources', 'read', db):
+        raise HTTPException(status_code=403)
+    
+    # Query resources
+    result = await db.execute(select(Resource))
+    return result.scalars().all()
+
+# ✅ CORRECT: In background task (manual context setting)
+async def process_batch(tenant_id: UUID, db: AsyncSession):
+    from sqlalchemy import text
+    
+    # Must set context manually
+    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
+    
+    # Now permission checks work
+    admin_result = await db.execute(
+        select(User).join(Role).where(Role.name == 'admin')
+    )
+```
+
+**See Also:** [Multi-Tenant Isolation Architecture](../architecture/multi-tenant-isolation.md) for complete RLS documentation.
+
+---
+
+## Example Scenario
 
 **User:** Alice  
 **Tenant Role:** `admin`  

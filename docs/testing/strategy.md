@@ -89,6 +89,255 @@ We are following a phased approach to testing.
     - High-volume invitation acceptance.
     - Database connection pool saturation tests.
 
+---
+
+## 🔒 Multi-Tenant Isolation Testing
+
+### Overview
+
+Multi-tenant isolation is **critical** for security. Our testing strategy ensures:
+1. Cross-tenant data access is impossible
+2. RLS (Row Level Security) policies work correctly
+3. Test fixtures properly respect tenant boundaries
+
+### Testing Architecture
+
+**Key principle:** Tests must mirror production RLS behavior
+
+```python
+# ✅ CORRECT Pattern
+tenant_a = await create_test_tenant(db_session)  
+admin_a = await create_test_user(db_session, tenant_id=tenant_a.id, role_slug="admin")
+# RLS context is set inside helper functions
+
+# ❌ WRONG Pattern  
+user = UserModel(tenant_id=tenant_a.id, email="test@example.com")
+db_session.add(user)
+# Missing RLS context = role_id will be None!
+```
+
+### RLS Context in Test Fixtures
+
+All test helper functions **must** set RLS context before querying RLS-protected tables:
+
+```python
+# CORRECT: conftest.py helper pattern
+async def create_test_user(db_session, tenant_id, email, role_slug):
+    from sqlalchemy import text, select
+    from services.b2b.models import UserModel, Role
+    
+    # Step 1: Set RLS context FIRST
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
+    
+    # Step 2: Query RLS-protected tables (now safe)
+    result = await db_session.execute(
+        select(Role).where(Role.name == role_slug, Role.tenant_id == tenant_id)
+    )
+    role = result.scalar_one_or_none()
+    
+    # Step 3: Create user with proper role_id
+    user = UserModel(tenant_id=tenant_id, email=email, role_id=role.id)
+    db_session.add(user)
+    await db_session.flush()
+    return user
+```
+
+### Isolation Test Patterns
+
+#### Pattern 1: List Endpoint Isolation
+
+**Verify:** Tenant A cannot see Tenant B's resources
+
+```python
+@pytest.mark.security
+async def test_cross_tenant_resource_listing_blocked(api_client, db_session):
+    # Arrange: Two tenants with data
+    tenant_a = await create_test_tenant(db_session, name="Company A")
+    tenant_b = await create_test_tenant(db_session, name="Company B")
+    
+    admin_a = await create_test_user(db_session, tenant_id=tenant_a.id, role_slug="admin")
+    
+    # Create resource for tenant B
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_b.id}'"))
+    resource_b = Resource(tenant_id=tenant_b.id, name="Tenant B Resource")
+    db_session.add(resource_b)
+    await db_session.flush()
+    
+    # Act: Admin A lists resources
+    jwt_a = encode_mock_jwt(create_mock_firebase_token(
+        uid=admin_a.firebase_uid,
+        email=admin_a.email,
+        firebase_tenant_id=tenant_a.firebase_tenant_id
+    ))
+    
+    response = await api_client.get("/api/b2b/resources", headers={"Authorization": f"Bearer {jwt_a}"})
+    
+    # Assert: Tenant B's resource is invisible
+    assert response.status_code == 200
+    resources = response.json()
+    resource_ids = [r["id"] for r in resources]
+    assert str(resource_b.id) not in resource_ids  # ✅ Isolation enforced
+```
+
+#### Pattern 2: Direct Access Isolation
+
+**Verify:** Tenant A cannot access Tenant B's resource by ID
+
+```python
+@pytest.mark.security
+async def test_cross_tenant_resource_access_by_id_blocked(api_client, db_session):
+    # Arrange
+    tenant_a = await create_test_tenant(db_session)
+    tenant_b = await create_test_tenant(db_session)
+    
+    admin_a = await create_test_user(db_session, tenant_id=tenant_a.id, role_slug="admin")
+    
+    # Create resource for tenant B
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_b.id}'"))
+    resource_b = Resource(tenant_id=tenant_b.id, name="Secret Resource")
+    db_session.add(resource_b)
+    await db_session.flush()
+    
+    # Act: Admin A tries to access tenant B's resource by ID
+    jwt_a = create_test_jwt(admin_a)
+    response = await api_client.get(
+        f"/api/b2b/resources/{resource_b.id}",
+        headers={"Authorization": f"Bearer {jwt_a}"}
+    )
+    
+    # Assert: Returns 404 (not 403 - doesn't leak existence)
+    assert response.status_code == 404  # ✅ Resource appears non-existent
+```
+
+#### Pattern 3: Mutation Isolation
+
+**Verify:** Tenant A cannot modify/delete Tenant B's resource
+
+```python
+@pytest.mark.security
+async def test_cross_tenant_resource_deletion_blocked(api_client, db_session):
+    tenant_a = await create_test_tenant(db_session)
+    tenant_b = await create_test_tenant(db_session)
+    
+    admin_a = await create_test_user(db_session, tenant_id=tenant_a.id, role_slug="admin")
+    
+    # Create resource for tenant B
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_b.id}'"))
+    resource_b = Resource(tenant_id=tenant_b.id, name="Protected Resource")
+    db_session.add(resource_b)
+    await db_session.flush()
+    
+    # Act: Admin A tries to delete tenant B's resource
+    jwt_a = create_test_jwt(admin_a)
+    response = await api_client.delete(
+        f"/api/b2b/resources/{resource_b.id}",
+        headers={"Authorization": f"Bearer {jwt_a}"}
+    )
+    
+    # Assert: Deletion fails (404)
+    assert response.status_code == 404
+    
+    # Verify: Resource still exists in tenant B
+    await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_b.id}'"))
+    result = await db_session.execute(select(Resource).where(Resource.id == resource_b.id))
+    assert result.scalar_one_or_none() is not None  # ✅ Still exists
+```
+
+### Testing Checklist for New Features
+
+When adding a new RLS-protected feature, write these tests:
+
+- [ ] **List Isolation**: Tenant A cannot list Tenant B's resources
+- [ ] **Get Isolation**: Tenant A cannot get Tenant B's resource by ID (returns 404)
+- [ ] **Create Isolation**: Created resources automatically belong to caller's tenant
+- [ ] **Update Isolation**: Tenant A cannot update Tenant B's resource (returns 404)
+- [ ] **Delete Isolation**: Tenant A cannot delete Tenant B's resource (returns 404)
+- [ ] **Relationship Isolation**: Related entities (e.g., team members) respect tenant boundaries
+
+### Test Data Cleanup
+
+**Important:** Use transaction rollback for isolation cleanup
+
+```python
+# conftest.py pattern (already implemented)
+@pytest_asyncio.fixture
+async def db_session(test_db_engine) -> AsyncSession:
+    """Create a fresh database session for each test"""
+    async_session_factory = async_sessionmaker(
+        test_db_engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    async with async_session_factory() as session:
+        await session.begin()  # Start transaction
+        try:
+            yield session
+        finally:
+            await session.rollback()  # ✅ Automatic cleanup
+```
+
+### Common Test Failures & Solutions
+
+#### Issue: `role_id` is None in created users
+
+**Symptom:**
+```
+INFO ... has_permission: user=<UserModel>, user.role_id=None
+INFO ... has_permission: No user or role_id found, returning False
+```
+
+**Cause:** RLS context not set before querying `roles` table in `create_test_user`
+
+**Solution:**
+```python
+# Move SET LOCAL before role query
+await db_session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
+result = await db_session.execute(select(Role).where(Role.name == role_slug))
+```
+
+#### Issue: Expected 403, got 404
+
+**This is correct!** RLS makes cross-tenant resources appear non-existent (404), not forbidden (403). Update test expectations:
+
+```python
+# ✅ CORRECT
+assert response.status_code == 404  # RLS makes it invisible
+
+# ❌ WRONG
+assert response.status_code == 403  # Leaks that resource exists
+```
+
+#### Issue: `IntegrityError: duplicate key value violates unique constraint`
+
+**Cause:** Static domain reuse across tests
+
+**Solution:** Use randomized domains (already in helpers):
+```python
+# ✅ Automatically generates unique domain
+tenant = await create_test_tenant(db_session, name="Test Company")
+# domain will be: test-{uuid}.com
+```
+
+### TenantAwareSession Pattern
+
+For advanced testing scenarios, use `TenantAwareSession` wrapper:
+
+```python
+# Available in conftest.py
+class TenantAwareSession:
+    """Automatically manages tenant context for all DB operations"""
+    
+    async def execute(self, *args, **kwargs):
+        # Automatically sets RLS context before each query
+        await self._ensure_context()
+        return await self._session.execute(*args, **kwargs)
+
+# Usage in tests
+tenant_session = TenantAwareSession(db_session, tenant.id)
+result = await tenant_session.execute(select(User))  # RLS auto-applied
+```
+
+---
+
 ## 📖 Troubleshooting & Lookup
 
 ### Common Issues
@@ -97,15 +346,16 @@ We are following a phased approach to testing.
 - **Cause**: Reusing the same static domain (e.g., "test.com") across tests without rollback working correctly, or parallel execution issues.
 - **Fix**: Use the randomized domain feature in factories: `create_test_tenant(db_session)` (generates random domain automatically).
 
-**`403 Forbidden` in Invitation Tests**
-- **Cause**: Mismatch between the invited email and the mock JWT email, or `email_verified` claim is missing.
-- **Fix**: Ensure `create_mock_firebase_token` email matches the invitation exactly and `email_verified=True`.
+**`403 Forbidden` in Permission Tests**
+- **Cause**: User created without proper role assignment due to RLS context timing
+- **Fix**: Ensure `create_test_user` sets RLS context before querying roles table
+
+**`404 Not Found` in Isolation Tests (Expected 403)**
+- **This is correct!** RLS makes cross-tenant resources invisible (404), not forbidden (403)
+- **Fix**: Update test expectations to `assert response.status_code == 404`
 
 **`MissingGreenlet` Error**
 - **Cause**: Accessing lazy-loaded relationships (like `tenant.users`) in an async context without explicit loading.
-- **Fix**: Use `await db_session.refresh(obj, attribute_names=["users"])` or eager loading options.
-
-### Command Reference
 | Command | Purpose |
 |---------|---------|
 | `pytest tests/integration` | Run only integration tests |
