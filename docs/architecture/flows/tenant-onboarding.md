@@ -267,3 +267,361 @@ sequenceDiagram
   1. Finds the target tenant's admin user.
   2. Generates a custom JWT signed by the backend.
   3. Frontend uses this token to "login as" that user.
+
+---
+
+## Tenant Resolution and RLS Context Management
+
+### Overview
+
+Our multi-tenant architecture uses **Firebase GCIP (Google Cloud Identity Platform) Multi-Tenancy** to isolate tenant authentication. Each tenant gets a unique Firebase tenant ID that is automatically embedded in JWT tokens. The backend then resolves this to our internal tenant UUID and sets Row Level Security (RLS) context.
+
+### Two-Layer Tenant Identification
+
+#### Layer 1: Firebase Tenant ID (External)
+- **Format**: `"tenant-acme-6d8f4a2b"` (Firebase string identifier)
+- **Stored in**: JWT token (`firebase.tenant` field)
+- **Set by**: Firebase GCIP during user login
+- **Purpose**: Identifies which Firebase tenant the user authenticated with
+- **Managed by**: Firebase (external service)
+
+#### Layer 2: Internal Tenant UUID (Database)
+- **Format**: `123e4567-e89b-12d3-a456-426614174000` (UUID)
+- **Stored in**: Database (`b2b.tenants.id`)
+- **Linked via**: `b2b.tenants.firebase_tenant_id` column
+- **Purpose**: Database RLS context and foreign key relationships
+- **Managed by**: Our backend
+
+### Tenant Resolution Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Firebase as Firebase GCIP
+    participant BE as Backend API
+    participant DB as PostgreSQL
+
+    User->>Firebase: Login with SSO (tenant-acme)
+    Firebase-->>User: JWT Token with firebase.tenant
+
+    Note over User,Firebase: JWT contains:<br/>{<br/>  "uid": "user-123",<br/>  "firebase": {"tenant": "tenant-acme-6d8f4a2b"}<br/>}
+
+    User->>BE: API Request + JWT Token
+    BE->>BE: Extract firebase.tenant from JWT
+    
+    Note over BE: firebase_tenant_id = "tenant-acme-6d8f4a2b"
+    
+    BE->>DB: SELECT * FROM b2b.tenants<br/>WHERE firebase_tenant_id = 'tenant-acme-6d8f4a2b'
+    DB-->>BE: Tenant(id=UUID('aaa...'), name='Acme Corp')
+    
+    BE->>DB: SET LOCAL app.current_tenant_id = 'aaa...'
+    
+    Note over DB: RLS context now set!<br/>All queries scoped to Acme
+
+    BE->>DB: SELECT * FROM b2b.users<br/>WHERE firebase_uid = 'user-123'
+    
+    Note over DB: RLS policy adds:<br/>AND tenant_id = 'aaa...'
+    
+    DB-->>BE: User(id=..., email=..., role=...)
+    BE-->>User: 200 OK with user data
+```
+
+### Middleware Flow Comparison
+
+#### Standard B2B API Requests (Automatic Resolution)
+
+**Used by**: `/api/b2b/invitations/*`, `/api/b2b/teams/*`, etc.
+
+```mermaid
+graph TD
+    A[Request with JWT] --> B[get_current_user<br/>Base Auth Middleware]
+    B --> C{Valid JWT?}
+    C -->|No| D[401 Unauthorized]
+    C -->|Yes| E[get_current_active_user<br/>B2B Middleware]
+    E --> F[Extract firebase.tenant from JWT]
+    F --> G[Lookup Tenant by Firebase ID]
+    G --> H{Tenant Exists?}
+    H -->|No| I[401 Tenant Not Found]
+    H -->|Yes| J[SET RLS Context<br/>app.current_tenant_id = UUID]
+    J --> K[Lookup User with RLS]
+    K --> L{User Active?}
+    L -->|No| M[401 User Inactive]
+    L -->|Yes| N[Return User + Tenant Info]
+    N --> O[Execute Route Handler]
+    O --> P[All DB Queries Auto-Scoped]
+```
+
+**Implementation**: `services/b2b/middleware/b2b_auth.py`
+
+```python
+async def get_current_active_user(
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    # Extract Firebase tenant ID from token
+    firebase_tenant_id = decoded_token.get('firebase', {}).get('tenant')
+    
+    # 1. Resolve Tenant UUID (NO RLS - tenants is global)
+    tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
+    
+    # 2. Set RLS Context
+    current_tenant_id.set(str(tenant.id))
+    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+    
+    # 3. Lookup User (WITH RLS - users table is protected)
+    result = await db.execute(
+        select(UserModel).where(UserModel.firebase_uid == firebase_uid)
+    )
+    user_row = result.scalar_one_or_none()
+    
+    return {"id": user.id, "tenant_id": tenant.id, "role": user.role, ...}
+```
+
+#### Activation API Requests (Manual Resolution)
+
+**Used by**: `/api/b2b/activation/complete`
+
+```mermaid
+graph TD
+    A[Request with JWT + Token] --> B[get_current_user<br/>Base Auth Only]
+    B --> C{Valid JWT?}
+    C -->|No| D[401 Unauthorized]
+    C -->|Yes| E[Execute Route Handler]
+    E --> F[Lookup Tenant by Activation Token]
+    F --> G{Tenant Exists?}
+    G -->|No| H[404 Invalid Token]
+    G -->|Yes| I{Tenant Pending?}
+    I -->|No Active| J[400 Already Activated]
+    I -->|Yes Pending| K[Manually Set RLS Context<br/>app.current_tenant_id = UUID]
+    K --> L[Lookup User with RLS]
+    L --> M{User Exists?}
+    M -->|No| N[403 User Not Found]
+    M -->|Yes| O[Activate Tenant]
+    O --> P[Accept Invitation]
+    P --> Q[Commit Transaction]
+```
+
+**Why Different?**
+- Tenant is `activation_status='pending'` (not active)
+- Standard B2B middleware expects fully active tenants
+- Need manual control over RLS context for pending state
+- Must handle case where tenant transitions pending → active
+
+**Implementation**: `services/b2b/routers/activation.py`
+
+```python
+async def complete_activation(
+    current_user: Dict[str, Any] = Depends(get_current_user),  # Base auth only
+    db: AsyncSession = Depends(get_db)
+):
+    # Manual tenant resolution (tenant might be pending)
+    
+    # 1. Get tenant by activation token (NO RLS - tenants is global)
+    tenant = await tenant_service.get_tenant_by_activation_token(db, token)
+    
+    # 2. Manually set RLS context for this specific tenant
+    await rls_service.set_tenant_context(db, tenant.id)
+    
+    # 3. Query users/invitations (WITH RLS - tables are protected)
+    user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+    
+    # 4. Activate tenant and accept invitation
+    await invitation_service.accept_invitation(db, token)
+    await tenant_service.activate_tenant(db, tenant.id, user.id)
+    
+    await db.commit()  # Router commits, not services
+```
+
+### JWT Token Structure
+
+**Example Firebase GCIP JWT Token:**
+
+```json
+{
+  "iss": "https://securetoken.google.com/project-id",
+  "aud": "project-id",
+  "iat": 1702000000,
+  "exp": 1702003600,
+  "uid": "firebase-user-abc123",
+  "email": "john.doe@acme.com",
+  "email_verified": true,
+  "firebase": {
+    "identities": {
+      "oidc.auth0": ["auth0|64f7e8a9b2c1d3e4f5g6h7i8"],
+      "email": ["john.doe@acme.com"]
+    },
+    "sign_in_provider": "oidc.auth0",
+    "tenant": "tenant-acme-6d8f4a2b"   ← Firebase Tenant ID
+  }
+}
+```
+
+**Key Fields for Tenant Resolution:**
+- `firebase.tenant`: Firebase tenant ID (string)
+- `uid`: Firebase user ID (unique per user per Firebase project)
+- `email`: User's email address
+- `email_verified`: Must be `true` for invitation acceptance
+
+### Database Schema
+
+#### Tenants Table (Global - No RLS)
+```sql
+CREATE TABLE b2b.tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    domain VARCHAR(255) UNIQUE NOT NULL,
+    firebase_tenant_id VARCHAR(255) UNIQUE NOT NULL,  -- Links to Firebase
+    activation_status VARCHAR(50) DEFAULT 'pending',
+    activation_token VARCHAR(255),
+    activation_expires_at TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Example:
+-- id: 123e4567-e89b-12d3-a456-426614174000
+-- firebase_tenant_id: 'tenant-acme-6d8f4a2b'
+-- activation_status: 'active'
+```
+
+#### Users Table (RLS-Protected)
+```sql
+CREATE TABLE b2b.users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES b2b.tenants(id),
+    firebase_uid VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    role_id UUID REFERENCES b2b.roles(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, firebase_uid),
+    UNIQUE(tenant_id, email)
+);
+
+ALTER TABLE b2b.users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY users_tenant_isolation ON b2b.users
+    USING (tenant_id::text = current_setting('app.current_tenant_id', true));
+```
+
+### Security Guarantees
+
+#### Defense Layer 1: JWT Signature Validation
+- ✅ Firebase validates cryptographic signatures with private keys
+- ✅ Only Firebase can issue valid tokens
+- ✅ Tampering invalidates signature → 401 Unauthorized
+
+#### Defense Layer 2: Tenant Resolution
+- ✅ Backend looks up tenant by Firebase ID
+- ✅ Non-existent tenants → 401 Tenant Not Found
+- ✅ Inactive tenants rejected
+
+#### Defense Layer 3: RLS Context
+- ✅ Every request sets `app.current_tenant_id` to specific tenant UUID
+- ✅ All queries to RLS-protected tables automatically scoped
+- ✅ Cannot be bypassed by application code
+
+#### Defense Layer 4: Database RLS Policies
+- ✅ PostgreSQL enforces policies at row level
+- ✅ Even direct SQL cannot bypass RLS (unless BYPASSRLS privilege)
+- ✅ Test users do NOT have BYPASSRLS
+
+#### Defense Layer 5: Role-Based Permissions
+- ✅ Actions require specific permissions checked via `has_permission()`
+- ✅ Permissions tied to roles, roles tied to tenants
+- ✅ Double-check after RLS scoping
+
+### Common Attack Scenarios
+
+#### Scenario 1: User Tries to Access Another Tenant's Data
+```
+Request: GET /api/b2b/invitations/list
+JWT: {"firebase": {"tenant": "tenant-acme-6d8f4a2b"}}
+
+Middleware resolves:
+  → Acme tenant (UUID: aaa...)
+  → SET app.current_tenant_id = 'aaa...'
+
+Database executes:
+  SELECT * FROM b2b.invitations 
+  WHERE tenant_id = 'aaa...'  ← RLS adds this
+
+Result: Only sees Acme's invitations, never other tenants
+```
+
+#### Scenario 2: Malicious User Modifies JWT
+```
+Original: {"firebase": {"tenant": "tenant-acme-6d8f4a2b"}}
+Tampered: {"firebase": {"tenant": "tenant-globex-9f2e1c7d"}}
+
+Result:
+  → Firebase signature validation FAILS
+  → Request rejected with 401 before reaching backend
+  → Attacker never reaches tenant resolution logic
+```
+
+#### Scenario 3: SQL Injection Attempt
+```
+Request: GET /api/b2b/users?search=' OR '1'='1
+RLS Context: app.current_tenant_id = 'aaa...'
+
+Even if SQL injection succeeds:
+  SELECT * FROM b2b.users 
+  WHERE name LIKE '%' OR '1'='1%'
+  AND tenant_id = 'aaa...'  ← RLS policy still enforced
+
+Result: Still only returns Acme's users, not all users
+```
+
+### RLS Service (Centralized Management)
+
+**File**: `services/b2b/services/rls_service.py`
+
+```python
+class RLSService:
+    @staticmethod
+    async def set_tenant_context(db: AsyncSession, tenant_id: UUID):
+        """Set RLS context for session"""
+        await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
+    
+    @staticmethod
+    async def get_current_context(db: AsyncSession) -> Optional[UUID]:
+        """Get current RLS context (for testing/debugging)"""
+        result = await db.execute(
+            text("SELECT current_setting('app.current_tenant_id', true)")
+        )
+        value = result.scalar()
+        return UUID(value) if value else None
+    
+    @staticmethod
+    async def clear_context(db: AsyncSession):
+        """Clear RLS context (mainly for testing)"""
+        await db.execute(text("RESET app.current_tenant_id"))
+```
+
+**Benefits:**
+- ✅ Centralized RLS management
+- ✅ Testable - can verify context was set
+- ✅ Consistent across routers, services, tests
+- ✅ Easy debugging with `get_current_context()`
+
+### Summary
+
+**Tenant Resolution Process:**
+1. User logs in → Firebase issues JWT with `firebase.tenant` field
+2. Backend extracts Firebase tenant ID from token
+3. Backend looks up internal tenant UUID via `firebase_tenant_id` column
+4. Backend sets RLS context with internal UUID
+5. All queries automatically scoped to that tenant via RLS policies
+
+**Security:**
+- Cannot forge Firebase tokens (cryptographic signatures)
+- Cannot bypass tenant resolution (middleware enforced)
+- Cannot bypass RLS (database-level enforcement)
+- Defense in depth across 5 layers
+
+**Implementation:**
+- Standard B2B APIs: Automatic via `get_current_active_user` middleware
+- Activation APIs: Manual via direct `rls_service.set_tenant_context()`
+- Platform APIs: `app.is_platform_admin = 'true'` to bypass RLS
+
