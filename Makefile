@@ -132,17 +132,18 @@ ps: ## List running services
 ##@ Database
 
 db-shell: ## Open PostgreSQL shell
-	docker-compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+	docker-compose exec postgres sh -c "psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB"
 
 db-setup-auth: ## Setup app user and permissions
 	@echo "$(BLUE)Setting up application user and permissions...$(NC)"
-	@docker-compose exec -T postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f /app/scripts/init_auth_db.sql
-	@docker-compose exec -T postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f /app/scripts/grant_permissions.sql
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_password=\$$DB_PASSWORD -c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/init_auth_db.sql"
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/grant_permissions.sql"
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
 migrate: ## Run database migrations
 	@echo "$(BLUE)Running database migrations...$(NC)"
 	@docker-compose exec dbmigrate python /app/migrations/run_migrations.py
+	@$(MAKE) b2b-seed-roles-templates
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
@@ -181,7 +182,7 @@ platform-create-admin: ## Create Platform Admin User
 
 b2b-seed-roles-templates: ## Seed domain-specific roles-templates
 	@echo "$(BLUE)Seeding domain data...$(NC)"
-	@docker-compose run --rm b2b-api python /app/scripts/b2b/seed_domain_data.py
+	@docker-compose run --rm dbmigrate python /app/scripts/b2b/seed_domain_data.py
 	@echo "$(GREEN)✓ Domain data seeded$(NC)"
 
 b2b-invite: ## Invite B2B Tenant (interactive)

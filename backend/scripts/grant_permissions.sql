@@ -1,27 +1,25 @@
--- Grant usage on schemas
-GRANT USAGE ON SCHEMA public TO sso_app;
-GRANT USAGE ON SCHEMA platform TO sso_app;
-GRANT USAGE ON SCHEMA b2b TO sso_app;
-GRANT USAGE ON SCHEMA b2c TO sso_app;
-GRANT USAGE ON SCHEMA domain TO sso_app;
-
--- Grant access to all tables in schemas
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sso_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA platform TO sso_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA b2b TO sso_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA b2c TO sso_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA domain TO sso_app;
-
--- Grant access to all sequences (for auto-increment IDs)
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO sso_app;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA platform TO sso_app;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA b2b TO sso_app;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA b2c TO sso_app;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA domain TO sso_app;
-
--- Ensure future tables also get these permissions (optional but good practice)
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sso_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA platform GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sso_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA b2b GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sso_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA b2c GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sso_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA domain GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sso_app;
+DO
+$do$
+DECLARE
+   _user text := current_setting('saas.app_db_user');
+   _schema text;
+   _schemas text[] := ARRAY['public', 'platform', 'b2b', 'b2c', 'domain'];
+BEGIN
+   FOREACH _schema IN ARRAY _schemas
+   LOOP
+      -- Grant usage on schema
+      EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', _schema, _user);
+      
+      -- Grant access to all tables in schema
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %I TO %I', _schema, _user);
+      
+      -- Grant access to all sequences
+      EXECUTE format('GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA %I TO %I', _schema, _user);
+      
+      -- Ensure future tables also get these permissions
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', _schema, _user);
+      
+      RAISE NOTICE 'Granted permissions on schema % to %', _schema, _user;
+   END LOOP;
+END
+$do$;
