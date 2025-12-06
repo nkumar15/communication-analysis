@@ -8,6 +8,7 @@ from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
 from services.b2b.services.auth_provider_service import auth_provider_service
 from services.b2b.services.audit_service import log_audit_background
+from services.b2b.services.rls_service import rls_service
 from core.utils.firebase import firebase_auth_service
 from services.b2b.models import InvitationModel
 from core.middleware import get_current_user
@@ -114,8 +115,7 @@ async def get_current_user_info(
         )
     
     # Set RLS Context for this request
-    from sqlalchemy import text
-    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+    await rls_service.set_tenant_context(db, tenant.id)
     
     
     # Check if user already exists by Firebase UID OR by email
@@ -217,8 +217,7 @@ async def sync_user(
         )
     
     # Set RLS Context for this request
-    from sqlalchemy import text
-    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+    await rls_service.set_tenant_context(db, tenant.id)
     
     # Check if user already exists to preserve their role
     existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)

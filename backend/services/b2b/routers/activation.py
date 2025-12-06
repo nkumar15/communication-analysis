@@ -12,6 +12,7 @@ from uuid import UUID
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.invitation_service import invitation_service
 from services.b2b.services.user_service import user_service
+from services.b2b.services.rls_service import rls_service
 from core.database import get_db
 from core.config import settings
 from core.middleware import get_current_user
@@ -73,8 +74,7 @@ async def validate_activation_token(token: str, db: AsyncSession = Depends(get_d
         )
     
     # Set RLS context to allow reading protected invitation
-    from sqlalchemy import text
-    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+    await rls_service.set_tenant_context(db, tenant.id)
     
     # Get invitation for admin email
     invitation = await invitation_service.get_invitation_by_token(db, token)
@@ -128,7 +128,7 @@ async def get_tenant_for_activation(
 @router.post("/complete")
 async def complete_activation(
     request: ActivationCompleteRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_user),  # Use base auth, not B2B middleware
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -141,12 +141,15 @@ async def complete_activation(
     
     Marks tenant as active and accepts the invitation.
     Prevents replay attacks via activation_started_at check.
+    
+    NOTE: Uses get_current_user (base auth) instead of get_current_active_user (B2B middleware)
+    because the tenant is still pending and RLS context needs special handling.
     """
     from datetime import datetime, timezone, timedelta
     from sqlalchemy import select, update
     from services.b2b.models import TenantModel
     
-    # Get tenant with atomic locking
+    # Get tenant with atomic locking (NO RLS - tenants is global)
     result = await db.execute(
         select(TenantModel)
         .where(TenantModel.activation_token == request.activation_token)
@@ -173,15 +176,11 @@ async def complete_activation(
             )
     else:
         # Mark activation as started (prevents concurrent attempts)
-        tenant_model.activation_code_used_at = datetime.now(timezone.utc)
-        
-        # Flush, re-query with RLS context (FastAPI commits on success)
+        tenant_model.activation_started_at = datetime.now(timezone.utc)
         await db.flush()
-        result = await db.execute(select(TenantModel).where(TenantModel.id == tenant_model.id))
-        tenant_model = result.scalar_one()
     
-    # Convert to Pydantic model
-    tenant = tenant_service._model_to_pydantic(tenant_model)
+    # Set RLS context for this tenant (required for user/invitation queries)
+    await rls_service.set_tenant_context(db, tenant_model.id)
     
     # Verify current user belongs to this tenant
     user_info = current_user  # From Firebase token
@@ -193,8 +192,8 @@ async def complete_activation(
             detail="Invalid token: missing uid"
         )
     
-    # Get user from database
-    user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+    # Get user from database (with RLS context set)
+    user = await user_service.get_user_by_firebase_uid(db, tenant_model.id, firebase_uid)
     
     if not user:
         raise HTTPException(
@@ -214,12 +213,15 @@ async def complete_activation(
     await invitation_service.accept_invitation(db, request.activation_token)
     
     # Activate tenant
-    await tenant_service.activate_tenant(db, tenant.id, user.id)
+    await tenant_service.activate_tenant(db, tenant_model.id, user.id)
+    
+    # Commit happens in router (not service)
+    await db.commit()
     
     return {
         "message": "Tenant activated successfully",
-        "tenant_id": tenant.id,
-        "tenant_name": tenant.name
+        "tenant_id": str(tenant_model.id),
+        "tenant_name": tenant_model.name
     }
 
 
@@ -231,6 +233,7 @@ async def check_activation_status(token: str, db: AsyncSession = Depends(get_db)
     Polls this endpoint to detect when user has completed SSO login
     and user record has been created.
     """
+    # Query tenant (NO RLS - tenants is a global table)
     tenant = await tenant_service.get_tenant_by_activation_token(db, token)
     
     if not tenant:
@@ -238,6 +241,9 @@ async def check_activation_status(token: str, db: AsyncSession = Depends(get_db)
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invalid activation token"
         )
+    
+    # Set RLS context to query invitation (RLS-protected table)
+    await rls_service.set_tenant_context(db, tenant.id)
     
     # Check if invitation exists and get admin email
     invitation = await invitation_service.get_invitation_by_token(db, token)
