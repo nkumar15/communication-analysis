@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs logs-b2b logs-platform logs-b2c logs-domain logs-nginx logs-all ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed frontend-install frontend-start frontend-build up-backend dev shell-b2b shell-platform shell-b2c shell-domain gateway-test gateway-health clean clean-all test-api test-platform-api test-b2b-api test-core-api test-browser test-all test-env
+.PHONY: help setup status up down restart build logs ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed frontend-install frontend-start frontend-build up-backend dev shell clean clean-all test-api test-browser test test-env
 
 # Default target
 .DEFAULT_GOAL := help
@@ -20,40 +20,19 @@ help: ## Display this help message
 
 setup: ## Initial project setup (create .env files, install dependencies)
 	@echo "$(BLUE)Setting up project...$(NC)"
-	@if [ ! -f .env ]; then \
-		cp .env.example .env; \
-		echo "$(GREEN)✓ Created .env from template$(NC)"; \
-		echo "$(YELLOW)⚠ Please edit .env with your configuration$(NC)"; \
-	else \
-		echo "$(YELLOW)✓ .env already exists$(NC)"; \
-	fi
-	@if [ ! -f backend/.env ]; then \
-		cp backend/.env.example backend/.env; \
-		echo "$(GREEN)✓ Created backend/.env from template$(NC)"; \
-		echo "$(YELLOW)⚠ Please edit backend/.env with your configuration$(NC)"; \
-	else \
-		echo "$(YELLOW)✓ backend/.env already exists$(NC)"; \
-	fi
-	@if [ ! -f frontend/.env ]; then \
-		cp frontend/.env.example frontend/.env; \
-		echo "$(GREEN)✓ Created frontend/.env from template$(NC)"; \
-		echo "$(YELLOW)⚠ Please edit frontend/.env with your Firebase config$(NC)"; \
-	else \
-		echo "$(YELLOW)✓ frontend/.env already exists$(NC)"; \
-	fi
+	@for file in .env backend/.env frontend/.env; do \
+		if [ ! -f $$file ]; then \
+			cp $${file}.example $$file; \
+			echo "$(GREEN)✓ Created $$file from template$(NC)"; \
+		else \
+			echo "$(YELLOW)✓ $$file already exists$(NC)"; \
+		fi \
+	done
 	@if [ ! -f secrets/firebase-credentials.json ]; then \
-		echo "$(YELLOW)⚠ Please download Firebase credentials to secrets/firebase-credentials.json$(NC)"; \
-		echo "$(YELLOW)  See secrets/README.md for instructions$(NC)"; \
-	else \
-		echo "$(GREEN)✓ Firebase credentials found$(NC)"; \
+		echo "$(YELLOW)⚠ Missing secrets/firebase-credentials.json (see secrets/README.md)$(NC)"; \
 	fi
 	@$(MAKE) frontend-install
 	@echo "$(GREEN)✓ Setup complete!$(NC)"
-	@echo "$(BLUE)Next steps:$(NC)"
-	@echo "  1. Edit .env, backend/.env, and frontend/.env"
-	@echo "  2. Set REACT_APP_API_URL and REACT_APP_PLATFORM_API_URL in frontend/.env"
-	@echo "  3. Place Firebase credentials in secrets/firebase-credentials.json"
-	@echo "  4. Run 'make up' to start services (or 'make dev' for local frontend)"
 
 status: ## Show status of all services and configuration
 	@echo "$(BLUE)=== Service Status ===$(NC)"
@@ -61,33 +40,15 @@ status: ## Show status of all services and configuration
 	@echo ""
 	@echo "$(BLUE)=== Environment Files ===$(NC)"
 	@$(MAKE) test-env
-	@echo ""
-	@echo "$(BLUE)=== URLs ===$(NC)"
-	@echo "API Gateway:    http://localhost:8080          (nginx - all APIs)"
-	@echo "  └─ Health:    http://localhost:8080/health"
-	@echo "  └─ B2B Docs:  http://localhost:8080/docs/b2b"
-	@echo "  └─ Plat Docs: http://localhost:8080/docs/platform"
-	@echo "  └─ B2C Docs:  http://localhost:8080/docs/b2c"
-	@echo "  └─ Dom Docs:  http://localhost:8080/docs/domain"
-	@echo "Frontend:       http://localhost:3000"
-	@echo "B2B API:        http://localhost:8000/docs    (direct)"
-	@echo "Platform API:   http://localhost:8001/docs    (direct)"
-	@echo "B2C API:        http://localhost:8002/docs    (direct)"
-	@echo "Domain API:     http://localhost:8003/docs    (direct)"
-	@echo "PostgreSQL:     localhost:5432"
 
 ##@ Docker Services
 
-up: ## Start all services (Postgres + Backend + Gateway)
+up: ## Start all services
 	@echo "$(BLUE)Starting services...$(NC)"
 	docker-compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
-	@echo "API Gateway:  http://localhost:8080          (recommended)"
+	@echo "API Gateway:  http://localhost:8080"
 	@echo "Frontend:     http://localhost:3000"
-	@echo "B2B API:      http://localhost:8000/docs    (direct)"
-	@echo "Platform API: http://localhost:8001/docs    (direct)"
-	@echo "B2C API:      http://localhost:8002/docs    (direct)"
-	@echo "Domain API:   http://localhost:8003/docs    (direct)"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
@@ -101,33 +62,15 @@ build: ## Build/rebuild Docker images
 	docker-compose build --no-cache
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
-logs: ## View all backend API logs (follow mode)
+logs: ## View logs (usage: make logs [s=service])
+ifdef s
+	docker-compose logs -f $(s)
+else
 	docker-compose logs -f b2b-api platform-api b2c-api domain-api nginx
-
-logs-nginx:
-	docker-compose logs -f nginx
-
-logs-b2b: ## View B2B API logs
-	docker-compose logs -f b2b-api
-
-logs-platform: ## View Platform API logs
-	docker-compose logs -f platform-api
-
-logs-b2c: ## View B2C API logs
-	docker-compose logs -f b2c-api
-
-logs-domain: ## View Domain API logs
-	docker-compose logs -f domain-api
-
-logs-nginx: ## View nginx gateway logs
-	docker-compose logs -f nginx
-
-logs-all: ## View all service logs (follow mode)
-	docker-compose logs -f
+endif
 
 ps: ## List running services
 	docker-compose ps
-
 
 ##@ Database
 
@@ -154,23 +97,13 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	case "$$REPLY" in \
 		[Yy]*) \
 			docker-compose down -v; \
-			docker-compose up -d postgres; \
-			docker-compose up -d platform-api; \
-			docker-compose up -d b2b-api; \
-			docker-compose up -d b2c-api; \
-			docker-compose up -d frontend; \
-			docker-compose up -d e2e-tests; \
-			docker-compose up -d dbmigrate; \
-			docker-compose up -d nginx; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api frontend e2e-tests dbmigrate nginx; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
 			;; \
-		*) \
-			echo "Cancelled."; \
-			;; \
+		*) echo "Cancelled."; ;; \
 	esac
-
 
 platform-seed: ## Seed System Tenant (Platform)
 	@echo "$(BLUE)Seeding System Tenant...$(NC)"
@@ -192,44 +125,34 @@ b2b-invite: ## Invite B2B Tenant (interactive)
 ##@ Frontend
 
 frontend-install: ## Install frontend dependencies (locally)
-	@echo "$(BLUE)Installing frontend dependencies...$(NC)"
 	cd frontend && npm install
-	@echo "$(GREEN)✓ Frontend dependencies installed$(NC)"
 
 frontend-start: ## Start frontend dev server
-	@echo "$(BLUE)Starting frontend...$(NC)"
 	cd frontend && npm start
 
 frontend-build: ## Build frontend for production
-	@echo "$(BLUE)Building frontend...$(NC)"
 	cd frontend && npm run build
-	@echo "$(GREEN)✓ Frontend build complete$(NC)"
 
 ##@ Development
 
-up-backend: ## Start only backend services (for local frontend dev)
+up-backend: ## Start only backend services
 	@echo "$(BLUE)Starting backend services...$(NC)"
 	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 
-dev: ## Start full development environment (backend docker + frontend local)
-	@echo "$(BLUE)Starting development environment...$(NC)"
+dev: ## Start full dev env (backend docker + frontend local)
 	@$(MAKE) up-backend
 	@sleep 3
-	@echo "$(BLUE)Backend started, now starting frontend...$(NC)"
+	@echo "$(BLUE)Backend started, starting frontend...$(NC)"
 	@$(MAKE) frontend-start
 
-shell-b2b: ## Open shell in B2B API container
-	docker-compose exec b2b-api /bin/bash
-
-shell-platform: ## Open shell in Platform API container
-	docker-compose exec platform-api /bin/bash
-
-shell-b2c: ## Open shell in B2C API container
-	docker-compose exec b2c-api /bin/bash
-
-shell-domain: ## Open shell in Domain API container
-	docker-compose exec domain-api /bin/bash
+shell: ## Open shell (usage: make shell s=b2b-api)
+ifdef s
+	docker-compose exec $(s) /bin/bash
+else
+	@echo "$(YELLOW)Usage: make shell s=<service_name>$(NC)"
+	@echo "Available services: b2b-api, platform-api, b2c-api, domain-api, postgres"
+endif
 
 clean: ## Clean up containers, volumes, and build artifacts
 	@echo "$(BLUE)Cleaning up...$(NC)"
@@ -239,81 +162,29 @@ clean: ## Clean up containers, volumes, and build artifacts
 	@echo "$(GREEN)✓ Cleanup complete$(NC)"
 
 clean-all: clean ## Complete cleanup including node_modules
-	@echo "$(BLUE)Removing node_modules...$(NC)"
 	rm -rf frontend/node_modules
-	@echo "$(GREEN)✓ Complete cleanup done$(NC)"
 
-##@ Testing & Validation
+##@ Testing
 
 test-api: ## Run all API integration tests
 	@echo "$(BLUE)Running API integration tests...$(NC)"
 	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v
 	@echo "$(GREEN)✓ API tests complete$(NC)"
 
-test-platform-api: ## Run Platform API tests
-	@echo "$(BLUE)Running Platform API tests...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/platform/ -v
-
-test-b2b-api: ## Run B2B API tests
-	@echo "$(BLUE)Running B2B API tests...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/ -v
-
-test-core-api: ## Run Core API tests
-	@echo "$(BLUE)Running Core API tests...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/core/ -v
-
 test-browser: ## Run E2E browser tests
 	@echo "$(BLUE)Running E2E browser tests...$(NC)"
-	@echo "$(YELLOW)Starting services...$(NC)"
 	docker-compose up -d
-	@echo "$(YELLOW)Waiting for services to be ready...$(NC)"
 	@sleep 10
 	docker-compose run --rm e2e-tests pytest tests/e2e_browser/ -v
 	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
 
-test-all: ## Run all tests (API + Browser)
-	@echo "$(BLUE)Running all tests...$(NC)"
+test: ## Run all tests
 	@$(MAKE) test-api
 	@$(MAKE) test-browser
-	@echo "$(GREEN)✓ All tests complete$(NC)"
 
 test-env: ## Validate environment configuration
 	@echo "$(BLUE)Checking environment configuration...$(NC)"
 	@for file in .env backend/.env frontend/.env secrets/firebase-credentials.json; do \
-		if [ -f $$file ]; then \
-			echo "$(GREEN)✓ $$file exists$(NC)"; \
-		else \
-			echo "$(YELLOW)✗ $$file missing$(NC)"; \
-		fi \
+		if [ -f $$file ]; then echo "$(GREEN)✓ $$file exists$(NC)"; \
+		else echo "$(YELLOW)✗ $$file missing$(NC)"; fi \
 	done
-	@echo "$(GREEN)✓ Environment configuration validated$(NC)"
-
-##@ API Gateway
-
-gateway-health: ## Test gateway health check
-	@echo "$(BLUE)Testing gateway health...$(NC)"
-	@curl -s http://localhost:8080/health || echo "$(YELLOW)⚠ Gateway not responding$(NC)"
-	@echo ""
-
-gateway-test: ## Test gateway routing to all services
-	@echo "$(BLUE)Testing API Gateway routing...$(NC)"
-	@echo ""
-	@echo "$(BLUE)Gateway Health:$(NC)"
-	@curl -s http://localhost:8080/health && echo "" || echo "$(YELLOW)✗ Gateway unhealthy$(NC)"
-	@echo ""
-	@echo "$(BLUE)Gateway Info:$(NC)"
-	@curl -s http://localhost:8080/gateway/info | python3 -m json.tool 2>/dev/null || echo "$(YELLOW)✗ Gateway info unavailable$(NC)"
-	@echo ""
-	@echo "$(BLUE)B2B API (via gateway):$(NC)"
-	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/b2b/
-	@echo ""
-	@echo "$(BLUE)Platform API (via gateway):$(NC)"
-	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/platform/
-	@echo ""
-	@echo "$(BLUE)B2C API (via gateway):$(NC)"
-	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/b2c/
-	@echo ""
-	@echo "$(BLUE)Domain API (via gateway):$(NC)"
-	@curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:8080/api/domain/
-	@echo ""
-	@echo "$(GREEN)✓ Gateway test complete$(NC)"
