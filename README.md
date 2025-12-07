@@ -38,6 +38,12 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[Tenant Admin Guide](docs/guides/tenant-admin.md)**: Instructions for tenant administrators.
 - **[RBAC Concepts](docs/guides/rbac-concepts.md)**: Understanding the permission model.
 
+### 📋 Specifications
+*Detailed functional requirements and flow definitions.*
+
+- **[Specifications Index](docs/specifications/README.md)**: Master list of all functional specifications.
+- **[Tenant Onboarding](docs/specifications/tenant-onboarding.md)** (SPEC-01): Platform invite and activation flow.
+
 ### 🏗️ Architecture
 *Technical design, concepts, and data flows.*
 

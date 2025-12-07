@@ -14,6 +14,24 @@ Run with coverage report:
 make e2e-test-coverage
 ```
 
+## 📋 Pre-Test Checklist
+
+Before running tests, ensure your environment is ready:
+
+1.  **Services Up**: `make up-backend` (or `make up`) is running.
+2.  **Health Check**: `curl http://localhost:8000/health` returns 200.
+3.  **Credentials**: `secrets/firebase-credentials.json` exists.
+4.  **Database**: `make test-env` reports all configs valid.
+5.  **Clean State**: Run `make reset-db` if tests are failing due to stale data.
+
+## 📊 Test Matrix & Coverage
+
+We track functional coverage in the [Test Matrix](./test-matrix.md).
+Use this matrix to identify:
+- Which API test covers a specific requirement (e.g., `ONB-01`).
+- Which Browser test covers the UI flow.
+- Gaps where features are implemented but untested.
+
 ## 🏗️ Current Infrastructure (Phase 3 Complete)
 
 We have established a robust **API E2E Testing Framework** focusing on security and critical business flows.

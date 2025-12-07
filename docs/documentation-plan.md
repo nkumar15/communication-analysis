@@ -51,6 +51,14 @@ To provide a clear, role-based navigation path for developers and administrators
     - **User Management:** Inviting users, roles.
     - **SSO Setup:** Configuring their IdP.
 
+### 5. The Product/Specification Track
+**File:** `docs/specifications/README.md`
+- **Audience:** Product Managers, Developers, QA
+- **Purpose:** Detailed functional requirements and acceptance criteria.
+- **Content:**
+    - **Specs:** Broken down by feature (e.g., Onboarding, RBAC).
+    - **Source of Truth:** Defines "How it should work" vs "How it is built".
+
 ## 🧹 Cleanup Actions
 - [x] Rename `docs/guides/admin-guide.md` -> `docs/guides/tenant-admin.md`
 - [x] Merge `docs/guides/admin-setup.md` into `docs/guides/tenant-admin.md`
