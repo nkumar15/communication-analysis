@@ -6,7 +6,7 @@ This directory contains detailed functional requirements and acceptance criteria
 
 | ID | Feature | File | Status |
 |----|---------|------|--------|
-| **SPEC-01** | **Tenant Onboarding** | [`tenant-onboarding.md`](./tenant-onboarding.md) | ✅ Live |
+| **SPEC-01** | **Tenant Onboarding** | [`tenant-onboarding.md`](./tenant-onboarding.md) | ❌ Draft |
 | **SPEC-02** | **Authentication & Identity** | *Planned* | ❌ Draft |
 | **SPEC-03** | **RBAC & Permissions** | *Planned* | ❌ Draft |
 | **SPEC-04** | **User Management** | *Planned* | ❌ Draft |
