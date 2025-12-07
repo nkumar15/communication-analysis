@@ -8,11 +8,11 @@ This directory contains utility scripts for managing the application.
 
 Seeds domain-specific resources and role templates that are unique to your business.
 
-**Purpose**: Separates domain-specific data (e.g., farmers, crops) from core boilerplate data (users, roles, tenants) to make the codebase reusable for different businesses.
+**Purpose**: Separates domain-specific data (e.g., shops) from core boilerplate data (users, roles, tenants) to make the codebase reusable for different businesses.
 
 **What it seeds**:
-- Domain resources (e.g., `farmers`, `crops`, `fields`)
-- Domain role templates (e.g., `field_manager`, `field_agent`)
+- Domain resources (e.g., `shops`)
+- Domain role templates (e.g., `shop_manager`, `shop_agent`)
 
 **Usage**:
 ```bash
@@ -49,7 +49,7 @@ make up
 # 3. Run core migrations (users, roles, tenants)
 make migrate
 
-# 4. Seed domain data (farmers, etc.)
+# 4. Seed domain data (shops, etc.)
 make seed-domain
 
 # Done! Your app is ready

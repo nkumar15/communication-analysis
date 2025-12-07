@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS b2b.tenants (
     name VARCHAR(255) NOT NULL,
     domain VARCHAR(255) NOT NULL UNIQUE,
     firebase_tenant_id VARCHAR(255) NOT NULL UNIQUE,
+    logo_url VARCHAR(500),
     
     -- Activation workflow fields
     activation_token VARCHAR(64) UNIQUE,
@@ -199,6 +200,7 @@ COMMENT ON TABLE b2b.team_members IS 'Many-to-many relationship between teams an
 COMMENT ON COLUMN b2b.tenants.activation_token IS 'Single-use token for tenant activation (48-hour expiry)';
 COMMENT ON COLUMN b2b.tenants.activation_status IS 'Status: pending, active, expired';
 COMMENT ON COLUMN b2b.tenants.firebase_tenant_id IS 'Firebase GCIP tenant identifier';
+COMMENT ON COLUMN b2b.tenants.logo_url IS 'URL to tenant logo image';
 
 COMMENT ON COLUMN b2b.users.role IS 'Legacy role field: admin, field_manager, field_agent';
 COMMENT ON COLUMN b2b.users.role_id IS 'RBAC role reference (replaces legacy role field)';

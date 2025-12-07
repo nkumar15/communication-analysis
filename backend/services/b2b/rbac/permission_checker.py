@@ -20,7 +20,7 @@ async def has_permission(
     
     Args:
         user_id: User ID to check
-        resource: Resource name (e.g., 'farmers', 'users')
+        resource: Resource name (e.g., 'shops', 'users')
         action: Action name (e.g., 'read', 'write')
         db: Database session
         
@@ -72,7 +72,7 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
         db: Database session
         
     Returns:
-        list: List of permission strings like ['farmers:read', 'users:write']
+        list: List of permission strings like ['shops:read', 'users:write']
     """
     # Get user using explicit query (respects RLS)
     user_result = await db.execute(

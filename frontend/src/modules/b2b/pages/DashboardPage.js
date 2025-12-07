@@ -31,7 +31,7 @@ const DashboardPage = () => {
     };
 
     // Block field_agent from accessing dashboard - allow owner, admin, field_manager
-    if (!authLoading && !hasRole(['owner', 'admin', 'field_manager'])) {
+    if (!authLoading && !hasRole(['owner', 'admin'])) {
         return (
             <AdminLayout title="Access Denied" subtitle="">
                 <div style={{ padding: '60px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
@@ -42,7 +42,7 @@ const DashboardPage = () => {
                         As a Field Agent, you can manage farmer data from the Farmer Management page.
                     </p>
                     <button
-                        onClick={() => navigate('/farmers')}
+                        onClick={() => navigate('/projects')}
                         style={{
                             padding: '12px 24px',
                             backgroundColor: '#4F46E5',

@@ -17,8 +17,6 @@ from app.rbac import (
     get_user_permissions,
     
     # Scope helpers
-    get_accessible_farmers_query,
-    can_access_farmer,
     get_dashboard_stats
 )
 ```
@@ -36,12 +34,12 @@ from app.rbac import require_permission
 
 router = APIRouter()
 
-@router.get("/farmers")
-async def list_farmers(
-    current_user: dict = require_permission('farmers', 'read'),
+@router.get("/projects")
+async def list_projects(
+    current_user: dict = require_permission('projects', 'read'),
     db: AsyncSession = Depends(get_db)
 ):
-    """Only users with 'farmers:read' permission can access"""
+    """Only users with 'projects:read' permission can access"""
     # ... your code
 ```
 
@@ -65,14 +63,14 @@ async def invite_user(
 ```python
 from app.rbac import has_permission
 
-@router.get("/farmers/{id}")
-async def get_farmer(
+@router.get("/projects/{id}")
+async def get_project(
     id: int,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     # Manual permission check
-    if not await has_permission(current_user['id'], 'farmers', 'read', db):
+    if not await has_permission(current_user['id'], 'projects', 'read', db):
         raise HTTPException(status_code=403, detail="Permission denied")
     
     # Your code
@@ -83,43 +81,43 @@ async def get_farmer(
 
 ## 📊 Scoped Queries (Hierarchical Access)
 
-### Get Scoped Farmers
+### Get Scoped Projects
 
 ```python
-from app.rbac import get_accessible_farmers_query
+from app.rbac import get_accessible_projects_query
 
-@router.get("/farmers")
-async def list_farmers(
+@router.get("/projects")
+async def list_projects(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     # Get query scoped to user's access level
-    query = await get_accessible_farmers_query(current_user['id'], db)
+    query = await get_accessible_projects_query(current_user['id'], db)
     
     # Execute query
     result = await db.execute(query)
-    farmers = result.scalars().all()
+    projects = result.scalars().all()
     
-    return farmers
+    return projects
 ```
 
-### Check Single Farmer Access
+### Check Single Project Access
 
 ```python
-from app.rbac import can_access_farmer
+from app.rbac import can_access_project
 
-@router.get("/farmers/{id}")
-async def get_farmer(
+@router.get("/projects/{id}")
+async def get_project(
     id: int,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Check if user can access this specific farmer
-    if not await can_access_farmer(current_user['id'], id, db):
-        raise HTTPException(status_code=404, detail="Farmer not found")
+    # Check if user can access this specific project
+    if not await can_access_project(current_user['id'], id, db):
+        raise HTTPException(status_code=404, detail="Project not found")
     
-    farmer = await db.get(Farmer, id)
-    return farmer
+    project = await db.get(Project, id)
+    return project
 ```
 
 ### Get Scoped Statistics
@@ -138,80 +136,80 @@ async def dashboard_stats(
     return stats
     # Returns: {
     #   "total_users": 5,      # Users in hierarchy
-    #   "total_farmers": 25,   # Accessible farmers
-    #   "my_farmers": 10       # Own farmers
+    #   "total_projects": 25,   # Accessible projects
+    #   "my_projects": 10       # Own projects
     # }
 ```
 
 ---
 
-## 🎯 Complete Example: Farmers Endpoint
+## 🎯 Complete Example: Projects Endpoint
 
 ```python
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db, get_current_user
-from app.rbac import require_permission, get_accessible_farmers_query, can_access_farmer
-from app.models.rbac import Farmer
+from app.rbac import require_permission, get_accessible_projects_query, can_access_project
+from app.models.rbac import Project
 from pydantic import BaseModel
 
 router = APIRouter()
 
-class FarmerCreate(BaseModel):
+class ProjectCreate(BaseModel):
     name: str
     email: str
     phone: str
     address: str
 
-@router.get("/farmers")
-async def list_farmers(
-    current_user: dict = require_permission('farmers', 'read'),
+@router.get("/projects")
+async def list_projects(
+    current_user: dict = require_permission('projects', 'read'),
     db: AsyncSession = Depends(get_db)
 ):
-    """List all farmers user can access (scoped)"""
-    query = await get_accessible_farmers_query(current_user['id'], db)
+    """List all projects user can access (scoped)"""
+    query = await get_accessible_projects_query(current_user['id'], db)
     result = await db.execute(query)
-    farmers = result.scalars().all()
-    return farmers
+    projects = result.scalars().all()
+    return projects
 
-@router.post("/farmers")
-async def create_farmer(
-    farmer_data: FarmerCreate,
-    current_user: dict = require_permission('farmers', 'write'),
+@router.post("/projects")
+async def create_project(
+    project_data: ProjectCreate,
+    current_user: dict = require_permission('projects', 'write'),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new farmer (permission required)"""
-    farmer = Farmer(
+    """Create a new project (permission required)"""
+    project = Project(
         tenant_id=current_user['tenant_id'],
-        name=farmer_data.name,
-        email=farmer_data.email,
-        phone=farmer_data.phone,
+        name=project_data.name,
+        email=project_data.email,
+        phone=project_data.phone,
         address=farmer_data.address,
         created_by=current_user['id']  # Track ownership
     )
-    db.add(farmer)
+    db.add(project)
     await db.commit()
-    await db.refresh(farmer)
-    return farmer
+    await db.refresh(project)
+    return project
 
-@router.get("/farmers/{id}")
-async def get_farmer(
+@router.get("/projects/{id}")
+async def get_project(
     id: int,
-    current_user: dict = require_permission('farmers', 'read'),
+    current_user: dict = require_permission('projects', 'read'),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get a farmer (with scope check)"""
-    # Check if user can access this farmer
-    if not await can_access_farmer(current_user['id'], id, db):
-        raise HTTPException(status_code=404, detail="Farmer not found")
+    """Get a project (with scope check)"""
+    # Check if user can access this project
+    if not await can_access_project(current_user['id'], id, db):
+        raise HTTPException(status_code=404, detail="Project not found")
     
-    farmer = await db.get(Farmer, id)
-    return farmer
+    project = await db.get(Project, id)
+    return project
 
-@router.delete("/farmers/{id}")
-async def delete_farmer(
+@router.delete("/projects/{id}")
+async def delete_project(
     id: int,
-    current_user: dict = require_permission('farmers', 'delete'),
+    current_user: dict = require_permission('projects', 'delete'),
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a farmer (permission + scope check)"""
@@ -233,7 +231,6 @@ async def delete_farmer(
 - `dashboard` - Statistics and overview
 - `users` - User management
 - `roles` - Role management
-- `farmers` - Farmer management
 - `projects` - Project management
 - `tasks` - Task management
 - `comments` - Commenting system
@@ -246,7 +243,6 @@ async def delete_farmer(
 
 ### Examples
 ```python
-has_permission(user_id, 'farmers', 'read', db)   # Can view farmers
 has_permission(user_id, 'users', 'write', db)    # Can create/edit users
 has_permission(user_id, 'roles', 'write', db)    # Can manage roles
 ```
@@ -255,7 +251,7 @@ has_permission(user_id, 'roles', 'write', db)    # Can manage roles
 
 ## 📋 Role Access Summary
 
-| Role | Dashboard | Users | Roles | Farmers |
+| Role | Dashboard | Users | Roles | Projects |
 |------|-----------|-------|-------|---------|
 | **Admin** | ✅ All | ✅ All | ✅ Manage | ✅ All |
 | **Field Manager** | ✅ Team | 📨 Invite Agents | ✅ Manage | ✅ Team |
@@ -288,13 +284,13 @@ Every SaaS tenant needs these:
 
 #### Domain Roles (Business Specific)
 Specific to the application's domain (e.g., Farming, Healthcare, CRM).
-- **Field Manager** (`field_manager`): Can manage agents and farmers.
-- **Field Agent** (`field_agent`): Can only access assigned farmers.
+- **Field Manager** (`field_manager`): Can manage agents and projects.
+- **Field Agent** (`field_agent`): Can only access assigned projects.
 
 ### How to Add New Domain Roles
 To introduce a new domain role (e.g., "Auditor"):
 
-1.  **Define Resources**: Add 'audits' to `resources` table.
+1.  **Define Resources**: Add 'projects' to `resources` table.
 2.  **Update Seeder**: Modify `seed_tenant_roles` function in migration:
     ```sql
     -- Create Role

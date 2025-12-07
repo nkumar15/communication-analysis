@@ -79,7 +79,7 @@ async def get_user_stats(
         total_users=stats['total_users'],
         active_users=stats['accessible_users'],  # Users in hierarchy
         pending_invitations=pending_invitations,
-        managers_count=stats.get('total_farmers', 0)  # Default to 0 if key doesn't exist
+        managers_count=stats.get('total_projects', 0)  # Default to 0 if key doesn't exist
     )
 
 

@@ -96,8 +96,8 @@ The backend consists of 3 independent microservices:
 **b2c schema** - Personal workspaces
 - workspaces, b2c_users, workspace_members
 
-**farming schema** - Domain logic
-- farmers
+**projects schema** - Domain logic
+- projects
 
 For detailed architecture, see [System Architecture](../architecture/system-architecture.md)
 

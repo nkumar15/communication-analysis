@@ -56,7 +56,7 @@ export const useAuth = () => {
 
     /**
      * Check if user can access a specific feature
-     * @param {string} feature - Feature name (dashboard, users, roles, farmers)
+     * @param {string} feature - Feature name (dashboard, users, roles, projects)
      * @returns {boolean}
      */
     const canAccess = (feature) => {
@@ -67,7 +67,6 @@ export const useAuth = () => {
             projects: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access projects
             users: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage users
             roles: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage roles
-            farmers: ['owner', 'admin', 'field_manager', 'field_agent'], // All except Viewer
             teams: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access teams
             account: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access account settings
             audit_logs: ['owner', 'admin'] // Only Owner and Admin can access audit logs

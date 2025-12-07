@@ -144,7 +144,7 @@ class ApiService {
         return response.json();
     }
 
-    // Convenience methods for roles and farmers
+    // Convenience methods for roles and projects
     async getRoles() {
         return this.get('/api/b2b/roles');
     }
@@ -192,8 +192,8 @@ class ApiService {
         return this.get('/api/b2b/roles/actions/all');
     }
 
-    async getFarmers() {
-        return this.get('/api/b2b/farmers');
+    async getProjects() {
+        return this.get('/api/b2b/projects');
     }
 
     /**

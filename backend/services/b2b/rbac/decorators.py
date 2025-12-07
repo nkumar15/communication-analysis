@@ -16,13 +16,13 @@ def require_permission(resource: str, action: str):
     Decorator to require permission for an endpoint
     
     Usage:
-        @router.get("/farmers")
-        @require_permission('farmers', 'read')
-        async def list_farmers(current_user: dict = Depends(get_current_user)):
+        @router.get("/shops")
+        @require_permission('shops', 'read')
+        async def list_shops(current_user: dict = Depends(get_current_user)):
             ...
     
     Args:
-        resource: Resource name (e.g., 'farmers', 'users')
+        resource: Resource name (e.g., 'shops', 'users')
         action: Action name (e.g., 'read', 'write')
     """
     async def permission_dependency(
@@ -97,9 +97,9 @@ def require_permission_and_role(resource: str, action: str, *allowed_roles: str)
     Usually, permission check alone is sufficient.
     
     Usage:
-        @router.delete("/farmers/{id}")
-        @require_permission_and_role('farmers', 'delete', 'admin', 'field_manager')
-        async def delete_farmer(id: int, current_user: dict = Depends(get_current_user)):
+        @router.delete("/shops/{id}")
+        @require_permission_and_role('shops', 'delete', 'admin', 'shop_manager')
+        async def delete_shop(id: int, current_user: dict = Depends(get_current_user)):
             ...
     """
     async def combined_dependency(

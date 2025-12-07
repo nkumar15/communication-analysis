@@ -47,7 +47,7 @@ The system is designed as a **microservices architecture** with 3 independent ba
 - `/api/invitations` - User invitation flow
 - `/api/users` - User management
 - `/api/roles` - RBAC configuration
-- `/api/farmers` - Domain-specific (example)
+- `/api/projects` - Domain-specific (example)
 
 ---
 
@@ -93,7 +93,7 @@ PostgreSQL database with 4 logical schemas:
 | **b2b** | Enterprise tenants | tenants, users, roles, invitations, role_permissions |
 | **platform** | Platform admin | platform_tenant, platform_users, platform_roles, platform_audit_log |
 | **b2c** | Personal workspaces | workspaces, b2c_users, workspace_members |
-| **farming** | Domain logic | farmers |
+| **projects** | Domain logic | projects |
 
 ### Multi-Tenancy Model
  

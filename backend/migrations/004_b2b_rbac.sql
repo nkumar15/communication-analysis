@@ -161,7 +161,7 @@ COMMENT ON COLUMN b2b.role_templates.permissions IS 'JSONB array of {resource, a
 -- IMPORTANT: This creates RBAC tables in the b2b schema (not public).
 -- Platform and B2C will have their own RBAC systems in their respective schemas.
 -- 
--- This is domain-agnostic SaaS boilerplate. Domain-specific resources (farmers, shops, etc)
+-- This is domain-agnostic SaaS boilerplate. Domain-specific resources (shops, etc)
 -- should be seeded via backend/scripts/b2b/seed_domain_data.py
 -- ============================================================================
 
@@ -255,7 +255,7 @@ ON CONFLICT (name) DO NOTHING;
 -- SEED DATA: RESOURCES (SaaS Boilerplate - Domain Agnostic)
 -- ============================================================================
 -- Common resources found in any multi-tenant SaaS application
--- Domain-specific resources (farmers, shops) should be added via Python seed scripts
+-- Domain-specific resources (shops) should be added via Python seed scripts
 
 INSERT INTO b2b.resources (name, display_name, category, description) VALUES
     -- Analytics & Reporting

@@ -39,7 +39,7 @@ class Resource(Base, TimestampMixin):
     __table_args__ = {'schema': 'b2b'}
     
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    name = Column(String(50), unique=True, nullable=False)  # 'dashboard', 'users', 'farmers'
+    name = Column(String(50), unique=True, nullable=False)  # 'dashboard', 'users', 'shops'
     display_name = Column(String(100), nullable=False)  # 'Dashboard', 'User Management'
     category = Column(String(50))  # Group in UI: 'Administration', 'Core'
     description = Column(Text)

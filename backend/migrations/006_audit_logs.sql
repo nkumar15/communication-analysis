@@ -32,3 +32,23 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON b2b.audit_logs(created_a
 COMMENT ON TABLE b2b.audit_logs IS 'Immutable audit trail for security and compliance events';
 COMMENT ON COLUMN b2b.audit_logs.actor_id IS 'User who performed the action (NULL for system events)';
 COMMENT ON COLUMN b2b.audit_logs.details IS 'JSON payload containing event-specific metadata or state changes';
+
+
+-- ============================================================================
+-- ROW LEVEL SECURITY (RLS)
+-- ============================================================================
+
+ALTER TABLE b2b.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Audit logs scoped to tenant
+DROP POLICY IF EXISTS audit_logs_isolation_policy ON b2b.audit_logs;
+CREATE POLICY audit_logs_isolation_policy ON b2b.audit_logs
+    USING (
+        current_setting('app.is_platform_admin', true) = 'true'
+        OR
+        tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    );  
+
+COMMENT ON POLICY audit_logs_isolation_policy ON b2b.audit_logs IS 
+    'Enforces tenant isolation for audit logs (domain-specific table)';
+    
