@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for E2E testing - SIMPLIFIED VERSION
 """
+import os
 import asyncio
 import pytest
 import pytest_asyncio
@@ -20,7 +21,7 @@ from core.utils import get_utc_now
 
 
 # Test database URL (shared connection)
-TEST_DATABASE_URL = "postgresql+asyncpg://sso_app:sso_app_password@postgres:5432/sso_db"
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")  
 
 
 # Create a single test engine and session factory
