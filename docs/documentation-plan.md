@@ -7,6 +7,7 @@ To provide a clear, role-based navigation path for developers and administrators
 
 ## 🗺️ Documentation Map
 
+
 ### 1. The Entry Point
 **File:** `README.md`
 - **Audience:** Everyone (New Developers, Evaluators)
@@ -42,7 +43,7 @@ To provide a clear, role-based navigation path for developers and administrators
     - **Monitoring:** Audit logs, system stats.
 
 ### 4. The Tenant Admin Track (Customer)
-**File:** `docs/guides/tenant-admin.md` (Renamed from `admin-guide.md`)
+**File:** `docs/guides/tenant-admin.md`
 - **Audience:** Customer Administrators (The users of the SaaS)
 - **Purpose:** How to use the application.
 - **Content:**
@@ -52,11 +53,15 @@ To provide a clear, role-based navigation path for developers and administrators
 
 ## 🧹 Cleanup Actions
 - [x] Rename `docs/guides/admin-guide.md` -> `docs/guides/tenant-admin.md`
-- [x] Merge `docs/guides/admin-setup.md` into `docs/guides/tenant-admin.md` (if redundant)
-- [x] Simplify `README.md` to remove duplicate "How to" content that belongs in `development.md`.
+- [x] Merge `docs/guides/admin-setup.md` into `docs/guides/tenant-admin.md`
+- [x] Simplify `README.md` to remove duplicate "How to" content.
 - [x] Ensure `docs/guides/development.md` is the **single source** for testing instructions.
+- [x] **Rename & Clarify RBAC:** `guides/rbac.md` -> `guides/rbac-concepts.md` & `architecture/rbac.md` -> `architecture/rbac-implementation.md`.
+- [x] **Consolidate Architecture Flows:** Flatten `docs/architecture/flows/` -> `docs/architecture/`.
+- [x] **Move Deployment:** `DEPLOYMENT.md` -> `docs/guides/deployment.md`.
+- [x] **Move Contributing:** `docs/guides/contributing.md` -> `CONTRIBUTING.md`.
 
 ## 📏 Rules
 1. **Don't Duplicate:** If it's in `development.md`, link to it from `README.md`. Don't copy-paste.
 2. **Role-Based:** Ask "Who is reading this?" before creating a file.
-3. **Keep Root Clean:** Only `README.md`, `LICENSE`, `CONTRIBUTING.md` (optional) in root. Move everything else to `docs/`.
+3. **Clean Root:** Only `README.md`, `LICENSE`, `CONTRIBUTING.md` in root. Move everything else to `docs/`.

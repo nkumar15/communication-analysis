@@ -5,10 +5,10 @@ Guide for developers working on this project.
 ## 🚀 Getting Started
 
 1. **Read documentation first:**
-   - [README.md](../../README.md) - Project overview
-   - [Roadmap](../planning/roadmap.md) - Current state & planned features
-   - [Development Guide](./development.md) - Setup & testing
-   - [Architecture](../architecture/overview.md) - Technical decisions
+   - [README.md](./README.md) - Project overview
+   - [Roadmap](docs/planning/roadmap.md) - Current state & planned features
+   - [Development Guide](docs/guides/development.md) - Setup & testing
+   - [Architecture](docs/architecture/overview.md) - Technical decisions
 
 2. **Setup local environment:**
    ```bash
@@ -19,7 +19,7 @@ Guide for developers working on this project.
    ```
 
 3. **Check what's already done:**
-   - Review [Completed Phases](../planning/completed-phases.md)
+   - Review [Completed Phases](docs/planning/completed-phases.md)
    - Check existing code in relevant service/component
 
 ---
@@ -41,7 +41,7 @@ Description:
 - What: Add audit log table tracking user actions
 - Why: Security compliance requirement
 - How: New AuditLog model, middleware for tracking
-- References: See docs/ROADMAP.md "Audit logging"
+- References: See docs/planning/roadmap.md "Audit logging"
 ```
 
 ### 3. Update ROADMAP.md
@@ -91,8 +91,8 @@ Technical approach taken
 - [ ] Manual testing completed
 
 ## Documentation
-- [ ] Updated docs/ROADMAP.md
-- [ ] Updated docs/development-guide.md (if architectural)
+- [ ] Updated docs/planning/roadmap.md
+- [ ] Updated docs/guides/development.md (if architectural)
 - [ ] Added comments to complex code
 
 ## Checklist
@@ -181,12 +181,12 @@ npm start  # Compiles without errors
 ### When to Update Docs
 
 **Always update:**
-- `docs/ROADMAP.md` - Move completed items, add discoveries
+- `docs/planning/roadmap.md` - Move completed items, add discoveries
 - Code comments - Explain "why", not "what"
 
 **Sometimes update:**
-- `docs/development-guide.md` - New setup steps, new patterns
-- `docs/ARCHITECTURE.md` - Architectural decisions
+- `docs/guides/development.md` - New setup steps, new patterns
+- `docs/architecture/overview.md` - Architectural decisions
 - `README.md` - New major features
 
 **Example ROADMAP update:**

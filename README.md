@@ -28,19 +28,39 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 
 ## 🧭 Documentation
 
-We have organized documentation by role in the `docs/` directory.
+### 🚀 Guides
+*Practical "How-to" guides for developers and administrators.*
 
-| Role | Guide | Purpose |
-|------|-------|---------|
-| **Developer** | [Development Guide](docs/guides/development.md) | Setup, Testing, Architecture, CLI Tools |
-| **Platform Admin** | [Platform Admin Guide](docs/guides/platform-admin.md) | SaaS Console, Tenant Management, System Config |
-| **Tenant Admin** | [Tenant Admin Guide](docs/guides/tenant-admin.md) | User Management, Invitations, Dashboard Usage |
+- **[Development Guide](docs/guides/development.md)**: Setup, local development, and coding standards.
+- **[Deployment Guide](docs/guides/deployment.md)**: Deployment strategies and production configuration.
+- **[Contributing](CONTRIBUTING.md)**: Guidelines for submitting PRs and reporting issues.
+- **[Platform Admin Guide](docs/guides/platform-admin.md)**: Using the Super Admin Console and platform features.
+- **[Tenant Admin Guide](docs/guides/tenant-admin.md)**: Instructions for tenant administrators.
+- **[RBAC Concepts](docs/guides/rbac-concepts.md)**: Understanding the permission model.
 
-### 📚 [Full Documentation Index](docs/README.md)
+### 🏗️ Architecture
+*Technical design, concepts, and data flows.*
 
-- **[System Architecture](docs/architecture/overview.md)**
-- **[API Documentation](http://localhost:8000/docs)**
-- **[Roadmap](docs/planning/roadmap.md)**
+- **[Overview](docs/architecture/overview.md)**: High-level system architecture and tech stack.
+- **[System Architecture](docs/architecture/system-architecture.md)**: Detailed component breakdown.
+- **[Domain APIs](docs/architecture/domain-apis.md)**: Projects, Tasks, and Comments APIs.
+- **[RBAC Implementation](docs/architecture/rbac-implementation.md)**: Technical deep dive into permission enforcement.
+- **[UI Components](docs/architecture/ui-components.md)**: Design system and reusable frontend components.
+- **[Tenant Onboarding Flow](docs/architecture/tenant-onboarding-flow.md)**: Detailed API sequence diagram for tenant creation.
+- **[B2C Module](docs/architecture/b2c-module.md)**: Personal and team workspace functionality.
+
+### 🧪 Testing
+*Quality assurance strategies and test plans.*
+
+- **[Testing Strategy](docs/testing/strategy.md)**: Overall approach, tools, and roadmap.
+- **[Testing Workflows](docs/testing/workflows.md)**: Manual and automated testing procedures.
+- **[E2E Activation Tests](docs/testing/e2e-activation.md)**: Guide to testing the critical activation flow.
+
+### 📅 Planning
+*Project status, roadmap, and history.*
+
+- **[Roadmap](docs/planning/roadmap.md)**: Future features and development plan.
+- **[Completed Phases](docs/planning/completed-phases.md)**: History of delivered milestones.
 
 ---
 

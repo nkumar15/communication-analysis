@@ -427,4 +427,4 @@ frontend/src/
 For implementation details, see:
 - [Development Guide](../guides/development.md)
 - [Platform Admin Guide](../guides/platform-admin.md)
-- [RBAC Documentation](./rbac.md)
+- [RBAC Implementation](./rbac-implementation.md)

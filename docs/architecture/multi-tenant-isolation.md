@@ -396,7 +396,7 @@ This is **intentional and more secure** - it prevents information disclosure abo
 
 ## Related Documentation
 
-- [RBAC Guide](../guides/rbac.md) - Role-based access control
+- [RBAC Concepts](../guides/rbac-concepts.md) - Role-based access control
 - [Testing Strategy](../testing/strategy.md) - Multi-tenant testing patterns
 - [Security Policy](./SECURITY.md) - Overall security architecture
 - [Development Guide](../guides/development.md) - Setting up development environment
