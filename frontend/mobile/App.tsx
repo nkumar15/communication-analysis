@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Linking, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
-import apiService from '../../../core/api/b2bClient';
-import firebaseAuthService from '../../../core/firebase/authService';
+import apiService from '../src/core/api/b2bClient';
+import firebaseAuthService from '../src/core/firebase/authService';
 
 /**
  * Mobile Activation Screen
