@@ -1,3 +1,4 @@
+const path = require('path');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 
 /**
@@ -9,8 +10,12 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const config = {
     watchFolders: [
         // Watch the parent directory so we can import shared code
-        require('path').resolve(__dirname, '..')
-    ]
+        path.resolve(__dirname, '..')
+    ],
+    resolver: {
+        // Ensure shared files in parent dir can resolve modules from this mobile/node_modules
+        nodeModulesPaths: [path.resolve(__dirname, 'node_modules')],
+    },
 };
 
 module.exports = mergeConfig(getDefaultConfig(__dirname), config);
