@@ -800,6 +800,149 @@ make logs-b2b ARGS="-f"
    GCP_PROJECT_ID=my-project
    ```
 
+2. **Deploy via Make:**
+   ```bash
+   make build
+   make push   # Push to Container Registry
+   make deploy # Deploy to Cloud Run/ECS
+   ```
+
+---
+
+# Mobile Development Guide (Android)
+
+This section documents the "Split Workflow" for developing the Mobile Application.
+**Architecture**: Native Windows (Android/Java) + WSL 2 (Backend/Docker).
+
+## 1. Prerequisites (Windows)
+
+Do **NOT** use WSL for these steps. Run everything in **PowerShell**.
+
+### Software
+1.  **Node.js (LTS)**: Install via [nvm-windows](https://github.com/coreybutler/nvm-windows).
+    ```powershell
+    nvm install 20
+    nvm use 20
+    ```
+2.  **Java JDK 17**: Microsoft OpenJDK or Zulu (Required for Gradle).
+3.  **Android Studio (Ladybug or newer)**:
+    *   **SDK Manager**:
+        *   **SDK Platform**: Android 15.0 (API 35).
+        *   **SDK Tools**:
+            *   Android SDK Build-Tools **35.0.0**.
+            *   NDK (Side-by-side) **27.1.12297006**.
+            *   CMake **3.22.1**.
+            *   Android Emulator.
+            *   Android SDK Platform-Tools.
+
+### Environment Variables (System)
+Add these to your Windows Environment Variables:
+*   `ANDROID_HOME`: `C:\Users\<YOU>\AppData\Local\Android\Sdk`
+*   `Path`: Add `%ANDROID_HOME%\platform-tools`
+
+### Fix for Corrupted Tools (Common Issue)
+If you see `d8.bat` or `dx.bat` errors:
+1.  Go to `%ANDROID_HOME%\build-tools\35.0.0`.
+2.  Rename `d8.bat` to `dx.bat` (if missing).
+3.  Ensure `lib/dx.jar` exists.
+
+---
+
+## 2. Project Setup
+
+### Backend (WSL 2)
+Run the backend in your standard WSL environment.
+```bash
+# In WSL terminal
+cd enterprisesso
+make up-backend
+```
+*   Ensures API is running at `localhost:8000` (bridged to Windows).
+
+### Frontend Mobile (Windows)
+Run these commands in **PowerShell**.
+
+1.  **Install Dependencies**:
+    ```powershell
+    cd frontend/mobile
+    npm install
+    # Ensure @react-native-async-storage/async-storage is installed
+    ```
+
+2.  **Configure Local Properties**:
+    Create `frontend/mobile/android/local.properties`:
+    ```properties
+    sdk.dir=C:\\Users\\<YOU>\\AppData\\Local\\Android\\Sdk
+    ```
+
+---
+
+## 3. Running the App
+
+### Start Metro Bundler
+Must be run from the `mobile` directory.
+```powershell
+cd frontend/mobile
+npx react-native start --reset-cache
+```
+
+### Launch Android Emulator
+Open Android Studio -> Device Manager -> Launch AVD (e.g., Pixel 7).
+
+### Build & Run App
+Open a **new** PowerShell tab:
+```powershell
+cd frontend/mobile
+npm run android
+```
+*   This compiles the Java/C++ native code.
+*   Installs APK on the emulator.
+*   Connects to the Metro Bundler automatically.
+
+---
+
+## 4. Testing & Development
+
+### API Connectivity
+The Android Emulator uses a special loopback IP to access the host machine (Windows):
+*   **Host URL**: `http://10.0.2.2:8000` relates to `localhost:8000` on Windows.
+*   **Code Implementation**: `src/core/api/b2bClient.native.js` handles this automatically.
+
+### Deep Linking (Activation Flow)
+To simulate clicking an email activation link:
+
+1.  **Requirement**: App must be installed.
+2.  **Run Command (PowerShell)**:
+    ```powershell
+    adb shell am start -W -a android.intent.action.VIEW -d "https://app.example.com/activate?token=YOUR_TEST_TOKEN" com.mobile
+    ```
+3.  **Expected Behavior**:
+    *   App opens (if closed).
+    *   Navigates to "Tenant Activation" screen.
+    *   Shows "Validating..." -> "Invalid Token" (if token is fake).
+
+---
+
+## 5. Troubleshooting Configuration
+
+### "Unable to resolve module"
+*   **Cause**: Metro cannot find shared files in `../src`.
+*   **Fix**:
+    1.  Check `mobile/metro.config.js` has `watchFolders` configured.
+    2.  Check `mobile/package.json` has peer dependencies (e.g., `async-storage`).
+    3.  **Reset Cache**: `npx react-native start --reset-cache`.
+
+### "ShellCommandUnresponsiveException"
+*   **Cause**: Emulator froze during APK installation.
+*   **Fix**:
+    1.  Close Emulator.
+    2.  Android Studio -> Device Manager -> Right Click AVD -> **Wipe Data**.
+    3.  Restart Emulator.
+
+### "SDK Location not found"
+*   **Cause**: Missing or wrong `local.properties`.
+*   **Fix**: Ensure `sdk.dir` points to your **Windows** AppData path, using double backslashes `\\`.   ```
+
 2. **Logs automatically output JSON** compatible with cloud logging services
 
 3. **Configure log aggregation:**
