@@ -962,3 +962,100 @@ await tenant_service.delete_tenant(db, tenant_id)
 tenant = await tenant_service.get_tenant_by_id(db, tenant_id)
 ```
 
+---
+
+## Mobile Development (React Native)
+
+The project supports a React Native mobile application located in `frontend/`. It shares logic with the Web Admin via the `core/` and `shared/` directories.
+
+### Prerequisites (Mobile)
+
+In addition to the standard prerequisites, you need:
+- **React Native CLI**: `npm install -g react-native-cli`
+- **iOS**: Mac with Xcode installed (for iOS Simulator).
+- **Android**: Android Studio with JDK 11+ and Android SDK.
+
+### Running the Mobile App
+
+1. **Install Dependencies**:
+   ```bash
+   cd frontend
+   npm install
+   cd ios && pod install && cd ..
+   ```
+
+2. **Start Metro Bundler**:
+   This must be running in a separate terminal.
+   ```bash
+   npm start
+   ```
+
+3. **Run Simulator**:
+   ```bash
+   # iOS
+   npm run ios
+   
+   # Android
+   npm run android
+   ```
+
+### Testing Deep Links (Activation)
+
+To test the mobile activation flow (`ONB-03`), you can simulate deep links on the simulator.
+
+**iOS Simulator:**
+```bash
+# xcrun simctl openurl booted "enterprisesso://activate?token=YOUR_TEST_TOKEN"
+# Note: You must configure the URL Scheme in Info.plist first
+```
+
+**Android Emulator:**
+```bash
+adb shell am start -W -a android.intent.action.VIEW -d "enterprisesso://activate?token=YOUR_TEST_TOKEN" com.enterprisesso
+```
+
+### Architecture Note
+- **Mobile Code**: Located in `frontend/src/modules/*/mobile/`.
+- **Shared Logic**: Uses `frontend/src/core/api` clients (e.g. `b2bClient.js`).
+- **Isolation**: Mobile code should **never** import from `web/` directories.
+
+---
+
+## Mobile Development Strategy (Split Workflow)
+
+**Recommendation**: For Mobile (React Native) development, we recommend cloning the repository **natively in Windows** rather than using WSL.
+
+### Why?
+Running Android builds on Windows provides:
+1.  **Native Performance**: No slow file I/O across the WSL bridge.
+2.  **Stable Tooling**: Android Studio, Gradle, and Emulators work out-of-the-box.
+3.  **No Networking Hacks**: `localhost` just works.
+
+### Recommended Setup
+
+1.  **Backend (WSL)**:
+    - Keep running your backend APIs and Docker containers in WSL (`make up`).
+    - Expose ports `8000`, `8001` which are accessible from Windows via `localhost`.
+
+2.  **Mobile (Windows)**:
+    - Clone the repo again in a Windows folder (e.g., `C:\Dev\enterprisesso`).
+    - Open `frontend/mobile` in Android Studio/VS Code on Windows.
+    - Run build commands via PowerShell:
+      ```powershell
+      cd frontend
+      npm install
+      npm run android
+      ```
+
+    > **Tip: Node Version Management**
+    > On Windows, install **[nvm-windows](https://github.com/coreybutler/nvm-windows/releases)** to manage Node versions.
+    > ```powershell
+    > nvm install 24
+    > nvm use 24
+    > ```
+
+### Note on Line Endings
+The project includes a `.gitattributes` file to ensure:
+- Linux scripts (`.sh`, `gradlew`) always use LF.
+- Windows scripts use CRLF.
+This prevents issues when sharing code between your WSL and Windows clones.
