@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import apiService from '../src/core/api/b2bClient';
 import firebaseAuthService from '../src/core/firebase/authService';
-import { firebaseConfig } from './firebase.config';
 
 /**
  * Login Screen Component
@@ -48,17 +47,11 @@ export default function LoginScreen({ onLoginSuccess }) {
             const { firebase_tenant_id, oidc_provider_id } = await response.json();
             console.log('✅ Tenant resolved:', firebase_tenant_id);
 
-            // 2. Initialize Firebase
+            // 2. Set tenant context
             setStatus('Initializing authentication...');
-            await firebaseAuthService.initialize({
-                apiKey: firebaseConfig.apiKey,
-                projectId: firebaseConfig.projectId,
-            });
-
-            // 3. Set tenant context
             await firebaseAuthService.setTenantId(firebase_tenant_id);
 
-            // 4. Trigger OIDC login (WebView)
+            // 3. Trigger OIDC login (WebView)
             setStatus('Opening login page...');
             const userCredential = await firebaseAuthService.signInWithOIDC(
                 oidc_provider_id,

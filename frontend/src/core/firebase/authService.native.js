@@ -5,23 +5,14 @@ import { signInWithWebViewOIDC } from './webViewOAuth.native';
 /**
  * Production React Native Firebase Auth Service
  * Uses native Firebase SDK with WebView for OIDC
+ * 
+ * Note: React Native Firebase auto-initializes from google-services.json
+ * No manual initialization needed!
  */
 class NativeFirebaseAuthService {
     constructor() {
         this.auth = auth();
-        // These will be loaded from env or google-services.json
-        this.apiKey = null;
-        this.projectId = null;
-    }
-
-    /**
-     * Initialize with Firebase config
-     * Call this before using the service
-     */
-    async initialize(config) {
-        this.apiKey = config.apiKey;
-        this.projectId = config.projectId;
-        console.log('🔧 Firebase initialized:', this.projectId);
+        console.log('🔥 Firebase Native SDK initialized');
     }
 
     /**
@@ -50,10 +41,6 @@ class NativeFirebaseAuthService {
      */
     async signInWithOIDC(providerId, loginHint) {
         try {
-            if (!this.apiKey || !this.projectId) {
-                throw new Error('Firebase not initialized. Call initialize() first.');
-            }
-
             const tenantId = await this.getTenantId();
             if (!tenantId) {
                 throw new Error('No tenant ID set. Call setTenantId() first.');
@@ -61,13 +48,21 @@ class NativeFirebaseAuthService {
 
             console.log('🔐 Starting OIDC sign-in:', { providerId, loginHint });
 
+            // Get Firebase config from the app instance
+            // These come from google-services.json automatically
+            const app = this.auth.app;
+            const apiKey = app.options.apiKey;
+            const projectId = app.options.projectId;
+
+            console.log('🔥 Using Firebase project:', projectId);
+
             // Use WebView OAuth flow
             const userCredential = await signInWithWebViewOIDC(
                 tenantId,
                 providerId,
                 loginHint,
-                this.apiKey,
-                this.projectId
+                apiKey,
+                projectId
             );
 
             return userCredential;

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Linking, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import apiService from '../src/core/api/b2bClient';
 import firebaseAuthService from '../src/core/firebase/authService';
-import { firebaseConfig } from './firebase.config';
 
 /**
  * Mobile Activation Screen
@@ -55,16 +54,10 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
             const config = await apiService.getActivationTenantInfo(tenantInfo.tenant_id);
             console.log('🔐 Tenant Config:', config);
 
-            // 2. Initialize Firebase Auth Service with API key
-            await firebaseAuthService.initialize({
-                apiKey: firebaseConfig.apiKey,
-                projectId: firebaseConfig.projectId
-            });
-
-            // 3. Set Firebase Tenant ID
+            // 2. Set Firebase Tenant ID
             await firebaseAuthService.setTenantId(config.firebase_tenant_id);
 
-            // 4. Sign in with OIDC (WebView flow)
+            // 3. Sign in with OIDC (WebView flow)
             setMessage('Opening login page...');
             console.log('🔑 Starting OIDC authentication...');
             const result = await firebaseAuthService.signInWithOIDC(
