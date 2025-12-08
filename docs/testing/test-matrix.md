@@ -57,3 +57,13 @@ This document maps functional requirements to specific test files, ensuring comp
 | **PLT-02** | **Create Tenant**: Super Admin can provision new tenant | `tests/e2e_api/platform/test_tenants.py` | *Pending* | ✅ (API Only) |
 | **PLT-03** | **Impersonate**: Super Admin can login as any tenant owner | `tests/e2e_api/platform/test_impersonation.py` | *Pending* | ✅ (API Only) |
 
+
+## 6. Mobile App Support (Android)
+
+**Ref:** `docs/guides/mobile_development.md`
+
+| ID | Requirement | API Test | Native Test | Status |
+|----|-------------|----------|-------------|--------|
+| **MOB-01** | **Deep Link Activation**: App intercepts `https://app.example.com/activate` and parses token | `tests/e2e_api/b2b/test_activation.py` | *Manual (ADB)* | ✅ |
+| **MOB-02** | **Native Connectivity**: App successfully reaches backend (`10.0.2.2`) | *N/A* | *Manual (Emulator)* | ✅ |
+| **MOB-03** | **Native SSO**: App authenticates via Firebase Native SDK | `tests/e2e_api/b2b/test_auth.py` | *Pending* | ⚠️ (Skeleton) |

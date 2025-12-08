@@ -9,6 +9,7 @@ secrets/*
 *credentials*.json
 *firebase-adminsdk*.json
 saytum-dev-firebase-adminsdk-*.json
+google-services.json
 
 # Environment Files
 .env

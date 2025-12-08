@@ -914,7 +914,7 @@ To simulate clicking an email activation link:
 1.  **Requirement**: App must be installed.
 2.  **Run Command (PowerShell)**:
     ```powershell
-    adb shell am start -W -a android.intent.action.VIEW -d "https://app.example.com/activate?token=YOUR_TEST_TOKEN" com.mobile
+    adb shell am start -W -a android.intent.action.VIEW -d "https://app.example.com/activate?token=YOUR_TEST_TOKEN" com.saas.b2b
     ```
 3.  **Expected Behavior**:
     *   App opens (if closed).

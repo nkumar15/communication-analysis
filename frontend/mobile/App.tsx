@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Linking, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import apiService from '../src/core/api/b2bClient';
 import firebaseAuthService from '../src/core/firebase/authService';
+import { firebaseConfig } from './firebase.config';
 
 /**
  * Mobile Activation Screen
@@ -71,34 +72,38 @@ const ActivationScreen = ({ navigation }) => {
 
             // 1. Get Firebase Config for Tenant
             const config = await apiService.getActivationTenantInfo(tenantInfo.tenant_id);
-            console.log('🔐 SSO Config:', config);
+            console.log('🔐 Tenant Config:', config);
 
-            // 2. Set Firebase Tenant
-            // Note: In React Native Firebase, tenant ID is set on the auth instance differently than Web SDK
-            // Assuming firebaseAuthService handles this abstraction
+            // 2. Initialize Firebase Auth Service with API key
+            await firebaseAuthService.initialize({
+                apiKey: firebaseConfig.apiKey,
+                projectId: firebaseConfig.projectId
+            });
+
+            // 3. Set Firebase Tenant ID
             await firebaseAuthService.setTenantId(config.firebase_tenant_id);
 
-            // 3. SignIn (On Mobile this might trigger a browser modal via SDK)
-            // For now assuming OIDC Popup flow works or native equivalent
-            // If native flow is different, this needs `react - native - firebase` specific handling
-            // But our shared service attempts to abstract this.
+            // 4. Sign in with OIDC (WebView flow)
+            setMessage('Opening login page...');
+            console.log('🔑 Starting OIDC authentication...');
             const result = await firebaseAuthService.signInWithOIDC(
                 config.oidc_provider_id,
                 tenantInfo.admin_email
             );
-            console.log('✅ SSO Success:', result.user.email);
+            console.log('✅ Firebase Authentication Success:', result.user.email);
 
-            // 4. Sync User
-            setMessage('Finalizing account setup...');
+            // 5. Sync User with Backend
+            setMessage('Creating your account...');
             await apiService.syncUser();
 
-            // 5. Complete Activation
+            // 6. Complete Activation
+            setMessage('Activating tenant...');
             await apiService.completeActivation(token);
 
             setStatus('success');
             setMessage('Account Activated! Redirecting...');
 
-            // 6. Navigation
+            // 7. Navigation
             setTimeout(() => {
                 // Assuming navigation prop exists and 'Home' is the target
                 if (navigation) navigation.navigate('Home');
