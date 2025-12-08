@@ -137,18 +137,33 @@ PostgreSQL database with 4 logical schemas:
 
 ### Module Structure
 
+### 1. Multi-Platform Support
+The frontend architecture supports both **Web** (React) and **Mobile** (React Native) clients.
+
+### 2. Module Structure & Isolation
+
+**Strict Rule**: Modules must be isolated to prevent leakage between tenant types.
+
 ```
-frontend/src/modules/
-├── b2b/           # Enterprise tenant UI
-│   ├── auth/
-│   ├── dashboard/
-│   └── users/
-├── platform/      # Platform admin console
-│   ├── tenants/
-│   └── stats/
-└── b2c/           # Personal workspace UI
-    ├── dashboard/
-    └── settings/
+frontend/src/
+├── core/              # Shared logic (API, Auth, Hooks) - Platform Agnostic
+├── shared/            # Shared UI Components (Buttons, Inputs)
+├── modules/
+    ├── b2b/           # Enterprise Tenant Logic
+    │   ├── web/       # Web-specific views
+    │   └── mobile/    # React Native screens
+    ├── platform/      # Platform Admin (Web Only)
+    └── b2c/           # Personal Workspace
+        ├── web/
+        └── mobile/
+```
+
+**Isolation Rules:**
+1.  **Platform Isolation**: Code in `modules/platform` CANNOT import from `modules/b2b` or `modules/b2c`.
+2.  **Web/Mobile Separation**: `web/` components cannot be consumed by `mobile/`. Shared logic must move to `core/`.
+3.  **UI Components**: Basic UI elements must live in `shared/` and follow `docs/specifications/ui-design.md`.
+
+### 3. Module Details
 ```
 
 ### Routing

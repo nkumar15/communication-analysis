@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import platformApiService from '../../../core/api/platformClient';
+import platformApiService from '../../../../core/api/platformClient';
 import '../styles/platform.css';
 
 function SuperAdminLayout() {

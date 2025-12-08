@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import platformApiService from '../../../core/api/platformClient';
-import { formatDateTime } from '../../../utils/dateUtils';
+import platformApiService from '../../../../core/api/platformClient';
+import { formatDateTime } from '../../../../utils/dateUtils';
 
 function TenantDetailsPage() {
     const { tenantId } = useParams();

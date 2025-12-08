@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import teamApi from '../../../core/api/teamClient';
+import teamApi from '../../../../core/api/teamClient';
 
 const TeamSelector = ({ value, onChange, label = "Team", required = false, disabled = false }) => {
     const [teams, setTeams] = useState([]);

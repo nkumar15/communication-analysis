@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import platformApiService from '../../../core/api/platformClient';
-import { formatDateTime } from '../../../utils/dateUtils';
+import platformApiService from '../../../../core/api/platformClient';
+import { formatDateTime } from '../../../../utils/dateUtils';
 import CreateTenantModal from '../components/CreateTenantModal';
 
 function TenantList() {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import firebaseAuthService from '../../../core/firebase/authService';
-import { auth } from '../../../core/firebase/config';
+import firebaseAuthService from '../../../../core/firebase/authService';
+import { auth } from '../../../../core/firebase/config';
 
 function PlatformLogin() {
     const [email, setEmail] = useState('');

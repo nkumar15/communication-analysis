@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import invitationApi from '../../../core/api/invitationClient';
-import StatCard from '../../../core/components/StatCard';
+import invitationApi from '../../../../core/api/invitationClient';
+import StatCard from '../../../../core/components/StatCard';
 import AdminLayout from '../layouts/AdminLayout';
-import useAuth from '../../../core/hooks/useAuth';
-import ImpersonationBanner from '../../../core/components/ImpersonationBanner';
+import useAuth from '../../../../core/hooks/useAuth';
+import ImpersonationBanner from '../../../../core/components/ImpersonationBanner';
 
 const DashboardPage = () => {
     const [stats, setStats] = useState(null);

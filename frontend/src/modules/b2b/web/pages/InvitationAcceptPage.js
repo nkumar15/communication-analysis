@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import invitationApi from '../../../core/api/invitationClient';
-import firebaseAuthService from '../../../core/firebase/authService';
+import invitationApi from '../../../../core/api/invitationClient';
+import firebaseAuthService from '../../../../core/firebase/authService';
 
 const InvitationAcceptPage = () => {
     const { token } = useParams();

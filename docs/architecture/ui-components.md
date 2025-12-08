@@ -200,32 +200,17 @@ Three-dot dropdown menu for actions.
 
 ## Design Tokens
 
-### Colors
-```javascript
-Primary Blue:    #4F46E5
-Success Green:   #10B981
-Warning Orange:  #F59E0B
-Error Red:       #EF4444
-Purple:          #8B5CF6
-Gray:            #6B7280
-Light Gray:      #F3F4F6
-Background:      #F9FAFB
-```
+## Design Tokens
 
-### Role Colors
-```javascript
-Admin:    #7C3AED (Purple)
-Manager:  #D97706 (Orange)
-Member:   #2563EB (Blue)
-```
+> [!NOTE]
+> **Source of Truth**: All design tokens (Colors, Typography, Layout) are strictly defined in [`docs/specifications/ui-design.md`](../specifications/ui-design.md).
+>
+> Refer to that document for:
+> - Color Palette (Hex codes)
+> - Role & Status Colors
+> - Typography Scale
+> - Spacing Units
 
-### Status Colors
-```javascript
-Active:   #059669 (Green)
-Inactive: #6B7280 (Gray)
-Pending:  #D97706 (Orange)
-Expired:  #DC2626 (Red)
-```
 
 ---
 

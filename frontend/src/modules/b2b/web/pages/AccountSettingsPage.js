@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import useAuth from '../../../core/hooks/useAuth';
-import { accountApi } from '../../../core/api/accountClient';
+import useAuth from '../../../../core/hooks/useAuth';
+import { accountApi } from '../../../../core/api/accountClient';
 import AdminLayout from '../layouts/AdminLayout';
 
 const AccountSettingsPage = () => {

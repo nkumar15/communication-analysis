@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import invitationApi from '../../../core/api/invitationClient';
-import b2bClient from '../../../core/api/b2bClient';
-import StatCard from '../../../core/components/StatCard';
-import TabNav from '../../platform/components/TabNav';
-import RoleBadge from '../../../core/components/RoleBadge';
-import StatusBadge from '../../../core/components/StatusBadge';
+import invitationApi from '../../../../core/api/invitationClient';
+import b2bClient from '../../../../core/api/b2bClient';
+import StatCard from '../../../../core/components/StatCard';
+import TabNav from '../../../../shared/TabNav';
+import RoleBadge from '../../../../core/components/RoleBadge';
+import StatusBadge from '../../../../core/components/StatusBadge';
 import ActionMenu from '../components/ActionMenu';
 import AdminLayout from '../layouts/AdminLayout';
-import { useAuth } from '../../../core/hooks/useAuth';
-import { formatDateTime } from '../../../utils/dateUtils';
+import { useAuth } from '../../../../core/hooks/useAuth';
+import { formatDateTime } from '../../../../utils/dateUtils';
 import TeamSelector from '../components/TeamSelector';
 
 const InvitationsPage = () => {

@@ -236,6 +236,51 @@ class ApiService {
         // Return blob for download
         return response.blob();
     }
+
+    /**
+     * Validate activation token
+     * @param {string} token 
+     */
+    async validateActivationToken(token) {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/activation/validate/${token}`);
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Invalid activation token');
+        }
+        return response.json();
+    }
+
+    /**
+     * Get tenant info for activation (public)
+     * @param {string} tenantId 
+     */
+    async getActivationTenantInfo(tenantId) {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/activation/tenant-info/${tenantId}`);
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to get tenant info');
+        }
+        return response.json();
+    }
+
+    /**
+     * Complete activation process
+     * @param {string} token 
+     */
+    async completeActivation(token) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/activation/complete`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ activation_token: token }),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Activation failed');
+        }
+        return response.json();
+    }
 }
 
 export default new ApiService();

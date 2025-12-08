@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import platformApiService from '../../../core/api/platformClient';
+import platformApiService from '../../../../core/api/platformClient';
 
 function Dashboard() {
     const [stats, setStats] = useState(null);

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import teamApi from '../../../core/api/teamClient';
+import teamApi from '../../../../core/api/teamClient';
 import AdminLayout from '../layouts/AdminLayout';
 import TeamRoleBadge from '../components/TeamRoleBadge';
-import { formatDateTime } from '../../../utils/dateUtils';
+import { formatDateTime } from '../../../../utils/dateUtils';
 
 const TeamDetailsPage = () => {
     const { teamId } = useParams();
@@ -78,7 +78,7 @@ const TeamDetailsPage = () => {
     const loadAvailableUsers = async () => {
         try {
             // We need to import invitationApi to get users
-            const invitationApi = require('../../../core/api/invitationClient').default;
+            const invitationApi = require('../../../../core/api/invitationClient').default;
             const users = await invitationApi.getUsers();
 
             // Filter out users already in the team

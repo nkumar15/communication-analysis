@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiService from '../../../core/api/b2bClient';
-import firebaseAuthService from '../../../core/firebase/authService';
+import apiService from '../../../../core/api/b2bClient';
+import firebaseAuthService from '../../../../core/firebase/authService';
 
 function Dashboard() {
     const [user, setUser] = useState(null);

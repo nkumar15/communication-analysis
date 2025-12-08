@@ -46,3 +46,14 @@ This document maps functional requirements to specific test files, ensuring comp
 |----|-------------|----------|--------------|--------|
 | **DOM-01** | **Create Project**: User can create project in their tenant | `tests/e2e_api/domain/test_projects.py` | *Pending* | ✅ (API Only) |
 | **DOM-02** | **Team Scope**: Project only visible to assigned team members | `tests/e2e_api/domain/test_projects.py` | *Pending* | ✅ (API Only) |
+
+## 5. Platform Administration
+
+**Ref:** `docs/guides/platform-admin.md`
+
+| ID | Requirement | API Test | Browser Test | Status |
+|----|-------------|----------|--------------|--------|
+| **PLT-01** | **List Tenants**: Super Admin can view all tenants with stats | `tests/e2e_api/platform/test_tenants.py` | *Pending* | ✅ (API Only) |
+| **PLT-02** | **Create Tenant**: Super Admin can provision new tenant | `tests/e2e_api/platform/test_tenants.py` | *Pending* | ✅ (API Only) |
+| **PLT-03** | **Impersonate**: Super Admin can login as any tenant owner | `tests/e2e_api/platform/test_impersonation.py` | *Pending* | ✅ (API Only) |
+

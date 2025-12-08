@@ -51,7 +51,31 @@ Tenant onboarding is an **Invitation-Based** process. It is **NOT** self-service
 6.  System creates the user as `Admin` in the new tenant.
 7.  User is redirected to the Tenant Dashboard.
 
-## 3. Technical Implementation
+## 4. User Interface Requirements
+
+**Design Compliance**: All UI must strictly follow [`SPEC-DESIGN-01`](./ui-design.md).
+
+### 4.1. Supported Platforms
+This feature must be implemented for both:
+- **Web**: Admin Dashboard (Desktop Optimized)
+- **Mobile**: Tenant App (iOS/Android)
+
+### 4.2. Activation Flow (Web)
+**Wireframe Reference**: `WF-ONB-Web` (TBD)
+**Components**:
+- `AdminLayout`: Standard wrapper.
+- `ActivationCard`: Centered card on public page.
+- `StatusBadge`: To show 'Pending' state.
+
+### 4.3. Activation Flow (Mobile)
+**Wireframe Reference**: `WF-ONB-Mobile` (TBD)
+**Components**:
+- `SafeAreaView`: React Native wrapper.
+- `DeepLinkHandler`: To catch `app.domain.com/activate`.
+- Native-styled Inputs and Actions.
+
+## 5. Technical Implementation
 *   **API**: `b2b-api`, `platform-api`
 *   **Database**: `tenants` (status), `users` (admin)
 *   **Modules**: `TenantService`, `InvitationService`, `EmailService`
+

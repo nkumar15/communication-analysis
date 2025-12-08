@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import teamApi from '../../../core/api/teamClient';
+import teamApi from '../../../../core/api/teamClient';
 import AdminLayout from '../layouts/AdminLayout';
-import { useAuth } from '../../../core/hooks/useAuth';
-import { formatDateTime } from '../../../utils/dateUtils';
+import { useAuth } from '../../../../core/hooks/useAuth';
+import { formatDateTime } from '../../../../utils/dateUtils';
 
 const TeamsPage = () => {
     const [teams, setTeams] = useState([]);

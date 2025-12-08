@@ -98,6 +98,9 @@ All tenant onboarding phases complete! See [Completed Phases](./completed-phases
 
 ## ⏭️ Next Priority
 
+> [!IMPORTANT]
+> **Testing Strategy**: All new features must be tracked in the [Test Matrix](../testing/test-matrix.md) to ensure full coverage (API + Browser).
+
 ### Phase 4: CI/CD & Observability
 - [ ] GitHub Actions CI/CD pipeline
 - [ ] OpenTelemetry traces and metrics

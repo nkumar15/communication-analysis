@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import AdminLayout from '../../../b2b/layouts/AdminLayout';
+import AdminLayout from '../../../b2b/web/layouts/AdminLayout';
 import useAuth from '../../../../core/hooks/useAuth';
 import { tasksApi, commentsApi } from '../../../../core/api/projectsClient';
 

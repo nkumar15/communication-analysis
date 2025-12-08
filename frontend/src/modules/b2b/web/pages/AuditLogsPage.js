@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout';
-import apiService from '../../../core/api/b2bClient';
-import useAuth from '../../../core/hooks/useAuth';
-import { Card } from '../../../core/components/Card';
-import { Button } from '../../../core/components/Button';
+import apiService from '../../../../core/api/b2bClient';
+import useAuth from '../../../../core/hooks/useAuth';
+import { Card } from '../../../../core/components/Card';
+import { Button } from '../../../../core/components/Button';
 
 const AuditLogsPage = () => {
     const [logs, setLogs] = useState([]);

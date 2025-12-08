@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../core/components/Card';
-import { Button } from '../../../core/components/Button';
-import firebaseAuthService from '../../../core/firebase/authService';
-import api from '../../../core/api/b2bClient';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../core/components/Card';
+import { Button } from '../../../../core/components/Button';
+import firebaseAuthService from '../../../../core/firebase/authService';
+import api from '../../../../core/api/b2bClient';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 

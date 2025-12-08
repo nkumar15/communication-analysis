@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import useAuth from '../../../core/hooks/useAuth';
+import useAuth from '../../../../core/hooks/useAuth';
 
 const Sidebar = () => {
     const navigate = useNavigate();

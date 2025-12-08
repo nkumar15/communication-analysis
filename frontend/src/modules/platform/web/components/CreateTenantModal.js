@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import platformApiService from '../../../core/api/platformClient';
+import platformApiService from '../../../../core/api/platformClient';
 
 function CreateTenantModal({ onClose, onCreated }) {
     const [formData, setFormData] = useState({

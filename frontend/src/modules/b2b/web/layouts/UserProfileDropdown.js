@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import firebaseAuthService from '../../../core/firebase/authService';
-import apiService from '../../../core/api/b2bClient';
+import firebaseAuthService from '../../../../core/firebase/authService';
+import apiService from '../../../../core/api/b2bClient';
 
 const UserProfileDropdown = () => {
     const [isOpen, setIsOpen] = useState(false);

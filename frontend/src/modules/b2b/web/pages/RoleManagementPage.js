@@ -1,6 +1,6 @@
 // RoleManagementPage.js – UI for managing roles and permissions
 import React, { useEffect, useState } from 'react';
-import apiService from '../../../core/api/b2bClient';
+import apiService from '../../../../core/api/b2bClient';
 import AdminLayout from '../layouts/AdminLayout';
 
 const RoleManagementPage = () => {
