@@ -22,7 +22,7 @@ export function buildOIDCAuthorizationUrl(config) {
         providerId: providerId,
         tenantId: tenantId,
         // The redirect URL should match what's configured in Firebase Console
-        continueUrl: 'https://app.example.com/__/auth/handler',
+        continueUrl: 'http://localhost:3000/__/auth/handler',
         // Custom parameters for the OIDC provider
         customParameter: JSON.stringify({
             login_hint: loginHint,

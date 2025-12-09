@@ -167,5 +167,71 @@ async def list_tenants_async(domain):
             click.echo(f"Created: {tenant.created_at}")
 
 
+@cli.command('resend')
+@click.option('--tenant-id', required=False, help='Tenant UUID to resend activation')
+@click.option('--domain', required=False, help='Tenant domain to resend activation')
+def resend_activation(tenant_id, domain):
+    """Resend activation email for a pending tenant"""
+    if not tenant_id and not domain:
+        click.echo("❌ Error: Must provide either --tenant-id or --domain", err=True)
+        sys.exit(1)
+    asyncio.run(resend_activation_async(tenant_id, domain))
+
+
+async def resend_activation_async(tenant_id, domain):
+    """Resend activation email"""
+    from services.b2b.models import TenantModel
+    from sqlalchemy import select
+    from uuid import UUID
+    
+    async with AsyncSessionLocal() as db:
+        try:
+            from sqlalchemy import text
+            await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+            
+            # Find tenant by ID or domain
+            if tenant_id:
+                result = await db.execute(
+                    select(TenantModel).where(TenantModel.id == UUID(tenant_id))
+                )
+            else:
+                result = await db.execute(
+                    select(TenantModel).where(TenantModel.domain == domain.lower())
+                )
+            
+            tenant = result.scalar_one_or_none()
+            
+            if not tenant:
+                click.echo(f"❌ Tenant not found", err=True)
+                sys.exit(1)
+            
+            click.echo(f"📧 Resending activation for: {tenant.name} ({tenant.domain})")
+            click.echo(f"   Current status: {tenant.activation_status}")
+            
+            if tenant.activation_status == 'active':
+                click.echo("⚠️  Tenant is already active!")
+                return
+            
+            # Call the resend service
+            resend_result = await tenant_onboarding_service.resend_activation(
+                db=db,
+                tenant_id=tenant.id
+            )
+            
+            click.echo("\n" + "=" * 70)
+            click.echo("✅ ACTIVATION EMAIL RESENT")
+            click.echo("=" * 70)
+            click.echo(f"Tenant Id:           {resend_result['tenant_id']}")
+            click.echo(f"Activation URL:   {resend_result['activation_url']}")
+            click.echo(f"Expires:          {resend_result['expires_at']}")
+            click.echo("=" * 70)
+            
+        except Exception as e:
+            click.echo(f"\n❌ Error: {str(e)}", err=True)
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+
+
 if __name__ == '__main__':
     cli()

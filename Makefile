@@ -123,6 +123,18 @@ b2b-invite: ## Invite B2B Tenant (interactive)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
 	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local
 
+b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
+ifdef d
+	@echo "$(BLUE)Resending activation for domain: $(d)$(NC)"
+	@docker-compose exec b2b-api python -m scripts.b2b.tenant_onboard resend --domain $(d)
+else ifdef t
+	@echo "$(BLUE)Resending activation for tenant: $(t)$(NC)"
+	@docker-compose exec b2b-api python -m scripts.b2b.tenant_onboard resend --tenant-id $(t)
+else
+	@echo "$(YELLOW)Usage: make b2b-resend-invite d=<domain> OR t=<tenant-id>$(NC)"
+	@echo "Example: make b2b-resend-invite d=acme.com"
+endif
+
 ##@ Frontend
 
 frontend-install: ## Install frontend dependencies (locally)
