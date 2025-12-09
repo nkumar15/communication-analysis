@@ -37,6 +37,27 @@ class AuthProvider(Base, TimestampMixin, SoftDeleteMixin):
     
     # Relationships
     # tenant = relationship("TenantModel", back_populates="auth_providers")
+
+    @property
+    def oidc_issuer_url(self):
+        """Shortcut to access issuer from config_data"""
+        if not self.config_data:
+            return None
+        return self.config_data.get('issuer_url') or self.config_data.get('issuer')
+
+    @property
+    def oidc_client_id(self):
+        """Shortcut to access client_id from config_data"""
+        if not self.config_data:
+            return None
+        return self.config_data.get('client_id')
+
+    @property
+    def oidc_client_id_mobile(self):
+        """Shortcut to access mobile_client_id from config_data"""
+        if not self.config_data:
+            return None
+        return self.config_data.get('mobile_client_id')
     
     def __repr__(self):
         return f"<AuthProvider(id={self.id}, tenant_id={self.tenant_id}, type={self.provider_type}, provider_id={self.provider_id})>"

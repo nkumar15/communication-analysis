@@ -190,8 +190,12 @@ async def mobile_login(
         from jwt import PyJWKClient
         
         # Get JWKS URL from issuer (standard OIDC discovery)
-        issuer = primary_provider.oidc_issuer_url.rstrip('/')
-        jwks_url = f"{issuer}/.well-known/jwks.json"
+        issuer_base = primary_provider.oidc_issuer_url.rstrip('/')
+        jwks_url = f"{issuer_base}/.well-known/jwks.json"
+        
+        # Auth0 includes trailing slash in token's iss claim, so we need to match that for validation
+        issuer_for_validation = issuer_base + '/'
+        
         
         logger.debug("fetching_jwks", jwks_url=jwks_url)
         
@@ -205,7 +209,7 @@ async def mobile_login(
             signing_key.key,
             algorithms=["RS256"],
             audience=primary_provider.oidc_client_id_mobile or primary_provider.oidc_client_id,
-            issuer=issuer,
+            issuer=issuer_for_validation,  # Use the version with trailing slash to match Auth0
         )
         
         oidc_email = decoded.get('email')
@@ -338,56 +342,24 @@ async def get_current_user_info(
     # Set RLS Context for this request
     await rls_service.set_tenant_context(db, tenant.id)
     
+    # Determine role from invitation (for new users)
+    result = await db.execute(
+        select(InvitationModel)
+        .where(InvitationModel.tenant_id == tenant.id)
+        .where(InvitationModel.email == email.lower())
+    )
+    invitation = result.scalar_one_or_none()
+    user_role = invitation.role if invitation else B2BRoleName.VIEWER
     
-    # Check if user already exists by Firebase UID OR by email
-    existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
-    
-    # If not found by UID, check by email (for users created with temporary UIDs)
-    if not existing_user:
-        from services.b2b.models import UserModel
-        result = await db.execute(
-            select(UserModel)
-            .where(UserModel.tenant_id == tenant.id)
-            .where(UserModel.email == email.lower())
-            .where(UserModel.is_active == True)
-        )
-        existing_user_by_email = result.scalar_one_or_none()
-        
-        if existing_user_by_email:
-            # Update Firebase UID if it's a temporary one (starts with "oidc-")
-            if existing_user_by_email.firebase_uid.startswith('oidc-'):
-                existing_user_by_email.firebase_uid = firebase_uid
-                # Flush, re-query with RLS context (FastAPI commits on success)
-                await db.flush()
-                result = await db.execute(
-                    select(UserModel).where(UserModel.id == existing_user_by_email.id)
-                )
-                existing_user_by_email = result.scalar_one()
-            existing_user = await user_service._model_to_pydantic(existing_user_by_email, db)
-    
-    if existing_user:
-        # User exists, use default role (it won't overwrite existing role_id)
-        user_role = B2BRoleName.VIEWER
-    else:
-        # New user, check invitation (including accepted ones for initial role assignment)
-        result = await db.execute(
-            select(InvitationModel)
-            .where(InvitationModel.tenant_id == tenant.id)
-            .where(InvitationModel.email == email.lower())
-        )
-        invitation = result.scalar_one_or_none()
-        
-        # Use role from invitation if exists, otherwise default to 'viewer'
-        user_role = invitation.role if invitation else B2BRoleName.VIEWER
-    
-    # Create or update user
-    user = await user_service.create_or_update_user(
+    # Use email-based identity lookup (industry standard for cross-platform)
+    # This ensures web and mobile users are recognized as the same person
+    user = await user_service.get_or_create_user_by_email(
         db=db,
         tenant_id=tenant.id,
         email=email,
         firebase_uid=firebase_uid,
         name=name,
-        role=user_role  # Use determined role
+        role=user_role
     )
     
     return UserResponse(
@@ -440,32 +412,23 @@ async def sync_user(
     # Set RLS Context for this request
     await rls_service.set_tenant_context(db, tenant.id)
     
-    # Check if user already exists to preserve their role
-    existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+    # Determine role from invitation (for new users)
+    result = await db.execute(
+        select(InvitationModel)
+        .where(InvitationModel.tenant_id == tenant.id)
+        .where(InvitationModel.email == email.lower())
+    )
+    invitation = result.scalar_one_or_none()
+    user_role = invitation.role if invitation else B2BRoleName.VIEWER
     
-    if existing_user:
-        # User exists, use default role (it won't overwrite existing role_id)
-        user_role = B2BRoleName.VIEWER
-    else:
-        # New user, check invitation (including accepted ones for initial role assignment)
-        result = await db.execute(
-            select(InvitationModel)
-            .where(InvitationModel.tenant_id == tenant.id)
-            .where(InvitationModel.email == email.lower())
-        )
-        invitation = result.scalar_one_or_none()
-        
-        # Use role from invitation if exists, otherwise default to 'viewer'
-        user_role = invitation.role if invitation else B2BRoleName.VIEWER   
-    
-    # Create or update user
-    user = await user_service.create_or_update_user(
+    # Use email-based identity lookup (industry standard for cross-platform)
+    user = await user_service.get_or_create_user_by_email(
         db=db,
         tenant_id=tenant.id,
         email=email,
         firebase_uid=firebase_uid,
         name=name,
-        role=user_role  # Use determined role
+        role=user_role
     )
     
     # Log audit event

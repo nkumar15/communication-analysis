@@ -53,6 +53,30 @@ class FirebaseAuthService:
             "email_verified": decoded_token.get("email_verified", False),
             "firebase_tenant_id": decoded_token.get("firebase", {}).get("tenant"),
         }
+    
+    def create_custom_token(self, uid: str, tenant_id: str, claims: Optional[Dict[str, Any]] = None) -> bytes:
+        """
+        Create a Firebase custom token for a given user in a specific tenant
+        
+        Args:
+            uid: Firebase user ID
+            tenant_id: Firebase tenant ID (e.g., 'firstcompany-99oyw')
+            claims: Optional additional claims to include in the token
+            
+        Returns:
+            Custom token as bytes
+        """
+        try:
+            # For multi-tenant Firebase, get a tenant-aware auth client
+            from firebase_admin import tenant_mgt
+            tenant_client = tenant_mgt.auth_for_tenant(tenant_id)
+            custom_token = tenant_client.create_custom_token(
+                uid=uid,
+                developer_claims=claims
+            )
+            return custom_token
+        except Exception as e:
+            raise ValueError(f"Failed to create custom token: {str(e)}")
 
 
 # Global Firebase auth service instance

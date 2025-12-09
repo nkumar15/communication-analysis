@@ -44,6 +44,77 @@ class UserService:
         
         return await self._model_to_pydantic(user_model, db)
     
+    async def get_user_by_email(self, db: AsyncSession, tenant_id: UUID, email: str) -> Optional[User]:
+        """
+        Get user by email (canonical identity lookup).
+        Email is the stable identifier across web and mobile platforms.
+        """
+        result = await db.execute(
+            select(UserModel)
+            .where(UserModel.tenant_id == tenant_id)
+            .where(UserModel.email == email.lower())
+            .where(UserModel.is_active == True)
+            .where(UserModel.deleted_at.is_(None))
+        )
+        user_model = result.scalar_one_or_none()
+        
+        if not user_model:
+            return None
+        
+        return await self._model_to_pydantic(user_model, db)
+    
+    async def get_or_create_user_by_email(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        email: str,
+        firebase_uid: str,
+        name: Optional[str] = None,
+        role: str = B2BRoleName.VIEWER
+    ) -> User:
+        """
+        Get user by email (canonical identity), update firebase_uid if different.
+        This is the industry-standard approach for cross-platform identity.
+        
+        - If user exists by email: update firebase_uid to latest, return user
+        - If user doesn't exist: create new user
+        
+        This ensures the same user logging in from web or mobile
+        is recognized as the same person.
+        """
+        email_lower = email.lower()
+        now = get_utc_now()
+        
+        # 1. Try to find existing user by email
+        result = await db.execute(
+            select(UserModel)
+            .where(UserModel.tenant_id == tenant_id)
+            .where(UserModel.email == email_lower)
+            .where(UserModel.deleted_at.is_(None))
+        )
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            # 2a. User exists - update firebase_uid if different (handles web↔mobile)
+            if existing_user.firebase_uid != firebase_uid:
+                existing_user.firebase_uid = firebase_uid
+            existing_user.last_login = now
+            existing_user.updated_at = now
+            if name and not existing_user.name:
+                existing_user.name = name
+            await db.flush()
+            return await self._model_to_pydantic(existing_user, db)
+        else:
+            # 2b. User doesn't exist - create new
+            return await self.create_or_update_user(
+                db=db,
+                tenant_id=tenant_id,
+                email=email,
+                firebase_uid=firebase_uid,
+                name=name,
+                role=role
+            )
+    
     async def create_or_update_user(
         self, 
         db: AsyncSession,

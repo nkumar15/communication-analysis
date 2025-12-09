@@ -2,92 +2,45 @@ import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { signInWithWebViewOIDC } from './webViewOAuth.native';
 
-// Import Firebase Web SDK for multi-tenant custom token (native SDK has tenantId issues)
-import { initializeApp, getApps } from 'firebase/app';
-import {
-    initializeAuth,
-    getAuth,
-    signInWithCustomToken as webSignInWithCustomToken,
-    getReactNativePersistence
-} from 'firebase/auth';
-
-// Firebase config - matches google-services.json
-const firebaseConfig = {
-    apiKey: 'AIzaSyCtYXGa5VpSIvmR26hrdj4FqVXJAqxNdKk',
-    authDomain: 'enterprisesso-babb5.firebaseapp.com',
-    projectId: 'enterprisesso-babb5',
-    storageBucket: 'enterprisesso-babb5.firebasestorage.app',
-    messagingSenderId: '571096413866',
-    appId: '1:571096413866:android:c759d8cd379cfe2001b9e3'
-};
-
 /**
  * Production React Native Firebase Auth Service
+ * Uses native Firebase SDK with proper setTenantId() method
  * 
- * Uses HYBRID approach:
- * - Native SDK (@react-native-firebase/auth) for general auth operations
- * - Web SDK (firebase/auth) for signInWithCustomToken with multi-tenancy
- *   (Native SDK has a bug where tenantId setter doesn't work)
+ * Note: React Native Firebase uses setTenantId() METHOD, not property setter!
  */
 class NativeFirebaseAuthService {
     constructor() {
         this.auth = auth();
-        this.webAuth = null;
         console.log('🔥 Firebase Native SDK initialized');
     }
 
     /**
-     * Get or initialize the Web Auth instance for multi-tenant operations
-     */
-    getWebAuth() {
-        if (!this.webAuth) {
-            let app;
-            const apps = getApps();
-            const existingApp = apps.find(a => a.name === 'webAuthTenant');
-
-            if (existingApp) {
-                app = existingApp;
-            } else {
-                app = initializeApp(firebaseConfig, 'webAuthTenant');
-            }
-
-            try {
-                this.webAuth = initializeAuth(app, {
-                    persistence: getReactNativePersistence(AsyncStorage)
-                });
-            } catch (e) {
-                // Auth already initialized for this app
-                this.webAuth = getAuth(app);
-            }
-        }
-        return this.webAuth;
-    }
-
-    /**
      * Set Firebase tenant context
+     * IMPORTANT: Uses setTenantId() async METHOD, not property setter!
      */
     async setTenantId(tenantId) {
         console.log('🔧 Setting Firebase tenant ID:', tenantId);
-        // Store for later use (Web SDK will use this)
+        // Use the ASYNC METHOD, not property setter
+        await this.auth.setTenantId(tenantId);
+        // Also store in AsyncStorage for persistence
         await AsyncStorage.setItem('firebase_tenant_id', tenantId);
-
-        // Also try to set on native SDK (may not work but won't hurt)
-        try {
-            this.auth.tenantId = tenantId;
-        } catch (e) {
-            console.log('Note: Native SDK tenantId setter may not work');
-        }
+        console.log('✅ Tenant ID set successfully:', this.auth.tenantId);
     }
 
     /**
      * Get current tenant ID
      */
     async getTenantId() {
+        if (this.auth.tenantId) return this.auth.tenantId;
         return await AsyncStorage.getItem('firebase_tenant_id');
     }
 
     /**
      * Sign in with OIDC provider using WebView
+     * This matches the web implementation but uses in-app browser
+     * 
+     * @param {string} providerId - e.g., 'oidc.auth0-company'
+     * @param {string} loginHint - Email to pre-fill
      */
     async signInWithOIDC(providerId, loginHint) {
         try {
@@ -98,12 +51,14 @@ class NativeFirebaseAuthService {
 
             console.log('🔐 Starting OIDC sign-in:', { providerId, loginHint });
 
+            // Get Firebase config from the app instance
             const app = this.auth.app;
             const apiKey = app.options.apiKey;
             const projectId = app.options.projectId;
 
             console.log('🔥 Using Firebase project:', projectId);
 
+            // Use WebView OAuth flow
             const userCredential = await signInWithWebViewOIDC(
                 tenantId,
                 providerId,
@@ -122,8 +77,8 @@ class NativeFirebaseAuthService {
     /**
      * Sign in with a custom token (for mobile OAuth flow)
      * 
-     * IMPORTANT: Uses Firebase Web SDK because the native SDK's
-     * tenantId setter doesn't work properly (returns null).
+     * IMPORTANT: Must call setTenantId() BEFORE signInWithCustomToken()!
+     * The tenantId in the custom token must match the auth.tenantId
      * 
      * @param {string} customToken - Firebase custom token from backend
      * @param {string} tenantId - Firebase tenant ID to set before sign-in
@@ -133,27 +88,22 @@ class NativeFirebaseAuthService {
             // Get tenant ID from parameter or storage
             const effectiveTenantId = tenantId || await this.getTenantId();
 
-            console.log('🔐 signInWithCustomToken (using Web SDK)');
+            console.log('🔐 signInWithCustomToken starting');
             console.log('   Tenant ID:', effectiveTenantId);
+            console.log('   Current auth.tenantId before set:', this.auth.tenantId);
 
             if (!effectiveTenantId) {
                 throw new Error('Tenant ID is required for multi-tenant sign-in');
             }
 
-            // Use Web SDK which properly supports tenantId
-            const webAuth = this.getWebAuth();
+            // Set tenant ID using the async METHOD (not property setter!)
+            await this.auth.setTenantId(effectiveTenantId);
+            console.log('   auth.tenantId after setTenantId():', this.auth.tenantId);
 
-            // Set tenant ID on Web Auth (this works correctly)
-            webAuth.tenantId = effectiveTenantId;
-            console.log('   Web auth.tenantId set to:', webAuth.tenantId);
-
-            // Sign in using Web SDK
-            const userCredential = await webSignInWithCustomToken(webAuth, customToken);
-            console.log('✅ Signed in with custom token (Web SDK):', userCredential.user?.uid);
+            // Now sign in with custom token
+            const userCredential = await this.auth.signInWithCustomToken(customToken);
+            console.log('✅ Signed in with custom token:', userCredential.user?.uid);
             console.log('   User tenant ID:', userCredential.user?.tenantId);
-
-            // Store the tenant ID for future use
-            await AsyncStorage.setItem('firebase_tenant_id', effectiveTenantId);
 
             return userCredential;
         } catch (error) {
@@ -166,22 +116,8 @@ class NativeFirebaseAuthService {
 
     /**
      * Get Firebase ID token for API authentication
-     * Tries Web SDK first (if signed in there), then native SDK
      */
     async getIdToken(forceRefresh = false) {
-        // Try Web SDK first if available
-        try {
-            const webAuth = this.getWebAuth();
-            if (webAuth.currentUser) {
-                const token = await webAuth.currentUser.getIdToken(forceRefresh);
-                console.log('✅ Got ID token from Web SDK (length:', token?.length, ')');
-                return token;
-            }
-        } catch (e) {
-            console.log('Web SDK user not available, trying native SDK');
-        }
-
-        // Fallback to native SDK
         const user = this.auth.currentUser;
         if (!user) {
             console.error('❌ No current user');
@@ -190,7 +126,7 @@ class NativeFirebaseAuthService {
 
         try {
             const token = await user.getIdToken(forceRefresh);
-            console.log('✅ Got ID token from Native SDK (length:', token?.length, ')');
+            console.log('✅ Got ID token (length:', token?.length, ')');
             return token;
         } catch (error) {
             console.error('❌ Error getting ID token:', error);
@@ -199,35 +135,17 @@ class NativeFirebaseAuthService {
     }
 
     /**
-     * Get current user (checks both SDKs)
+     * Get current user
      */
     getCurrentUser() {
-        // Try Web SDK first
-        try {
-            const webAuth = this.getWebAuth();
-            if (webAuth.currentUser) {
-                return webAuth.currentUser;
-            }
-        } catch (e) {
-            // Ignore
-        }
         return this.auth.currentUser;
     }
 
     /**
-     * Sign out from both SDKs
+     * Sign out
      */
     async signOut() {
         try {
-            // Sign out from Web SDK
-            try {
-                const webAuth = this.getWebAuth();
-                await webAuth.signOut();
-            } catch (e) {
-                console.log('Web SDK signOut:', e.message);
-            }
-
-            // Sign out from native SDK
             await this.auth.signOut();
             await AsyncStorage.removeItem('firebase_tenant_id');
             console.log('✅ Signed out successfully');
@@ -238,7 +156,7 @@ class NativeFirebaseAuthService {
     }
 
     /**
-     * Listen for auth state changes (native SDK)
+     * Listen for auth state changes
      */
     onAuthStateChanged(callback) {
         return this.auth.onAuthStateChanged(callback);
