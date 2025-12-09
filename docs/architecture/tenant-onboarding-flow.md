@@ -625,3 +625,310 @@ class RLSService:
 - Activation APIs: Manual via direct `rls_service.set_tenant_context()`
 - Platform APIs: `app.is_platform_admin = 'true'` to bypass RLS
 
+---
+
+## Mobile Native Authentication Flow
+
+This section describes the React Native mobile app authentication flow, which uses a different approach than web due to OIDC/OAuth limitations in mobile environments.
+
+### Architecture Comparison: Web vs Mobile
+
+| Aspect | Web | Mobile Native |
+|--------|-----|---------------|
+| **OAuth Flow** | Firebase GCIP handles OIDC | Direct Auth0 OAuth + Custom Token |
+| **Firebase Token** | GCIP issues token after popup | Backend issues Custom Token |
+| **Tenant API** | Browser popup with tenant set | `auth().setTenantId()` async method |
+| **User Identity** | GCIP-generated UID | Backend-generated UID (email-based) |
+
+### Mobile Authentication Sequence
+
+```mermaid
+sequenceDiagram
+    participant App as Mobile App (React Native)
+    participant BE as Backend API
+    participant Auth0 as Auth0 IdP
+    participant Firebase as Firebase Auth
+    participant DB as Database
+
+    Note over App: 1. Tenant Resolution
+    App->>BE: POST /api/b2b/auth/resolve-tenant {email}
+    BE->>DB: SELECT tenant by domain
+    BE-->>App: {firebase_tenant_id, oidc_provider_id}
+
+    Note over App: 2. Get OIDC Config
+    App->>BE: GET /api/b2b/auth/oidc-config/{provider_id}
+    BE->>DB: SELECT auth_provider config
+    BE-->>App: {issuerUrl, clientId}
+
+    Note over App: 3. Direct OAuth (System Browser)
+    App->>Auth0: OAuth Authorization Request (PKCE)
+    Auth0-->>App: Authorization Code
+    App->>Auth0: Token Exchange
+    Auth0-->>App: OIDC ID Token (JWT)
+
+    Note over App: 4. Backend Token Exchange
+    App->>BE: POST /api/b2b/auth/mobile-login<br/>{oidc_id_token, email, firebase_tenant_id}
+    BE->>BE: Verify OIDC Token (JWKS)
+    BE->>DB: Lookup/Create User (email-based)
+    BE->>Firebase: Create Custom Token (tenant-aware)
+    BE-->>App: {firebase_custom_token, user_info}
+
+    Note over App: 5. Firebase Sign-In
+    App->>Firebase: setTenantId(firebase_tenant_id)
+    App->>Firebase: signInWithCustomToken(token)
+    Firebase-->>App: UserCredential
+
+    Note over App: 6. API Calls
+    App->>Firebase: getIdToken()
+    Firebase-->>App: Firebase ID Token
+    App->>BE: API calls with Firebase token
+    BE->>DB: RLS-scoped queries
+    BE-->>App: Response data
+```
+
+### Key Components
+
+#### 1. Tenant Resolution (`/api/b2b/auth/resolve-tenant`)
+
+Allows mobile app to discover tenant configuration from email:
+
+```python
+# Router: services/b2b/routers/auth.py
+@router.post("/resolve-tenant")
+async def resolve_tenant(request: TenantResolutionRequest):
+    domain = request.email.split('@')[1]
+    tenant = await tenant_service.get_tenant_by_domain(db, domain)
+    return {
+        "firebase_tenant_id": tenant.firebase_tenant_id,
+        "oidc_provider_id": tenant.auth_providers[0].provider_id
+    }
+```
+
+#### 2. OIDC Configuration (`/api/b2b/auth/oidc-config/{provider_id}`)
+
+Returns OAuth Configuration for `react-native-app-auth`:
+
+```python
+# Response
+{
+    "issuer_url": "https://dev-xxx.us.auth0.com",
+    "client_id": "mobile_native_client_id",  # Auth0 Native App
+    "scopes": ["openid", "profile", "email"]
+}
+```
+
+#### 3. Mobile Token Exchange (`/api/b2b/auth/mobile-login`)
+
+Most critical endpoint - validates Auth0 token and issues Firebase Custom Token:
+
+```python
+# Router: services/b2b/routers/auth.py
+@router.post("/mobile-login")
+async def mobile_login(request: MobileLoginRequest):
+    # 1. Verify OIDC token from Auth0 (signature, issuer, audience)
+    jwks_client = PyJWKClient(f"{issuer}/.well-known/jwks.json")
+    decoded = jwt.decode(token, signing_key, algorithms=["RS256"])
+    
+    # 2. Create user (email-based identity)
+    user = await user_service.get_or_create_user_by_email(
+        db, tenant.id, email, firebase_uid, role
+    )
+    
+    # 3. Generate Firebase Custom Token (tenant-aware)
+    from firebase_admin import tenant_mgt
+    tenant_client = tenant_mgt.auth_for_tenant(firebase_tenant_id)
+    custom_token = tenant_client.create_custom_token(uid, claims)
+    
+    return {"firebase_custom_token": custom_token.decode(), "user": user}
+```
+
+#### 4. React Native Firebase Integration
+
+**Critical**: Must use `setTenantId()` **method**, not property setter:
+
+```javascript
+// WRONG - Returns null on React Native Firebase!
+this.auth.tenantId = tenantId;
+
+// CORRECT - Use async method
+await this.auth.setTenantId(tenantId);
+await this.auth.signInWithCustomToken(customToken);
+```
+
+**Implementation**: `frontend/src/core/firebase/authService.native.js`
+
+### AuthProvider Configuration
+
+#### Database Model
+
+The `auth_providers` table stores IdP configuration with mobile-specific client ID:
+
+```python
+# Model: services/b2b/models/auth_provider.py
+class AuthProvider(Base):
+    __tablename__ = "auth_providers"
+    
+    config_data = Column(JSONB)  # Stores OIDC config
+    
+    @property
+    def oidc_client_id_mobile(self):
+        # Separate client ID for Native apps (Auth0 requires this)
+        return self.config_data.get('mobile_client_id')
+```
+
+#### Auth0 Configuration Note
+
+Auth0 requires **separate applications** for web and mobile:
+- **Web**: "Regular Web Application" (confidential client)
+- **Mobile**: "Native Application" (public client with PKCE)
+
+---
+
+## Email-Based User Identity Management
+
+### The Problem: Cross-Platform UID Inconsistency
+
+Without proper handling, the same user logging in from web and mobile would get different Firebase UIDs:
+
+| Platform | UID Generation | Example UID |
+|----------|----------------|-------------|
+| **Web** | Firebase GCIP | `oidc.auth0-company:auth0\|abc123...` |
+| **Mobile** | Custom Token (old) | `oidc-john_acme_com` |
+
+This causes users to appear as **two different people** in the database!
+
+### Solution: Email as Canonical Identity
+
+We use **email address** as the stable, canonical user identity. Firebase UID is treated as an authentication method that can change.
+
+```mermaid
+flowchart TD
+    A[User Login] --> B{Platform?}
+    B -->|Web| C[Firebase GCIP]
+    B -->|Mobile| D[Custom Token]
+    C --> E[UID: oidc.auth0:xxx]
+    D --> F[UID: oidc-email]
+    E --> G[Lookup by Email]
+    F --> G
+    G --> H{User Exists?}
+    H -->|Yes| I[Update firebase_uid]
+    H -->|No| J[Create User]
+    I --> K[Same User Record!]
+    J --> K
+```
+
+### Implementation
+
+#### User Service Method
+
+```python
+# Service: services/b2b/services/user_service.py
+async def get_or_create_user_by_email(
+    self,
+    db: AsyncSession,
+    tenant_id: UUID,
+    email: str,
+    firebase_uid: str,
+    name: str = None,
+    role: str = "viewer"
+) -> User:
+    """
+    Industry-standard email-based identity lookup.
+    
+    - Lookup by email (NOT firebase_uid)
+    - If found: update firebase_uid to latest
+    - If not found: create new user
+    """
+    email_lower = email.lower()
+    
+    # 1. Find existing user by email
+    result = await db.execute(
+        select(UserModel)
+        .where(UserModel.tenant_id == tenant_id)
+        .where(UserModel.email == email_lower)
+    )
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        # 2a. Update firebase_uid if changed (handles web↔mobile)
+        if existing.firebase_uid != firebase_uid:
+            existing.firebase_uid = firebase_uid
+        existing.last_login = now
+        await db.flush()
+        return existing
+    else:
+        # 2b. Create new user
+        return await self.create_or_update_user(...)
+```
+
+#### Endpoint Usage
+
+Both `/auth/me` and `/auth/sync-user` use this method:
+
+```python
+# Router: services/b2b/routers/auth.py
+user = await user_service.get_or_create_user_by_email(
+    db=db,
+    tenant_id=tenant.id,
+    email=email,
+    firebase_uid=firebase_uid,
+    name=name,
+    role=user_role
+)
+```
+
+### Cross-Platform Scenarios
+
+| Scenario | Behavior | Result |
+|----------|----------|--------|
+| User activates on Web, logs in on Mobile | Finds user by email, updates UID | ✅ Same user |
+| User first logs in on Mobile, then Web | Finds user by email, updates UID | ✅ Same user |
+| User uses both platforms concurrently | Each login updates UID to latest | ✅ Same user |
+
+### Security Considerations
+
+1. **Email Verification**: OIDC tokens contain `email_verified` claim - always verify email is confirmed by IdP
+2. **Tenant Isolation**: Email lookup is scoped to `tenant_id` via RLS
+3. **UID Updates**: Only update firebase_uid if user already exists (prevents account hijacking)
+
+---
+
+## Summary: Complete Authentication Architecture
+
+### Authentication Paths
+
+```mermaid
+flowchart LR
+    subgraph Web
+        W1[User] --> W2[Firebase GCIP]
+        W2 --> W3[Auth0 Popup]
+        W3 --> W4[Firebase Token]
+    end
+    
+    subgraph Mobile
+        M1[User] --> M2[System Browser]
+        M2 --> M3[Auth0 OAuth]
+        M3 --> M4[Backend]
+        M4 --> M5[Custom Token]
+        M5 --> M6[Firebase Token]
+    end
+    
+    W4 --> BE[Backend API]
+    M6 --> BE
+    BE --> DB[(Database)]
+    DB --> |RLS Scoped| Response
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `services/b2b/routers/auth.py` | Mobile login, tenant resolution, user sync |
+| `services/b2b/services/user_service.py` | Email-based user identity |
+| `core/utils/firebase.py` | Custom token generation |
+| `frontend/src/core/firebase/authService.native.js` | React Native Firebase integration |
+| `frontend/src/core/firebase/oidcAuthService.native.js` | react-native-app-auth OAuth |
+
+---
+
+*Updated 2025-12-09: Added Mobile Native Authentication and Email-Based Identity sections*
