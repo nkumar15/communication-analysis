@@ -19,48 +19,43 @@ class OIDCAuthService {
      * @returns {Promise<object>} - { idToken, accessToken, refreshToken }
      */
     async signInWithOIDC({ issuer, clientId, scopes, email }) {
-        // Auth0 requires the callback URL to include the domain for native apps
-        const domain = new URL(issuer).hostname;
-
-        const config = {
-            issuer,
-            clientId,
-            redirectUrl: `com.saas.b2b://${domain}/android/com.saas.b2b/callback`,
+        // Use simple scheme-based redirect compatible with AndroidManifest config
+        redirectUrl: 'com.saas.b2b://oauth/callback',
             scopes: scopes || ['openid', 'profile', 'email'],
-            // Pass additional parameters for better UX
-            additionalParameters: email ? {
-                login_hint: email,
-                screen_hint: 'login'  // Suggest login, not signup
-            } : {},
+                // Pass additional parameters for better UX
+                additionalParameters: email ? {
+                    login_hint: email,
+                    screen_hint: 'login'  // Suggest login, not signup
+                } : {},
         };
 
         console.log('🔐 Starting OAuth flow with config:', {
-            issuer,
-            clientId,
-            redirectUrl: config.redirectUrl,
-            scopes: config.scopes,
-        });
+                    issuer,
+                    clientId,
+                    redirectUrl: config.redirectUrl,
+                    scopes: config.scopes,
+                });
 
         try {
-            // Opens system browser, handles OAuth flow, returns tokens
-            const result = await authorize(config);
+    // Opens system browser, handles OAuth flow, returns tokens
+    const result = await authorize(config);
 
-            console.log('✅ OAuth successful:', {
-                hasIdToken: !!result.idToken,
-                hasAccessToken: !!result.accessToken,
-                hasRefreshToken: !!result.refreshToken,
-            });
+    console.log('✅ OAuth successful:', {
+        hasIdToken: !!result.idToken,
+        hasAccessToken: !!result.accessToken,
+        hasRefreshToken: !!result.refreshToken,
+    });
 
-            return {
-                idToken: result.idToken,
-                accessToken: result.accessToken,
-                refreshToken: result.refreshToken,
-                tokenType: result.tokenType,
-            };
-        } catch (error) {
-            console.error('❌ OAuth error:', error);
-            throw new Error(`OAuth failed: ${error.message}`);
-        }
+    return {
+        idToken: result.idToken,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        tokenType: result.tokenType,
+    };
+} catch (error) {
+    console.error('❌ OAuth error:', error);
+    throw new Error(`OAuth failed: ${error.message}`);
+}
     }
 }
 
