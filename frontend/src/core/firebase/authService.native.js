@@ -100,6 +100,32 @@ class NativeFirebaseAuthService {
     }
 
     /**
+     * Sign in with a custom token (for mobile OAuth flow)
+     * Must have tenant ID set first!
+     * 
+     * @param {string} customToken - Firebase custom token from backend
+     */
+    async signInWithCustomToken(customToken) {
+        try {
+            const tenantId = await this.getTenantId();
+            console.log('🔐 Signing in with custom token, tenant:', tenantId);
+
+            // Ensure tenant ID is set on auth instance
+            if (tenantId && this.auth.tenantId !== tenantId) {
+                console.log('⚠️ Re-setting tenant ID before signInWithCustomToken');
+                this.auth.tenantId = tenantId;
+            }
+
+            const userCredential = await this.auth.signInWithCustomToken(customToken);
+            console.log('✅ Signed in with custom token:', userCredential.user?.uid);
+            return userCredential;
+        } catch (error) {
+            console.error('❌ signInWithCustomToken error:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Sign out
      */
     async signOut() {

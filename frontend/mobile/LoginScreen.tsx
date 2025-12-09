@@ -93,7 +93,8 @@ export default function LoginScreen({ onLoginSuccess }) {
             // 5. Sign in to Firebase with custom token
             setStatus('Completing sign-in...');
             await firebaseAuthService.setTenantId(firebase_tenant_id);
-            await firebaseAuthService.auth.signInWithCustomToken(firebase_custom_token);
+            // Use the service method which ensures tenant is set
+            await firebaseAuthService.signInWithCustomToken(firebase_custom_token);
 
             console.log('✅ Firebase authentication successful');
 
