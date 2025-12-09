@@ -35,6 +35,10 @@ local.properties
 !debug.keystore
 .kotlin/
 
+# Generated assets
+android/app/src/main/assets/index.android.bundle
+android/app/src/main/assets/index.android.bundle.meta
+
 # node.js
 #
 node_modules/
