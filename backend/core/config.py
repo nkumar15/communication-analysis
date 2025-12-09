@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     frontend_url: str
     backend_url: str
     
+    # Mobile Deep Links
+    mobile_app_domain: Optional[str] = "app.example.com"  # Must match AndroidManifest.xml
+    mobile_package_name: Optional[str] = "com.saas.b2b"   # Android package name
+    
     # Email (Resend)
     resend_api_key: Optional[str] = None
     

@@ -18,12 +18,28 @@ export default function App() {
         const handleDeepLink = ({ url }) => {
             console.log('🔗 Deep link received:', url);
             if (url && url.includes('activate')) {
-                // Extract token from URL
-                const regex = /[?&]token=([^&#]*)/;
-                const match = regex.exec(url);
-                if (match && match[1]) {
-                    setActivationToken(match[1]);
+                let token = null;
+
+                // Try path format: /activate/{token}
+                const pathMatch = url.match(/\/activate\/([^?&#]+)/);
+                if (pathMatch && pathMatch[1]) {
+                    token = pathMatch[1];
+                }
+
+                // Try query format: ?token={token}
+                if (!token) {
+                    const queryMatch = url.match(/[?&]token=([^&#]*)/);
+                    if (queryMatch && queryMatch[1]) {
+                        token = queryMatch[1];
+                    }
+                }
+
+                if (token) {
+                    console.log('🎫 Activation token extracted:', token);
+                    setActivationToken(token);
                     setCurrentScreen('activation');
+                } else {
+                    console.log('⚠️ No token found in URL');
                 }
             }
         };
