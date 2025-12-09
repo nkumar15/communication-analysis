@@ -94,13 +94,22 @@ class TenantOnboardingService:
             await role_template_service.seed_tenant_roles(db, tenant.id)
             
             # 6. Create auth provider record
+            # Populate config_data with OIDC settings for mobile OAuth compatibility
+            config_data = {}
+            if oidc_issuer and oidc_client_id:
+                config_data = {
+                    "issuer_url": oidc_issuer,
+                    "client_id": oidc_client_id
+                }
+            
             auth_provider = AuthProvider(
                 tenant_id=tenant.id,
                 provider_type='oidc',
                 provider_id=provider_id,
                 display_name=f"{oidc_provider.title()} SSO",
                 is_primary=True,
-                is_active=True
+                is_active=True,
+                config_data=config_data if config_data else None
             )
             db.add(auth_provider)
             await db.flush()
