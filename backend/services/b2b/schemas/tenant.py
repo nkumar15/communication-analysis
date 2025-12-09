@@ -29,5 +29,5 @@ class TenantResolutionResponse(BaseModel):
     tenant_name: str
     domain: str
     firebase_tenant_id: str
-    primary_provider_id: Optional[str] = None  # Primary auth provider ID from auth_providers table
+    oidc_provider_id: Optional[str] = None  # Primary auth provider ID from auth_providers table
 

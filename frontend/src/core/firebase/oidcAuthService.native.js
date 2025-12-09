@@ -19,10 +19,13 @@ class OIDCAuthService {
      * @returns {Promise<object>} - { idToken, accessToken, refreshToken }
      */
     async signInWithOIDC({ issuer, clientId, scopes, email }) {
+        // Auth0 requires the callback URL to include the domain for native apps
+        const domain = new URL(issuer).hostname;
+
         const config = {
             issuer,
             clientId,
-            redirectUrl: 'com.saas.b2b://oauth/callback',
+            redirectUrl: `com.saas.b2b://${domain}/android/com.saas.b2b/callback`,
             scopes: scopes || ['openid', 'profile', 'email'],
             // Pass additional parameters for better UX
             additionalParameters: email ? {

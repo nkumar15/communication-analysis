@@ -101,8 +101,15 @@ async def get_oidc_config(provider_id: str, db: AsyncSession = Depends(get_db)):
     """
     logger.info("oidc_config_requested", provider_id=provider_id)
     
-    # Get auth provider from database
-    provider = await auth_provider_service.get_provider_by_id(db, provider_id)
+    # Get auth provider by provider_id (string identifier like 'oidc.auth0-firstcompany')
+    from services.b2b.models.auth_provider import AuthProvider
+    result = await db.execute(
+        select(AuthProvider)
+        .where(AuthProvider.provider_id == provider_id)
+        .where(AuthProvider.is_active == True)
+        .where(AuthProvider.deleted_at.is_(None))
+    )
+    provider = result.scalar_one_or_none()
     
     if not provider:
         logger.warning("oidc_provider_not_found", provider_id=provider_id)
@@ -113,13 +120,29 @@ async def get_oidc_config(provider_id: str, db: AsyncSession = Depends(get_db)):
     
     logger.info("oidc_config_retrieved", 
                 provider_id=provider_id,
-                issuer=provider.oidc_issuer_url)
+                provider_type=provider.provider_type)
+    
+    # Extract OIDC config from config_data JSONB
+    config = provider.config_data or {}
+    issuer_url = config.get('issuer_url') or config.get('issuer')
+    client_id = config.get('client_id')
+    
+    if not issuer_url or not client_id:
+        logger.error("oidc_config_incomplete", 
+                    provider_id=provider_id,
+                    has_issuer=bool(issuer_url),
+                    has_client_id=bool(client_id))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OIDC provider configuration incomplete"
+        )
     
     return OIDCConfigResponse(
-        issuer=provider.oidc_issuer_url,
-        client_id=provider.oidc_client_id_mobile or provider.oidc_client_id,  # Fallback to web client ID
+        issuer=issuer_url,
+        client_id=config.get('mobile_client_id') or client_id,  # Prefer mobile-specific client ID
         scopes=['openid', 'profile', 'email']
     )
+
 
 
 @router.post("/mobile-login")
