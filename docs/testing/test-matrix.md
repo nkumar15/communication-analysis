@@ -65,10 +65,30 @@ This document maps functional requirements to specific test files, ensuring comp
 | **MOB-01** | **Deep Link Activation**: App intercepts `https://app.example.com/activate` and parses token | ✅ **DONE** | Verified via ADB Intent (App opened & parsed token) |
 | **MOB-02** | **Native Connectivity**: App successfully reaches backend (`10.0.2.2`) | ✅ **DONE** | Verified via API call (Tenant resolution works) |
 | **MOB-03** | **Login Screen**: Email input, tenant resolution, UI display | ✅ **DONE** | Manual testing (UI renders, API connects) |
-| **MOB-04** | **Native SSO**: Production OIDC via react-native-app-auth | ⚠️ **TODO** | Requires `react-native-app-auth` implementation |
-| **MOB-05** | **Firebase Multi-Tenancy**: Tenant context switching | ✅ **DONE** | Confirmed via `setTenantId()` implementation |
+| **MOB-04** | **Native SSO**: Production OIDC via react-native-app-auth | ✅ **DONE** | `test_mobile_auth.py::TestMobileOnboardingFlow` |
+| **MOB-05** | **Firebase Multi-Tenancy**: Tenant context via `setTenantId()` method | ✅ **DONE** | Confirmed via native SDK implementation |
+| **MOB-06** | **Tenant Resolution API**: `/api/b2b/auth/resolve-tenant` returns OIDC provider | ✅ **DONE** | `test_mobile_auth.py::test_resolve_tenant_returns_oidc_provider` |
+| **MOB-07** | **OIDC Config API**: `/api/b2b/auth/oidc-config/{id}` returns issuer/client | ✅ **DONE** | `test_mobile_auth.py::test_oidc_config_endpoint` |
 
 ### Mobile Development Notes
 - **Build Fixed**: Package name `com.saas.b2b`, SDK 36, Gradle 8.13
 - **Metro**: Requires `adb reverse tcp:8081 tcp:8081` for emulator
-- **Next**: Implement OAuth with `react-native-app-auth` for production authentication
+- **Critical**: Use `auth().setTenantId()` METHOD, not property setter
+- **OAuth**: Uses `react-native-app-auth` with system browser + PKCE
+
+## 7. Cross-Platform User Identity (NEW)
+
+**Ref:** `docs/architecture/tenant-onboarding-flow.md` (Email-Based User Identity section)
+
+| ID | Requirement | API Test | Status |
+|----|-------------|----------|--------|
+| **UID-01** | Web user recognized on Mobile flow | `test_mobile_auth.py::test_user_created_on_web_recognized_on_mobile_flow` | ✅ |
+| **UID-02** | Mobile user recognized on Web flow | `test_mobile_auth.py::test_user_created_on_mobile_recognized_on_web_flow` | ✅ |
+| **UID-03** | Email is canonical identity (UID can change) | `test_mobile_auth.py::test_email_is_canonical_identity_not_uid` | ✅ |
+| **UID-04** | Different emails = different users | `test_mobile_auth.py::test_different_emails_create_different_users` | ✅ |
+
+### Key Implementation Points
+- User lookup is by `(tenant_id, email)` NOT `firebase_uid`
+- `firebase_uid` is updated to latest value on each login
+- Ensures same person using Web and Mobile = one user record
+- Prevents duplicate accounts for cross-platform users
