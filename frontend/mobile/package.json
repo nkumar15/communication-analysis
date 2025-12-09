@@ -16,6 +16,7 @@
     "@react-native/new-app-screen": "0.82.1",
     "react": "19.1.1",
     "react-native": "0.82.1",
+    "react-native-app-auth": "^8.1.0",
     "react-native-config": "^1.5.3",
     "react-native-inappbrowser-reborn": "^3.7.0",
     "react-native-safe-area-context": "^5.5.2"

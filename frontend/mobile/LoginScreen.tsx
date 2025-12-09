@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import apiService from '../src/core/api/b2bClient';
 import firebaseAuthService from '../src/core/firebase/authService';
+import oidcAuthService from '../src/core/firebase/oidcAuthService.native';
 
 /**
  * Login Screen Component
- * Matches web flow: Email → Resolve Tenant → OIDC Login
+ * Production OAuth flow: Email → Tenant → OIDC (system browser) → Firebase
  */
 export default function LoginScreen({ onLoginSuccess }) {
     const [email, setEmail] = useState('');
@@ -45,28 +46,64 @@ export default function LoginScreen({ onLoginSuccess }) {
             }
 
             const { firebase_tenant_id, oidc_provider_id } = await response.json();
-            console.log('✅ Tenant resolved:', firebase_tenant_id);
+            console.log('✅ Tenant resolved:', firebase_tenant_id, 'Provider:', oidc_provider_id);
 
-            // 2. Set tenant context
-            setStatus('Initializing authentication...');
-            await firebaseAuthService.setTenantId(firebase_tenant_id);
+            // 2. Get OIDC configuration for mobile
+            setStatus('Loading authentication settings...');
+            const configResponse = await fetch(`http://10.0.2.2:8000/api/b2b/auth/oidc-config/${oidc_provider_id}`);
 
-            // 3. Trigger OIDC login (WebView)
+            if (!configResponse.ok) {
+                throw new Error('Failed to load authentication configuration');
+            }
+
+            const oidcConfig = await configResponse.json();
+            console.log('✅ OIDC config retrieved:', oidcConfig.issuer);
+
+            // 3. Perform OAuth login via system browser
             setStatus('Opening login page...');
-            const userCredential = await firebaseAuthService.signInWithOIDC(
-                oidc_provider_id,
-                email
-            );
+            const { idToken } = await oidcAuthService.signInWithOIDC({
+                issuer: oidcConfig.issuer,
+                clientId: oidcConfig.client_id,
+                scopes: oidcConfig.scopes,
+                email,
+            });
 
-            console.log('✅ Login successful:', userCredential.user.email);
+            console.log('✅ OAuth successful, exchanging token...');
 
-            // 5. Sync user with backend
+            // 4. Exchange OIDC token for Firebase custom token
+            setStatus('Finalizing authentication...');
+            const tokenResponse = await fetch('http://10.0.2.2:8000/api/b2b/auth/mobile-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    oidc_id_token: idToken,
+                    email,
+                    firebase_tenant_id,
+                }),
+            });
+
+            if (!tokenResponse.ok) {
+                const error = await tokenResponse.json();
+                throw new Error(error.detail || 'Authentication failed');
+            }
+
+            const { firebase_custom_token } = await tokenResponse.json();
+            console.log('✅ Received Firebase custom token');
+
+            // 5. Sign in to Firebase with custom token
+            setStatus('Completing sign-in...');
+            await firebaseAuthService.setTenantId(firebase_tenant_id);
+            await firebaseAuthService.auth.signInWithCustomToken(firebase_custom_token);
+
+            console.log('✅ Firebase authentication successful');
+
+            // 6. Sync user with backend
             setStatus('Syncing account...');
             const userData = await apiService.syncUser();
 
             setStatus('Success!');
 
-            // 6. Navigate to home/dashboard
+            // 7. Navigate to home/dashboard
             if (onLoginSuccess) {
                 onLoginSuccess(userData);
             }

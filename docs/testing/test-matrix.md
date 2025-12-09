@@ -60,10 +60,15 @@ This document maps functional requirements to specific test files, ensuring comp
 
 ## 6. Mobile App Support (Android)
 
-**Ref:** `docs/guides/mobile_development.md`
+| ID | Requirement | Status | Verification Method |
+|----|-------------|--------|---------------------|
+| **MOB-01** | **Deep Link Activation**: App intercepts `https://app.example.com/activate` and parses token | ✅ **DONE** | Verified via ADB Intent (App opened & parsed token) |
+| **MOB-02** | **Native Connectivity**: App successfully reaches backend (`10.0.2.2`) | ✅ **DONE** | Verified via API call (Tenant resolution works) |
+| **MOB-03** | **Login Screen**: Email input, tenant resolution, UI display | ✅ **DONE** | Manual testing (UI renders, API connects) |
+| **MOB-04** | **Native SSO**: Production OIDC via react-native-app-auth | ⚠️ **TODO** | Requires `react-native-app-auth` implementation |
+| **MOB-05** | **Firebase Multi-Tenancy**: Tenant context switching | ✅ **DONE** | Confirmed via `setTenantId()` implementation |
 
-| ID | Requirement | API Test | Native Test | Status |
-|----|-------------|----------|-------------|--------|
-| **MOB-01** | **Deep Link Activation**: App intercepts `https://app.example.com/activate` and parses token | `tests/e2e_api/b2b/test_activation.py` | *Manual (ADB)* | ✅ |
-| **MOB-02** | **Native Connectivity**: App successfully reaches backend (`10.0.2.2`) | *N/A* | *Manual (Emulator)* | ✅ |
-| **MOB-03** | **Native SSO**: App authenticates via Firebase Native SDK | `tests/e2e_api/b2b/test_auth.py` | *Pending* | ⚠️ (Skeleton) |
+### Mobile Development Notes
+- **Build Fixed**: Package name `com.saas.b2b`, SDK 36, Gradle 8.13
+- **Metro**: Requires `adb reverse tcp:8081 tcp:8081` for emulator
+- **Next**: Implement OAuth with `react-native-app-auth` for production authentication

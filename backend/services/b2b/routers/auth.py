@@ -25,6 +25,21 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/b2b/auth", tags=["authentication"])
 
 
+# Mobile-specific schemas
+class MobileLoginRequest(BaseModel):
+    """Request model for mobile OAuth token exchange"""
+    oidc_id_token: str
+    email: EmailStr
+    firebase_tenant_id: str
+
+
+class OIDCConfigResponse(BaseModel):
+    """OIDC configuration for mobile app"""
+    issuer: str
+    client_id: str
+    scopes: list[str]
+
+
 @router.post("/resolve-tenant", response_model=TenantResolutionResponse)
 async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = Depends(get_db)):
     """
@@ -72,12 +87,195 @@ async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = De
         tenant_name=tenant.name,
         domain=tenant.domain,
         firebase_tenant_id=tenant.firebase_tenant_id,
-        primary_provider_id=primary_provider.provider_id if primary_provider else None
+        oidc_provider_id=primary_provider.provider_id if primary_provider else None
     )
 
 
+@router.get("/oidc-config/{provider_id}", response_model=OIDCConfigResponse)
+async def get_oidc_config(provider_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Get OIDC configuration for mobile authentication
+    
+    Returns the issuer URL, client ID, and scopes needed for
+    react-native-app-auth to perform OAuth flow.
+    """
+    logger.info("oidc_config_requested", provider_id=provider_id)
+    
+    # Get auth provider from database
+    provider = await auth_provider_service.get_provider_by_id(db, provider_id)
+    
+    if not provider:
+        logger.warning("oidc_provider_not_found", provider_id=provider_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"OIDC provider not found: {provider_id}"
+        )
+    
+    logger.info("oidc_config_retrieved", 
+                provider_id=provider_id,
+                issuer=provider.oidc_issuer_url)
+    
+    return OIDCConfigResponse(
+        issuer=provider.oidc_issuer_url,
+        client_id=provider.oidc_client_id_mobile or provider.oidc_client_id,  # Fallback to web client ID
+        scopes=['openid', 'profile', 'email']
+    )
 
 
+@router.post("/mobile-login")
+async def mobile_login(
+    request: MobileLoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Exchange OIDC ID token for Firebase custom token (Mobile OAuth flow)
+    
+    Flow:
+    1. Decode & validate OIDC ID token
+    2. Verify tenant and email
+    3. Generate Firebase custom token for that tenant
+    4. Return custom token to mobile app
+    
+    The mobile app will then use signInWithCustomToken() to authenticate.
+    """
+    logger.info("mobile_login_started", email=request.email, firebase_tenant_id=request.firebase_tenant_id)
+    
+    # Get auth provider to retrieve issuer for JWT verification
+    # Extract provider ID from request if needed, or look it up
+    tenant = await tenant_service.get_tenant_by_firebase_id(db, request.firebase_tenant_id)
+    
+    if not tenant:
+        logger.warning("tenant_not_found", firebase_tenant_id=request.firebase_tenant_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found"
+        )
+    
+    # Get primary auth provider for this tenant
+    primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
+    
+    if not primary_provider:
+        logger.warning("no_auth_provider", tenant_id=str(tenant.id))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No authentication provider configured for this tenant"
+        )
+    
+    try:
+        # 1. Verify and decode OIDC token with signature validation
+        import jwt
+        from jwt import PyJWKClient
+        
+        # Get JWKS URL from issuer (standard OIDC discovery)
+        issuer = primary_provider.oidc_issuer_url.rstrip('/')
+        jwks_url = f"{issuer}/.well-known/jwks.json"
+        
+        logger.debug("fetching_jwks", jwks_url=jwks_url)
+        
+        # Fetch and cache public keys
+        jwks_client = PyJWKClient(jwks_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(request.oidc_id_token)
+        
+        # Verify signature and decode
+        decoded = jwt.decode(
+            request.oidc_id_token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=primary_provider.oidc_client_id_mobile or primary_provider.oidc_client_id,
+            issuer=issuer,
+        )
+        
+        oidc_email = decoded.get('email')
+        
+        if not oidc_email:
+            logger.warning("oidc_token_missing_email")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="OIDC token missing email claim"
+            )
+        
+        logger.debug("oidc_token_verified", oidc_email=oidc_email)
+        
+    except jwt.ExpiredSignatureError:
+        logger.warning("oidc_token_expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="OIDC token has expired"
+        )
+    except jwt.InvalidAudienceError:
+        logger.warning("oidc_token_invalid_audience")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="OIDC token audience mismatch"
+        )
+    except jwt.InvalidIssuerError:
+        logger.warning("oidc_token_invalid_issuer")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="OIDC token issuer mismatch"
+        )
+    except jwt.DecodeError as e:
+        logger.warning("oidc_token_invalid", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid OIDC token: {str(e)}"
+        )
+    except Exception as e:
+        logger.error("oidc_token_verification_failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token verification failed: {str(e)}"
+        )
+    
+    # 2. Verify email matches
+    if oidc_email.lower() != request.email.lower():
+        logger.warning("email_mismatch", oidc_email=oidc_email, request_email=request.email)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email mismatch between token and request"
+    )
+    
+    # 3. Verify tenant is active (already fetched above)
+    
+    if tenant.activation_status != 'active':
+        logger.warning("tenant_not_active", tenant_id=str(tenant.id), status=tenant.activation_status)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant is not active"
+        )
+    
+    # 4. Generate Firebase UID (deterministic based on email)
+    # This ensures same user gets same UID across sessions
+    firebase_uid = f"oidc-{oidc_email.replace('@', '_').replace('.', '_')}"
+    
+    logger.debug("generating_firebase_token", firebase_uid=firebase_uid, tenant_id=str(tenant.id))
+    
+    # 5. Create Firebase custom token for this tenant
+    try:
+        custom_token = firebase_auth_service.create_custom_token(
+            uid=firebase_uid,
+            tenant_id=request.firebase_tenant_id,
+            claims={'email': oidc_email}
+        )
+        
+        logger.info("mobile_login_successful",
+                   email=oidc_email,
+                   tenant_id=str(tenant.id),
+                   firebase_tenant_id=request.firebase_tenant_id)
+        
+        return {
+            "firebase_custom_token": custom_token.decode('utf-8'),
+            "firebase_uid": firebase_uid,
+            "tenant_id": str(tenant.id),
+            "tenant_name": tenant.name
+        }
+        
+    except Exception as e:
+        logger.error("firebase_token_generation_failed", error=str(e), firebase_uid=firebase_uid)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate Firebase token: {str(e)}"
+        )
 
 
 @router.get("/me", response_model=UserResponse)
