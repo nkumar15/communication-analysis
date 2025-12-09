@@ -28,7 +28,8 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" android:host="app.example.com" />
         </intent-filter>
-        <!-- OAuth Callback Intent Filter -->
+        <!-- OAuth Callback Intent Filter 
+        NOTE: Commented out because react-native-app-auth handles this via manifestPlaceholders
         <intent-filter>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />
@@ -38,6 +39,7 @@
                 android:host="oauth"
                 android:pathPrefix="/callback" />
         </intent-filter>
+        -->
       </activity>
     </application>
 </manifest>
