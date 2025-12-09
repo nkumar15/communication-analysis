@@ -39,6 +39,9 @@ class OIDCAuthService {
             scopes: config.scopes,
         });
 
+        // DEBUG: Log the expected redirect URL
+        console.warn('EXPECTED REDIRECT URL:', config.redirectUrl);
+
         try {
             // Opens system browser, handles OAuth flow, returns tokens
             const result = await authorize(config);
