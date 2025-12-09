@@ -103,24 +103,40 @@ class NativeFirebaseAuthService {
      * Sign in with a custom token (for mobile OAuth flow)
      * Must have tenant ID set first!
      * 
+     * IMPORTANT: For GCIP multi-tenancy, the auth.tenantId must match
+     * the tenant_id embedded in the custom token by the server.
+     * 
      * @param {string} customToken - Firebase custom token from backend
+     * @param {string} tenantId - Firebase tenant ID to set before sign-in
      */
-    async signInWithCustomToken(customToken) {
+    async signInWithCustomToken(customToken, tenantId = null) {
         try {
-            const tenantId = await this.getTenantId();
-            console.log('🔐 Signing in with custom token, tenant:', tenantId);
+            // Get tenant ID from parameter or storage
+            const effectiveTenantId = tenantId || await this.getTenantId();
 
-            // Ensure tenant ID is set on auth instance
-            if (tenantId && this.auth.tenantId !== tenantId) {
-                console.log('⚠️ Re-setting tenant ID before signInWithCustomToken');
-                this.auth.tenantId = tenantId;
+            console.log('🔐 signInWithCustomToken called');
+            console.log('   Tenant ID from parameter:', tenantId);
+            console.log('   Tenant ID from storage:', await this.getTenantId());
+            console.log('   Effective tenant ID:', effectiveTenantId);
+            console.log('   Current auth.tenantId:', this.auth.tenantId);
+
+            // Critical: Set tenant ID on auth instance SYNCHRONOUSLY before sign-in
+            if (effectiveTenantId) {
+                this.auth.tenantId = effectiveTenantId;
+                console.log('   Set auth.tenantId to:', this.auth.tenantId);
+            } else {
+                console.error('❌ No tenant ID available!');
+                throw new Error('Tenant ID is required for multi-tenant sign-in');
             }
 
             const userCredential = await this.auth.signInWithCustomToken(customToken);
             console.log('✅ Signed in with custom token:', userCredential.user?.uid);
+            console.log('   User tenant ID:', userCredential.user?.tenantId);
             return userCredential;
         } catch (error) {
             console.error('❌ signInWithCustomToken error:', error);
+            console.error('   Error code:', error.code);
+            console.error('   Error message:', error.message);
             throw error;
         }
     }
