@@ -42,6 +42,7 @@ graph TD
 
 The Web App follows the standard **Firebase Identity Platform (GCIP)** flow using the Firebase JS SDK.
 
+
 ### Web Login Sequence
 
 ```mermaid
@@ -50,31 +51,34 @@ sequenceDiagram
     participant BE as Backend API
     participant Firebase as Firebase Identity
     participant IdP as Auth0 / IDP
+    participant DB as Postgres DB
 
-    Note over Browser: 1. Tenant Config
-    Browser->>BE: GET /api/activate/tenant-info/{id}
-    BE-->>Browser: {firebase_tenant_id, oidc_provider_id}
+    Note over Browser: 1. Tenant Resolution
+    Browser->>BE: POST /api/b2b/auth/resolve_tenant {email}
+    BE-->Browser: 200 {firebase_tenant_id, oidc_provider_id}
 
     Note over Browser: 2. Initiate Login
-    Browser->>Firebase: auth.tenantId = "tenant-xyz"
+    Browser->>Firebase: auth.tenantId = firebase_tenant_id
     Browser->>Firebase: signInWithPopup(provider)
     
     Firebase->>IdP: OIDC Redirect
     IdP-->>Firebase: Authenticated
     Firebase-->>Browser: ID Token (JWT) + User Profile
+    Note right of Firebase: Identity created in Firebase
 
-    Note over Browser: 3. Sync User
+    Note over Browser: 3. Sync User (Creation)
     Browser->>BE: POST /api/b2b/auth/sync-user
-    BE->>BE: Verify Token
+    BE->>BE: Verify Firebase Token
     BE->>BE: Resolve Tenant (from token)
-    BE->>BE: Upsert User (email matches)
+    BE->>DB: Upsert User (email matches)
+    Note right of BE: User created in Postgres here
     BE-->>Browser: 200 OK (Role + Context)
 ```
 
 ### Key Differences from Mobile
 -   **Client-Side Driven**: The browser handles the entire OAuth handshake via Firebase SDK.
--   **Firebase-Issued Tokens**: The ID Token is signed directly by Firebase (not a Custom token).
--   **Automatic Tenant Binding**: The internal `signin_with_popup` sets the tenant context automatically in the browser storage.
+-   **Firebase-Issued Tokens**: The ID Token is signed directly by Firebase.
+-   **Identity Creation**: Occurs immediately when user completes IDP login flow.
 
 ---
 
@@ -146,4 +150,16 @@ To ensure users are recognized as the **same identity** across Web (Firebase UID
 **Resolution Logic**:
 1.  Backend looks up user by `(tenant_id, email)`.
 2.  Updates `firebase_uid` to match the *current* login method.
-3.  Prevents duplicate user records.
+
+### Identity Creation Strategy
+
+Since we support both Web (standard OIDC) and Mobile (Native Auth0), the creation of the **Firebase User Record** happens at different times:
+
+| Scenario | Trigger | Identity Created In Firebase | Backend User Created |
+|----------|---------|------------------------------|----------------------|
+| **Web Login** | User completes SSO Popup | **Immediately** (Client-side via GCIP) | At `/sync-user` call |
+| **Mobile Login** | App exchanges Auth0 token | **Delayed** (Upon first `signInWithCustomToken`) | At `/mobile-login` (implicit) |
+| **Web Invite** | User accepts & logs in | **Before Join** (Must login to accept) | At `/join` call |
+| **Mobile Invite** | User deep-links & logs in | **After Token Exchange** | At `/join` call |
+
+**Crucial Logic**: The backend treats **Email** as the immutable identifier. When a user logs in via a new method (e.g., switched from Web to Mobile), the backend updates the stored `firebase_uid` to match the current session's UID, ensuring continuity.
