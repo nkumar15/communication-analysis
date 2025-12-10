@@ -13,7 +13,6 @@ from services.b2b.middleware import get_current_active_user
 from services.b2b.rbac import require_permission
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
-from services.b2b.services.audit_service import log_audit_background
 from services.b2b.schemas import Invitation
 from core.email import email_service
 from core.config import settings
@@ -213,8 +212,11 @@ async def invite_user(
     )
 
     # Log audit event
-    background_tasks.add_task(
-        log_audit_background,
+    # Log audit event (Synchronous Unit of Work)
+    from services.b2b.services.audit_service import AuditService
+    audit_service = AuditService(db)
+    
+    await audit_service.log_event(
         tenant_id=current_user['tenant_id'],
         event_type="user.invited",
         resource_type="invitation",
@@ -592,8 +594,11 @@ async def join_tenant(
     # await db.commit() - Handled by dependency
 
     # Log audit event
-    background_tasks.add_task(
-        log_audit_background,
+    # Log audit event (Synchronous Unit of Work)
+    from services.b2b.services.audit_service import AuditService
+    audit_service = AuditService(db)
+    
+    await audit_service.log_event(
         tenant_id=tenant.id,
         event_type="user.accepted_invite",
         resource_type="invitation",

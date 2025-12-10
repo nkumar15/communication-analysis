@@ -7,7 +7,6 @@ from services.b2b.schemas import TenantResolutionRequest, TenantResolutionRespon
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
 from services.b2b.services.auth_provider_service import auth_provider_service
-from services.b2b.services.audit_service import log_audit_background
 from services.b2b.services.rls_service import rls_service
 from core.utils.firebase import firebase_auth_service
 from services.b2b.models import InvitationModel
@@ -434,9 +433,13 @@ async def sync_user(
         role=user_role
     )
     
-    # Log audit event
-    background_tasks.add_task(
-        log_audit_background,
+    # Synchronous Audit Log (Unit of Work Pattern)
+    # This uses the SAME db session and transaction.
+    # It will be committed automatically when the request ends successfully.
+    from services.b2b.services.audit_service import AuditService
+    audit_service = AuditService(db)
+    
+    await audit_service.log_event(
         tenant_id=tenant.id,
         event_type="auth.login",
         resource_type="user",
