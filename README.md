@@ -23,7 +23,6 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **Threaded Comments** - Contextual discussions on tasks with nested replies
 - **Multi-Service Architecture** - Independent B2B, Platform, and B2C services
 
-
 ---
 
 ## 🧭 Documentation
@@ -38,6 +37,12 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[Tenant Admin Guide](docs/guides/tenant-admin.md)**: Instructions for tenant administrators.
 - **[RBAC Concepts](docs/guides/rbac-concepts.md)**: Understanding the permission model.
 
+### 📅 Planning
+*Project status, roadmap, and history.*
+
+- **[Roadmap](docs/planning/roadmap.md)**: Future features and development plan.
+- **[Completed Phases](docs/planning/completed-phases.md)**: History of delivered milestones.
+
 ### 📋 Specifications
 *Detailed functional requirements and flow definitions.*
 
@@ -49,8 +54,8 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 
 - **[Overview](docs/architecture/overview.md)**: High-level system architecture and tech stack.
 - **[System Architecture](docs/architecture/system-architecture.md)**: Detailed component breakdown.
-- **[Security](docs/architecture/security.md)**: Security best practices and implementation details.
 - **[Onboarding Flow](docs/architecture/tenant-onboarding-flow.md)**: Detailed API sequence diagram for tenant creation and activation.
+- **[Security](docs/architecture/security.md)**: Security best practices and implementation details.
 - **[Authentication](docs/architecture/authentication.md)**: Detailed API sequence diagram for authentication.    
 - **[Authorization](docs/architecture/authorization.md)**: Technical deep dive into permission enforcement.
 - **[Multi-Tenant Isolation](docs/architecture/multi-tenant-isolation.md)**: Detailed API sequence diagram for tenant isolation.
@@ -65,12 +70,6 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[Testing Strategy](docs/testing/strategy.md)**: Overall approach, tools, and roadmap.
 - **[Testing Workflows](docs/testing/workflows.md)**: Manual and automated testing procedures.
 - **[E2E Activation Tests](docs/testing/e2e-activation.md)**: Guide to testing the critical activation flow.
-
-### 📅 Planning
-*Project status, roadmap, and history.*
-
-- **[Roadmap](docs/planning/roadmap.md)**: Future features and development plan.
-- **[Completed Phases](docs/planning/completed-phases.md)**: History of delivered milestones.
 
 ---
 
