@@ -17,20 +17,30 @@ export function buildOIDCAuthorizationUrl(config) {
     // Firebase Identity Toolkit endpoint for OIDC
     const baseUrl = 'https://identitytoolkit.googleapis.com/v2/accounts:signInWithIdp';
 
-    const params = new URLSearchParams({
-        key: apiKey,
-        providerId: providerId,
-        tenantId: tenantId,
-        // The redirect URL should match what's configured in Firebase Console
-        continueUrl: 'http://localhost:3000/__/auth/handler',
-        // Custom parameters for the OIDC provider
-        customParameter: JSON.stringify({
+    // The redirect URL should match what's configured in Firebase Console
+    const continueUrl = 'http://localhost:3000/__/auth/handler';
+
+    // Fix for double-prefix issue (oidc.oidc.provider)
+    const cleanProviderId = providerId.startsWith('oidc.oidc.')
+        ? providerId.replace('oidc.oidc.', 'oidc.')
+        : providerId;
+
+    const authUrl = encodeURI(
+        `${baseUrl}?key=${apiKey}&providerId=${cleanProviderId}&tenantId=${tenantId}` +
+        `&continueUrl=${encodeURIComponent(continueUrl)}` +
+        `&customParameter=${encodeURIComponent(JSON.stringify({
             login_hint: loginHint,
             screen_hint: 'login'
-        }),
-    });
+        }))}`
+    );
 
-    return `${baseUrl}?${params.toString()}`;
+    console.log('🔗 Generated Auth URL:', authUrl);
+    console.log('   Provider ID (Raw):', providerId);
+    console.log('   Provider ID (Clean):', cleanProviderId);
+    console.log('   Tenant ID:', tenantId);
+    console.log('   API Key:', apiKey ? '***' : 'MISSING');
+
+    return authUrl;
 }
 
 /**

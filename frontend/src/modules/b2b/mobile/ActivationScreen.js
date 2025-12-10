@@ -69,36 +69,71 @@ const ActivationScreen = ({ navigation }) => {
             setStatus('processing');
             setMessage('Setting up your session...');
 
-            // 1. Get Firebase Config for Tenant
+            // 1. Get Tenant Info (already fetched, but ensuring we have provider ID)
             const config = await apiService.getActivationTenantInfo(tenantInfo.tenant_id);
             console.log('🔐 SSO Config:', config);
+            const { oidc_provider_id, firebase_tenant_id } = config;
 
-            // 2. Set Firebase Tenant
-            // Note: In React Native Firebase, tenant ID is set on the auth instance differently than Web SDK
-            // Assuming firebaseAuthService handles this abstraction
-            await firebaseAuthService.setTenantId(config.firebase_tenant_id);
+            if (!oidc_provider_id) {
+                throw new Error('No OIDC provider configured for this tenant');
+            }
 
-            // 3. SignIn (On Mobile this might trigger a browser modal via SDK)
-            // For now assuming OIDC Popup flow works or native equivalent
-            // If native flow is different, this needs `react - native - firebase` specific handling
-            // But our shared service attempts to abstract this.
-            const result = await firebaseAuthService.signInWithOIDC(
-                config.oidc_provider_id,
-                tenantInfo.admin_email
-            );
-            console.log('✅ SSO Success:', result.user.email);
+            // 2. Get OIDC Config (Issuer, Client ID)
+            // Using raw fetch since not in apiService yet (similar to LoginScreen)
+            const API_URL = 'http://10.0.2.2:8000'; // Standard Android Emulator localhost alias
+            const configResponse = await fetch(`${API_URL}/api/b2b/auth/oidc-config/${oidc_provider_id}`);
 
-            // 4. Sync User
+            if (!configResponse.ok) {
+                throw new Error('Failed to load OIDC configuration');
+            }
+            const oidcConfig = await configResponse.json();
+            console.log('✅ OIDC config retrieved:', oidcConfig.issuer);
+
+            // 3. Perform Native OAuth Login (System Browser)
+            // Import oidcAuthService dynamically or ensure it's imported at top
+            const { idToken } = await require('../../../core/firebase/oidcAuthService.native').default.signInWithOIDC({
+                issuer: oidcConfig.issuer,
+                clientId: oidcConfig.client_id,
+                scopes: oidcConfig.scopes,
+                email: tenantInfo.admin_email, // Login hint
+            });
+            console.log('✅ OAuth successful, exchanging token...');
+
+            // 4. Exchange OIDC token for Firebase custom token
+            const tokenResponse = await fetch(`${API_URL}/api/b2b/auth/mobile-login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    oidc_id_token: idToken,
+                    email: tenantInfo.admin_email, // Must match invitation email
+                    firebase_tenant_id,
+                }),
+            });
+
+            if (!tokenResponse.ok) {
+                const error = await tokenResponse.json();
+                throw new Error(error.detail || 'Authentication failed');
+            }
+
+            const { firebase_custom_token } = await tokenResponse.json();
+            console.log('✅ Received Firebase custom token');
+
+            // 5. Sign in to Firebase (Native SDK)
+            // Explicitly set tenant ID first
+            await firebaseAuthService.signInWithCustomToken(firebase_custom_token, firebase_tenant_id);
+            console.log('✅ Firebase authentication successful');
+
+            // 6. Sync User
             setMessage('Finalizing account setup...');
             await apiService.syncUser();
 
-            // 5. Complete Activation
+            // 7. Complete Activation
             await apiService.completeActivation(token);
 
             setStatus('success');
             setMessage('Account Activated! Redirecting...');
 
-            // 6. Navigation
+            // 8. Navigation
             setTimeout(() => {
                 // Assuming navigation prop exists and 'Home' is the target
                 if (navigation) navigation.navigate('Home');
