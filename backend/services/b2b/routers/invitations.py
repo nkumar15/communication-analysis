@@ -412,6 +412,11 @@ async def validate_invitation(
     Returns MINIMAL invitation details for display (PII minimization)
     """
     # Get invitation by token
+    # CRITICAL: We must bypass RLS here because we don't know the tenant yet.
+    # The token itself is the secure key to find the tenant.
+    from services.b2b.services.rls_service import rls_service
+    await rls_service.set_platform_admin_context(db)
+    
     from services.b2b.models import InvitationModel
     result = await db.execute(
         select(InvitationModel).where(InvitationModel.invitation_token == token)
@@ -477,12 +482,20 @@ async def join_tenant(
     from core.utils.firebase import firebase_auth_service
     
     # Get invitation
+    # CRITICAL: Bypass RLS to find invitation globally
+    from services.b2b.services.rls_service import rls_service
+    await rls_service.set_platform_admin_context(db)
+
     # Get invitation by token
     from services.b2b.models import InvitationModel
     result = await db.execute(
         select(InvitationModel).where(InvitationModel.invitation_token == token)
     )
     invitation = result.scalar_one_or_none()
+    
+    if invitation:
+        # Found it! Now switch context to the invitation's tenant for safety
+        await rls_service.set_tenant_context(db, invitation.tenant_id)
     
     if not invitation:
         raise HTTPException(
