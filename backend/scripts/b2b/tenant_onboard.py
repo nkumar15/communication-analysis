@@ -77,9 +77,9 @@ async def create_tenant_async(
 @cli.command('create-local')
 @click.option('--firebase-tenant-id', prompt='Firebase Tenant ID', help='Existing Firebase tenant ID')
 @click.option('--oidc-provider-id', prompt='OIDC Provider ID (e.g., oidc.auth0)', help='Existing OIDC provider ID')
-@click.option('--oidc-issuer', required=False, help='OIDC Issuer URL (for mobile app)')
-@click.option('--oidc-client-id', required=False, help='OIDC Client ID (for web)')
-@click.option('--oidc-mobile-client-id', required=False, help='OIDC Client ID (for mobile app)')
+@click.option('--oidc-issuer', prompt='OIDC Issuer URL (for mobile app)', required=False, help='OIDC Issuer URL')
+@click.option('--oidc-client-id', prompt='OIDC Client ID (for web)', required=False, help='OIDC Client ID')
+@click.option('--oidc-mobile-client-id', prompt='OIDC Client ID (for mobile app)', required=False, help='Mobile Client ID')
 @click.option('--company', prompt='Company Name', help='Company name')
 @click.option('--domain', prompt='Domain (e.g., test.com)', help='Email domain')
 @click.option('--owner-email', prompt='Owner Email', help='Owner email address')
@@ -101,6 +101,9 @@ async def create_local_async(
     click.echo(f"🚀 Creating local tenant for {company}...\n")
     click.echo(f"📍 Using Firebase tenant: {firebase_tenant_id}")
     click.echo(f"📍 Using OIDC provider: {oidc_provider_id}\n")
+    click.echo(f"🔍 DEBUG: Issuer: {oidc_issuer}")
+    click.echo(f"🔍 DEBUG: Client ID: {oidc_client_id}")
+    click.echo(f"🔍 DEBUG: Mobile Client ID: {oidc_mobile_client_id}\n")
     
     async with AsyncSessionLocal() as db:
         try:
