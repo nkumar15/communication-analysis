@@ -12,8 +12,12 @@
 Please report vulnerabilities to `security@enterprisesso.com`. We will respond within 48 hours.
 
 ## Security Architecture & Features
-
-This project implements a "Secure by Design" multi-tenant architecture.
+ 
+This project implements a "Secure by Design" multi-tenant architecture, split into three pillars:
+ 
+-   **[Authentication](./authentication.md)** (AuthN): Identity, Mobile/Web Flows, and Token Verification.
+-   **[Authorization](./authorization.md)** (AuthZ): RBAC, Roles, and Permission Checks.
+-   **[Isolation](./multi-tenant-isolation.md)** (RLS): Database-level tenant separation.
 
 ### 1. Authentication & Identity
 - **Firebase Auth Integration**: All authentication is handled via Firebase Identity Platform (OIDC/SAML).

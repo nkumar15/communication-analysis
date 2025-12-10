@@ -1,6 +1,10 @@
-# RBAC System - Usage Examples
+# Authorization & RBAC Architecture
 
-Quick reference for using the RBAC system in your endpoints.
+**Audience:** Backend Developers
+
+This document details the **Role-Based Access Control (RBAC)** system, explaining how to protect endpoints, check permissions, and manage roles.
+For **Authentication** (Login/Identity), see [Authentication Architecture](./authentication.md).
+For **Data Isolation** (RLS), see [Multi-Tenant Isolation](./multi-tenant-isolation.md).
 
 ---
 

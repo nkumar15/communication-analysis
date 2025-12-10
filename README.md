@@ -49,14 +49,15 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 
 - **[Overview](docs/architecture/overview.md)**: High-level system architecture and tech stack.
 - **[System Architecture](docs/architecture/system-architecture.md)**: Detailed component breakdown.
+- **[Security](docs/architecture/security.md)**: Security best practices and implementation details.
 - **[Onboarding Flow](docs/architecture/tenant-onboarding-flow.md)**: Detailed API sequence diagram for tenant creation and activation.
 - **[Authentication](docs/architecture/authentication.md)**: Detailed API sequence diagram for authentication.    
+- **[Authorization](docs/architecture/authorization.md)**: Technical deep dive into permission enforcement.
 - **[Multi-Tenant Isolation](docs/architecture/multi-tenant-isolation.md)**: Detailed API sequence diagram for tenant isolation.
-- **[RBAC](docs/architecture/rbac-implementation.md)**: Technical deep dive into permission enforcement.
 - **[UI Components](docs/architecture/ui-components.md)**: Design system and reusable frontend components.
 - **[Domain APIs](docs/architecture/domain-apis.md)**: Projects, Tasks, and Comments APIs.
 - **[B2C Module](docs/architecture/b2c-module.md)**: Personal and team workspace functionality.
-- **[Security](docs/architecture/security.md)**: Security best practices and implementation details.
+
 
 ### 🧪 Testing
 *Quality assurance strategies and test plans.*
