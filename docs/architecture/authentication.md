@@ -162,4 +162,8 @@ Since we support both Web (standard OIDC) and Mobile (Native Auth0), the creatio
 | **Web Invite** | User accepts & logs in | **Before Join** (Must login to accept) | At `/join` call |
 | **Mobile Invite** | User deep-links & logs in | **After Token Exchange** | At `/join` call |
 
-**Crucial Logic**: The backend treats **Email** as the immutable identifier. When a user logs in via a new method (e.g., switched from Web to Mobile), the backend updates the stored `firebase_uid` to match the current session's UID, ensuring continuity.
+
+**Crucial Logic**: The backend treats **Email** as the immutable identifier. When a user logs in via a new method (e.g., switched from Web to Mobile), the backend updates the stored `firebase_uid` to match the current session's UID.
+
+> [!WARNING]
+> **Session Trade-off**: This design implements a **Single Active Platform Session** policy. Logging in on Mobile (new UID) will invalidate the Web session (old UID) because the backend user record now points to the new Mobile UID. Subsequent requests from the Web session will fail with 401 until the user re-authenticates.
