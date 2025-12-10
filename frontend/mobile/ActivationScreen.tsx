@@ -50,34 +50,75 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
             setStatus('processing');
             setMessage('Setting up your session...');
 
-            // 1. Get Firebase Config for Tenant
+            // 1. Get Tenant Info with Provider ID
             const config = await apiService.getActivationTenantInfo(tenantInfo.tenant_id);
             console.log('🔐 Tenant Config:', config);
+            const { oidc_provider_id, firebase_tenant_id } = config;
 
-            // 2. Set Firebase Tenant ID
-            await firebaseAuthService.setTenantId(config.firebase_tenant_id);
+            if (!oidc_provider_id) {
+                throw new Error('No OIDC provider configured for this tenant');
+            }
 
-            // 3. Sign in with OIDC (WebView flow)
+            // 2. Get OIDC Config (Issuer, Client ID)
+            // Using localhost alias for Android Emulator
+            const API_URL = 'http://10.0.2.2:8000';
+            const configResponse = await fetch(`${API_URL}/api/b2b/auth/oidc-config/${oidc_provider_id}`);
+
+            if (!configResponse.ok) {
+                throw new Error('Failed to load OIDC configuration');
+            }
+            const oidcConfig = await configResponse.json();
+            console.log('✅ OIDC config retrieved:', oidcConfig.issuer);
+
+            // 3. Perform Native OAuth Login (System Browser)
             setMessage('Opening login page...');
-            console.log('🔑 Starting OIDC authentication...');
-            const result = await firebaseAuthService.signInWithOIDC(
-                config.oidc_provider_id,
-                tenantInfo.admin_email
-            );
-            console.log('✅ Firebase Authentication Success:', result.user.email);
+            // Dynamically import oidcAuthService or ensure it's available
+            const oidcAuth = require('../src/core/firebase/oidcAuthService.native').default;
 
-            // 5. Sync User with Backend
+            const { idToken } = await oidcAuth.signInWithOIDC({
+                issuer: oidcConfig.issuer,
+                clientId: oidcConfig.client_id,
+                scopes: oidcConfig.scopes,
+                email: tenantInfo.admin_email, // Login hint
+            });
+            console.log('✅ OAuth successful, exchanging token...');
+
+            // 4. Exchange OIDC token for Firebase custom token
+            const tokenResponse = await fetch(`${API_URL}/api/b2b/auth/mobile-login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    oidc_id_token: idToken,
+                    email: tenantInfo.admin_email,
+                    firebase_tenant_id,
+                }),
+            });
+
+            if (!tokenResponse.ok) {
+                const error = await tokenResponse.json();
+                throw new Error(error.detail || 'Authentication failed');
+            }
+
+            const { firebase_custom_token } = await tokenResponse.json();
+            console.log('✅ Received Firebase custom token');
+
+            // 5. Sign in to Firebase (Native SDK) with Custom Token
+            // Explicitly set tenant ID first
+            await firebaseAuthService.signInWithCustomToken(firebase_custom_token, firebase_tenant_id);
+            console.log('✅ Firebase Authentication Success');
+
+            // 6. Sync User with Backend
             setMessage('Creating your account...');
             await apiService.syncUser();
 
-            // 6. Complete Activation
+            // 7. Complete Activation
             setMessage('Activating tenant...');
             await apiService.completeActivation(token);
 
             setStatus('success');
             setMessage('Account Activated! Redirecting...');
 
-            // 7. Success callback
+            // 8. Success callback
             if (onSuccess) {
                 onSuccess({ status: 'activated' });
             }
