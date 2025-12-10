@@ -622,8 +622,18 @@ class RLSService:
 
 **Implementation:**
 - Standard B2B APIs: Automatic via `get_current_active_user` middleware
-- Activation APIs: Manual via direct `rls_service.set_tenant_context()`
-- Platform APIs: `app.is_platform_admin = 'true'` to bypass RLS
+
+### RLS Bypass Strategy (Invitations)
+
+**Problem**: 
+- `GET /api/b2b/invitations/accept/{token}` is public (no user context).
+- `POST /api/b2b/invitations/join` is called by a user who is NOT YET a member of the target tenant.
+- Standard RLS would block access to the `invitations` table because `current_tenant_id` cannot be determined from the user's current session.
+
+**Solution**:
+1.  **Grant Global Access**: The router temporarily explicitly sets `app.is_platform_admin = 'true'` via `rls_service.set_platform_admin_context(db)`.
+2.  **Lookup Token**: This allows the query to scan *all* invitations globally to find the matching token.
+3.  **Scope Down**: Once the invitation is found, the router immediately switches context to the specific tenant (`set_tenant_context`) for all subsequent operations (creating user, etc.) to ensure safety.
 
 ---
 

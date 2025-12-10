@@ -132,7 +132,15 @@ async def api_client(db_session):
     
     # Override database dependency to use test session
     async def override_get_db():
+        # CRITICAL FIX for Test Gaps:
+        # We MUST reset the RLS context before giving the session to the API endpoint.
+        # Otherwise, the API inherits the context set during test setup (seed data),
+        # masking bugs where the API forgets to set its own context.
+        from sqlalchemy import text
+        await db_session.execute(text("RESET app.current_tenant_id"))
+        await db_session.execute(text("RESET app.is_platform_admin"))
         yield db_session
+        await db_session.flush()
     
     # Override auth dependency to verify mock tokens
     from core.middleware.auth import get_current_user, bearer_scheme

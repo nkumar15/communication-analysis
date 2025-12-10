@@ -160,6 +160,25 @@ async def create_test_user(db_session, tenant_id, email, role_slug):
     return user
 ```
 
+### Strict RLS Isolation (New Standard)
+
+To prevent test state from leaking into API calls, our `conftest.py` enforces **Strict RLS Reset**:
+1.  The `db_session` fixture sets up data using `set_tenant_context()`.
+2.  BUT, the `override_get_db` dependency **explicitly resets** the context before handling the API request:
+    ```sql
+    RESET app.current_tenant_id;
+    ```
+3.  This forces the API endpoint to correctly resolve and set its own tenant context. If the API misses this step, the test correctly fails (unlike before).
+
+### Synchronous Audit Logging (Unit of Work)
+
+Audit logs are no longer background tasks. They are:
+-   **Synchronous**: Awaited directly in the API handler.
+-   **Atomic**: Committed in the same transaction as the business operation.
+-   **Safe**: Uses the same `db` session, preventing deadlocks.
+
+Tests verify this by querying the `audit_logs` table immediately after the API call, without `asyncio.sleep()`.
+
 ### Isolation Test Patterns
 
 #### Pattern 1: List Endpoint Isolation

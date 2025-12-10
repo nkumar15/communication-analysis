@@ -91,4 +91,13 @@ This document maps functional requirements to specific test files, ensuring comp
 - User lookup is by `(tenant_id, email)` NOT `firebase_uid`
 - `firebase_uid` is updated to latest value on each login
 - Ensures same person using Web and Mobile = one user record
-- Prevents duplicate accounts for cross-platform users
+
+## 8. Audit & Compliance
+
+**Ref:** `docs/architecture/system-architecture.md` (Audit Logging)
+
+| ID | Requirement | API Test | Status |
+|----|-------------|----------|--------|
+| **AUD-01** | **Synchronous Logging**: Audit logs are created in same transaction as action | `tests/e2e_api/b2b/test_audit_logs.py` | ✅ |
+| **AUD-02** | **Strict RLS**: Audit logs respect tenant isolation (viewing) | `tests/e2e_api/b2b/test_audit_logs.py` | ✅ |
+| **ISO-01** | **Test Isolation**: Tests reset RLS context between requests | `tests/conftest.py` (Infrastructure) | ✅ |
