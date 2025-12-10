@@ -210,6 +210,7 @@ async def mobile_login(
             algorithms=["RS256"],
             audience=primary_provider.oidc_client_id_mobile or primary_provider.oidc_client_id,
             issuer=issuer_for_validation,  # Use the version with trailing slash to match Auth0
+            leeway=60,  # Allow 60 seconds clock skew
         )
         
         oidc_email = decoded.get('email')
@@ -264,11 +265,13 @@ async def mobile_login(
     
     # 3. Verify tenant is active (already fetched above)
     
-    if tenant.activation_status != 'active':
+    # 3. Verify tenant is active (already fetched above)
+    # Allow 'pending' status for activation flow
+    if tenant.activation_status not in ['active', 'pending']:
         logger.warning("tenant_not_active", tenant_id=str(tenant.id), status=tenant.activation_status)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tenant is not active"
+            detail=f"Tenant is not active (status: {tenant.activation_status})"
         )
     
     # 4. Generate Firebase UID (deterministic based on email)

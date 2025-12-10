@@ -77,18 +77,25 @@ async def create_tenant_async(
 @cli.command('create-local')
 @click.option('--firebase-tenant-id', prompt='Firebase Tenant ID', help='Existing Firebase tenant ID')
 @click.option('--oidc-provider-id', prompt='OIDC Provider ID (e.g., oidc.auth0)', help='Existing OIDC provider ID')
+@click.option('--oidc-issuer', required=False, help='OIDC Issuer URL (for mobile app)')
+@click.option('--oidc-client-id', required=False, help='OIDC Client ID (for web)')
+@click.option('--oidc-mobile-client-id', required=False, help='OIDC Client ID (for mobile app)')
 @click.option('--company', prompt='Company Name', help='Company name')
 @click.option('--domain', prompt='Domain (e.g., test.com)', help='Email domain')
 @click.option('--owner-email', prompt='Owner Email', help='Owner email address')
-def create_local(firebase_tenant_id, oidc_provider_id, company, domain, owner_email):
+def create_local(firebase_tenant_id, oidc_provider_id, oidc_issuer, oidc_client_id, oidc_mobile_client_id, company, domain, owner_email):
     """Create tenant using existing Firebase tenant (DB only - for testing)"""
     asyncio.run(create_local_async(
-        firebase_tenant_id, oidc_provider_id, company, domain, owner_email
+        firebase_tenant_id, oidc_provider_id,
+        oidc_issuer, oidc_client_id, oidc_mobile_client_id,
+        company, domain, owner_email
     ))
 
 
 async def create_local_async(
-    firebase_tenant_id, oidc_provider_id, company, domain, owner_email
+    firebase_tenant_id, oidc_provider_id,
+    oidc_issuer, oidc_client_id, oidc_mobile_client_id,
+    company, domain, owner_email
 ):
     """Create tenant using API service (Local Mode)"""
     click.echo(f"🚀 Creating local tenant for {company}...\n")
@@ -107,11 +114,12 @@ async def create_local_async(
                 domain=domain,
                 owner_email=owner_email,
                 oidc_provider="oidc", # Default generic type for local
-                oidc_client_id=None,
+                oidc_client_id=oidc_client_id,
                 oidc_client_secret=None,
-                oidc_issuer=None,
+                oidc_issuer=oidc_issuer,
                 firebase_tenant_id=firebase_tenant_id,
-                oidc_provider_id=oidc_provider_id
+                oidc_provider_id=oidc_provider_id,
+                oidc_mobile_client_id=oidc_mobile_client_id
             )
             
             print_summary(result)

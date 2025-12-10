@@ -68,21 +68,21 @@ export default function App() {
     };
 
     // Render appropriate screen
-    if (currentScreen === 'activation') {
-        return (
-            <ActivationScreen
-                token={activationToken}
-                onSuccess={handleActivationSuccess}
-            />
-        );
-    }
-
     if (isAuthenticated) {
         // TODO: Replace with actual Dashboard/Home screen
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <Text style={{ fontSize: 24 }}>Welcome! (Dashboard Coming Soon)</Text>
             </View>
+        );
+    }
+
+    if (currentScreen === 'activation') {
+        return (
+            <ActivationScreen
+                token={activationToken}
+                onSuccess={handleActivationSuccess}
+            />
         );
     }
 

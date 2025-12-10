@@ -39,7 +39,8 @@ class TenantOnboardingService:
         oidc_issuer: str = None,
         # New optional params for local/test mode
         firebase_tenant_id: Optional[str] = None,
-        oidc_provider_id: Optional[str] = None
+        oidc_provider_id: Optional[str] = None,
+        oidc_mobile_client_id: Optional[str] = None
     ) -> dict:
         """
         Complete tenant onboarding workflow
@@ -48,6 +49,7 @@ class TenantOnboardingService:
             ...
             firebase_tenant_id: Optional existing Firebase tenant ID (skips creation if provided)
             oidc_provider_id: Optional existing OIDC provider ID (skips config if provided)
+            oidc_mobile_client_id: Optional mobile-specific client ID
         """
         try:
             # Initialize Firebase if not already done
@@ -95,12 +97,16 @@ class TenantOnboardingService:
             
             # 6. Create auth provider record
             # Populate config_data with OIDC settings for mobile OAuth compatibility
+            # Populate config_data with OIDC settings for mobile OAuth compatibility
             config_data = {}
-            if oidc_issuer and oidc_client_id:
+            if oidc_issuer and (oidc_client_id or oidc_mobile_client_id):
                 config_data = {
-                    "issuer_url": oidc_issuer,
-                    "client_id": oidc_client_id
+                    "issuer_url": oidc_issuer
                 }
+                if oidc_client_id:
+                    config_data["client_id"] = oidc_client_id
+                if oidc_mobile_client_id:
+                    config_data["mobile_client_id"] = oidc_mobile_client_id
             
             auth_provider = AuthProvider(
                 tenant_id=tenant.id,
