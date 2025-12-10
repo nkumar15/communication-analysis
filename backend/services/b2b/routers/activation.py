@@ -97,8 +97,7 @@ async def validate_activation_token(token: str, db: AsyncSession = Depends(get_d
 @router.get("/tenant-info/{tenant_id}")
 async def get_tenant_for_activation(
     tenant_id: UUID,
-    db: AsyncSession = Depends(get_db)
-):
+    db: AsyncSession = Depends(get_db)):
     """
     Get tenant information for SSO configuration
     
@@ -129,8 +128,7 @@ async def get_tenant_for_activation(
 async def complete_activation(
     request: ActivationCompleteRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),  # Use base auth, not B2B middleware
-    db: AsyncSession = Depends(get_db)
-):
+    db: AsyncSession = Depends(get_db)):
     """
     Complete tenant activation after successful SSO login
     

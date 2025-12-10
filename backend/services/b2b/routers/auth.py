@@ -143,12 +143,10 @@ async def get_oidc_config(provider_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
-
 @router.post("/mobile-login")
 async def mobile_login(
     request: MobileLoginRequest,
-    db: AsyncSession = Depends(get_db)
-):
+    db: AsyncSession = Depends(get_db)):
     """
     Exchange OIDC ID token for Firebase custom token (Mobile OAuth flow)
     
@@ -310,8 +308,7 @@ async def mobile_login(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     decoded_token: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
+    db: AsyncSession = Depends(get_db)):
     """
     Get current authenticated user
     
@@ -380,8 +377,7 @@ async def sync_user(
     background_tasks: BackgroundTasks,
     request: Request,
     decoded_token: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
+    db: AsyncSession = Depends(get_db)):
     """
     Sync user with database after authentication
     
