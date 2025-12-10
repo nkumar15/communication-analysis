@@ -37,9 +37,48 @@ graph TD
 -   **Tenant Resolution**: Maps external `firebase_tenant_id` → internal UUID.
 -   **RLS Context**: `app.current_tenant_id` is set *per request*, ensuring all DB queries are automatically scoped.
 
+
+## 2. Web Application Authentication 💻
+
+The Web App follows the standard **Firebase Identity Platform (GCIP)** flow using the Firebase JS SDK.
+
+### Web Login Sequence
+
+```mermaid
+sequenceDiagram
+    participant Browser as Web App (React)
+    participant BE as Backend API
+    participant Firebase as Firebase Identity
+    participant IdP as Auth0 / IDP
+
+    Note over Browser: 1. Tenant Config
+    Browser->>BE: GET /api/activate/tenant-info/{id}
+    BE-->>Browser: {firebase_tenant_id, oidc_provider_id}
+
+    Note over Browser: 2. Initiate Login
+    Browser->>Firebase: auth.tenantId = "tenant-xyz"
+    Browser->>Firebase: signInWithPopup(provider)
+    
+    Firebase->>IdP: OIDC Redirect
+    IdP-->>Firebase: Authenticated
+    Firebase-->>Browser: ID Token (JWT) + User Profile
+
+    Note over Browser: 3. Sync User
+    Browser->>BE: POST /api/b2b/auth/sync-user
+    BE->>BE: Verify Token
+    BE->>BE: Resolve Tenant (from token)
+    BE->>BE: Upsert User (email matches)
+    BE-->>Browser: 200 OK (Role + Context)
+```
+
+### Key Differences from Mobile
+-   **Client-Side Driven**: The browser handles the entire OAuth handshake via Firebase SDK.
+-   **Firebase-Issued Tokens**: The ID Token is signed directly by Firebase (not a Custom token).
+-   **Automatic Tenant Binding**: The internal `signin_with_popup` sets the tenant context automatically in the browser storage.
+
 ---
 
-## 2. Mobile Native Authentication 📱
+## 3. Mobile Native Authentication 📱
 
 Mobile apps cannot use the standard Firebase Web SDK's popup/redirect flow. Instead, they use a "Native" flow involving **Auth0** and **Firebase Custom Tokens**.
 
@@ -95,7 +134,7 @@ sequenceDiagram
 
 ---
 
-## 3. Email-Based User Identity
+## 4. Email-Based User Identity
 
 To ensure users are recognized as the **same identity** across Web (Firebase UID) and Mobile (Custom UID), we use **Email** as the canonical identifier.
 
