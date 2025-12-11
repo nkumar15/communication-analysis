@@ -9,61 +9,25 @@ For lower-level details on how requests are secured, see:
 -   [Multi-Tenant Isolation](./multi-tenant-isolation.md) - RLS Mechanics
 
 ---
-
 ## 1. Tenant Activation Flow 🚀
 
 How a "Pending" tenant becomes "Active" via the owner's first login.
 
-```mermaid
-sequenceDiagram
-    participant Browser as UI Browser
-    participant BE as Backend API
-    participant DB as Database
-    participant Front as Front‑end (React)
-    participant Firebase as Firebase
+> **Technical Note**: For the detailed cryptographic handshake and token exchange during activation, please refer to the **[Authentication Architecture](./authentication.md#4-tenant-activation--onboarding-flow)** document.
 
-    Browser->>BE: POST /api/tenants (create tenant)
-    BE->>DB: INSERT tenant record
-    BE-->>Browser: 201 Created (tenant_id)
+### High-Level Process
 
-    Browser->>BE: POST /api/invitations (create invitation)
-    BE->>DB: INSERT invitation with token
-    BE-->>Browser: 201 Created (invitation_token)
+1.  **Email Received**: Owner clicks unique activation link.
+2.  **Validation**: Backend validates the signed token.
+3.  **Authentication**: Owner logs in via SSO (proving they own the email).
+4.  **Provisioning**: 
+    *   Tenant status flips `pending` -> `active`.
+    *   Owner user is created in Postgres.
+    *   Initial "Default Team" is assigned.
 
-    Browser->>BE: GET /api/invitations/{token}
-    BE->>DB: SELECT invitation
-    BE-->>Browser: 200 OK (activation URL)
-
-    Browser->>Front: Open activation URL (http://localhost:3000/activate/TOKEN)
-    Front->>BE: GET /api/activate/validate/TOKEN
-    BE->>DB: SELECT tenant & invitation, check expiry
-    BE-->>Front: 200 ValidationResponse (tenant info)
-
-    Front->>BE: GET /api/activate/tenant-info/{tenant_id}
-    BE->>DB: SELECT tenant (firebase_tenant_id, oidc_provider_id)
-    BE-->>Front: 200 JSON (SSO config)
-
-    Front->>Firebase: Open OIDC login popup
-    Firebase-->>Front: ID token (uid, email, email_verified)
-
-    Front->>BE: POST /api/activate/complete {activation_token}
-    BE->>DB: SELECT tenant FOR UPDATE
-    BE->>DB: CHECK activation_started_at / expiry
-    BE->>DB: UPDATE tenant.activation_started_at (if first call)
-    BE->>DB: SELECT user by firebase_uid
-    BE->>DB: INSERT user if not exists (admin role)
-    BE->>DB: UPDATE invitation.accepted_at
-    BE->>DB: UPDATE tenant.status = 'active'
-    BE-->>Front: 200 {message, tenant_id, tenant_name}
-
-    Front->>BE: GET /api/activate/check-status/{token}
-    BE->>DB: SELECT invitation & user
-    BE-->>Front: {status: "ready"|"pending", user_created: bool}
-```
-
-### Key API Steps
-1.  **Validate Token**: `GET /api/activate/validate/{token}` - Public endpoint (Bypasses RLS). Checks if tenant is pending.
-2.  **Complete Activation**: `POST /api/activate/complete` - Requires Firebase Login. Transitions tenant state Pending → Active.
+### Key API Endpoints
+*   `GET /api/public/activate/validate/{token}`: Public validation.
+*   `POST /api/activate/complete`: Authenticated finalization step.
 
 ---
 
@@ -71,46 +35,18 @@ sequenceDiagram
 
 How an existing tenant admin invites a new member.
 
-```mermaid
-sequenceDiagram
-    participant Admin as Admin (Browser)
-    participant BE as Backend API
-    participant DB as Database
-    participant Front as Front‑end (React)
-    participant Invite as Invitee (Browser)
-    participant Firebase as Firebase
+### Process Overview
 
-    Admin->>BE: POST /api/invitations (create invitation)
-    BE->>DB: INSERT invitation
-    BE-->>Admin: 201 Created (invitation_token)
+1.  **Invite Sent**: Admin creates invitation via API.
+2.  **Invite Clicked**: User validates token.
+3.  **Acceptance**: User clicks "Join Team" (Requires SSO Login).
+4.  **Creation**: User record created and assigned to Role/Team.
 
-    Admin->>Invite: Receive invitation email with link
-    Invite->>Front: Open invitation URL (http://localhost:3000/invite/TOKEN)
-    Front->>BE: GET /api/invitations/{token}
-    BE->>DB: SELECT invitation (RLS Bypass)
-    BE-->>Front: 200 Invitation details (email, role)
-
-    Front->>Invite: Show Accept button
-    Invite->>Front: Click Accept
-    Front->>BE: POST /api/invitations/accept {token}
-    BE->>DB: UPDATE invitation.accepted_at
-    BE-->>Front: 200 Accepted
-
-    Front->>Invite: Prompt SSO login
-    Invite->>Firebase: Open OIDC login popup
-    Firebase-->>Invite: ID token (uid, email)
-
-    Front->>BE: POST /api/invitations/join {token}
-    BE->>DB: Verify Token + User
-    BE->>DB: INSERT user into tenant
-    BE-->>Front: 200 Join Success
-```
-
-### RLS Bypass Strategy (Critical)
+### Security Model (RLS Bypass)
 Since the `GET /invitations/{token}` endpoint is public (no user context yet), it uses a special **RLS Bypass** pattern:
 1.  Router temporarily grants **Platform Admin** context (`app.is_platform_admin=true`).
 2.  Looks up token globally across all tenants.
-3.  Once found, immediately **scopes down** to that specific tenant (`set_tenant_context`) for subsequent operations.
+3.  Once found, immediately **scopes down** to that specific tenant (`set_tenant_context`).
 
 ---
 
