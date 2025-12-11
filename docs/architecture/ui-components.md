@@ -237,4 +237,42 @@ Three-dot dropdown menu for actions.
 
 ---
 
-For implementation details, see component source code.
+
+## Mobile Components (React Native) 📱
+
+### ProfileWidget
+**Location**: `frontend/mobile/components/ProfileWidget.tsx` (Proposed)
+
+Displays user identity and logout action.
+
+**Props:**
+- `user` (object) - User data `{ name, email, avatarUrl }`
+- `onLogout` (function) - Callback for logout
+
+**Structure:**
+- Avatar Image (Left)
+- Name/Email Text (Center)
+- Logout Icon (Right)
+
+### StatCard (Mobile)
+**Location**: `frontend/mobile/components/StatCard.tsx` (Proposed)
+
+Mobile-optimized version of the metrics card.
+
+**Props:**
+- `label` (string)
+- `value` (string/number)
+- `trend` (string, optional)
+
+**Style Tokens:**
+- Background: `Surface`
+- Shadow: `elevation: 2`
+- Corner Radius: `12`
+
+### Button (Mobile)
+**Location**: Native Element
+
+**Standard Styles:**
+- **Primary**: `bg-indigo-600`, `text-white`, `rounded-lg`, `h-[48px]`
+- **Secondary**: `bg-white`, `border-gray-300`, `text-gray-700`
+

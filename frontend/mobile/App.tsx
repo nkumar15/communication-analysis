@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Linking } from 'react-native';
 import LoginScreen from './LoginScreen';
 import ActivationScreen from './ActivationScreen';
+import DashboardScreen from './DashboardScreen';
 
 /**
  * Main App Component
@@ -11,6 +12,7 @@ export default function App() {
     const [currentScreen, setCurrentScreen] = useState('login'); // 'login' or 'activation'
     const [activationToken, setActivationToken] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [userData, setUserData] = useState(null);
 
     useEffect(() => {
         // Check for deep link on app launch
@@ -54,26 +56,35 @@ export default function App() {
         return () => subscription.remove();
     }, []);
 
-    const handleLoginSuccess = (userData) => {
-        console.log('✅ Login successful, user data:', userData);
+    const handleLoginSuccess = (data) => {
+        console.log('✅ Login successful, user data:', data);
+        setUserData(data);
         setIsAuthenticated(true);
-        // TODO: Navigate to Dashboard/Home screen
-        // For now, just show success
     };
 
-    const handleActivationSuccess = (userData) => {
-        console.log('✅ Activation successful, user data:', userData);
+    const handleActivationSuccess = (data) => {
+        console.log('✅ Activation successful, user data:', data);
+        // Activation might not return full user data immediately, 
+        // but typically syncUser() is called during activation which returns it.
+        // For now, we'll assume the callback passes it or we fetch it.
+        setUserData(data);
         setIsAuthenticated(true);
-        // TODO: Navigate to Dashboard/Home screen
+    };
+
+    const handleLogout = async () => {
+        setIsAuthenticated(false);
+        setActivationToken(null);
+        setCurrentScreen('login');
+        console.log('👋 User logged out');
     };
 
     // Render appropriate screen
     if (isAuthenticated) {
-        // TODO: Replace with actual Dashboard/Home screen
         return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 24 }}>Welcome! (Dashboard Coming Soon)</Text>
-            </View>
+            <DashboardScreen
+                userData={userData}
+                onLogout={handleLogout}
+            />
         );
     }
 
