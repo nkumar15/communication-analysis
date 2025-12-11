@@ -52,7 +52,7 @@ class TenantAwareSession:
         Note: SET LOCAL is transaction-scoped, so we re-set it for each execute()
         to handle cases where transactions have been committed/rolled back.
         """
-        from services.b2b.services.rls_service import rls_service
+        from core.rls import rls_service
         await rls_service.set_tenant_context(self._session, self._tenant_id)
     
     async def execute(self, *args, **kwargs):
@@ -136,9 +136,8 @@ async def api_client(db_session):
         # We MUST reset the RLS context before giving the session to the API endpoint.
         # Otherwise, the API inherits the context set during test setup (seed data),
         # masking bugs where the API forgets to set its own context.
-        from sqlalchemy import text
-        await db_session.execute(text("RESET app.current_tenant_id"))
-        await db_session.execute(text("RESET app.is_platform_admin"))
+        from core.rls import rls_service
+        await rls_service.clear_context(db_session)
         yield db_session
         await db_session.flush()
     
@@ -272,7 +271,7 @@ async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
         result = await db_session.execute(select(Team).where(Team.id == team_id))
         team = result.scalar_one()
     """
-    from services.b2b.services.rls_service import rls_service
+    from core.rls import RLSService as rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
 
 
@@ -390,7 +389,7 @@ async def create_test_tenant(
     await db_session.refresh(tenant)
     
     # Set tenant context for RLS before inserting tenant-scoped data
-    from services.b2b.services.rls_service import rls_service
+    from core.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
     
     # Seed roles for this tenant using RoleTemplateService
@@ -514,7 +513,7 @@ async def create_test_user(
     
     # Set RLS context for this user's tenant FIRST
     # This is CRITICAL because the role query below requires RLS context
-    from services.b2b.services.rls_service import rls_service
+    from core.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
     
     # Get role by slug (now with RLS context set)
@@ -552,7 +551,7 @@ async def create_test_invitation(
     from sqlalchemy import text
     
     # Set RLS context for invitation creation
-    from services.b2b.services.rls_service import rls_service
+    from core.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
     
     invitation = InvitationModel(

@@ -12,7 +12,7 @@ from uuid import UUID
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.invitation_service import invitation_service
 from services.b2b.services.user_service import user_service
-from services.b2b.services.rls_service import rls_service
+from core.rls import rls_service
 from core.database import get_db
 from core.config import settings
 from core.middleware import get_current_user

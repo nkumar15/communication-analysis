@@ -10,10 +10,11 @@ import secrets
 from core.database import get_db
 from core.middleware import get_current_user
 from services.b2b.middleware import get_current_active_user
-from services.b2b.rbac import require_permission
-from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
-from services.b2b.schemas import Invitation
+from services.b2b.services.tenant_service import tenant_service
+from services.b2b.services.invitation_service import invitation_service
+from services.b2b.services import team_service
+from core.rls import rls_service
 from core.email import email_service
 from core.config import settings
 from core.constants import B2BRoleName
@@ -414,7 +415,7 @@ async def validate_invitation(
     # Get invitation by token
     # CRITICAL: We must bypass RLS here because we don't know the tenant yet.
     # The token itself is the secure key to find the tenant.
-    from services.b2b.services.rls_service import rls_service
+    from core.rls import RLSService as rls_service
     await rls_service.set_platform_admin_context(db)
     
     from services.b2b.models import InvitationModel
@@ -483,7 +484,7 @@ async def join_tenant(
     
     # Get invitation
     # CRITICAL: Bypass RLS to find invitation globally
-    from services.b2b.services.rls_service import rls_service
+    from core.rls import RLSService as rls_service
     await rls_service.set_platform_admin_context(db)
 
     # Get invitation by token

@@ -13,8 +13,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, text
-from services.b2b.models import TenantModel, UserModel, InvitationModel
-from services.b2b.services.rls_service import rls_service
+from services.b2b.models import UserModel, TenantModel, InvitationModel
+from core.rls import rls_service
 from core.constants import B2BRoleName
 from datetime import datetime, timedelta, timezone
 import secrets

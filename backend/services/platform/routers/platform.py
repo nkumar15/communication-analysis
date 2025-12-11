@@ -105,8 +105,8 @@ async def get_platform_stats(
     """Get global platform statistics"""
     
     # Explicitly set platform admin context
-    from sqlalchemy import text
-    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    from core.rls import RLSService as rls_service
+    await rls_service.set_platform_admin_context(db)
     
     # Total Tenants
     total_tenants = await db.scalar(
@@ -142,8 +142,8 @@ async def list_tenants(
     """List all tenants with basic stats"""
     
     # Explicitly set platform admin context
-    from sqlalchemy import text
-    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    from core.rls import RLSService as rls_service
+    await rls_service.set_platform_admin_context(db)
     
     query = select(TenantModel).where(TenantModel.deleted_at.is_(None))
     
@@ -276,8 +276,8 @@ async def impersonate_tenant_admin(
     
     # 1. Fetch tenant
     # Explicitly set platform admin context to ensure RLS bypass works
-    from sqlalchemy import text
-    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    from core.rls import rls_service
+    await rls_service.set_platform_admin_context(db)
     
     tenant = await tenant_service.get_tenant_by_id(db, tenant_id)
     if not tenant:
@@ -424,8 +424,8 @@ async def onboard_tenant(
     """
     try:
         # Explicitly set platform admin context to ensure RLS bypass works
-        from sqlalchemy import text
-        await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+        from core.rls import rls_service
+        await rls_service.set_platform_admin_context(db)
         
         result = await tenant_onboarding_service.onboard_tenant(
             db=db,
@@ -468,8 +468,8 @@ async def get_tenant_details(
     Get detailed tenant information including auth provider and stats
     """
     # Explicitly set platform admin context
-    from sqlalchemy import text
-    await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+    from core.rls import rls_service
+    await rls_service.set_platform_admin_context(db)
     
     # Get tenant
     tenant = await db.get(TenantModel, tenant_id)

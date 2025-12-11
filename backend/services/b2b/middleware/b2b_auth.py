@@ -56,7 +56,8 @@ async def get_current_active_user(
     # 2. Set RLS Context
     # Now valid queries to private tables (users, teams) will work
     current_tenant_id.set(str(tenant.id))
-    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant.id}'"))
+    from core.rls import rls_service
+    await rls_service.set_tenant_context(db, tenant.id)
 
     # 3. Lookup User (RLS Enabled)
     # This query matches the policy: tenant_id = app.current_tenant_id

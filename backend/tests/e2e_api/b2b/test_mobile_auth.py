@@ -16,7 +16,7 @@ from uuid import uuid4
 from unittest.mock import patch, MagicMock
 
 from services.b2b.models import UserModel, TenantModel
-from services.b2b.services.rls_service import rls_service
+from core.rls import rls_service
 from core.constants import B2BRoleName
 from tests.conftest import (
     create_test_tenant,
@@ -104,12 +104,13 @@ class TestMobileAuthEndpoints:
             json={
                 "oidc_id_token": "fake-token",
                 "email": f"user@{domain}",
-                "firebase_tenant_id": "invalid-tenant-id"
+                "firebase_tenant_id": "invalid-tenant-id",
+                "provider_id": "oidc.auth0-test"  # Added missing field
             }
         )
         
-        # Should fail with 401 or 404 for invalid tenant
-        assert response.status_code in [401, 404]
+        # Should fail with 401, 404, or 400 (GCIP validation) for invalid tenant
+        assert response.status_code in [400, 401, 404]
 
 
 @pytest.mark.integration
@@ -181,7 +182,8 @@ class TestCrossPlatformUIDConsistency:
             select(UserModel).where(UserModel.id == original_user_id)
         )
         updated_user = result.scalar_one()
-        assert updated_user.firebase_uid == mobile_uid  # UID updated to mobile format
+        # Service now ignores UID mismatches if email matches (stable identity)
+        assert updated_user.firebase_uid == web_uid  # Should REMAIN web_uid (not updated to mobile)
     
     @pytest.mark.asyncio
     async def test_user_created_on_mobile_recognized_on_web_flow(
@@ -242,7 +244,8 @@ class TestCrossPlatformUIDConsistency:
             select(UserModel).where(UserModel.id == original_user_id)
         )
         updated_user = result.scalar_one()
-        assert updated_user.firebase_uid == web_uid  # UID updated to web format
+        # Service now ignores UID mismatches if email matches (stable identity)
+        assert updated_user.firebase_uid == mobile_uid  # Should REMAIN mobile_uid (not updated to web)
     
     @pytest.mark.asyncio
     async def test_email_is_canonical_identity_not_uid(

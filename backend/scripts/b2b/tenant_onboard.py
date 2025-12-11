@@ -52,8 +52,8 @@ async def create_tenant_async(
         try:
             # Explicitly set platform admin context to ensure RLS bypass works
             # The service needs this to query/create across tenants if needed
-            from sqlalchemy import text
-            await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+            from core.rls import rls_service
+            await rls_service.set_platform_admin_context(db)
             
             result = await tenant_onboarding_service.onboard_tenant(
                 db=db,
@@ -106,8 +106,8 @@ async def create_local_async(
 
     async with AsyncSessionLocal() as db:
         try:
-            from sqlalchemy import text
-            await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+            from core.rls import RLSService as rls_service
+            await rls_service.set_platform_admin_context(db)
             
             # Call service with optional ID params to skip external calls
             result = await tenant_onboarding_service.onboard_tenant(
@@ -197,8 +197,8 @@ async def resend_activation_async(tenant_id, domain):
     
     async with AsyncSessionLocal() as db:
         try:
-            from sqlalchemy import text
-            await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+            from core.rls import RLSService as rls_service
+            await rls_service.set_platform_admin_context(db)
             
             # Find tenant by ID or domain
             if tenant_id:

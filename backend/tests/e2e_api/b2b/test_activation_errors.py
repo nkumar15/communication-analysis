@@ -12,8 +12,8 @@ from uuid import uuid4
 from datetime import datetime, timezone, timedelta
 import secrets
 
-from services.b2b.models import TenantModel
-from services.b2b.services.rls_service import rls_service
+from services.b2b.models import UserModel, TenantModel, Role
+from core.rls import rls_service
 from core.constants import B2BRoleName
 from tests.conftest import (
     create_test_tenant,

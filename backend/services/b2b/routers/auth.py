@@ -7,7 +7,7 @@ from services.b2b.schemas import TenantResolutionRequest, TenantResolutionRespon
 from services.b2b.services.tenant_service import tenant_service
 from services.b2b.services.user_service import user_service
 from services.b2b.services.auth_provider_service import auth_provider_service
-from services.b2b.services.rls_service import rls_service
+from core.rls import rls_service
 from core.utils.firebase import firebase_auth_service
 from services.b2b.models import InvitationModel
 from core.middleware import get_current_user
