@@ -438,6 +438,8 @@ async def onboard_tenant(
             oidc_issuer=request.oidc_issuer
         )
         
+        await db.commit()
+        
         # Log action
         from services.platform.middleware.platform_auth import log_platform_action
         await log_platform_action(
@@ -537,6 +539,7 @@ async def resend_activation_email(
     """
     try:
         result = await tenant_onboarding_service.resend_activation(db, tenant_id)
+        await db.commit()
         
         # Log action
         from services.platform.middleware.platform_auth import log_platform_action

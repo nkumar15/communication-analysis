@@ -67,6 +67,8 @@ async def create_tenant_async(
                 oidc_mobile_client_id=oidc_mobile_client_id
             )
             
+            await db.commit()
+            
             print_summary(result)
             
         except Exception as e:
@@ -124,6 +126,8 @@ async def create_local_async(
                 oidc_mobile_client_id=oidc_mobile_client_id,
                 oidc_mobile_provider_id=oidc_mobile_provider_id
             )
+            
+            await db.commit()
             
             print_summary(result)
             
@@ -228,6 +232,8 @@ async def resend_activation_async(tenant_id, domain):
                 db=db,
                 tenant_id=tenant.id
             )
+            
+            await db.commit()
             
             click.echo("\n" + "=" * 70)
             click.echo("✅ ACTIVATION EMAIL RESENT")

@@ -199,8 +199,8 @@ class TenantOnboardingService:
                 expires_at
             )
             
-            # Commit the entire transaction at the end to ensure RLS context (SET LOCAL) was active throughout
-            await db.commit()
+            # Commit handled by caller
+            # await db.commit()
             
             return {
                 "tenant_id": str(tenant.id),
@@ -283,7 +283,8 @@ class TenantOnboardingService:
                 new_expires_at
             )
         
-        await db.commit()
+        # Commit handled by caller
+        # await db.commit()
         
         return {
             "tenant_id": str(tenant_id),
