@@ -17,52 +17,12 @@ from sqlalchemy import select
 
 @pytest_asyncio.fixture
 async def domain_test_data(db_session):
-    """Setup tenant, teams, and users for domain tests"""
-    from services.b2b.models.rbac import Resource
-    from sqlalchemy import select
+    """Setup tenant, teams, and users for domain tests.
     
-    # Seed domain resources if not already present
-    result = await db_session.execute(select(Resource).where(Resource.name == 'projects'))
-    if not result.scalar_one_or_none():
-        domain_resources = [
-            Resource(
-                name='projects',
-                display_name='Projects',
-                category='Domain',
-                description='Project management and team collaboration'
-            ),
-            Resource(
-                name='tasks',
-                display_name='Tasks',
-                category='Domain',
-                description='Task tracking and assignment'
-            ),
-            Resource(
-                name='comments',
-                display_name='Comments',
-                category='Domain',
-                description='Task comments and discussions'
-            ),
-        ]
-        db_session.add_all(domain_resources)
-        await db_session.commit()  # CRITICAL: Commit so resources are visible to seed_tenant_roles
-    
-    # Update role templates with domain permissions (needed for viewer read access)
-    from services.b2b.models.role_template import RoleTemplate
-    domain_perms_viewer = [
-        {"resource": "projects", "actions": ["read"]},
-        {"resource": "tasks", "actions": ["read"]},
-        {"resource": "comments", "actions": ["read"]},
-    ]
-    result = await db_session.execute(select(RoleTemplate).where(RoleTemplate.name == 'viewer'))
-    viewer_template = result.scalar_one_or_none()
-    if viewer_template:
-        for perm in domain_perms_viewer:
-            if perm not in viewer_template.permissions:
-                viewer_template.permissions = viewer_template.permissions + [perm]
-        await db_session.commit()
-    
-    # Create tenant
+    Note: Domain resources and role template updates are now handled by 
+    create_test_tenant() in the main conftest.py.
+    """
+    # Create tenant (this seeds domain resources and updates templates)
     tenant = await create_test_tenant(db_session)
     
     # Create owner user
@@ -103,7 +63,7 @@ async def domain_test_data(db_session):
         db_session,
         tenant_id=tenant.id,
         email=f"member@{tenant.domain}",
-        role_slug="team_member"
+        role_slug="member"
     )
     team_member_assoc = TeamMember(
         team_id=default_team.id,
@@ -123,7 +83,7 @@ async def domain_test_data(db_session):
         db_session,
         tenant_id=tenant.id,
         email=f"othermember@{tenant.domain}",
-        role_slug="team_member"
+        role_slug="member"
     )
     other_team_assoc = TeamMember(
         team_id=other_team.id,

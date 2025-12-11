@@ -3,21 +3,34 @@ Scope Helpers - Hierarchical Data Access
 
 Determines what data a user can access based on roles and team membership.
 This is the B2B boilerplate - domain-specific logic should be in domain modules.
+
+DESIGN NOTE: This module uses PERMISSION checks, not role name checks.
+This allows role names to change while access logic remains stable.
 """
 from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.b2b.models import UserModel, Role, Team, TeamMember
-from core.constants import B2BRoleName
+from services.b2b.rbac.permission_checker import has_permission
+
+
+async def has_full_user_access(user_id: UUID, db: AsyncSession) -> bool:
+    """
+    Check if user has full access to all users (e.g., Owner/Admin level).
+    
+    This checks for 'users:write' permission instead of role names,
+    making it flexible for role name changes.
+    """
+    return await has_permission(user_id, 'users', 'write', db)
 
 
 async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]:
     """
-    Get all user IDs that are accessible to this user based on role
+    Get all user IDs that are accessible to this user based on permissions
     
     Hierarchy:
-    - Owner/Admin: All users in tenant
-    - Others: All users in tenant
+    - Users with users:write permission: All users in tenant
+    - Viewers (users:read only): Only themselves
     
     Args:
         user_id: User ID to check
@@ -30,30 +43,20 @@ async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]
     if not user:
         return []
     
-    # Get user's role
-    if not user.role_id:
-        return [user_id]  # Only self if no role
-    
-    role = await db.get(Role, user.role_id)
-    if not role:
-        return [user_id]
-    
-    # Owner/Admin sees all users in tenant
-    if role.name in (B2BRoleName.ADMIN, B2BRoleName.OWNER):
+    # Check if user has write access to users (admin-level)
+    if await has_permission(user_id, 'users', 'write', db):
         result = await db.execute(
             select(UserModel.id).where(UserModel.tenant_id == user.tenant_id)
         )
         return [row[0] for row in result]
     
-    # Viewers only see themselves
-    if role.name == B2BRoleName.VIEWER:
+    # Check if user has read-only access (viewer)
+    if await has_permission(user_id, 'users', 'read', db):
+        # Viewers only see themselves
         return [user_id]
     
-    # Other roles (field_manager, etc.) see all users in tenant
-    result = await db.execute(
-        select(UserModel.id).where(UserModel.tenant_id == user.tenant_id)
-    )
-    return [row[0] for row in result]
+    # No permission - only see self
+    return [user_id]
 
 
 async def can_access_user(current_user_id: UUID, target_user_id: UUID, db: AsyncSession) -> bool:
@@ -117,7 +120,10 @@ async def is_team_manager(user_id: UUID, team_id: UUID, db: AsyncSession) -> boo
 
 async def can_manage_team(user_id: UUID, team_id: UUID, db: AsyncSession) -> bool:
     """
-    Check if user can manage team (owner/admin or team_manager)
+    Check if user can manage team.
+    
+    Access granted if user has 'teams:write' permission OR is a team_manager.
+    Uses permission-based check, not role name check.
     
     Args:
         user_id: User ID
@@ -127,17 +133,11 @@ async def can_manage_team(user_id: UUID, team_id: UUID, db: AsyncSession) -> boo
     Returns:
         bool: True if user can manage the team
     """
-    user = await db.get(UserModel, user_id)
-    if not user or not user.role_id:
-        return False
-    
-    role = await db.get(Role, user.role_id)
-    
-    # System admins can manage all teams
-    if role and role.name in (B2BRoleName.OWNER, B2BRoleName.ADMIN):
+    # Check if user has tenant-wide team management permission
+    if await has_permission(user_id, 'teams', 'write', db):
         return True
     
-    # Check if user is team manager
+    # Check if user is team manager for this specific team
     return await is_team_manager(user_id, team_id, db)
 
 

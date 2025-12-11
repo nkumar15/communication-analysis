@@ -5,72 +5,107 @@
 
 ## Overview
 
-The Authorization system controls user access to resources strictly based on their assigned **Role**. The system supports granular permissions defined as `resource:action` pairs.
+The Authorization system controls user access to resources based on:
+1. **Tenant Role** - What actions they CAN perform (permissions)
+2. **Team Membership** - Which data they can ACCESS (scope)
+
+---
 
 ## 1. Role Definitions
 
-Roles are tenant-scoped but defined via global templates.
-
 ### 1.1 Tenant Roles (Global)
-These roles apply to the entire workspace (Tenant).
 
-| Role | Display Name | Description | Key Permissions |
-|------|--------------|-------------|-----------------|
-| `owner` | **Owner** | Primary administrator with total control. | **All Access** (Billing, Security, Deletion, Team Mgmt). |
-| `admin` | **Admin** | Manager with full operational control. | **All Access** *except* Billing and Account Deletion. |
-| `viewer` | **Viewer** | Read-only access to organization data. | **Read-only** for all functional modules. No Write/Delete. |
+| Role | Display Name | Description | Team Data Access |
+|------|--------------|-------------|------------------|
+| `owner` | **Owner** | Total control, billing, security, oversight. | ✅ ALL teams |
+| `admin` | **Admin** | Management without billing/deletion. | ❌ Requires membership |
+| `member` | **Member** | Standard operational access. | ❌ Requires membership |
+| `viewer` | **Viewer** | Read-only access. | ❌ Requires membership |
 
-### 1.2 Team Roles (Contextual)
-These roles apply within specific Teams (groups of users).
+> [!IMPORTANT]
+> **Governance**: Only `owner` can see ALL team data. All other roles require team membership to access team-scoped data (projects, tasks, comments).
 
-| Role | Display Name | Description | Key Permissions |
-|------|--------------|-------------|-----------------|
-| `team_manager` | **Team Manager** | Manages team membership and settings. | Invite/Remove members, Update team settings. |
-| `team_member` | **Team Member** | Active participant in the team. | Read team info. (Domain specific: Edit tasks). |
-| `team_viewer` | **Team Viewer** | Passive observer in the team. | Read-only access to team info and tasks. |
+### 1.2 Team Scope Levels (Contextual)
 
-## 2. Resource & Permission Matrix
+| Level | Description | Capabilities |
+|-------|-------------|--------------|
+| `team_manager` | Manages team. | Invite/remove members, update settings. |
+| `team_member` | Standard participant. | Access team data, write tasks/comments. |
+| `team_viewer` | Observer. | Read-only access to team data. |
 
-Permissions are granularly defined. Below is the mapping of Roles to Allowed Permissions.
+### 1.3 Default Roles (Least Privilege)
+
+| Context | Default |
+|---------|---------|
+| New User Invitation | `member` tenant role |
+| Team Assignment | `team_member` scope level |
+
+---
+
+## 2. Permission Matrix
 
 ### 2.1 Administration & System
-| Resource | Action | Owner | Admin | Viewer |
-|----------|--------|:-----:|:-----:|:------:|
-| **Users** | `read` | ✅ | ✅ | ✅ |
-| | `invite` | ✅ | ✅ | ❌ |
-| | `delete` | ✅ | ❌ | ❌ |
-| **Billing** | `manage` | ✅ | ❌ | ❌ |
-| **Security** | `manage` | ✅ | ❌ | ❌ |
-| **Audit Logs** | `read` | ✅ | ✅ | ❌ |
+
+| Resource | Action | Owner | Admin | Member | Viewer |
+|----------|--------|:-----:|:-----:|:------:|:------:|
+| **Users** | `read` | ✅ | ✅ | ✅ | ✅ |
+| | `invite` | ✅ | ✅ | ❌ | ❌ |
+| | `delete` | ✅ | ❌ | ❌ | ❌ |
+| **Teams** | `write` | ✅ | ✅ | ❌ | ❌ |
+| **Billing** | `manage` | ✅ | ❌ | ❌ | ❌ |
+| **Security** | `manage` | ✅ | ❌ | ❌ | ❌ |
+| **Audit Logs** | `read` | ✅ | ✅ | ❌ | ❌ |
 
 ### 2.2 Domain Features (Task Management)
-Domain-specific permissions are seeded dynamically.
 
-| Resource | Action | Owner | Admin | Member* | Viewer |
-|----------|--------|:-----:|:-----:|:-------:|:------:|
+*Seeded via `seed_domain_data.py`*
+
+| Resource | Action | Owner | Admin | Member | Viewer |
+|----------|--------|:-----:|:-----:|:------:|:------:|
 | **Projects** | `read` | ✅ | ✅ | ✅ | ✅ |
 | | `write` | ✅ | ✅ | ❌ | ❌ |
 | | `delete` | ✅ | ✅ | ❌ | ❌ |
 | **Tasks** | `read` | ✅ | ✅ | ✅ | ✅ |
 | | `write` | ✅ | ✅ | ✅ | ❌ |
-| **Comments** | `write` | ✅ | ✅ | ✅ | ❌ |
+| **Comments** | `read` | ✅ | ✅ | ✅ | ✅ |
+| | `write` | ✅ | ✅ | ✅ | ❌ |
 
-*(Member role usually aligns with Team Member scope)*
+---
 
 ## 3. Scope & Data Access
 
-Beyond permissions (`can do X`), access is also limited by **Scope** (`on which data`).
+```
+┌─────────────────────────────────────────────────────────┐
+│ PERMISSION (Tenant Role)  │ SCOPE (Team Membership)     │
+│ ─────────────────────────  │ ─────────────────────────── │
+│ CAN I do this action?      │ ON WHICH data can I do it?  │
+└─────────────────────────────────────────────────────────┘
+```
 
-*   **Tenant Scope**: Owner/Admin can access **ALL** data within the tenant.
-*   **Team Scope**:
-    *   `team_manager` can manage their specific team's settings.
-    *   `team_member` can see tasks assigned to their team.
-*   **User Scope**: Users can always access their own profile and assigned items.
+| Role | Scope |
+|------|-------|
+| `owner` | All data (oversight responsibility) |
+| `admin/member/viewer` | Only data in joined teams |
 
-## 4. Implementation Details
+---
 
-*   **Enforcement**: Use `RequirePermission('resource', 'action')` decorator on API endpoints.
-*   **Storage**:
-    *   `b2b.roles`: Define roles.
-    *   `b2b.role_permissions`: Map roles -> resource + action.
-    *   `b2b.role_templates`: JSON templates for seeding new tenants.
+## 4. Implementation
+
+### Storage
+- `b2b.role_templates` → JSON permission templates
+- `b2b.roles` → Tenant-specific roles (copied from templates)
+- `b2b.role_permissions` → Role-to-resource-action mappings
+- `b2b.team_members.team_role` → Team scope level (string)
+
+### Enforcement
+```python
+# Permission check (can do X?)
+await has_permission(user_id, 'projects', 'write', db)
+
+# Scope check (on which data?)
+team_ids = await get_user_team_ids(user_id, db)
+```
+
+> [!NOTE]
+> The system checks `role_permissions` table, NOT role names.
+> This allows role names to change while permissions remain stable.

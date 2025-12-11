@@ -72,7 +72,7 @@ INSERT INTO b2b.role_templates (name, display_name, description, is_system_role,
         {"resource": "users", "actions": ["read", "write", "invite"]},
         {"resource": "roles", "actions": ["read", "write"]},
         {"resource": "invitations", "actions": ["read", "write"]},
-        {"resource": "teams", "actions": ["read", "write"]},
+        {"resource": "teams", "actions": ["read", "write", "delete"]},
         
         {"resource": "account", "actions": ["read"]},
         {"resource": "billing", "actions": ["read"]},
@@ -105,6 +105,25 @@ INSERT INTO b2b.role_templates (name, display_name, description, is_system_role,
         {"resource": "teams", "actions": ["read"]},
         
         {"resource": "notifications", "actions": ["read", "write"]}
+    ]'::jsonb
+),
+(
+    'member',
+    'Member',
+    'Standard team member with operational access to core features',
+    TRUE,
+    TRUE,
+    '[
+        {"resource": "dashboard", "actions": ["read"]},
+        {"resource": "reports", "actions": ["read"]},
+        {"resource": "analytics", "actions": ["read"]},
+        
+        {"resource": "users", "actions": ["read"]},
+        {"resource": "roles", "actions": ["read"]},
+        {"resource": "teams", "actions": ["read"]},
+        
+        {"resource": "notifications", "actions": ["read", "write"]},
+        {"resource": "support", "actions": ["read", "write"]}
     ]'::jsonb
 ),
 (

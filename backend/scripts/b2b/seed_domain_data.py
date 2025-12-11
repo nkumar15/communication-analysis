@@ -22,6 +22,7 @@ if __name__ == "__main__":
     import asyncio
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm.attributes import flag_modified
     from core.database import database_url
     from services.b2b.models.rbac import Resource
     from services.b2b.models.role_template import RoleTemplate
@@ -85,6 +86,7 @@ if __name__ == "__main__":
             for perm in domain_perms: 
                 if perm not in owner.permissions:
                     owner.permissions.append(perm)
+            flag_modified(owner, 'permissions')  # Force SQLAlchemy to detect JSONB change
             await db.commit()
             print("✓ Updated owner role with domain permissions")
         
@@ -100,6 +102,7 @@ if __name__ == "__main__":
             for perm in domain_perms:
                 if perm not in admin.permissions:
                     admin.permissions.append(perm)
+            flag_modified(admin, 'permissions')
             await db.commit()
             print("✓ Updated admin role with domain permissions")
         
@@ -110,11 +113,12 @@ if __name__ == "__main__":
             domain_perms = [
                 {"resource": "projects", "actions": ["read"]},
                 {"resource": "tasks", "actions": ["read", "write"]},
-                {"resource": "comments", "actions": ["read", "write"]},
+                {"resource": "comments", "actions": ["read", "write", "delete"]},  # delete for own comments
             ]
             for perm in domain_perms:
                 if perm not in member.permissions:
                     member.permissions.append(perm)
+            flag_modified(member, 'permissions')
             await db.commit()
             print("✓ Updated member role with domain permissions")
         
@@ -130,6 +134,7 @@ if __name__ == "__main__":
             for perm in domain_perms:
                 if perm not in viewer.permissions:
                     viewer.permissions.append(perm)
+            flag_modified(viewer, 'permissions')
             await db.commit()
             print("✓ Updated viewer role with domain permissions")
 

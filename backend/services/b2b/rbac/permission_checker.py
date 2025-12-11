@@ -18,9 +18,12 @@ async def has_permission(
     """
     Check if user has permission for resource:action
     
+    This function checks the role_permissions table, NOT role names.
+    This design allows role names to change while permissions remain stable.
+    
     Args:
         user_id: User ID to check
-        resource: Resource name (e.g., 'shops', 'users')
+        resource: Resource name (e.g., 'projects', 'users')
         action: Action name (e.g., 'read', 'write')
         db: Database session
         
@@ -45,11 +48,7 @@ async def has_permission(
     if not role or not role.is_active:
         return False
     
-    # Owner and Admin always have full access (TODO: Replace with is_superuser flag)
-    if role.name in ['owner', 'admin', 'team_member']:
-        return True
-    
-    # Check role_permissions table
+    # Check role_permissions table for explicit permission grant
     result = await db.execute(
         select(RolePermission)
         .join(Resource, RolePermission.resource_id == Resource.id)
