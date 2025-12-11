@@ -54,16 +54,17 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
             // 1. Get Tenant Info with Provider ID
             const config = await apiService.getActivationTenantInfo(tenantInfo.tenant_id);
             console.log('🔐 Tenant Config:', config);
-            const { oidc_provider_id, firebase_tenant_id } = config;
+            const { oidc_provider_id, mobile_oidc_provider_id, firebase_tenant_id } = config;
+            const providerId = mobile_oidc_provider_id || oidc_provider_id;
 
-            if (!oidc_provider_id) {
+            if (!providerId) {
                 throw new Error('No OIDC provider configured for this tenant');
             }
 
             // 2. Get OIDC Config (Issuer, Client ID)
             // Using localhost alias for Android Emulator
             const API_URL = 'http://10.0.2.2:8000';
-            const configResponse = await fetch(`${API_URL}/api/b2b/auth/oidc-config/${oidc_provider_id}`);
+            const configResponse = await fetch(`${API_URL}/api/b2b/auth/oidc-config/${providerId}`);
 
             if (!configResponse.ok) {
                 throw new Error('Failed to load OIDC configuration');
@@ -90,7 +91,7 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
                     oidc_id_token: idToken,
                     email: tenantInfo.admin_email,
                     firebase_tenant_id,
-                    provider_id: oidc_provider_id,
+                    provider_id: providerId,
                     nonce: nonce,
                 }),
             });

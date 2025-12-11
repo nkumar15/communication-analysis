@@ -184,12 +184,18 @@ async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = De
                 domain=domain,
                 has_auth_provider=primary_provider is not None)
     
+    # Get mobile specific provider ID if available
+    mobile_provider_id = None
+    if primary_provider and primary_provider.config_data:
+        mobile_provider_id = primary_provider.config_data.get('mobile_provider_id')
+
     return TenantResolutionResponse(
         tenant_id=tenant.id,
         tenant_name=tenant.name,
         domain=tenant.domain,
         firebase_tenant_id=tenant.firebase_tenant_id,
-        oidc_provider_id=primary_provider.provider_id if primary_provider else None
+        oidc_provider_id=primary_provider.provider_id if primary_provider else None,
+        mobile_oidc_provider_id=mobile_provider_id
     )
 
 

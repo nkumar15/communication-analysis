@@ -116,11 +116,17 @@ async def get_tenant_for_activation(
     from services.b2b.services.auth_provider_service import auth_provider_service
     primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
     
+    # Get mobile specific provider ID if available
+    mobile_provider_id = None
+    if primary_provider and primary_provider.config_data:
+        mobile_provider_id = primary_provider.config_data.get('mobile_provider_id')
+
     return {
         "tenant_id": tenant.id,
         "tenant_name": tenant.name,
         "firebase_tenant_id": tenant.firebase_tenant_id,
-        "oidc_provider_id": primary_provider.provider_id if primary_provider else None
+        "oidc_provider_id": primary_provider.provider_id if primary_provider else None,
+        "mobile_oidc_provider_id": mobile_provider_id
     }
 
 

@@ -45,12 +45,13 @@ export default function LoginScreen({ onLoginSuccess }) {
                 throw new Error(error.detail || 'Tenant not found');
             }
 
-            const { firebase_tenant_id, oidc_provider_id } = await response.json();
-            console.log('✅ Tenant resolved:', firebase_tenant_id, 'Provider:', oidc_provider_id);
+            const { firebase_tenant_id, oidc_provider_id, mobile_oidc_provider_id } = await response.json();
+            const providerId = mobile_oidc_provider_id || oidc_provider_id;
+            console.log('✅ Tenant resolved:', firebase_tenant_id, 'Provider:', providerId);
 
             // 2. Get OIDC configuration for mobile
             setStatus('Loading authentication settings...');
-            const configResponse = await fetch(`http://10.0.2.2:8000/api/b2b/auth/oidc-config/${oidc_provider_id}`);
+            const configResponse = await fetch(`http://10.0.2.2:8000/api/b2b/auth/oidc-config/${providerId}`);
 
             if (!configResponse.ok) {
                 throw new Error('Failed to load authentication configuration');
@@ -79,7 +80,7 @@ export default function LoginScreen({ onLoginSuccess }) {
                     oidc_id_token: idToken,
                     email,
                     firebase_tenant_id,
-                    provider_id: oidc_provider_id,
+                    provider_id: providerId,
                     nonce: nonce,
                 }),
             });

@@ -40,7 +40,8 @@ class TenantOnboardingService:
         # New optional params for local/test mode
         firebase_tenant_id: Optional[str] = None,
         oidc_provider_id: Optional[str] = None,
-        oidc_mobile_client_id: Optional[str] = None
+        oidc_mobile_client_id: Optional[str] = None,
+        oidc_mobile_provider_id: Optional[str] = None
     ) -> dict:
         """
         Complete tenant onboarding workflow
@@ -96,18 +97,65 @@ class TenantOnboardingService:
             await role_template_service.seed_tenant_roles(db, tenant.id)
             
             # 6. Create auth provider record
-            # Populate config_data with OIDC settings for mobile OAuth compatibility
-            # Populate config_data with OIDC settings for mobile OAuth compatibility
-            config_data = {}
-            if oidc_issuer and (oidc_client_id or oidc_mobile_client_id):
-                config_data = {
-                    "issuer_url": oidc_issuer
-                }
-                if oidc_client_id:
-                    config_data["client_id"] = oidc_client_id
-                if oidc_mobile_client_id:
-                    config_data["mobile_client_id"] = oidc_mobile_client_id
             
+            # --- WEB Provider ---
+            config_data = {}
+            if oidc_issuer and oidc_client_id:
+                config_data = {
+                    "issuer_url": oidc_issuer,
+                    "client_id": oidc_client_id
+                }
+            
+            # --- MOBILE Provider Setup (if applicable) ---
+            mobile_provider_id = None
+            if oidc_mobile_client_id:
+                # 1. Determine Mobile Provider ID
+                # If specifically provided (e.g. from local test setup), use it.
+                # Otherwise, if generic 'oidc', assume 'oidc.mobile' suffix.
+                if oidc_mobile_provider_id:
+                    mobile_provider_id = oidc_mobile_provider_id
+                else:
+                    base_provider_id = provider_id
+                    mobile_provider_id = f"{base_provider_id}.mobile"
+                
+                # 2. Configure in GCIP (if not skipping via param)
+                # Only try to create if we are NOT providing existing IDs
+                if not oidc_provider_id and not oidc_mobile_provider_id: 
+                    try:
+                        configure_oidc_provider(
+                            firebase_tenant_id,
+                            oidc_provider,
+                            oidc_mobile_client_id,
+                            oidc_client_secret or "dummy_secret", 
+                            oidc_issuer,
+                            provider_id_override=mobile_provider_id
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Failed to create mobile provider in GCIP: {e}")
+                
+                # 3. Create Secondary AuthProvider for Mobile
+                mobile_config_data = {
+                    "issuer_url": oidc_issuer,
+                    "client_id": oidc_mobile_client_id,
+                    "mobile_client_id": oidc_mobile_client_id
+                }
+                
+                mobile_auth_provider = AuthProvider(
+                    tenant_id=tenant.id,
+                    provider_type='oidc',
+                    provider_id=mobile_provider_id,
+                    display_name=f"{oidc_provider.title()} SSO (Mobile)",
+                    is_primary=False,
+                    is_active=True,
+                    config_data=mobile_config_data
+                )
+                db.add(mobile_auth_provider)
+                
+                # 4. Link Mobile ID to Primary Config
+                config_data["mobile_provider_id"] = mobile_provider_id
+                config_data["mobile_client_id"] = oidc_mobile_client_id # Keep for reference
+
+
             auth_provider = AuthProvider(
                 tenant_id=tenant.id,
                 provider_type='oidc',

@@ -38,7 +38,8 @@ def configure_oidc_provider(
     provider_type: str,
     client_id: str,
     client_secret: str,
-    issuer_url: str
+    issuer_url: str,
+    provider_id_override: str = None
 ) -> str:
     """
     Configure OIDC provider for Firebase tenant using Identity Platform API
@@ -49,6 +50,7 @@ def configure_oidc_provider(
         client_id: OIDC client ID
         client_secret: OIDC client secret
         issuer_url: OIDC issuer URL
+        provider_id_override: Optional explicitly defined provider ID string
         
     Returns:
         Provider ID (e.g., 'oidc.auth0')
@@ -63,7 +65,7 @@ def configure_oidc_provider(
     from core.config import settings
     project_id = settings.firebase_project_id
     
-    provider_id = f'oidc.{provider_type}'
+    provider_id = provider_id_override or f'oidc.{provider_type}'
     
     # Identity Platform API endpoint
     url = f'https://identitytoolkit.googleapis.com/v2/projects/{project_id}/tenants/{firebase_tenant_id}/inboundSamlConfigs?inboundSamlConfigId={provider_id}'
