@@ -101,21 +101,36 @@ Mobile apps cannot use the standard Firebase Web SDK's popup/redirect flow. Inst
 sequenceDiagram
     participant App as Mobile App
     participant BE as Backend API
+    participant Auth0 as Auth0 / IdP
     participant Google as Google Identity (GCIP)
+    participant DB as Postgres DB
 
-    Note over App: 1. Native Login
+    Note over App: 1. Tenant Resolution
+    App->>BE: POST /api/b2b/auth/resolve-tenant {email}
+    BE-->>App: 200 {firebase_tenant_id, oidc_provider_id}
+
+    Note over App: 2. Get OIDC Config
+    App->>BE: GET /api/b2b/auth/oidc-config/{provider_id}
+    BE-->>App: {issuer, client_id}
+
+    Note over App: 3. Native Login
     App->>Auth0: PKCE Login Flow
     Auth0-->>App: OIDC ID Token
 
-    Note over App: 2. Token Exchange
-    App->>BE: POST /mobile-login {oidc_token}
+    Note over App: 4. Token Exchange
+    App->>BE: POST /mobile-login {oidc_token, provider_id}
     BE->>Google: signInWithIdp(oidc_token)
     Google-->>BE: Firebase ID Token + UID
+    Note right of Google: Identity created/linked in Firebase
     BE-->>App: {id_token, uid, refresh_token}
 
-    Note over App: 3. Session Start
+    Note over App: 5. Session Start & Sync
     App->>App: Store Tokens securely
-    App->>BE: GET /me (Validates ID Token)
+    App->>Firebase: setTenantId(id)
+    App->>BE: POST /sync-user (Headers: Bearer ID Token)
+    BE->>BE: Verify Token & Resolve Tenant
+    BE->>DB: Upsert User (email matches)
+    Note right of BE: User created in Postgres here
     BE-->>App: User Profile
 ```
 
