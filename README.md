@@ -59,7 +59,7 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[Authentication](docs/architecture/authentication.md)**: Detailed API sequence diagram for authentication.    
 - **[Authorization](docs/architecture/authorization.md)**: Technical deep dive into permission enforcement.
 - **[Multi-Tenant Isolation](docs/architecture/multi-tenant-isolation.md)**: Detailed API sequence diagram for tenant isolation.
-- **[UI Components](docs/architecture/ui-components.md)**: Design system and reusable frontend components.
+- **[UI Design](docs/architecture/ui-design.md)**: Design system and reusable frontend components.
 - **[Domain APIs](docs/architecture/domain-apis.md)**: Projects, Tasks, and Comments APIs.
 - **[B2C Module](docs/architecture/b2c-module.md)**: Personal and team workspace functionality.
 

@@ -6,13 +6,13 @@ This directory contains detailed functional requirements and acceptance criteria
 
 | ID | Feature | File | Status |
 |----|---------|------|--------|
-| **SPEC-01** | **Tenant Onboarding** | [`tenant-onboarding.md`](./tenant-onboarding.md) | ❌ Draft |
-| **SPEC-02** | **Authentication & Identity** | *Planned* | ❌ Draft |
+| **SPEC-01** | **Tenant Onboarding** | [`tenant-onboarding.md`](./tenant-onboarding.md) | ✅ Live |
+| **SPEC-02** | **Authentication & Identity** | [`authentication.md`](./authentication.md) | ✅ Live |
 | **SPEC-03** | **RBAC & Permissions** | *Planned* | ❌ Draft |
 | **SPEC-04** | **User Management** | *Planned* | ❌ Draft |
 | **SPEC-05** | **Domain Logic (Projects)** | *Planned* | ❌ Draft |
 | **SPEC-06** | **Platform Administration** | *Planned* | ❌ Draft |
-| **SPEC-07** | **Mobile App Support** | *Planned* | ❌ Draft |
+| **SPEC-07** | **Mobile App Support** | [`mobile.md`](./mobile.md) | ✅ Live |
 
 ## Guiding Principles
 To ensure the system works holistically across **Web** and **Mobile** apps:
