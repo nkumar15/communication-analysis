@@ -79,6 +79,7 @@ export default function LoginScreen({ onLoginSuccess }) {
                     oidc_id_token: idToken,
                     email,
                     firebase_tenant_id,
+                    provider_id: oidc_provider_id,
                 }),
             });
 

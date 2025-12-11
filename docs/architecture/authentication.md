@@ -84,57 +84,45 @@ sequenceDiagram
 
 ## 3. Mobile Native Authentication 📱
 
-Mobile apps cannot use the standard Firebase Web SDK's popup/redirect flow. Instead, they use a "Native" flow involving **Auth0** and **Firebase Custom Tokens**.
+Mobile apps cannot use the standard Firebase Web SDK's popup/redirect flow. Instead, they use a "Native" flow involving **Auth0** and **GCIP Token Exchange**.
 
 ### Architecture Comparison
 
 | Aspect | Web | Mobile Native |
 |--------|-----|---------------|
-| **OAuth Flow** | Firebase GCIP handles OIDC | Direct Auth0 OAuth + Custom Token |
-| **Firebase Token** | GCIP issues token after popup | Backend issues Custom Token |
+| **OAuth Flow** | Firebase GCIP handles OIDC | Direct Auth0 OAuth + GCIP Token Exchange |
+| **Firebase Token** | GCIP issues token after popup | GCIP issues token after `signInWithIdp` |
 | **Tenant API** | Browser popup with tenant set | `auth().setTenantId()` async method |
-| **User Identity** | GCIP-generated UID | Backend-generated UID (email-based) |
+| **User Identity** | GCIP-generated UID | GCIP-generated UID (Same as Web) |
 
 ### Mobile Login Sequence
 
 ```mermaid
 sequenceDiagram
-    participant App as Mobile App (React Native)
+    participant App as Mobile App
     participant BE as Backend API
-    participant Auth0 as Auth0 IdP
-    participant Firebase as Firebase Auth
-    participant DB as Database
+    participant Google as Google Identity (GCIP)
 
-    Note over App: 1. Tenant Resolution
-    App->>BE: POST /api/b2b/auth/resolve-tenant {email}
-    BE->>DB: SELECT tenant by domain
-    BE-->>App: {firebase_tenant_id, oidc_provider_id}
+    Note over App: 1. Native Login
+    App->>Auth0: PKCE Login Flow
+    Auth0-->>App: OIDC ID Token
 
-    Note over App: 2. Get OIDC Config
-    App->>BE: GET /api/b2b/auth/oidc-config/{provider_id}
-    BE-->>App: {issuerUrl, clientId}
+    Note over App: 2. Token Exchange
+    App->>BE: POST /mobile-login {oidc_token}
+    BE->>Google: signInWithIdp(oidc_token)
+    Google-->>BE: Firebase ID Token + UID
+    BE-->>App: {id_token, uid, refresh_token}
 
-    Note over App: 3. Direct OAuth (System Browser)
-    App->>Auth0: OAuth Authorization Request (PKCE)
-    Auth0-->>App: OIDC ID Token (JWT)
-
-    Note over App: 4. Backend Token Exchange
-    App->>BE: POST /api/b2b/auth/mobile-login<br/>{oidc_id_token, email, firebase_tenant_id}
-    BE->>BE: Verify OIDC Token (JWKS)
-    BE->>DB: Lookup/Create User (email-based)
-    BE->>Firebase: Create Custom Token (tenant-aware)
-    BE-->>App: {firebase_custom_token, user_info}
-
-    Note over App: 5. Firebase Sign-In
-    App->>Firebase: setTenantId(firebase_tenant_id)
-    App->>Firebase: signInWithCustomToken(token)
-    Firebase-->>App: UserCredential
+    Note over App: 3. Session Start
+    App->>App: Store Tokens securely
+    App->>BE: GET /me (Validates ID Token)
+    BE-->>App: User Profile
 ```
 
 ### Integration Notes
 -   **Endpoint**: `POST /api/b2b/auth/mobile-login`
 -   **Client Lib**: `react-native-app-auth`
--   **React Native**: Must use `await auth().setTenantId(id)` **method**, not property assignment.
+-   **React Native**: Must use `await auth().setTenantId(id)` **method**, then use the ID Token directly (or sign in with credential if needed, but managing the token manually is often easier with this flow).
 
 ---
 
@@ -163,7 +151,10 @@ Since we support both Web (standard OIDC) and Mobile (Native Auth0), the creatio
 | **Mobile Invite** | User deep-links & logs in | **After Token Exchange** | At `/join` call |
 
 
-**Crucial Logic**: The backend treats **Email** as the immutable identifier. When a user logs in via a new method (e.g., switched from Web to Mobile), the backend updates the stored `firebase_uid` to match the current session's UID.
 
-> [!WARNING]
-> **Session Trade-off**: This design implements a **Single Active Platform Session** policy. Logging in on Mobile (new UID) will invalidate the Web session (old UID) because the backend user record now points to the new Mobile UID. Subsequent requests from the Web session will fail with 401 until the user re-authenticates.
+**Crucial Logic**: The backend treats **Email** as the immutable identifier. 
+
+### Why this architecture is robust:
+-   **Stable Identifiers**: By using the **Identity Toolkit API (`signInWithIdp`)** on the backend for mobile logins, we exchange the external OIDC token for a **First-Class Firebase ID Token**. 
+-   **Automatic Account Linking**: GCIP automatically links the mobile login to the existing web account if the emails match.
+-   **Session Continuity**: The returned Firebase UID is the **same** as the Web UID. This means a user can be logged in on both Web and Mobile simultaneously without invalidating either session. The 1:1 `users.firebase_uid` mapping in Postgres remains valid and sufficient.

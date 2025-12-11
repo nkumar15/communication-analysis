@@ -95,13 +95,20 @@ class UserService:
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
-            # 2a. User exists - update firebase_uid if different (handles web↔mobile)
-            if existing_user.firebase_uid != firebase_uid:
-                existing_user.firebase_uid = firebase_uid
+            # 2a. User exists - update standard metadata
             existing_user.last_login = now
             existing_user.updated_at = now
             if name and not existing_user.name:
                 existing_user.name = name
+            
+            # Note: We do NOT overwrite firebase_uid anymore.
+            # With GCIP/signInWithIdp, UIDs are stable across platforms.
+            # If they differ, it might indicate a serious issue or manual DB change.
+            if existing_user.firebase_uid != firebase_uid:
+                # Log warning but don't overwrite blindly
+                import logging
+                logging.warning(f"uid_mismatch_ignored: db={existing_user.firebase_uid}, token={firebase_uid}, email={email}")
+
             await db.flush()
             return await self._model_to_pydantic(existing_user, db)
         else:

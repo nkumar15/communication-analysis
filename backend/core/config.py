@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     
     # Firebase
     firebase_project_id: str
+    firebase_api_key: Optional[str] = None # Web API Key for client-side emulation
     firebase_credentials_path: Optional[str] = None
     
     # URLs

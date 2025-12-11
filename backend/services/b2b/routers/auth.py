@@ -30,7 +30,106 @@ class MobileLoginRequest(BaseModel):
     oidc_id_token: str
     email: EmailStr
     firebase_tenant_id: str
+    provider_id: str  # e.g., 'oidc.auth0-mycompany'
 
+@router.post("/mobile-login")
+async def mobile_login(
+    request: MobileLoginRequest,
+    db: AsyncSession = Depends(get_db)):
+    """
+    Exchange OIDC ID token for Firebase ID token using GCIP signInWithIdp
+    
+    This performs a server-side token exchange with Google Identity Platform.
+    It returns a standard Firebase ID Token (not custom token) which ensures
+    stable UIDs across Web and Mobile.
+    """
+    logger.info("mobile_login_started", 
+                email=request.email, 
+                firebase_tenant_id=request.firebase_tenant_id,
+                provider_id=request.provider_id)
+    
+    # 1. Get API Key from config
+    from core.config import settings
+    api_key = settings.firebase_api_key
+    
+    if not api_key:
+        logger.error("missing_firebase_api_key")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server configuration error: Missing Firebase Web API Key"
+        )
+        
+    # 2. Call Google Identity Toolkit API
+    import httpx
+    
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={api_key}"
+    
+    # Construct postBody for generic OIDC provider
+    # Format: id_token=[ID_TOKEN]&providerId=[PROVIDER_ID]
+    post_body = f"id_token={request.oidc_id_token}&providerId={request.provider_id}"
+    
+    payload = {
+        "postBody": post_body,
+        "requestUri": "http://localhost:3000/auth/callback",  # Dummy URI required by API
+        "returnIdpCredential": True,
+        "returnSecureToken": True,
+        "tenantId": request.firebase_tenant_id
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload)
+            
+            if response.status_code != 200:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                logger.warning("gcip_signin_failed", status=response.status_code, error=error_msg)
+                
+                # Map specific GCIP errors to HTTP exceptions
+                if "INVALID_ID_TOKEN" in error_msg:
+                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid OIDC ID Token")
+                elif "EMAIL_EXISTS" in error_msg:
+                     # This happens if account linking is required but not handled here
+                     # For B2B SSO, emails should match and link automatically
+                     raise HTTPException(status.HTTP_409_CONFLICT, "Account linking required")
+                else:
+                    raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Login failed: {error_msg}")
+            
+            data = response.json()
+            
+            # 3. Extract tokens
+            firebase_id_token = data.get('idToken')
+            firebase_uid = data.get('localId')
+            refresh_token = data.get('refreshToken')
+            expires_in = data.get('expiresIn', '3600')
+            
+            logger.info("mobile_login_successful", 
+                        email=request.email, 
+                        firebase_uid=firebase_uid)
+            
+            # 4. Resolve Tenant (for correct return format)
+            tenant = await tenant_service.get_tenant_by_firebase_id(db, request.firebase_tenant_id)
+            
+            if not tenant:
+                 # Should theoretically not happen if GCIP accepted tenantId
+                logger.error("tenant_not_found_after_gcip", tenant_id=request.firebase_tenant_id)
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant context lost")
+
+            return {
+                "firebase_id_token": firebase_id_token,
+                "firebase_uid": firebase_uid,
+                "refresh_token": refresh_token,
+                "expires_in": int(expires_in),
+                "tenant_id": str(tenant.id),
+                "tenant_name": tenant.name
+            }
+            
+    except httpx.RequestError as e:
+        logger.error("gcip_network_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable"
+        )
 
 class OIDCConfigResponse(BaseModel):
     """OIDC configuration for mobile app"""
@@ -143,166 +242,7 @@ async def get_oidc_config(provider_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.post("/mobile-login")
-async def mobile_login(
-    request: MobileLoginRequest,
-    db: AsyncSession = Depends(get_db)):
-    """
-    Exchange OIDC ID token for Firebase custom token (Mobile OAuth flow)
-    
-    Flow:
-    1. Decode & validate OIDC ID token
-    2. Verify tenant and email
-    3. Generate Firebase custom token for that tenant
-    4. Return custom token to mobile app
-    
-    The mobile app will then use signInWithCustomToken() to authenticate.
-    """
-    logger.info("mobile_login_started", email=request.email, firebase_tenant_id=request.firebase_tenant_id)
-    
-    # Get auth provider to retrieve issuer for JWT verification
-    # Extract provider ID from request if needed, or look it up
-    tenant = await tenant_service.get_tenant_by_firebase_id(db, request.firebase_tenant_id)
-    
-    if not tenant:
-        logger.warning("tenant_not_found", firebase_tenant_id=request.firebase_tenant_id)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found"
-        )
-    
-    # Get primary auth provider for this tenant
-    primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
-    
-    if not primary_provider:
-        logger.warning("no_auth_provider", tenant_id=str(tenant.id))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No authentication provider configured for this tenant"
-        )
-    
-    try:
-        # 1. Verify and decode OIDC token with signature validation
-        import jwt
-        from jwt import PyJWKClient
-        
-        # Get JWKS URL from issuer (standard OIDC discovery)
-        issuer_base = primary_provider.oidc_issuer_url.rstrip('/')
-        jwks_url = f"{issuer_base}/.well-known/jwks.json"
-        
-        # Auth0 includes trailing slash in token's iss claim, so we need to match that for validation
-        issuer_for_validation = issuer_base + '/'
-        
-        
-        logger.debug("fetching_jwks", jwks_url=jwks_url)
-        
-        # Fetch and cache public keys
-        jwks_client = PyJWKClient(jwks_url)
-        signing_key = jwks_client.get_signing_key_from_jwt(request.oidc_id_token)
-        
-        # Verify signature and decode
-        decoded = jwt.decode(
-            request.oidc_id_token,
-            signing_key.key,
-            algorithms=["RS256"],
-            audience=primary_provider.oidc_client_id_mobile or primary_provider.oidc_client_id,
-            issuer=issuer_for_validation,  # Use the version with trailing slash to match Auth0
-            leeway=60,  # Allow 60 seconds clock skew
-        )
-        
-        oidc_email = decoded.get('email')
-        
-        if not oidc_email:
-            logger.warning("oidc_token_missing_email")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="OIDC token missing email claim"
-            )
-        
-        logger.debug("oidc_token_verified", oidc_email=oidc_email)
-        
-    except jwt.ExpiredSignatureError:
-        logger.warning("oidc_token_expired")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="OIDC token has expired"
-        )
-    except jwt.InvalidAudienceError:
-        logger.warning("oidc_token_invalid_audience")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="OIDC token audience mismatch"
-        )
-    except jwt.InvalidIssuerError:
-        logger.warning("oidc_token_invalid_issuer")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="OIDC token issuer mismatch"
-        )
-    except jwt.DecodeError as e:
-        logger.warning("oidc_token_invalid", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid OIDC token: {str(e)}"
-        )
-    except Exception as e:
-        logger.error("oidc_token_verification_failed", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token verification failed: {str(e)}"
-        )
-    
-    # 2. Verify email matches
-    if oidc_email.lower() != request.email.lower():
-        logger.warning("email_mismatch", oidc_email=oidc_email, request_email=request.email)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email mismatch between token and request"
-    )
-    
-    # 3. Verify tenant is active (already fetched above)
-    
-    # 3. Verify tenant is active (already fetched above)
-    # Allow 'pending' status for activation flow
-    if tenant.activation_status not in ['active', 'pending']:
-        logger.warning("tenant_not_active", tenant_id=str(tenant.id), status=tenant.activation_status)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Tenant is not active (status: {tenant.activation_status})"
-        )
-    
-    # 4. Generate Firebase UID (deterministic based on email)
-    # This ensures same user gets same UID across sessions
-    firebase_uid = f"oidc-{oidc_email.replace('@', '_').replace('.', '_')}"
-    
-    logger.debug("generating_firebase_token", firebase_uid=firebase_uid, tenant_id=str(tenant.id))
-    
-    # 5. Create Firebase custom token for this tenant
-    try:
-        custom_token = firebase_auth_service.create_custom_token(
-            uid=firebase_uid,
-            tenant_id=request.firebase_tenant_id,
-            claims={'email': oidc_email}
-        )
-        
-        logger.info("mobile_login_successful",
-                   email=oidc_email,
-                   tenant_id=str(tenant.id),
-                   firebase_tenant_id=request.firebase_tenant_id)
-        
-        return {
-            "firebase_custom_token": custom_token.decode('utf-8'),
-            "firebase_uid": firebase_uid,
-            "tenant_id": str(tenant.id),
-            "tenant_name": tenant.name
-        }
-        
-    except Exception as e:
-        logger.error("firebase_token_generation_failed", error=str(e), firebase_uid=firebase_uid)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate Firebase token: {str(e)}"
-        )
+
 
 
 @router.get("/me", response_model=UserResponse)
