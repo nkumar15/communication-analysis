@@ -31,6 +31,7 @@ class MobileLoginRequest(BaseModel):
     email: EmailStr
     firebase_tenant_id: str
     provider_id: str  # e.g., 'oidc.auth0-mycompany'
+    nonce: str | None = None
 
 @router.post("/mobile-login")
 async def mobile_login(
@@ -65,8 +66,11 @@ async def mobile_login(
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={api_key}"
     
     # Construct postBody for generic OIDC provider
-    # Format: id_token=[ID_TOKEN]&providerId=[PROVIDER_ID]
+    # Format: id_token=[ID_TOKEN]&providerId=[PROVIDER_ID]&nonce=[NONCE]
     post_body = f"id_token={request.oidc_id_token}&providerId={request.provider_id}"
+    
+    if request.nonce:
+        post_body += f"&nonce={request.nonce}"
     
     payload = {
         "postBody": post_body,

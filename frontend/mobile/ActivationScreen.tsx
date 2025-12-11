@@ -74,7 +74,7 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
             // 3. Perform Native OAuth Login (System Browser)
             setMessage('Opening login page...');
 
-            const { idToken } = await oidcAuthService.signInWithOIDC({
+            const { idToken, nonce } = await oidcAuthService.signInWithOIDC({
                 issuer: oidcConfig.issuer,
                 clientId: oidcConfig.client_id,
                 scopes: oidcConfig.scopes,
@@ -91,6 +91,7 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
                     email: tenantInfo.admin_email,
                     firebase_tenant_id,
                     provider_id: oidc_provider_id,
+                    nonce: nonce,
                 }),
             });
 

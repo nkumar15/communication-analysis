@@ -61,7 +61,7 @@ export default function LoginScreen({ onLoginSuccess }) {
 
             // 3. Perform OAuth login via system browser
             setStatus('Opening login page...');
-            const { idToken } = await oidcAuthService.signInWithOIDC({
+            const { idToken, nonce } = await oidcAuthService.signInWithOIDC({
                 issuer: oidcConfig.issuer,
                 clientId: oidcConfig.client_id,
                 scopes: oidcConfig.scopes,
@@ -80,6 +80,7 @@ export default function LoginScreen({ onLoginSuccess }) {
                     email,
                     firebase_tenant_id,
                     provider_id: oidc_provider_id,
+                    nonce: nonce,
                 }),
             });
 

@@ -7,6 +7,16 @@
  */
 import { authorize } from 'react-native-app-auth';
 
+// Helper to generate a random nonce string
+const generateNonce = (length = 32) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+};
+
 class OIDCAuthService {
     /**
      * Perform OAuth/OIDC login using system browser
@@ -16,9 +26,11 @@ class OIDCAuthService {
      * @param {string} config.clientId - OAuth client ID
      * @param {string[]} config.scopes - Requested scopes
      * @param {string} config.email - Optional email hint
-     * @returns {Promise<object>} - { idToken, accessToken, refreshToken }
+     * @returns {Promise<object>} - { idToken, accessToken, refreshToken, nonce }
      */
     async signInWithOIDC({ issuer, clientId, scopes, email }) {
+        const nonce = generateNonce();
+
         const config = {
             issuer,
             clientId,
@@ -28,8 +40,13 @@ class OIDCAuthService {
             // Pass additional parameters for better UX
             additionalParameters: email ? {
                 login_hint: email,
-                screen_hint: 'login'  // Suggest login, not signup
-            } : {},
+                screen_hint: 'login',  // Suggest login, not signup
+                nonce: nonce, // Pass nonce to IdP (Auth0)
+            } : {
+                nonce: nonce,
+            },
+            // Also explicitly set nonce if supported by the library version directly
+            nonce: nonce,
         };
 
         console.log('🔐 Starting OAuth flow with config:', {
@@ -37,6 +54,7 @@ class OIDCAuthService {
             clientId,
             redirectUrl: config.redirectUrl,
             scopes: config.scopes,
+            nonce: nonce,
         });
 
         // DEBUG: Log the expected redirect URL
@@ -57,6 +75,7 @@ class OIDCAuthService {
                 accessToken: result.accessToken,
                 refreshToken: result.refreshToken,
                 tokenType: result.tokenType,
+                nonce: nonce, // Return the nonce we sent
             };
         } catch (error) {
             console.error('❌ OAuth error:', error);
