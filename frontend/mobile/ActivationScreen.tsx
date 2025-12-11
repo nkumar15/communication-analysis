@@ -90,12 +90,24 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
                     oidc_id_token: idToken,
                     email: tenantInfo.admin_email,
                     firebase_tenant_id,
+                    provider_id: oidc_provider_id,
                 }),
             });
 
             if (!tokenResponse.ok) {
                 const error = await tokenResponse.json();
-                throw new Error(error.detail || 'Authentication failed');
+                let errorMessage = 'Authentication failed';
+
+                if (typeof error.detail === 'string') {
+                    errorMessage = error.detail;
+                } else if (Array.isArray(error.detail)) {
+                    // Pydantic validation errors
+                    errorMessage = error.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join('\n');
+                } else {
+                    errorMessage = JSON.stringify(error);
+                }
+
+                throw new Error(errorMessage);
             }
 
             const { firebase_custom_token } = await tokenResponse.json();

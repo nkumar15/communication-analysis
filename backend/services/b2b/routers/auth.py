@@ -127,7 +127,6 @@ async def mobile_login(
     except httpx.RequestError as e:
         logger.error("gcip_network_error", error=str(e))
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service unavailable"
         )
 
@@ -136,6 +135,7 @@ class OIDCConfigResponse(BaseModel):
     issuer: str
     client_id: str
     scopes: list[str]
+
 
 
 @router.post("/resolve-tenant", response_model=TenantResolutionResponse)
