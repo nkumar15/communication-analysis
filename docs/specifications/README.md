@@ -8,7 +8,7 @@ This directory contains detailed functional requirements and acceptance criteria
 |----|---------|------|--------|
 | **SPEC-01** | **Tenant Onboarding** | [`tenant-onboarding.md`](./tenant-onboarding.md) | ✅ Live |
 | **SPEC-02** | **Authentication & Identity** | [`authentication.md`](./authentication.md) | ✅ Live |
-| **SPEC-03** | **RBAC & Permissions** | *Planned* | ❌ Draft |
+| **SPEC-03** | **RBAC & Permissions** | [`rbac.md`](./rbac.md) | ✅ Live |
 | **SPEC-04** | **User Management** | *Planned* | ❌ Draft |
 | **SPEC-05** | **Domain Logic (Projects)** | *Planned* | ❌ Draft |
 | **SPEC-06** | **Platform Administration** | *Planned* | ❌ Draft |
