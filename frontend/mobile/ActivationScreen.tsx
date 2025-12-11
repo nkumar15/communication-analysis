@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import apiService from '../src/core/api/b2bClient';
 import firebaseAuthService from '../src/core/firebase/authService';
+import oidcAuthService from '../src/core/firebase/oidcAuthService.native';
 
 /**
  * Mobile Activation Screen
@@ -72,10 +73,8 @@ export default function ActivationScreen({ token: initialToken, onSuccess }) {
 
             // 3. Perform Native OAuth Login (System Browser)
             setMessage('Opening login page...');
-            // Dynamically import oidcAuthService or ensure it's available
-            const oidcAuth = require('../src/core/firebase/oidcAuthService.native').default;
 
-            const { idToken } = await oidcAuth.signInWithOIDC({
+            const { idToken } = await oidcAuthService.signInWithOIDC({
                 issuer: oidcConfig.issuer,
                 clientId: oidcConfig.client_id,
                 scopes: oidcConfig.scopes,
