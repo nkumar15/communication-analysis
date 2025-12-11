@@ -119,8 +119,18 @@ async def mobile_login(
                 logger.error("tenant_not_found_after_gcip", tenant_id=request.firebase_tenant_id)
                 raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant context lost")
 
+            # 5. Mint Custom Token for Client SDK
+            # The client needs a Custom Token to perform 'signInWithCustomToken'.
+            # The ID token we got from GCIP is valid but cannot be used to 'start' a session in the Client SDK easily.
+            custom_token_bytes = firebase_auth_service.create_custom_token(
+                uid=firebase_uid,
+                tenant_id=request.firebase_tenant_id
+            )
+            custom_token = custom_token_bytes.decode('utf-8')
+
             return {
-                "firebase_id_token": firebase_id_token,
+                "firebase_custom_token": custom_token, # CRITICAL: Used by Client to Sign In
+                "firebase_id_token": firebase_id_token, # Optional: For immediate API calls if needed
                 "firebase_uid": firebase_uid,
                 "refresh_token": refresh_token,
                 "expires_in": int(expires_in),
