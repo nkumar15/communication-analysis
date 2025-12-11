@@ -248,3 +248,67 @@ Add permissions for the new resource to relevant roles in the same script.
 | Tenant Role | `b2b.users.role_id` → `b2b.roles` | `permission_checker.py` |
 | Team Scope | `b2b.team_members.team_role` | `scope_checker.py` |
 | Domain Permissions | `b2b.role_permissions` | Joined query |
+
+---
+
+## 7. Frontend Integration
+
+The `/auth/me` API returns permissions and teams for frontend component visibility control.
+
+### API Response
+
+```json
+{
+    "id": "...",
+    "email": "user@company.com",
+    "role": "member",
+    "role_display_name": "Member",
+    "tenant_id": "...",
+    "tenant_name": "Company Inc",
+    "permissions": ["projects:read", "tasks:read", "tasks:write", "comments:read"],
+    "teams": [
+        {"id": "...", "name": "Engineering", "team_role": "team_member"}
+    ]
+}
+```
+
+### useAuth Hook
+
+```javascript
+import useAuth from 'core/hooks/useAuth';
+
+const MyComponent = () => {
+    const { 
+        user,
+        hasPermission,  // Check resource:action
+        canAccess,      // Check feature access
+        getTeams,       // Get user's teams
+        isTeamManager   // Check if manages any team
+    } = useAuth();
+
+    return (
+        <>
+            {/* Component visibility based on permission */}
+            {hasPermission('users', 'invite') && <InviteButton />}
+            
+            {/* Feature access */}
+            {canAccess('audit_logs') && <AuditLogsLink />}
+            
+            {/* Team-based UI */}
+            {isTeamManager() && <ManageTeamButton />}
+        </>
+    );
+};
+```
+
+### Permission Mapping
+
+| Feature | Required Permission |
+|---------|---------------------|
+| Dashboard | `dashboard:read` |
+| Projects | `projects:read` |
+| Users | `users:read` |
+| Teams | `teams:read` |
+| Audit Logs | `audit_logs:read` |
+| Invitations | `invitations:read` |
+

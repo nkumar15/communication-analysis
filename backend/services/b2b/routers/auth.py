@@ -321,6 +321,26 @@ async def get_current_user_info(
         role=user_role
     )
     
+    # Fetch permissions for frontend visibility control
+    from services.b2b.rbac import get_user_permissions, get_user_team_ids
+    from services.b2b.models.team import Team
+    from services.b2b.models.team_member import TeamMember
+    from services.b2b.schemas.user import TeamMembership
+    
+    permissions = await get_user_permissions(user.id, db)
+    
+    # Fetch teams the user belongs to
+    teams_result = await db.execute(
+        select(Team, TeamMember.team_role)
+        .join(TeamMember, Team.id == TeamMember.team_id)
+        .where(TeamMember.user_id == user.id)
+        .where(Team.deleted_at.is_(None))
+    )
+    teams = [
+        TeamMembership(id=team.id, name=team.name, team_role=team_role)
+        for team, team_role in teams_result.all()
+    ]
+    
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -328,7 +348,9 @@ async def get_current_user_info(
         role=user.role,  # Slug (e.g., 'admin')
         role_display_name=user.role_display_name,
         tenant_id=tenant.id,
-        tenant_name=tenant.name
+        tenant_name=tenant.name,
+        permissions=permissions,
+        teams=teams
     )
 
 
@@ -406,10 +428,32 @@ async def sync_user(
         user_agent=request.headers.get("User-Agent")
     )
     
+    # Fetch permissions for frontend visibility control
+    from services.b2b.rbac import get_user_permissions
+    from services.b2b.models.team import Team
+    from services.b2b.models.team_member import TeamMember
+    
+    permissions = await get_user_permissions(user.id, db)
+    
+    # Fetch teams
+    teams_result = await db.execute(
+        select(Team.id, Team.name, TeamMember.team_role)
+        .join(TeamMember, Team.id == TeamMember.team_id)
+        .where(TeamMember.user_id == user.id)
+        .where(Team.deleted_at.is_(None))
+    )
+    teams = [
+        {"id": str(team_id), "name": name, "team_role": team_role}
+        for team_id, name, team_role in teams_result.all()
+    ]
+    
     return {
         "message": "User synced successfully",
         "user_id": user.id,
         "email": user.email,
         "role": user.role,  # Slug
-        "role_display_name": user.role_display_name
+        "role_display_name": user.role_display_name,
+        "permissions": permissions,
+        "teams": teams
     }
+

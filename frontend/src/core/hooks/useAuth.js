@@ -5,7 +5,11 @@ import { auth } from '../firebase/config';
 /**
  * Custom hook for authentication and authorization
  * Provides current user info, role checking, and permission helpers
+ * 
  * NOTE: This is for B2B users only. Platform admins should not use this hook.
+ * 
+ * The hook now uses permissions from the API response for component visibility,
+ * rather than hardcoded role-to-permission mappings.
  */
 export const useAuth = () => {
     const [user, setUser] = useState(null);
@@ -32,6 +36,7 @@ export const useAuth = () => {
                 return;
             }
 
+            // API now returns permissions and teams
             const userData = await apiService.getCurrentUser();
             setUser(userData);
         } catch (err) {
@@ -55,24 +60,67 @@ export const useAuth = () => {
     };
 
     /**
+     * Check if user has a specific permission (resource:action format)
+     * Uses the permissions array from /auth/me API response
+     * 
+     * @param {string} resource - Resource name (e.g., 'projects', 'users')
+     * @param {string} action - Action name (e.g., 'read', 'write', 'delete')
+     * @returns {boolean}
+     * 
+     * @example
+     * hasPermission('projects', 'write')  // true if user can write projects
+     * hasPermission('users', 'invite')    // true if user can invite users
+     */
+    const hasPermission = (resource, action) => {
+        if (!user || !user.permissions) return false;
+        return user.permissions.includes(`${resource}:${action}`);
+    };
+
+    /**
      * Check if user can access a specific feature
-     * @param {string} feature - Feature name (dashboard, users, roles, projects)
+     * Maps feature names to required permissions
+     * 
+     * @param {string} feature - Feature name
      * @returns {boolean}
      */
     const canAccess = (feature) => {
-        if (!user || !user.role) return false;
+        if (!user) return false;
 
-        const permissions = {
-            dashboard: ['owner', 'admin', 'viewer', 'field_manager'], // All roles can view dashboard
-            projects: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access projects
-            users: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage users
-            roles: ['owner', 'admin', 'field_manager'], // Owner, Admin, and Field Manager can manage roles
-            teams: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access teams
-            account: ['owner', 'admin', 'viewer', 'field_manager', 'field_agent', 'manager', 'member'], // All roles can access account settings
-            audit_logs: ['owner', 'admin'] // Only Owner and Admin can access audit logs
+        // Map features to required permissions
+        const featurePermissions = {
+            dashboard: 'dashboard:read',
+            projects: 'projects:read',
+            users: 'users:read',
+            teams: 'teams:read',
+            account: 'account:read',
+            audit_logs: 'audit_logs:read',
+            invitations: 'invitations:read'
         };
 
-        return permissions[feature]?.includes(user.role) || false;
+        const requiredPermission = featurePermissions[feature];
+        if (!requiredPermission) {
+            // Unknown feature - allow if user has any permissions (authenticated)
+            return user.permissions?.length > 0;
+        }
+
+        const [resource, action] = requiredPermission.split(':');
+        return hasPermission(resource, action);
+    };
+
+    /**
+     * Get the user's teams
+     * @returns {Array<{id: string, name: string, team_role: string}>}
+     */
+    const getTeams = () => {
+        return user?.teams || [];
+    };
+
+    /**
+     * Check if user is a manager in any team
+     * @returns {boolean}
+     */
+    const isTeamManager = () => {
+        return getTeams().some(t => t.team_role === 'team_manager');
     };
 
     /**
@@ -87,12 +135,10 @@ export const useAuth = () => {
                 return 'All Users (Organization Owner)';
             case 'admin':
                 return 'All Users (Organization-wide)';
+            case 'member':
+                return 'Team Data';
             case 'viewer':
                 return 'View Only';
-            case 'field_manager':
-                return 'Your Team';
-            case 'field_agent':
-                return 'My Data';
             default:
                 return 'Unknown';
         }
@@ -105,10 +151,16 @@ export const useAuth = () => {
     const getInvitableRoles = () => {
         if (!user) return [];
 
+        // Check if user can invite
+        if (!hasPermission('users', 'invite')) {
+            return [];
+        }
+
         if (user.role === 'owner') {
             return [
                 { value: 'owner', label: 'Owner' },
                 { value: 'admin', label: 'Admin' },
+                { value: 'member', label: 'Member' },
                 { value: 'viewer', label: 'Viewer' }
             ];
         }
@@ -116,14 +168,8 @@ export const useAuth = () => {
         if (user.role === 'admin') {
             return [
                 { value: 'admin', label: 'Admin' },
+                { value: 'member', label: 'Member' },
                 { value: 'viewer', label: 'Viewer' }
-            ];
-        }
-
-        // Legacy support for field_manager
-        if (user.role === 'field_manager') {
-            return [
-                { value: 'field_agent', label: 'Field Agent' }
             ];
         }
 
@@ -135,7 +181,10 @@ export const useAuth = () => {
         loading,
         error,
         hasRole,
+        hasPermission,  // NEW: Check specific resource:action
         canAccess,
+        getTeams,       // NEW: Get user's teams
+        isTeamManager,  // NEW: Check if user manages any team
         getScopeLabel,
         getInvitableRoles,
         refresh: loadUser

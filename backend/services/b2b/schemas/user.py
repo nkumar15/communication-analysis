@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 
@@ -18,12 +18,24 @@ class User(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
+class TeamMembership(BaseModel):
+    """User's membership in a team"""
+    id: UUID
+    name: str
+    team_role: str  # team_manager, team_member, team_viewer
+
+
 class UserResponse(BaseModel):
-    """User information response"""
+    """User information response with permissions for frontend"""
     id: UUID
     email: str
     name: Optional[str] = None
-    role: Optional[str] = None  # Role slug (e.g., "admin", "field_manager")
-    role_display_name: Optional[str] = None  # Role display name (e.g., "Admin", "Field Manager")
+    role: Optional[str] = None  # Role slug (e.g., "admin", "member")
+    role_display_name: Optional[str] = None  # Role display name (e.g., "Admin", "Member")
     tenant_id: UUID
     tenant_name: str
+    # Frontend permission checking
+    permissions: List[str] = []  # ["projects:read", "users:invite", ...]
+    teams: List[TeamMembership] = []  # Teams user belongs to
+
