@@ -106,7 +106,7 @@ async def create_local_async(
 
     async with AsyncSessionLocal() as db:
         try:
-            from core.rls import RLSService as rls_service
+            from core.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             # Call service with optional ID params to skip external calls
@@ -197,7 +197,7 @@ async def resend_activation_async(tenant_id, domain):
     
     async with AsyncSessionLocal() as db:
         try:
-            from core.rls import RLSService as rls_service
+            from core.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             # Find tenant by ID or domain

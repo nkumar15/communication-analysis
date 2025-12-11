@@ -271,7 +271,7 @@ async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
         result = await db_session.execute(select(Team).where(Team.id == team_id))
         team = result.scalar_one()
     """
-    from core.rls import RLSService as rls_service
+    from core.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
 
 

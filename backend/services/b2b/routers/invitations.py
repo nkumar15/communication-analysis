@@ -415,7 +415,7 @@ async def validate_invitation(
     # Get invitation by token
     # CRITICAL: We must bypass RLS here because we don't know the tenant yet.
     # The token itself is the secure key to find the tenant.
-    from core.rls import RLSService as rls_service
+    from core.rls import rls_service
     await rls_service.set_platform_admin_context(db)
     
     from services.b2b.models import InvitationModel
@@ -484,7 +484,7 @@ async def join_tenant(
     
     # Get invitation
     # CRITICAL: Bypass RLS to find invitation globally
-    from core.rls import RLSService as rls_service
+    from core.rls import rls_service
     await rls_service.set_platform_admin_context(db)
 
     # Get invitation by token

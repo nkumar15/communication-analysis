@@ -105,7 +105,7 @@ async def get_platform_stats(
     """Get global platform statistics"""
     
     # Explicitly set platform admin context
-    from core.rls import RLSService as rls_service
+    from core.rls import rls_service
     await rls_service.set_platform_admin_context(db)
     
     # Total Tenants
@@ -142,7 +142,7 @@ async def list_tenants(
     """List all tenants with basic stats"""
     
     # Explicitly set platform admin context
-    from core.rls import RLSService as rls_service
+    from core.rls import rls_service
     await rls_service.set_platform_admin_context(db)
     
     query = select(TenantModel).where(TenantModel.deleted_at.is_(None))
