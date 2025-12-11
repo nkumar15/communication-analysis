@@ -7,7 +7,7 @@ from datetime import datetime, date
 
 class TaskBase(BaseModel):
     """Base task schema"""
-    title: str = Field(..., max_length=200, description="Task title")
+    title: str = Field(..., min_length=1, max_length=200, description="Task title")
     description: Optional[str] = Field(None, description="Task description")
 
 

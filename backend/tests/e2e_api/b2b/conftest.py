@@ -47,6 +47,21 @@ async def domain_test_data(db_session):
         db_session.add_all(domain_resources)
         await db_session.commit()  # CRITICAL: Commit so resources are visible to seed_tenant_roles
     
+    # Update role templates with domain permissions (needed for viewer read access)
+    from services.b2b.models.role_template import RoleTemplate
+    domain_perms_viewer = [
+        {"resource": "projects", "actions": ["read"]},
+        {"resource": "tasks", "actions": ["read"]},
+        {"resource": "comments", "actions": ["read"]},
+    ]
+    result = await db_session.execute(select(RoleTemplate).where(RoleTemplate.name == 'viewer'))
+    viewer_template = result.scalar_one_or_none()
+    if viewer_template:
+        for perm in domain_perms_viewer:
+            if perm not in viewer_template.permissions:
+                viewer_template.permissions = viewer_template.permissions + [perm]
+        await db_session.commit()
+    
     # Create tenant
     tenant = await create_test_tenant(db_session)
     
@@ -146,6 +161,26 @@ async def domain_test_data(db_session):
     )
     tenant2_team = result.scalar_one()
     
+    # Create viewer user (read-only role) in default team
+    viewer = await create_test_user(
+        db_session,
+        tenant_id=tenant.id,
+        email=f"viewer@{tenant.domain}",
+        role_slug="viewer"
+    )
+    viewer_assoc = TeamMember(
+        team_id=default_team.id,
+        user_id=viewer.id,
+        team_role="team_viewer"
+    )
+    db_session.add(viewer_assoc)
+    
+    viewer_token = encode_mock_jwt(create_mock_firebase_token(
+        uid=viewer.firebase_uid,
+        email=viewer.email,
+        firebase_tenant_id=tenant.firebase_tenant_id
+    ))
+    
     await db_session.commit()
     
     return {
@@ -158,6 +193,8 @@ async def domain_test_data(db_session):
         "team_member_token": team_member_token,
         "other_team_member": other_team_member,
         "other_team_member_token": other_team_member_token,
+        "viewer": viewer,
+        "viewer_token": viewer_token,
         "tenant2": tenant2,
         "tenant2_owner": tenant2_owner,
         "tenant2_owner_token": tenant2_owner_token,

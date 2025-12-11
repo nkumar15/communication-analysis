@@ -270,3 +270,147 @@ class TestCommentsAPI:
             }
         )
         assert response.status_code == 403
+
+
+class TestCommentsViewerRestrictions:
+    """Test that Viewer role cannot perform write operations on comments"""
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_create_comment(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Viewer should get 403 when trying to create a comment"""
+        response = await api_client.post(
+            "/api/domain/comments",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"},
+            json={
+                "task_id": str(team_task),
+                "content": "Viewer comment"
+            }
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_can_read_comments(
+        self, api_client, domain_test_data, team_task, team_comment
+    ):
+        """Viewer should be able to read comments on tasks in their team"""
+        response = await api_client.get(
+            f"/api/domain/comments/task/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"}
+        )
+        assert response.status_code == 200
+
+
+class TestCommentsDeleteRestrictions:
+    """Test delete permission restrictions"""
+    
+    @pytest.mark.asyncio
+    async def test_cannot_delete_others_comment(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Test user cannot delete someone else's comment"""
+        # Create comment as team member
+        resp = await api_client.post(
+            "/api/domain/comments",
+            headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"},
+            json={
+                "task_id": str(team_task),
+                "content": "My precious comment"
+            }
+        )
+        comment_id = resp.json()["id"]
+        
+        # Try to delete as different user (not owner)
+        response = await api_client.delete(
+            f"/api/domain/comments/{comment_id}",
+            headers={"Authorization": f"Bearer {domain_test_data['other_team_member_token']}"}
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_owner_can_delete_any_comment(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Test owner can delete any comment in their tenant"""
+        # Create comment as team member
+        resp = await api_client.post(
+            "/api/domain/comments",
+            headers={"Authorization": f"Bearer {domain_test_data['team_member_token']}"},
+            json={
+                "task_id": str(team_task),
+                "content": "Owner can delete this"
+            }
+        )
+        comment_id = resp.json()["id"]
+        
+        # Owner deletes it
+        response = await api_client.delete(
+            f"/api/domain/comments/{comment_id}",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 204
+
+
+class TestCommentsValidation:
+    """Test input validation for Comments API"""
+    
+    @pytest.mark.asyncio
+    async def test_create_comment_empty_content(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Test that empty comment content is rejected"""
+        response = await api_client.post(
+            "/api/domain/comments",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "task_id": str(team_task),
+                "content": ""
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_comment_missing_task_id(
+        self, api_client, domain_test_data
+    ):
+        """Test that missing task_id is rejected"""
+        response = await api_client.post(
+            "/api/domain/comments",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "content": "Comment without task"
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_comment_invalid_task_id(
+        self, api_client, domain_test_data
+    ):
+        """Test that invalid task_id format is rejected"""
+        response = await api_client.post(
+            "/api/domain/comments",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "task_id": "not-a-uuid",
+                "content": "Comment"
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_comment_invalid_parent_id(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Test that invalid parent_comment_id format is rejected"""
+        response = await api_client.post(
+            "/api/domain/comments",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "task_id": str(team_task),
+                "content": "Reply",
+                "parent_comment_id": "not-a-uuid"
+            }
+        )
+        assert response.status_code == 422

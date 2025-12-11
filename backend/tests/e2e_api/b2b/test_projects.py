@@ -171,3 +171,107 @@ class TestProjectsAPI:
             headers={"Authorization": f"Bearer {domain_test_data['tenant2_owner_token']}"}
         )
         assert response.status_code == 403
+
+
+class TestProjectsViewerRestrictions:
+    """Test that Viewer role cannot perform write operations"""
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_create_project(self, api_client, domain_test_data):
+        """Viewer should get 403 when trying to create a project"""
+        response = await api_client.post(
+            "/api/domain/projects",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"},
+            json={
+                "team_id": str(domain_test_data['default_team'].id),
+                "name": "Viewer Project",
+                "description": "Should fail"
+            }
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_update_project(
+        self, api_client, domain_test_data, team_project
+    ):
+        """Viewer should get 403 when trying to update a project"""
+        response = await api_client.put(
+            f"/api/domain/projects/{team_project}",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"},
+            json={"name": "Hacked Name"}
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_delete_project(
+        self, api_client, domain_test_data, team_project
+    ):
+        """Viewer should get 403 when trying to delete a project"""
+        response = await api_client.delete(
+            f"/api/domain/projects/{team_project}",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"}
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_can_read_project(
+        self, api_client, domain_test_data, team_project
+    ):
+        """Viewer should be able to read projects in their team"""
+        response = await api_client.get(
+            f"/api/domain/projects/{team_project}",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"}
+        )
+        assert response.status_code == 200
+
+
+class TestProjectsValidation:
+    """Test input validation for Projects API"""
+    
+    @pytest.mark.asyncio
+    async def test_create_project_empty_name(self, api_client, domain_test_data):
+        """Test that empty project name is rejected"""
+        response = await api_client.post(
+            "/api/domain/projects",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "team_id": str(domain_test_data['default_team'].id),
+                "name": "",
+                "description": "Should fail"
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_project_missing_team_id(self, api_client, domain_test_data):
+        """Test that missing team_id is rejected"""
+        response = await api_client.post(
+            "/api/domain/projects",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "name": "Project Without Team"
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_project_invalid_team_id(self, api_client, domain_test_data):
+        """Test that invalid team_id format is rejected"""
+        response = await api_client.post(
+            "/api/domain/projects",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "team_id": "not-a-uuid",
+                "name": "Project"
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_get_project_invalid_id(self, api_client, domain_test_data):
+        """Test that invalid project ID returns 422"""
+        response = await api_client.get(
+            "/api/domain/projects/not-a-uuid",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 422

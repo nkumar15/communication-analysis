@@ -190,3 +190,145 @@ class TestTasksAPI:
             headers={"Authorization": f"Bearer {domain_test_data['tenant2_owner_token']}"}
         )
         assert response.status_code == 403
+
+
+class TestTasksViewerRestrictions:
+    """Test that Viewer role cannot perform write operations"""
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_create_task(
+        self, api_client, domain_test_data, team_project
+    ):
+        """Viewer should get 403 when trying to create a task"""
+        response = await api_client.post(
+            "/api/domain/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"},
+            json={
+                "project_id": str(team_project),
+                "title": "Viewer Task"
+            }
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_update_task(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Viewer should get 403 when trying to update a task"""
+        response = await api_client.put(
+            f"/api/domain/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"},
+            json={"title": "Hacked Title"}
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_delete_task(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Viewer should get 403 when trying to delete a task"""
+        response = await api_client.delete(
+            f"/api/domain/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"}
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_cannot_change_task_status(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Viewer should get 403 when trying to change task status"""
+        response = await api_client.patch(
+            f"/api/domain/tasks/{team_task}/status?status=in_progress",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"}
+        )
+        assert response.status_code == 403
+    
+    @pytest.mark.asyncio
+    async def test_viewer_can_read_task(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Viewer should be able to read tasks in their team's projects"""
+        response = await api_client.get(
+            f"/api/domain/tasks/{team_task}",
+            headers={"Authorization": f"Bearer {domain_test_data['viewer_token']}"}
+        )
+        assert response.status_code == 200
+
+
+class TestTasksStatusTransitions:
+    """Test valid and invalid status transitions"""
+    
+    @pytest.mark.asyncio
+    async def test_invalid_status_value(
+        self, api_client, domain_test_data, team_task
+    ):
+        """Test that invalid status value is rejected"""
+        response = await api_client.patch(
+            f"/api/domain/tasks/{team_task}/status?status=invalid_status",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"}
+        )
+        assert response.status_code == 422
+
+
+class TestTasksValidation:
+    """Test input validation for Tasks API"""
+    
+    @pytest.mark.asyncio
+    async def test_create_task_empty_title(
+        self, api_client, domain_test_data, team_project
+    ):
+        """Test that empty task title is rejected"""
+        response = await api_client.post(
+            "/api/domain/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "project_id": str(team_project),
+                "title": ""
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_task_missing_project_id(
+        self, api_client, domain_test_data
+    ):
+        """Test that missing project_id is rejected"""
+        response = await api_client.post(
+            "/api/domain/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "title": "Task Without Project"
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_task_invalid_project_id(
+        self, api_client, domain_test_data
+    ):
+        """Test that invalid project_id format is rejected"""
+        response = await api_client.post(
+            "/api/domain/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "project_id": "not-a-uuid",
+                "title": "Task"
+            }
+        )
+        assert response.status_code == 422
+    
+    @pytest.mark.asyncio
+    async def test_create_task_nonexistent_project(
+        self, api_client, domain_test_data
+    ):
+        """Test task creation with non-existent project fails"""
+        response = await api_client.post(
+            "/api/domain/tasks",
+            headers={"Authorization": f"Bearer {domain_test_data['owner_token']}"},
+            json={
+                "project_id": str(uuid4()),
+                "title": "Task"
+            }
+        )
+        assert response.status_code in [403, 404]

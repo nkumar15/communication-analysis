@@ -117,6 +117,21 @@ if __name__ == "__main__":
                     member.permissions.append(perm)
             await db.commit()
             print("✓ Updated member role with domain permissions")
+        
+        # Update viewer role (read-only access)
+        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'viewer'))
+        viewer = result.scalar_one_or_none()
+        if viewer:
+            domain_perms = [
+                {"resource": "projects", "actions": ["read"]},
+                {"resource": "tasks", "actions": ["read"]},
+                {"resource": "comments", "actions": ["read"]},
+            ]
+            for perm in domain_perms:
+                if perm not in viewer.permissions:
+                    viewer.permissions.append(perm)
+            await db.commit()
+            print("✓ Updated viewer role with domain permissions")
 
     async def main():
         """Main seeding function"""

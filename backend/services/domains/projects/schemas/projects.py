@@ -7,7 +7,7 @@ from datetime import datetime
 
 class ProjectBase(BaseModel):
     """Base project schema"""
-    name: str = Field(..., max_length=200, description="Project name")
+    name: str = Field(..., min_length=1, max_length=200, description="Project name")
     description: Optional[str] = Field(None, description="Project description")
 
 
