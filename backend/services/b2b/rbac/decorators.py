@@ -31,14 +31,16 @@ def require_permission(resource: str, action: str):
     ):
         """Check if user has required permission"""
         user_id = current_user.get('id')
+        
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated"
             )
         
-        # Check permission
-        allowed = await has_permission(user_id, resource, action, db)
+        # Check permission (optimized with role_id)
+        role_id = current_user.get('role_id')
+        allowed = await has_permission(user_id, resource, action, db, role_id=role_id)
         if not allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -75,9 +77,14 @@ def require_role(*allowed_roles: str):
                 detail="Not authenticated"
             )
         
-        # Get user's role
-        role_name = await get_user_role_name(user_id, db)
-        if role_name not in allowed_roles:
+        # Use cached role slug from token/middleware if available
+        role_slug = current_user.get('role')
+        
+        # Determine role name (fallback to DB if missing in token context)
+        if not role_slug:
+            role_slug = await get_user_role_name(user_id, db)
+            
+        if role_slug not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Access denied. Required roles: {', '.join(allowed_roles)}"

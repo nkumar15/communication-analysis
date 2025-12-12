@@ -8,7 +8,7 @@ import csv
 import io
 
 from core.database import get_db
-from services.b2b.middleware.b2b_auth import require_role
+from services.b2b.rbac.decorators import require_permission, require_role
 from services.b2b.models.audit_log import AuditLog
 from services.b2b.schemas.audit_logs import AuditLogList, AuditLogResponse
 
@@ -21,7 +21,7 @@ async def list_audit_logs(
     event_type: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    current_user: dict = Depends(require_role(["owner", "admin"])),
+    current_user: dict = require_role("owner", "admin"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -64,7 +64,7 @@ async def export_audit_logs(
     event_type: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    current_user: dict = Depends(require_role(["owner", "admin"])),
+    current_user: dict = require_role("owner", "admin"),
     db: AsyncSession = Depends(get_db)
 ):
     """

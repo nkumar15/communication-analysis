@@ -13,7 +13,8 @@ async def has_permission(
     user_id: UUID,
     resource: str,
     action: str,
-    db: AsyncSession
+    db: AsyncSession,
+    role_id: UUID | None = None
 ) -> bool:
     """
     Check if user has permission for resource:action
@@ -26,22 +27,28 @@ async def has_permission(
         resource: Resource name (e.g., 'projects', 'users')
         action: Action name (e.g., 'read', 'write')
         db: Database session
+        role_id: Optional Role ID to skip User lookup if already known
         
     Returns:
         bool: True if user has permission, False otherwise
     """
-    # Get user's role using explicit query (respects RLS)
-    user_result = await db.execute(
-        select(UserModel).where(UserModel.id == user_id)
-    )
-    user = user_result.scalar_one_or_none()
-    
-    if not user or not user.role_id:
-        return False
+    current_role_id = role_id
+
+    if not current_role_id:
+        # Get user's role using explicit query (respects RLS)
+        user_result = await db.execute(
+            select(UserModel).where(UserModel.id == user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user or not user.role_id:
+            return False
+        current_role_id = user.role_id
     
     # Get role using explicit query (respects RLS)
+    # Optimization: Could cache role existence/active check if often repeated
     role_result = await db.execute(
-        select(Role).where(Role.id == user.role_id)
+        select(Role).where(Role.id == current_role_id)
     )
     role = role_result.scalar_one_or_none()
     

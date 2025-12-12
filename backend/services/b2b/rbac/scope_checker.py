@@ -137,11 +137,6 @@ async def is_team_manager(user_id: UUID, team_id: UUID, db: AsyncSession) -> boo
             user_id, team_id, 'team_members', 'manage', db, 
             role_def_override=role_def
         )
-
-    # Legacy fallback: check old team_role column
-    if member.team_role == 'team_manager':
-        return True
-    
     return False
 
 
