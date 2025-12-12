@@ -36,9 +36,8 @@ Checks if the user's role has the specific capability.
 from services.b2b.rbac.decorators import require_permission
 
 @router.get("/projects")
-@require_permission('projects', 'read')
 async def list_projects(
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = require_permission('projects', 'read'),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -55,10 +54,10 @@ Checks for a specific named role. Use sparingly; prefer permissions for flexibil
 from services.b2b.rbac.decorators import require_role
 
 @router.post("/invite")
-@require_role('admin', 'owner', 'team_manager')
 async def invite_user(
     email: str,
     # ...
+    current_user: dict = require_role('admin', 'owner', 'team_manager')
 ):
     """Only admins or team managers can invite"""
     pass

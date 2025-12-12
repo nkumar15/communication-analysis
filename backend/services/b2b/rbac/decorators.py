@@ -58,12 +58,12 @@ def require_role(*allowed_roles: str):
     
     Usage:
         @router.post("/invite")
-        @require_role('admin', 'field_manager')
+        @require_role('admin', 'owner')
         async def invite_user(current_user: dict = Depends(get_current_user)):
             ...
     
     Args:
-        *allowed_roles: Role names that are allowed (e.g., 'admin', 'field_manager')
+        *allowed_roles: Role names that are allowed (e.g., 'admin', 'owner')
     """
     async def role_dependency(
         current_user: dict = Depends(get_current_active_user),
