@@ -34,13 +34,19 @@ router = APIRouter(
 
 # --- Schemas ---
 
-class TenantListResponse(BaseModel):
+class TenantItem(BaseModel):
     id: UUID
     name: str
     domain: str
     status: str
     created_at: datetime
     user_count: int
+
+class TenantListResponse(BaseModel):
+    items: List[TenantItem]
+    total: int
+    page: int
+    limit: int
 
 class TenantCreateRequest(BaseModel):
     name: str
@@ -131,7 +137,7 @@ async def get_platform_stats(
         total_users=total_users or 0
     )
 
-@router.get("/tenants", response_model=List[TenantListResponse])
+@router.get("/tenants", response_model=TenantListResponse)
 async def list_tenants(
     skip: int = 0,
     limit: int = 20,
@@ -145,6 +151,7 @@ async def list_tenants(
     from core.rls import rls_service
     await rls_service.set_platform_admin_context(db)
     
+    # Base query for counting and selecting
     query = select(TenantModel).where(TenantModel.deleted_at.is_(None))
     
     if search:
@@ -152,20 +159,26 @@ async def list_tenants(
             (TenantModel.name.ilike(f"%{search}%")) | 
             (TenantModel.domain.ilike(f"%{search}%"))
         )
-        
-    query = query.offset(skip).limit(limit).order_by(TenantModel.created_at.desc())
     
-    result = await db.execute(query)
+    # Get total count for pagination
+    # Note: We need to clone the query or construct a count query
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query)
+        
+    # Apply pagination
+    paginated_query = query.offset(skip).limit(limit).order_by(TenantModel.created_at.desc())
+    
+    result = await db.execute(paginated_query)
     tenants = result.scalars().all()
     
-    response = []
+    items = []
     for tenant in tenants:
         # Count users for this tenant
         user_count = await db.scalar(
             select(func.count(UserModel.id)).where(UserModel.tenant_id == tenant.id)
         )
         
-        response.append(TenantListResponse(
+        items.append(TenantItem(
             id=tenant.id,
             name=tenant.name,
             domain=tenant.domain,
@@ -174,7 +187,12 @@ async def list_tenants(
             user_count=user_count or 0
         ))
         
-    return response
+    return TenantListResponse(
+        items=items,
+        total=total or 0,
+        page=(skip // limit) + 1,
+        limit=limit
+    )
 
 @router.post("/tenants")
 async def create_tenant(

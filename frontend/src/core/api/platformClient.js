@@ -56,8 +56,15 @@ class PlatformApiService {
     /**
      * Get all tenants
      */
-    async getTenants() {
-        return this.get('/api/platform/tenants');
+    async getTenants(skip = 0, limit = 20, search = '') {
+        const params = new URLSearchParams({
+            skip: skip.toString(),
+            limit: limit.toString()
+        });
+        if (search) {
+            params.append('search', search);
+        }
+        return this.get(`/api/platform/tenants?${params.toString()}`);
     }
 
     /**
