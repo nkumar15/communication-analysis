@@ -119,7 +119,7 @@ async def invite_user(
     requested_role = request.role
     
     # Validate requested role exists in system
-    valid_roles = [B2BRoleName.OWNER, B2BRoleName.ADMIN, B2BRoleName.VIEWER]
+    valid_roles = [B2BRoleName.OWNER, B2BRoleName.ADMIN, B2BRoleName.MEMBER, B2BRoleName.VIEWER]
     if requested_role not in valid_roles:
          raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

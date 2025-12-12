@@ -9,6 +9,7 @@ class B2BRoleName:
     """ 
     OWNER = "owner"
     ADMIN = "admin"
+    MEMBER = "member"
     VIEWER = "viewer"
 
 

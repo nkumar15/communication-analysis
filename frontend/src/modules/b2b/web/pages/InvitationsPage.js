@@ -29,9 +29,9 @@ const InvitationsPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [selectedRole, setSelectedRole] = useState('admin');
+    const [selectedRole, setSelectedRole] = useState('member');
     const [selectedTeam, setSelectedTeam] = useState('');
-    const [selectedTeamRole, setSelectedTeamRole] = useState('team_member');
+    const [selectedTeamRole, setSelectedTeamRole] = useState('team_contributor');
     const navigate = useNavigate();
     const { user, getInvitableRoles, getScopeLabel } = useAuth();
 
@@ -81,9 +81,10 @@ const InvitationsPage = () => {
                     setAvailableRoles(roles);
                     console.log('✅ availableRoles state updated with', roles.length, 'roles');
 
-                    // Set default role to first available non-disabled role
+                    // Set default role to 'member' if available, otherwise first non-disabled
                     if (roles.length > 0) {
-                        const defaultRole = roles.find(r => !r.disabled) || roles[0];
+                        const memberRole = roles.find(r => r.value === 'member' && !r.disabled);
+                        const defaultRole = memberRole || roles.find(r => !r.disabled) || roles[0];
                         setSelectedRole(defaultRole.value);
                         console.log('✅ Default role set to:', defaultRole.value);
                     }
@@ -131,7 +132,7 @@ const InvitationsPage = () => {
             setSuccess(`Invitation sent to ${email}`);
             setEmail('');
             setSelectedTeam('');
-            setSelectedTeamRole('team_member');  // Reset team role
+            setSelectedTeamRole('team_contributor');  // Reset team role
             setShowInviteModal(false);
             await loadData();
         } catch (err) {
@@ -660,7 +661,7 @@ const InvitationsPage = () => {
                                         onChange={(teamId) => {
                                             setSelectedTeam(teamId);
                                             // Reset team role when team changes
-                                            if (!teamId) setSelectedTeamRole('team_member');
+                                            if (!teamId) setSelectedTeamRole('team_contributor');
                                         }}
                                         label="Assign to Team (Optional)"
                                     />
@@ -711,9 +712,9 @@ const InvitationsPage = () => {
                                                 e.target.style.backgroundColor = '#f9fafb';
                                             }}
                                         >
-                                            <option value="team_member">Team Member</option>
+                                            <option value="team_contributor">Team Contributor</option>
                                             <option value="team_manager">Team Manager</option>
-                                            <option value="team_viewer">Team Viewer</option>
+                                            <option value="team_reader">Team Reader</option>
                                         </select>
                                         <small style={{
                                             color: '#6B7280',

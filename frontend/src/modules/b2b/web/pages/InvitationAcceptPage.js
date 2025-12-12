@@ -35,8 +35,11 @@ const InvitationAcceptPage = () => {
             // Set Firebase tenant context
             firebaseAuthService.setTenantId(invitation.firebase_tenant_id);
 
-            // Initiate SSO login
-            const result = await firebaseAuthService.signInWithOIDC(invitation.oidc_provider_id);
+            // Initiate SSO login with email as login_hint for pre-filling
+            const result = await firebaseAuthService.signInWithOIDC(
+                invitation.oidc_provider_id,
+                invitation.email  // Pass email as login_hint
+            );
 
             if (result.user) {
                 // User logged in successfully via SSO
@@ -106,46 +109,49 @@ const InvitationAcceptPage = () => {
             <div className="card" style={{ maxWidth: '600px', width: '100%' }}>
                 <div style={{ textAlign: 'center', marginBottom: '30px' }}>
                     <div style={{ fontSize: '64px', marginBottom: '20px' }}>📨</div>
-                    <h1 style={{ marginBottom: '10px' }}>You're Invited!</h1>
-                    <p style={{ color: '#666', fontSize: '18px' }}>
+                    <h1 style={{ marginBottom: '10px', color: '#111827' }}>You're Invited!</h1>
+                    <p style={{ color: '#6B7280', fontSize: '18px' }}>
                         Join your team on Enterprise SSO
                     </p>
                 </div>
 
                 <div style={{
-                    backgroundColor: '#f3f4f6',
+                    backgroundColor: '#FFFFFF',
                     padding: '24px',
                     borderRadius: '8px',
-                    marginBottom: '30px'
+                    marginBottom: '30px',
+                    border: '1px solid #E5E7EB'
                 }}>
                     <div style={{ marginBottom: '16px' }}>
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '4px' }}>
                             Organization
                         </div>
-                        <div style={{ fontSize: '20px', fontWeight: '600' }}>
+                        <div style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>
                             {invitation.tenant_name}
                         </div>
                     </div>
 
-                    <div style={{ marginBottom: '16px' }}>
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
-                            Invited by
+                    {(invitation.inviter_name || invitation.inviter_email) && (
+                        <div style={{ marginBottom: '16px' }}>
+                            <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '4px' }}>
+                                Invited by
+                            </div>
+                            <div style={{ fontSize: '16px', color: '#111827' }}>
+                                {invitation.inviter_name || invitation.inviter_email || 'Team Administrator'}
+                            </div>
                         </div>
-                        <div style={{ fontSize: '16px' }}>
-                            {invitation.inviter_name}
-                        </div>
-                    </div>
+                    )}
 
                     <div style={{ marginBottom: '16px' }}>
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '4px' }}>
                             Your role
                         </div>
                         <div>
                             <span style={{
                                 display: 'inline-block',
                                 padding: '6px 12px',
-                                backgroundColor: '#e0e7ff',
-                                color: '#4338ca',
+                                backgroundColor: '#EEF2FF',
+                                color: '#4F46E5',
                                 borderRadius: '4px',
                                 fontSize: '14px',
                                 fontWeight: '500'
@@ -156,10 +162,10 @@ const InvitationAcceptPage = () => {
                     </div>
 
                     <div>
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '4px' }}>
                             Email
                         </div>
-                        <div style={{ fontSize: '16px' }}>
+                        <div style={{ fontSize: '16px', color: '#111827' }}>
                             {invitation.email}
                         </div>
                     </div>
@@ -176,15 +182,15 @@ const InvitationAcceptPage = () => {
                 ) : (
                     <>
                         <div style={{
-                            backgroundColor: '#eff6ff',
-                            border: '1px solid #bfdbfe',
+                            backgroundColor: '#EEF2FF',
+                            border: '1px solid #C7D2FE',
                             padding: '16px',
                             borderRadius: '6px',
                             marginBottom: '24px'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start' }}>
                                 <span style={{ fontSize: '20px', marginRight: '12px' }}>ℹ️</span>
-                                <div style={{ fontSize: '14px', color: '#1e40af' }}>
+                                <div style={{ fontSize: '14px', color: '#4338CA' }}>
                                     <strong>Next step:</strong> You'll be asked to log in using your company's SSO provider.
                                     After logging in, you'll be added to {invitation.tenant_name}.
                                 </div>
@@ -203,7 +209,7 @@ const InvitationAcceptPage = () => {
                             textAlign: 'center',
                             marginTop: '20px',
                             fontSize: '14px',
-                            color: '#666'
+                            color: '#6B7280'
                         }}>
                             By accepting, you'll join {invitation.tenant_name}
                         </p>
