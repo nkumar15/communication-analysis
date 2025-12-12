@@ -46,7 +46,9 @@ This is the most important distinction in the RBAC system.
 | `team_viewer` | Observer | Read-only access to team's data |
 
 **Storage**: `team_members.team_role_id` → `b2b.team_role_definitions.id`.
-(Note: `team_role` string is kept denormalized for quick access/legacy support, but permissions live in the definition).
+**Storage**: `team_members.team_role_id` → `b2b.team_role_definitions.id`.
+(We have migrated away from the legacy `team_role` string column to a fully relational `team_role_id`).
+
 
 **Team Management Rules**:
 1. **Creation**: The user who creates a team is automatically assigned the `team_manager` role.
@@ -152,18 +154,24 @@ This is the most important distinction in the RBAC system.
 | `b2b.team_members` | Link user to team + role def | Per-team-membership |
 
 ### Enforcement
+1. **Application Level (Optimized Check)**:
+   - Extract `role_id` from the JWT/Session (avoids DB lookup for user->role).
+   - Check `permission_checker` against cached `role_id`.
 
 ```python
-# 1. Permission check (can user do this action?)
-await has_permission(user_id, 'projects', 'write', db)
+# 1. Optimized Permission check
+# The decorator extracts role_id from current_user automatically
+@require_permission('projects', 'write') 
 
-# 2. Scope check (which teams can user access?)
+# 2. Manual Scope check (which teams can user access?)
 team_ids = await get_user_team_ids(user_id, db)
 ```
 
 > [!NOTE]
-> The system checks `role_permissions` table, NOT role names.
+> The system checks `role_permissions` table useing the `role_id`, NOT role names.
 > This allows role names to change while permissions remain stable.
+> We optimize performance by caching the `role_id` in the session token.
+
 
 ---
 

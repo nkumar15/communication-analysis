@@ -109,27 +109,83 @@ New tenants are automatically seeded with roles defined in `b2b.role_templates`.
 *   **Standard Roles**: `owner`, `admin`, `viewer`.
 *   **Team Roles**: `team_manager`, `team_member`.
 
-### Adding New Permissions
-To support new features or domains:
+---
 
-#### 1. Add Resource
-Add the new resource definition to `scripts/b2b/seed_domain_data.py`:
+## 🚀 Extending Domain APIs (New Feature Guide)
+
+When introducing a new domain (e.g., Human Resources), follow these steps to integrate with the B2B framework and RBAC system.
+
+### Step 1: Create Service Structure
+Create a new package under `services/domains/`:
+
+```
+services/domains/hr/
+├── __init__.py
+├── models.py           # Database models (RLS-enabled)
+├── schemas.py          # Pydantic models
+├── router.py           # FastAPI endpoints
+└── service.py          # Business logic
+```
+
+### Step 2: Define Resources & Actions
+Register the new domain resources in `scripts/b2b/seed_domain_data.py`:
+
 ```python
-dom_resources = [
-    Resource(name='invoices', display_name='Invoices', ...)
+# 1. Add Resource Definition
+hr_resources = [
+    Resource(
+        name='employees', 
+        display_name='Employees', 
+        category='HR', 
+        description='Employee records'
+    ),
+    Resource(
+        name='payrolls', 
+        display_name='Payrolls', 
+        category='HR', 
+        description='Payroll processing'
+    )
 ]
+
+# 2. Update Default Permissions (Role Templates)
+# Grant 'admin' access to new resources
+admin_template.permissions.append({"resource": "employees", "actions": ["read", "write"]})
+admin_template.permissions.append({"resource": "payrolls", "actions": ["read", "write"]})
+
+# 3. Update Team Roles (if applicable)
+# Be careful adding sensitive domains to general team roles
+hr_manager_role.permissions.append({"resource": "employees", "actions": ["read"]})
 ```
 
-#### 2. Update Tenant Roles (Global)
-Update `role_templates` in the seed script to include permissions for the new resource.
+### Step 3: Implement Protected Endpoints
+Use the standard decorators in `services/domains/hr/router.py`.
+
+**Tenant-Level Access (General):**
 ```python
-# For 'admin' template
-admin.permissions.append({"resource": "invoices", "actions": ["read", "write"]})
+from services.b2b.rbac.decorators import require_permission
+
+@router.get("/employees")
+@require_permission('employees', 'read')
+async def list_employees(
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    return await hr_service.get_all(db)
 ```
 
-#### 3. Update Team Roles (Contextual)
-Update `TeamRoleDefinition` seeding in `seed_domain_data.py`.
+**Team-Level Access (Contextual):**
+If the resource belongs to a team (like Projects), use explicit scope checks in `service.py`:
+
 ```python
-# For 'team_contributor'
-contributor.permissions.append({"resource": "invoices", "actions": ["read"]})
+# In service.py
+async def create_payroll(user_id, team_id, data, db):
+    # Verify user has permission WITHIN this specific team
+    if not await scope_checker.can_perform_action(user_id, team_id, 'payrolls', 'write', db):
+        raise Forbidden("Access denied for this team")
+    
+    # Create record...
 ```
+
+### Step 4: Run Migrations
+1. Run the seed script to populate `resources`, `actions`, and update `role_templates`.
+2. Existing tenants will need a migration script to update their `roles` table if you want to perform a backfill (optional, as templates apply to new tenants).
