@@ -55,8 +55,8 @@ class TeamMemberAdd(BaseModel):
     """Schema for adding a user to a team"""
     user_id: UUID
     team_role: str = Field(
-        default="team_member", 
-        pattern="^(team_manager|team_member|team_viewer)$",
+        default="team_contributor", 
+        pattern="^(team_manager|team_contributor|team_reader)$",
         description="Role within the team"
     )
 
@@ -64,7 +64,7 @@ class TeamMemberUpdate(BaseModel):
     """Schema for updating team member role"""
     team_role: str = Field(
         ..., 
-        pattern="^(team_manager|team_member|team_viewer)$",
+        pattern="^(team_manager|team_contributor|team_reader)$",
 description="New role for the team member"
     )
 
@@ -86,8 +86,8 @@ class MoveUserRequest(BaseModel):
     from_team_id: UUID
     to_team_id: UUID
     team_role: str = Field(
-        default="team_member",
-        pattern="^(team_manager|team_member|team_viewer)$"
+        default="team_contributor",
+        pattern="^(team_manager|team_contributor|team_reader)$"
     )
 
 # ============================================================================

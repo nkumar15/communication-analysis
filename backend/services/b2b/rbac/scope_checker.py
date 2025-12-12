@@ -98,7 +98,10 @@ async def get_user_team_ids(user_id: UUID, db: AsyncSession) -> list[UUID]:
 
 async def is_team_manager(user_id: UUID, team_id: UUID, db: AsyncSession) -> bool:
     """
-    Check if user is a team manager for given team
+    Check if user is a team manager for given team.
+    
+    Uses team_role_definitions capabilities instead of hardcoded role names.
+    Checks if user's team role has can_manage_members capability.
     
     Args:
         user_id: User ID
@@ -106,24 +109,43 @@ async def is_team_manager(user_id: UUID, team_id: UUID, db: AsyncSession) -> boo
         db: Database session
         
     Returns:
-        bool: True if user is team manager
+        bool: True if user has team management capabilities
     """
+    from services.b2b.models.team_role_definition import TeamRoleDefinition
+    
+    # Query via team_role_id FK (new system)
     result = await db.execute(
-        select(TeamMember).where(
+        select(TeamMember, TeamRoleDefinition)
+        .outerjoin(TeamRoleDefinition, TeamMember.team_role_id == TeamRoleDefinition.id)
+        .where(
             TeamMember.user_id == user_id,
-            TeamMember.team_id == team_id,
-            TeamMember.team_role == 'team_manager'
+            TeamMember.team_id == team_id
         )
     )
-    return result.scalar_one_or_none() is not None
+    row = result.first()
+    
+    if not row:
+        return False
+    
+    member, role_def = row
+    
+    # New system: check capability flag
+    if role_def and role_def.can_manage_members:
+        return True
+    
+    # Legacy fallback: check old team_role column
+    if member.team_role == 'team_manager':
+        return True
+    
+    return False
 
 
 async def can_manage_team(user_id: UUID, team_id: UUID, db: AsyncSession) -> bool:
     """
     Check if user can manage team.
     
-    Access granted if user has 'teams:write' permission OR is a team_manager.
-    Uses permission-based check, not role name check.
+    Access granted if user has 'teams:write' permission OR has team management capability.
+    Uses permission-based check + capability flags.
     
     Args:
         user_id: User ID
@@ -137,8 +159,9 @@ async def can_manage_team(user_id: UUID, team_id: UUID, db: AsyncSession) -> boo
     if await has_permission(user_id, 'teams', 'write', db):
         return True
     
-    # Check if user is team manager for this specific team
+    # Check if user has team management capability for this specific team
     return await is_team_manager(user_id, team_id, db)
+
 
 
 async def get_team_user_ids(team_id: UUID, db: AsyncSession) -> list[UUID]:

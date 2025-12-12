@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
 from services.b2b.models import Team, TeamMember, UserModel
+from services.b2b.models.team_role_definition import TeamRoleDefinition
 
 
 async def create_team(
@@ -259,7 +260,7 @@ async def add_team_member(
     db: AsyncSession,
     team_id: UUID,
     user_id: UUID,
-    team_role: str = "team_member"
+    team_role: str = "team_contributor"
 ) -> TeamMember:
     """
     Add a user to a team
@@ -305,10 +306,22 @@ async def add_team_member(
             detail="User is already a member of this team"
         )
     
+    # Look up team_role_id from team_role_definitions
+    # First try to find by name, checking both system roles and tenant-specific roles
+    team = await get_team_by_id(db, team_id)
+    role_def_result = await db.execute(
+        select(TeamRoleDefinition).where(
+            TeamRoleDefinition.name == team_role,
+            (TeamRoleDefinition.tenant_id.is_(None)) | (TeamRoleDefinition.tenant_id == team.tenant_id)
+        ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())  # Prefer tenant-specific
+    )
+    role_def = role_def_result.scalars().first()
+    
     member = TeamMember(
         team_id=team_id,
         user_id=user_id,
-        team_role=team_role
+        team_role=team_role,
+        team_role_id=role_def.id if role_def else None
     )
     
     db.add(member)
@@ -422,7 +435,7 @@ async def move_user_to_team(
     user_id: UUID,
     from_team_id: UUID,
     to_team_id: UUID,
-    team_role: str = "team_member"
+    team_role: str = "team_contributor"
 ) -> TeamMember:
     """
     Move a user from one team to another

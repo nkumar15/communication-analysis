@@ -322,7 +322,7 @@ class TestInvitationFlow:
                 "email": f"newuser@{tenant.domain}",
                 "role": B2BRoleName.VIEWER,
                 "team_id": str(team.id),
-                "team_role": "team_member"
+                "team_role": "team_contributor"
             },
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
@@ -340,7 +340,7 @@ class TestInvitationFlow:
         )
         invitation = result.scalar_one()
         assert invitation.team_id == team.id
-        assert invitation.team_role == "team_member"
+        assert invitation.team_role == "team_contributor"
     
     
     @pytest.mark.asyncio
@@ -480,5 +480,5 @@ class TestInvitationFlow:
         )
         team_member = member_result.scalar_one()
         
-        assert team_member.team_role == "team_member"  # Default role
+        assert team_member.team_role == "team_contributor"  # Default role
 

@@ -278,7 +278,7 @@ class TestRBACEnforcement:
         # 3. Add as Team Member (not manager)
         await api_client.post(
             f"/api/b2b/teams/{team_id}/members", 
-            json={"user_id": str(member.id), "team_role": "team_member"},
+            json={"user_id": str(member.id), "team_role": "team_contributor"},
             headers={"Authorization": f"Bearer {setup['token']}"}
         )
         

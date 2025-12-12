@@ -14,7 +14,9 @@ from services.b2b.rbac import require_permission
 from services.domains.projects.scope_checker import (
     can_access_project,
     can_access_task,
-    validate_team_member_assignment
+    validate_team_member_assignment,
+    can_write_in_team,
+    can_delete_in_team
 )
 from services.domains.projects.models.task import Task
 from services.domains.projects.models.project import Project
@@ -57,6 +59,18 @@ async def create_task(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Assignee must be a member of the project's team"
             )
+    
+    # Check team role capability: can_write_resources
+    if not await can_write_in_team(
+        current_user['id'],
+        project.team_id,
+        current_user['role'],
+        db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your team role doesn't allow creating tasks"
+        )
     
     # Create task
     task = Task(
@@ -170,6 +184,20 @@ async def update_task(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Assignee must be a member of the project's team"
             )
+    else:
+        project = await db.get(Project, task.project_id)
+    
+    # Check team role capability: can_write_resources
+    if not await can_write_in_team(
+        current_user['id'],
+        project.team_id,
+        current_user['role'],
+        db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your team role doesn't allow editing tasks"
+        )
     
     # Update fields
     if task_data.title is not None:
@@ -242,7 +270,21 @@ async def delete_task(
         )
     
     task = await db.get(Task, task_id)
-    await db.delete(task)
+    project = await db.get(Project, task.project_id)
+    
+    # Check team role capability: can_delete_resources
+    if not await can_delete_in_team(
+        current_user['id'],
+        project.team_id,
+        current_user['role'],
+        db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your team role doesn't allow deleting tasks"
+        )
+    
     await db.delete(task)
     
     return None
+

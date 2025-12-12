@@ -12,7 +12,8 @@ from tests.conftest import (
     encode_mock_jwt
 )
 from services.b2b.models import Team, TeamMember
-from sqlalchemy import select
+from services.b2b.models.team_role_definition import TeamRoleDefinition
+from sqlalchemy import select, or_
 
 
 @pytest_asyncio.fixture
@@ -65,10 +66,21 @@ async def domain_test_data(db_session):
         email=f"member@{tenant.domain}",
         role_slug="member"
     )
+    
+    # Lookup team_contributor role
+    contributor_role_result = await db_session.execute(
+        select(TeamRoleDefinition).where(
+            TeamRoleDefinition.name == "team_contributor",
+            or_(TeamRoleDefinition.tenant_id.is_(None), TeamRoleDefinition.tenant_id == tenant.id)
+        )
+    )
+    contributor_role = contributor_role_result.scalars().first()
+    
     team_member_assoc = TeamMember(
         team_id=default_team.id,
         user_id=team_member.id,
-        team_role="team_member"
+        team_role="team_contributor",
+        team_role_id=contributor_role.id if contributor_role else None
     )
     db_session.add(team_member_assoc)
     
@@ -88,7 +100,8 @@ async def domain_test_data(db_session):
     other_team_assoc = TeamMember(
         team_id=other_team.id,
         user_id=other_team_member.id,
-        team_role="team_member"
+        team_role="team_contributor",
+        team_role_id=contributor_role.id if contributor_role else None
     )
     db_session.add(other_team_assoc)
     
@@ -128,10 +141,20 @@ async def domain_test_data(db_session):
         email=f"viewer@{tenant.domain}",
         role_slug="viewer"
     )
+    # Lookup team_reader role
+    reader_role_result = await db_session.execute(
+        select(TeamRoleDefinition).where(
+            TeamRoleDefinition.name == "team_reader",
+            or_(TeamRoleDefinition.tenant_id.is_(None), TeamRoleDefinition.tenant_id == tenant.id)
+        )
+    )
+    reader_role = reader_role_result.scalars().first()
+    
     viewer_assoc = TeamMember(
         team_id=default_team.id,
         user_id=viewer.id,
-        team_role="team_viewer"
+        team_role="team_reader",
+        team_role_id=reader_role.id if reader_role else None
     )
     db_session.add(viewer_assoc)
     

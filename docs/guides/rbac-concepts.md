@@ -97,13 +97,13 @@ The user will be automatically added to that team upon accepting the invitation.
   "email": "user@company.com",
   "role": "viewer",
   "team_id": "uuid-of-engineering-team",
-  "team_role": "team_member"
+  "team_role": "team_contributor"
 }
 ```
 
 **Result:**
 - User created with tenant role = `viewer`
-- User added to Engineering team with role = `team_member`
+- User added to Engineering team with role = `team_contributor`
 
 ---
 
@@ -252,7 +252,7 @@ Authorization: Bearer {token}
   "email": "user@company.com",
   "role": "viewer",
   "team_id": "optional-team-uuid",
-  "team_role": "team_member"
+  "team_role": "team_contributor"
 }
 ```
 

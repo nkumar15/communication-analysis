@@ -578,7 +578,7 @@ async def join_tenant(
         # Add to specific team from invitation
         try:
             # Use team_role from invitation if specified, otherwise default to team_member
-            team_role = invitation.team_role if invitation.team_role else "team_member"
+            team_role = invitation.team_role if invitation.team_role else "team_contributor"
             await team_service.add_team_member(
                 db=db,
                 team_id=invitation.team_id,
@@ -600,7 +600,7 @@ async def join_tenant(
                 db=db,
                 team_id=default_team.id,
                 user_id=user_id,
-                team_role="team_member"
+                team_role="team_contributor"
             )
         except Exception as e:
             pass

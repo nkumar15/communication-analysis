@@ -13,6 +13,7 @@ import ProtectedRoute from './core/components/ProtectedRoute';
 import firebaseAuthService from './core/firebase/authService';
 import { auth } from './core/firebase/config';
 import RoleManagementPage from './modules/b2b/web/pages/RoleManagementPage';
+import TeamRoleManagementPage from './modules/b2b/web/pages/TeamRoleManagementPage';
 import ProjectsPage from './modules/domains/projects/pages/ProjectsPage';
 import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPage';
 import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
@@ -107,6 +108,7 @@ function App() {
 
                 {/* New routes */}
                 <Route path="/roles" element={<ProtectedRoute><RoleManagementPage /></ProtectedRoute>} />
+                <Route path="/team-roles" element={<ProtectedRoute><TeamRoleManagementPage /></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
                 <Route path="/tasks/:taskId" element={<ProtectedRoute><TaskDetailPage /></ProtectedRoute>} />

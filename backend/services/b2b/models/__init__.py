@@ -5,6 +5,7 @@ from .rbac import Role, Resource, Action, RolePermission
 from .team import Team
 from .team_member import TeamMember
 from .auth_provider import AuthProvider
+from .team_role_definition import TeamRoleDefinition
 
 __all__ = [
     "TenantModel", 
@@ -16,5 +17,7 @@ __all__ = [
     "RolePermission",
     "Team",
     "TeamMember",
-    "AuthProvider"
+    "AuthProvider",
+    "TeamRoleDefinition"
 ]
+

@@ -23,7 +23,7 @@ class TeamMembership(BaseModel):
     """User's membership in a team"""
     id: UUID
     name: str
-    team_role: str  # team_manager, team_member, team_viewer
+    team_role: str  # team_manager, team_contributor, team_reader
 
 
 class UserResponse(BaseModel):

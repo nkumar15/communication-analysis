@@ -16,7 +16,9 @@ from services.b2b.rbac import require_permission
 from services.domains.projects.scope_checker import (
     get_accessible_projects_query,
     can_access_project,
-    can_user_access_team
+    can_user_access_team,
+    can_write_in_team,
+    can_delete_in_team
 )
 from services.domains.projects.models.project import Project
 from services.domains.projects.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
@@ -47,6 +49,18 @@ async def create_project(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have access to this team"
+        )
+    
+    # Check team role capability: can_write_resources
+    if not await can_write_in_team(
+        current_user['id'],
+        project_data.team_id,
+        current_user['role'],
+        db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your team role doesn't allow creating projects"
         )
     
     # Create project
@@ -148,6 +162,18 @@ async def update_project(
     
     project = await db.get(Project, project_id)
     
+    # Check team role capability: can_write_resources
+    if not await can_write_in_team(
+        current_user['id'],
+        project.team_id,
+        current_user['role'],
+        db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your team role doesn't allow editing projects"
+        )
+    
     # Update provided fields
     if project_data.name is not None:
         project.name = project_data.name
@@ -188,6 +214,19 @@ async def delete_project(
         )
     
     project = await db.get(Project, project_id)
+    
+    # Check team role capability: can_delete_resources
+    if not await can_delete_in_team(
+        current_user['id'],
+        project.team_id,
+        current_user['role'],
+        db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your team role doesn't allow deleting projects"
+        )
+    
     await db.delete(project)
     
     return None

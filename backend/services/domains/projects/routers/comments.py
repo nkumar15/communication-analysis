@@ -12,8 +12,10 @@ from uuid import UUID
 
 from core.database import get_db
 from services.b2b.rbac import require_permission
-from services.domains.projects.scope_checker import can_access_task
+from services.domains.projects.scope_checker import can_access_task, can_write_in_team
 from services.domains.projects.models.comment import Comment
+from services.domains.projects.models.task import Task
+from services.domains.projects.models.project import Project
 from services.domains.projects.schemas.comments import CommentCreate, CommentUpdate, CommentResponse, CommentResponseWithReplies
 
 router = APIRouter(prefix="/api/domain/comments", tags=["comments"])
@@ -79,6 +81,22 @@ async def create_comment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid parent comment"
             )
+    
+    # Get task and project for capability check
+    task = await db.get(Task, comment_data.task_id)
+    project = await db.get(Project, task.project_id)
+    
+    # Check team role capability: can_write_resources
+    if not await can_write_in_team(
+        current_user['id'],
+        project.team_id,
+        current_user['role'],
+        db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your team role doesn't allow creating comments"
+        )
     
     # Create comment
     comment = Comment(
@@ -205,6 +223,6 @@ async def delete_comment(
         )
     
     await db.delete(comment)
-    await db.delete(comment)
     
     return None
+

@@ -96,3 +96,96 @@ async def validate_team_member_assignment(assignee_id: UUID, team_id: UUID, db: 
     user_teams = await get_user_team_ids(assignee_id, db)
     return team_id in user_teams
 
+
+# ============================================================================
+# TEAM ROLE CAPABILITY CHECKS
+# ============================================================================
+
+async def get_user_team_role_capabilities(
+    user_id: UUID, 
+    team_id: UUID, 
+    db: AsyncSession
+) -> dict:
+    """
+    Get user's capabilities for a specific team.
+    
+    Returns dict with can_manage_members, can_manage_settings, 
+    can_write_resources, can_delete_resources flags.
+    
+    Returns empty dict if user is not a member of the team.
+    """
+    from services.b2b.models.team_role_definition import TeamRoleDefinition
+    
+    # Query team membership with role definition
+    result = await db.execute(
+        select(TeamMember, TeamRoleDefinition)
+        .outerjoin(TeamRoleDefinition, TeamMember.team_role_id == TeamRoleDefinition.id)
+        .where(
+            TeamMember.user_id == user_id,
+            TeamMember.team_id == team_id
+        )
+    )
+    row = result.first()
+    
+    if not row:
+        return {}
+    
+    member, role_def = row
+    
+    # Require team_role_id to be set - no legacy fallback
+    if not role_def:
+        return {
+            'can_manage_members': False,
+            'can_manage_settings': False,
+            'can_write_resources': False,
+            'can_delete_resources': False,
+        }
+    
+    return {
+        'can_manage_members': role_def.can_manage_members,
+        'can_manage_settings': role_def.can_manage_settings,
+        'can_write_resources': role_def.can_write_resources,
+        'can_delete_resources': role_def.can_delete_resources,
+    }
+
+
+async def can_write_in_team(
+    user_id: UUID, 
+    team_id: UUID, 
+    user_role: str,
+    db: AsyncSession
+) -> bool:
+    """
+    Check if user can write (create/edit) resources in a team.
+    
+    Owner/Admin have implicit write access.
+    Other users need can_write_resources capability in their team role.
+    """
+    # Owner/Admin bypass
+    if user_role in ['owner', 'admin']:
+        return True
+    
+    capabilities = await get_user_team_role_capabilities(user_id, team_id, db)
+    return capabilities.get('can_write_resources', False)
+
+
+async def can_delete_in_team(
+    user_id: UUID, 
+    team_id: UUID, 
+    user_role: str,
+    db: AsyncSession
+) -> bool:
+    """
+    Check if user can delete resources in a team.
+    
+    Owner/Admin have implicit delete access.
+    Other users need can_delete_resources capability in their team role.
+    """
+    # Owner/Admin bypass
+    if user_role in ['owner', 'admin']:
+        return True
+    
+    capabilities = await get_user_team_role_capabilities(user_id, team_id, db)
+    return capabilities.get('can_delete_resources', False)
+
+

@@ -30,6 +30,7 @@ from services.b2b.routers import (
     users,
     roles,
     teams,
+    team_roles,  # NEW: Team Role Definitions
     account,
     audit_logs,  # NEW
 )
@@ -73,8 +74,9 @@ app.include_router(invitations.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(teams.router)
+app.include_router(team_roles.router)  # NEW: Team Role Definitions
 app.include_router(account.router)
-app.include_router(audit_logs.router)  # NEW: Audit Logs
+app.include_router(audit_logs.router)  # Audit Logs
 
 
 

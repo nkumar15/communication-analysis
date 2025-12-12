@@ -161,6 +161,54 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_teams_one_default_per_tenant
     WHERE is_default = true AND deleted_at IS NULL;
 
 -- ============================================================================
+-- TEAM ROLE DEFINITIONS (Configurable team-level roles)
+-- ============================================================================
+-- System roles (tenant_id=NULL) are global templates.
+-- Tenants can create custom roles with different capabilities.
+
+CREATE TABLE IF NOT EXISTS b2b.team_role_definitions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES b2b.tenants(id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    
+    -- Capability flags for domain resource access
+    can_manage_members BOOLEAN DEFAULT FALSE NOT NULL,   -- Add/remove team members
+    can_manage_settings BOOLEAN DEFAULT FALSE NOT NULL,  -- Edit team settings
+    can_write_resources BOOLEAN DEFAULT TRUE NOT NULL,   -- Create/edit domain resources
+    can_delete_resources BOOLEAN DEFAULT FALSE NOT NULL, -- Delete domain resources
+    
+    is_system BOOLEAN DEFAULT FALSE NOT NULL,  -- Cannot be deleted by tenants
+    is_default BOOLEAN DEFAULT FALSE NOT NULL, -- Default for new team assignments
+    sort_order INTEGER DEFAULT 0 NOT NULL,     -- Display order in UI
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    CONSTRAINT unique_tenant_team_role UNIQUE(tenant_id, name)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_team_role_defs_tenant ON b2b.team_role_definitions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_team_role_defs_system ON b2b.team_role_definitions(is_system);
+CREATE INDEX IF NOT EXISTS idx_team_role_defs_default ON b2b.team_role_definitions(is_default);
+
+-- Seed system default roles (tenant_id = NULL = global)
+INSERT INTO b2b.team_role_definitions 
+    (tenant_id, name, display_name, description, 
+     can_manage_members, can_manage_settings, can_write_resources, can_delete_resources, 
+     is_system, is_default, sort_order) 
+VALUES
+    (NULL, 'team_manager', 'Team Manager', 'Full access to team management and domain resources',
+     TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, 1),
+    (NULL, 'team_contributor', 'Contributor', 'Can create and edit domain resources within the team',
+     FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, 2),
+    (NULL, 'team_reader', 'Reader', 'Read-only access to team domain resources',
+     FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, 3)
+ON CONFLICT (tenant_id, name) DO NOTHING;
+
+-- ============================================================================
 -- TEAM MEMBERS TABLE (Many-to-Many)
 -- ============================================================================
 
@@ -169,8 +217,11 @@ CREATE TABLE IF NOT EXISTS b2b.team_members (
     team_id UUID NOT NULL REFERENCES b2b.teams(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES b2b.users(id) ON DELETE CASCADE,
     
-    -- Team-specific role
-    team_role VARCHAR(50) NOT NULL DEFAULT 'team_member',
+    -- Team-specific role (legacy column - kept for backward compatibility)
+    team_role VARCHAR(50) NOT NULL DEFAULT 'team_contributor',
+    
+    -- New team role FK (preferred)
+    team_role_id UUID REFERENCES b2b.team_role_definitions(id),
     
     -- Timestamps
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -178,14 +229,15 @@ CREATE TABLE IF NOT EXISTS b2b.team_members (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     
     -- Constraints
-    CONSTRAINT unique_team_user UNIQUE(team_id, user_id),
-    CONSTRAINT valid_team_role CHECK (team_role IN ('team_manager', 'team_member', 'team_viewer'))
+    CONSTRAINT unique_team_user UNIQUE(team_id, user_id)
 );
 
 -- Indexes for team_members
 CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON b2b.team_members(team_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON b2b.team_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_role ON b2b.team_members(team_role);
+CREATE INDEX IF NOT EXISTS idx_team_members_role_id ON b2b.team_members(team_role_id);
+
 
 -- ============================================================================
 -- COMMENTS FOR DOCUMENTATION
@@ -196,6 +248,7 @@ COMMENT ON TABLE b2b.users IS 'User accounts with multi-tenant isolation and RBA
 COMMENT ON TABLE b2b.invitations IS 'Pending user invitations with email-based workflow';
 COMMENT ON TABLE b2b.teams IS 'Teams for organizing users within a B2B tenant';
 COMMENT ON TABLE b2b.team_members IS 'Many-to-many relationship between teams and users';
+COMMENT ON TABLE b2b.team_role_definitions IS 'Configurable team-level roles for domain resource access';
 
 COMMENT ON COLUMN b2b.tenants.activation_token IS 'Single-use token for tenant activation (48-hour expiry)';
 COMMENT ON COLUMN b2b.tenants.activation_status IS 'Status: pending, active, expired';
@@ -210,7 +263,14 @@ COMMENT ON COLUMN b2b.invitations.accepted_at IS 'Timestamp when invitation was 
 
 COMMENT ON COLUMN b2b.teams.is_default IS 'Default team where new users are assigned';
 COMMENT ON COLUMN b2b.teams.config_data IS 'Additional team configuration in JSON format';
-COMMENT ON COLUMN b2b.team_members.team_role IS 'User role within this specific team: team_manager, team_member, or team_viewer';
+COMMENT ON COLUMN b2b.team_members.team_role IS 'Legacy team role: team_manager, team_contributor, team_reader';
+COMMENT ON COLUMN b2b.team_members.team_role_id IS 'FK to team_role_definitions (preferred over team_role)';
+
+COMMENT ON COLUMN b2b.team_role_definitions.tenant_id IS 'NULL for system roles (visible to all tenants)';
+COMMENT ON COLUMN b2b.team_role_definitions.can_manage_members IS 'Can add/remove team members';
+COMMENT ON COLUMN b2b.team_role_definitions.can_manage_settings IS 'Can edit team name, description';
+COMMENT ON COLUMN b2b.team_role_definitions.can_write_resources IS 'Can create/edit domain resources (projects, tasks, etc)';
+COMMENT ON COLUMN b2b.team_role_definitions.can_delete_resources IS 'Can delete domain resources';
 
 -- ============================================================================
 -- ADDITIONAL COLUMNS FOR TEAMS FEATURE
@@ -221,9 +281,14 @@ ALTER TABLE b2b.invitations ADD COLUMN IF NOT EXISTS team_id UUID REFERENCES b2b
 CREATE INDEX IF NOT EXISTS idx_invitations_team_id ON b2b.invitations(team_id);
 COMMENT ON COLUMN b2b.invitations.team_id IS 'Team to assign user upon invitation acceptance (NULL = default team)';
 
--- Add team_role to invitations (team role for auto-assignment)
+-- Add team_role to invitations (legacy - for backward compatibility)
 ALTER TABLE b2b.invitations ADD COLUMN IF NOT EXISTS team_role VARCHAR(50);
-COMMENT ON COLUMN b2b.invitations.team_role IS 'Team role to assign if team_id is specified: team_manager, team_member, or team_viewer';
+COMMENT ON COLUMN b2b.invitations.team_role IS 'Legacy team role: team_manager, team_contributor, team_reader';
+
+-- Add team_role_id FK to invitations (preferred)
+ALTER TABLE b2b.invitations ADD COLUMN IF NOT EXISTS team_role_id UUID REFERENCES b2b.team_role_definitions(id);
+CREATE INDEX IF NOT EXISTS idx_invitations_team_role_id ON b2b.invitations(team_role_id);
+COMMENT ON COLUMN b2b.invitations.team_role_id IS 'FK to team_role_definitions (preferred over team_role)';
 
 
 -- Add team_mode to tenants (single vs multiple teams configuration)

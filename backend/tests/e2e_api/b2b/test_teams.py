@@ -150,14 +150,14 @@ class TestTeamManagement:
         # Add member
         response = await api_client.post(
             f"/api/b2b/teams/{team_id}/members",
-            json={"user_id": str(user.id), "team_role": "team_member"},
+            json={"user_id": str(user.id), "team_role": "team_contributor"},
             headers={"Authorization": f"Bearer {token}"}
         )
         
         assert response.status_code == 201
         data = response.json()
         assert data["user_id"] == str(user.id)
-        assert data["team_role"] == "team_member"
+        assert data["team_role"] == "team_contributor"
 
     @pytest.mark.asyncio
     async def test_list_team_members(self, api_client: AsyncClient, b2b_test_setup):
@@ -222,7 +222,7 @@ class TestTeamManagement:
         )
         await api_client.post(
             f"/api/b2b/teams/{team_id}/members",
-            json={"user_id": str(user.id), "team_role": "team_member"},
+            json={"user_id": str(user.id), "team_role": "team_contributor"},
             headers={"Authorization": f"Bearer {token}"}
         )
         
@@ -260,7 +260,7 @@ class TestTeamManagement:
         )
         await api_client.post(
             f"/api/b2b/teams/{team_id}/members",
-            json={"user_id": str(user.id), "team_role": "team_member"},
+            json={"user_id": str(user.id), "team_role": "team_contributor"},
             headers={"Authorization": f"Bearer {token}"}
         )
         
@@ -303,7 +303,7 @@ class TestTeamManagement:
         )
         await api_client.post(
             f"/api/b2b/teams/{t1_id}/members",
-            json={"user_id": str(user.id), "team_role": "team_member"},
+            json={"user_id": str(user.id), "team_role": "team_contributor"},
             headers={"Authorization": f"Bearer {token}"}
         )
         

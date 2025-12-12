@@ -103,3 +103,28 @@ CREATE POLICY invitation_isolation_policy ON b2b.invitations
 
 COMMENT ON POLICY invitation_isolation_policy ON b2b.invitations IS 
     'Enforces tenant isolation for invitations (domain-specific table)';
+
+-- ============================================================================
+-- TEAM ROLE DEFINITIONS
+-- ============================================================================
+-- Special RLS: System roles (tenant_id=NULL) visible to all authenticated users
+-- Custom roles visible only to their tenant
+
+ALTER TABLE b2b.team_role_definitions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS team_role_definitions_policy ON b2b.team_role_definitions;
+CREATE POLICY team_role_definitions_policy ON b2b.team_role_definitions
+    USING (
+        -- Platform admins see all
+        current_setting('app.is_platform_admin', true) = 'true'
+        OR
+        -- System roles (NULL tenant) visible to everyone
+        tenant_id IS NULL
+        OR
+        -- Tenant-specific roles visible only to that tenant
+        tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    );
+
+COMMENT ON POLICY team_role_definitions_policy ON b2b.team_role_definitions IS 
+    'System roles (tenant_id=NULL) are global. Custom roles are tenant-scoped.';
+
