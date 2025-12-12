@@ -16,21 +16,21 @@ const getAuthHeaders = async () => {
 export const projectsApi = {
     async list() {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/projects`, { headers });
+        const response = await fetch(`${API_BASE_URL}/api/domain/projects`, { headers });
         if (!response.ok) throw new Error('Failed to fetch projects');
         return response.json();
     },
 
     async get(projectId) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/projects/${projectId}`, { headers });
+        const response = await fetch(`${API_BASE_URL}/api/domain/projects/${projectId}`, { headers });
         if (!response.ok) throw new Error('Failed to fetch project');
         return response.json();
     },
 
     async create(data) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/projects`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/projects`, {
             method: 'POST',
             headers,
             body: JSON.stringify(data)
@@ -41,7 +41,7 @@ export const projectsApi = {
 
     async update(projectId, data) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/projects/${projectId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/projects/${projectId}`, {
             method: 'PUT',
             headers,
             body: JSON.stringify(data)
@@ -52,7 +52,7 @@ export const projectsApi = {
 
     async delete(projectId) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/projects/${projectId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/projects/${projectId}`, {
             method: 'DELETE',
             headers
         });
@@ -67,7 +67,7 @@ export const tasksApi = {
         if (filters.project_id) params.append('project_id', filters.project_id);
         if (filters.status) params.append('status', filters.status);
 
-        const url = `${API_BASE_URL}/api/b2b/tasks${params.toString() ? '?' + params.toString() : ''}`;
+        const url = `${API_BASE_URL}/api/domain/tasks${params.toString() ? '?' + params.toString() : ''}`;
         const response = await fetch(url, { headers });
         if (!response.ok) throw new Error('Failed to fetch tasks');
         return response.json();
@@ -75,14 +75,14 @@ export const tasksApi = {
 
     async get(taskId) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/tasks/${taskId}`, { headers });
+        const response = await fetch(`${API_BASE_URL}/api/domain/tasks/${taskId}`, { headers });
         if (!response.ok) throw new Error('Failed to fetch task');
         return response.json();
     },
 
     async create(data) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/tasks`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/tasks`, {
             method: 'POST',
             headers,
             body: JSON.stringify(data)
@@ -93,7 +93,7 @@ export const tasksApi = {
 
     async update(taskId, data) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/tasks/${taskId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/tasks/${taskId}`, {
             method: 'PUT',
             headers,
             body: JSON.stringify(data)
@@ -104,7 +104,7 @@ export const tasksApi = {
 
     async updateStatus(taskId, status) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/tasks/${taskId}/status?status=${status}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/tasks/${taskId}/status?status=${status}`, {
             method: 'PATCH',
             headers
         });
@@ -114,7 +114,7 @@ export const tasksApi = {
 
     async delete(taskId) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/tasks/${taskId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/tasks/${taskId}`, {
             method: 'DELETE',
             headers
         });
@@ -125,14 +125,14 @@ export const tasksApi = {
 export const commentsApi = {
     async listForTask(taskId) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/comments/task/${taskId}`, { headers });
+        const response = await fetch(`${API_BASE_URL}/api/domain/comments/task/${taskId}`, { headers });
         if (!response.ok) throw new Error('Failed to fetch comments');
         return response.json();
     },
 
     async create(data) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/comments`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/comments`, {
             method: 'POST',
             headers,
             body: JSON.stringify(data)
@@ -143,7 +143,7 @@ export const commentsApi = {
 
     async update(commentId, data) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/comments/${commentId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/comments/${commentId}`, {
             method: 'PUT',
             headers,
             body: JSON.stringify(data)
@@ -154,10 +154,11 @@ export const commentsApi = {
 
     async delete(commentId) {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/comments/${commentId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/comments/${commentId}`, {
             method: 'DELETE',
             headers
         });
         if (!response.ok) throw new Error('Failed to delete comment');
     }
 };
+

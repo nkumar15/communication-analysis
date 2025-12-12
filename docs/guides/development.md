@@ -567,7 +567,7 @@ npm run lint
 
 ```env
 # Database
-DATABASE_URL=postgresql+asyncpg://sso_user:sso_password@postgres:5432/sso_db
+DATABASE_URL=postgresql+asyncpg://sso_user:sso_password@postgres:5433/sso_db
 
 # Firebase
 FIREBASE_PROJECT_ID=your-project-id

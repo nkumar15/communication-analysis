@@ -4,7 +4,7 @@ import Header from './Header';
 
 const AdminLayout = ({ children, title, subtitle }) => {
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F9FAFB', color: '#111827' }}>
             <Sidebar />
 
             <div style={{ marginLeft: '250px', flex: 1, display: 'flex', flexDirection: 'column' }}>

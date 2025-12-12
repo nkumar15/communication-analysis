@@ -137,6 +137,18 @@ class FirebaseAuthService {
     async signOut() {
         try {
             await firebaseSignOut(this.auth);
+
+            // Clear tenant context from the auth instance
+            this.auth.tenantId = null;
+
+            // Clear stored tenant context to prevent stale sessions
+            localStorage.removeItem('firebase_tenant_id');
+            localStorage.removeItem('token');
+            localStorage.removeItem('impersonating');
+            localStorage.removeItem('impersonation_token');
+            localStorage.removeItem('impersonation_tenant');
+
+            console.log('✅ User signed out, auth and localStorage cleared');
         } catch (error) {
             console.error('Sign out error:', error);
             throw error;

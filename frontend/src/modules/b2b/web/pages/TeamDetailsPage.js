@@ -4,10 +4,12 @@ import teamApi from '../../../../core/api/teamClient';
 import AdminLayout from '../layouts/AdminLayout';
 import TeamRoleBadge from '../components/TeamRoleBadge';
 import { formatDateTime } from '../../../../utils/dateUtils';
+import useAuth from '../../../../core/hooks/useAuth';
 
 const TeamDetailsPage = () => {
     const { teamId } = useParams();
     const navigate = useNavigate();
+    const { user, hasPermission } = useAuth();
 
     const [team, setTeam] = useState(null);
     const [members, setMembers] = useState([]);
@@ -17,7 +19,7 @@ const TeamDetailsPage = () => {
     // Add Member Modal State
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [newMemberId, setNewMemberId] = useState('');
-    const [newMemberRole, setNewMemberRole] = useState('team_member');
+    const [newMemberRole, setNewMemberRole] = useState('team_contributor');
     const [addingMember, setAddingMember] = useState(false);
 
     // Edit Team Modal State
@@ -36,6 +38,14 @@ const TeamDetailsPage = () => {
         { value: 'team_member', label: 'Team Member' },
         { value: 'team_viewer', label: 'Team Viewer' }
     ]);
+
+    // Check permissions
+    const canManageTeam = hasPermission('teams', 'write');
+    const isTeamManager = members.some(m =>
+        m.user_id === user?.id &&
+        (m.team_role === 'team_manager' || m.team_role?.can_manage_members)
+    );
+    const showManageActions = canManageTeam || isTeamManager;
 
     useEffect(() => {
         loadData();
@@ -77,16 +87,13 @@ const TeamDetailsPage = () => {
 
     const loadAvailableUsers = async () => {
         try {
-            // We need to import invitationApi to get users
-            const invitationApi = require('../../../../core/api/invitationClient').default;
-            const users = await invitationApi.getUsers();
-
-            // Filter out users already in the team
-            const memberIds = new Set(members.map(m => m.user_id));
-            const available = users.filter(u => !memberIds.has(u.id));
-            setAvailableUsers(available);
+            const users = await teamApi.getAvailableUsers(teamId);
+            setAvailableUsers(users);
         } catch (err) {
-            console.error('Failed to load users:', err);
+            console.error('Failed to load available users:', err);
+            // Show the actual error message from the backend if available
+            const msg = err.message || 'Failed to load available users';
+            setError(msg);
         }
     };
 
@@ -231,126 +238,239 @@ const TeamDetailsPage = () => {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
-                        <button
-                            onClick={() => setShowEditModal(true)}
-                            style={{
-                                padding: '10px 16px',
-                                borderRadius: '8px',
-                                border: '2px solid #e5e7eb',
-                                background: 'white',
-                                color: '#374151',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                            }}
-                            onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
-                            onMouseLeave={(e) => e.target.style.background = 'white'}
-                        >
-                            <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            ✏️ Edit Team
-                        </button>
-                        <button
-                            onClick={() => {
-                                loadAvailableUsers();
-                                setShowAddMemberModal(true);
-                            }}
-                            style={{
-                                padding: '10px 18px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                color: 'white',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                                transition: 'all 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                            }}
-                            onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                            onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                            <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                            👤 Add Member
-                        </button>
+                        {showManageActions && (
+                            <>
+                                <button
+                                    onClick={() => setShowEditModal(true)}
+                                    style={{
+                                        padding: '10px 16px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        background: 'white',
+                                        color: '#374151',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                >
+                                    <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                    ✏️ Edit Team
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        loadAvailableUsers();
+                                        setShowAddMemberModal(true);
+                                    }}
+                                    style={{
+                                        padding: '10px 18px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                        transition: 'all 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                    onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+                                >
+                                    <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                    </svg>
+                                    👤 Add Member
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
 
                 {error && (
-                    <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-4">
-                        <div className="flex">
-                            <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                            <div className="ml-3">
-                                <p className="text-sm text-red-700">{error}</p>
-                            </div>
-                        </div>
+                    <div style={{
+                        marginBottom: '16px',
+                        padding: '12px 16px',
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fca5a5',
+                        borderRadius: '8px',
+                        color: '#dc2626',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        ❌ {error}
                     </div>
                 )}
 
                 {/* Members List */}
-                <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                    <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900">Team Members</h3>
-                        <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                <div style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    overflow: 'hidden',
+                    border: '1px solid #e5e7eb'
+                }}>
+                    <div style={{
+                        padding: '20px 24px',
+                        borderBottom: '1px solid #e5e7eb'
+                    }}>
+                        <h3 style={{
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            color: '#111827',
+                            margin: 0
+                        }}>Team Members</h3>
+                        <p style={{
+                            marginTop: '4px',
+                            fontSize: '14px',
+                            color: '#6b7280'
+                        }}>
                             {members.length} members in this team
                         </p>
                     </div>
-                    <ul className="divide-y divide-gray-200">
-                        {members.map((member) => (
-                            <li key={member.id} className="px-4 py-4 sm:px-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
-                                            {member.user_name ? member.user_name.charAt(0).toUpperCase() : member.user_email.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="ml-4">
-                                            <div className="text-sm font-medium text-gray-900">{member.user_name || 'Unknown'}</div>
-                                            <div className="text-sm text-gray-500">{member.user_email}</div>
-                                        </div>
+                    <div>
+                        {members.map((member, index) => (
+                            <div key={member.id} style={{
+                                padding: '16px 24px',
+                                borderBottom: index < members.length - 1 ? '1px solid #e5e7eb' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '16px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                    <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#e5e7eb',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        color: '#6b7280'
+                                    }}>
+                                        {member.user_name ? member.user_name.charAt(0).toUpperCase() : member.user_email?.charAt(0).toUpperCase()}
                                     </div>
-                                    <div className="flex items-center space-x-4">
-                                        <select
-                                            value={member.team_role}
-                                            onChange={(e) => handleUpdateRole(member.user_id, e.target.value)}
-                                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                                        >
-                                            <option value="team_manager">Manager</option>
-                                            <option value="team_member">Member</option>
-                                            <option value="team_viewer">Viewer</option>
-                                        </select>
-                                        <TeamRoleBadge role={member.team_role} />
-                                        <button
-                                            onClick={() => handleRemoveMember(member.user_id)}
-                                            className="text-red-600 hover:text-red-900"
-                                        >
-                                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
+                                    <div>
+                                        <div style={{
+                                            fontSize: '14px',
+                                            fontWeight: '500',
+                                            color: '#111827'
+                                        }}>
+                                            {member.user_name || 'Unknown'}
+                                        </div>
+                                        <div style={{
+                                            fontSize: '13px',
+                                            color: '#6b7280'
+                                        }}>
+                                            {member.user_email}
+                                        </div>
                                     </div>
                                 </div>
-                            </li>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    {/* Permission Logic for managing this member */}
+                                    {(() => {
+                                        // 1. Can user manage the team generally?
+                                        const canManage = showManageActions;
+
+                                        // 2. Is this member the current user? (Cannot remove/edit self in this view usually)
+                                        const isSelf = member.user_id === user?.id;
+
+                                        // 3. Is target a Manager? (Only global Admins can manage Managers)
+                                        // We use hasPermission('teams', 'write') as proxy for Admin
+                                        const isTargetManager = member.team_role === 'team_manager';
+                                        const isAdmin = hasPermission('teams', 'write');
+
+                                        // Rules:
+                                        // - Can edit if: canManage AND NOT self AND (NOT targetManager OR isAdmin)
+                                        // - Can remove if: canManage AND NOT self AND (NOT targetManager OR isAdmin)
+
+                                        const canEditMember = canManage && !isSelf && (!isTargetManager || isAdmin);
+
+                                        return (
+                                            <>
+                                                {canEditMember ? (
+                                                    <select
+                                                        value={member.team_role}
+                                                        onChange={(e) => handleUpdateRole(member.user_id, e.target.value)}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #d1d5db',
+                                                            fontSize: '13px',
+                                                            backgroundColor: 'white',
+                                                            color: '#374151',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <option value="team_manager">Manager</option>
+                                                        <option value="team_contributor">Contributor</option>
+                                                        <option value="team_reader">Reader</option>
+                                                    </select>
+                                                ) : (
+                                                    <TeamRoleBadge role={member.team_role} />
+                                                )}
+
+                                                {/* If editable, badge is shown inside select or hidden. 
+                                                    Wait, design shows badge NEXT to Select. 
+                                                    If readonly, we definitely show badge. 
+                                                    If editable, we show BOTH? The screenshot showed BOTH. 
+                                                    Let's keep badge always visible for clarity, or just when readonly.
+                                                    Actually, screenshot has Badge AND Select. 
+                                                */}
+                                                {canEditMember && <TeamRoleBadge role={member.team_role} />}
+
+                                                {canEditMember && (
+                                                    <button
+                                                        onClick={() => handleRemoveMember(member.user_id)}
+                                                        style={{
+                                                            padding: '6px 10px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #fca5a5',
+                                                            backgroundColor: '#fef2f2',
+                                                            color: '#dc2626',
+                                                            cursor: 'pointer',
+                                                            fontSize: '13px',
+                                                            fontWeight: '500',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                        title="Remove from team"
+                                                    >
+                                                        🗑️ Remove
+                                                    </button>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
                         ))}
                         {members.length === 0 && (
-                            <li className="px-4 py-8 text-center text-gray-500">
+                            <div style={{
+                                padding: '40px',
+                                textAlign: 'center',
+                                color: '#6b7280'
+                            }}>
                                 No members in this team.
-                            </li>
+                            </div>
                         )}
-                    </ul>
+                    </div>
                 </div>
             </div>
 

@@ -197,6 +197,13 @@ class ApiService {
     }
 
     /**
+     * Get role-aware dashboard statistics
+     */
+    async getDashboardStats() {
+        return this.get('/api/b2b/dashboard/stats');
+    }
+
+    /**
      * Get audit logs with pagination and filtering
      * @param {Object} params - { page, limit, event_type, start_date, end_date }
      */

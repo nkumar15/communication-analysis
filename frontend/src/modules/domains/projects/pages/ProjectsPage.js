@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../../b2b/web/layouts/AdminLayout';
 import useAuth from '../../../../core/hooks/useAuth';
 import { projectsApi } from '../../../../core/api/projectsClient';
+import teamApi from '../../../../core/api/teamClient';
 
 const ProjectsPage = () => {
     const navigate = useNavigate();
@@ -19,10 +20,13 @@ const ProjectsPage = () => {
     const loadProjects = async () => {
         try {
             setLoading(true);
+            setError('');
             const data = await projectsApi.list();
             setProjects(data);
         } catch (err) {
-            setError('Failed to load projects');
+            console.error('Failed to load projects:', err);
+            // Only show error if it's not just empty data
+            setError('Failed to load projects. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -190,14 +194,15 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
 
     const loadTeams = async () => {
         try {
-            const token = await import('../../../../core/firebase/authService').then(m => m.default.getIdToken());
-            const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/b2b/teams`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
+            const data = await teamApi.listTeams();
             setTeams(data);
-            if (data.length > 0) setFormData(prev => ({ ...prev, team_id: data[0].id }));
+            // Select default team if available
+            if (data.length > 0) {
+                const defaultTeam = data.find(t => t.is_default);
+                setFormData(prev => ({ ...prev, team_id: defaultTeam ? defaultTeam.id : data[0].id }));
+            }
         } catch (err) {
+            console.error('Failed to load teams:', err);
             setError('Failed to load teams');
         }
     };

@@ -67,6 +67,27 @@ async def create_team(
     result = await db.execute(select(Team).where(Team.id == team.id))
     team = result.scalar_one()
     
+    # Add creator as team manager (if created_by is provided)
+    if created_by:
+        # Get or create team_manager role definition
+        from services.b2b.models import TeamRoleDefinition
+        role_def_result = await db.execute(
+            select(TeamRoleDefinition).where(
+                TeamRoleDefinition.name == "team_manager",
+                (TeamRoleDefinition.tenant_id == tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
+            ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())
+        )
+        role_def = role_def_result.scalars().first()
+        
+        creator_member = TeamMember(
+            team_id=team.id,
+            user_id=created_by,
+            team_role="team_manager",
+            team_role_id=role_def.id if role_def else None
+        )
+        db.add(creator_member)
+        await db.flush()
+    
     return team
 
 

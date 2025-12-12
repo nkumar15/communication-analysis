@@ -244,6 +244,24 @@ const teamApi = {
         }
 
         return response.json();
+    },
+
+    /**
+     * Get available users for a team (users not already in team)
+     */
+    getAvailableUsers: async (teamId) => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/teams/${teamId}/available-users`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to load available users');
+        }
+
+        return response.json();
     }
 };
 

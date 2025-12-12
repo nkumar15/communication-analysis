@@ -47,6 +47,13 @@ This is the most important distinction in the RBAC system.
 
 **Storage**: `team_members.team_role` column (string value)
 
+**Team Management Rules**:
+1. **Creation**: The user who creates a team is automatically assigned the `team_manager` role.
+2. **Manager Protection**:
+   * A `team_manager` CANNOT remove or change the role of another `team_manager`.
+   * Only a tenant `admin` (or `owner`) can remove or demote a `team_manager`.
+3. **Self-Protection**: A user cannot remove themselves from a team via the management UI (must use "Leave Team" flow).
+
 **Example**: A user can be `team_manager` in Team A but `team_viewer` in Team B.
 
 ### 1.3 How They Work Together

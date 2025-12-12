@@ -87,6 +87,35 @@ const ProjectDetailPage = () => {
                     </div>
                 )}
 
+                {/* Breadcrumb Navigation */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '20px',
+                    fontSize: '14px',
+                    color: '#6b7280'
+                }}>
+                    <button
+                        onClick={() => navigate('/projects')}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#4f46e5',
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontSize: '14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}
+                    >
+                        ← Back to Projects
+                    </button>
+                    <span style={{ color: '#d1d5db' }}>|</span>
+                    <span style={{ color: '#111827', fontWeight: '500' }}>{project.name}</span>
+                </div>
+
                 {/* Stats Cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>

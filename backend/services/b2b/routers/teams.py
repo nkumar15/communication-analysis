@@ -8,7 +8,7 @@ from typing import List
 
 from core.database import get_db
 from services.b2b.middleware import get_current_active_user
-from services.b2b.rbac import has_permission, can_manage_team
+from services.b2b.rbac import has_permission, can_manage_team, is_team_manager
 from services.b2b.schemas.team import (
     TeamCreate,
     TeamUpdate,
@@ -470,6 +470,14 @@ async def remove_team_member(
             detail="You do not have permission to manage this team"
         )
     
+    # Check if target user is a team manager - only tenant admins can remove managers
+    if await is_team_manager(user_id, team_id, db):
+        if not await has_permission(current_user['id'], 'teams', 'write', db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only tenant admins can remove team managers"
+            )
+    
     await team_service.remove_team_member(db, team_id, user_id)
     # await db.commit() - Handled by dependency
     return {"message": "Member removed successfully"}
@@ -592,3 +600,69 @@ async def move_user_between_teams(
         user_name=user.name if user else None,
         joined_at=new_membership.joined_at
     )
+
+
+@router.get("/{team_id}/available-users")
+async def get_available_users_for_team(
+    team_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get users in tenant who are not already members of this team
+    
+    Returns list of users available to be added to the team.
+    Requires: teams:write permission OR team_manager of this team
+    """
+    from sqlalchemy import select
+    from services.b2b.models import TeamMember
+    
+    # Check permission
+    if not await can_manage_team(current_user['id'], team_id, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage this team"
+        )
+    
+    # Verify team exists and belongs to tenant
+    team = await team_service.get_team_by_id(db, team_id)
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found"
+        )
+    
+    if team.tenant_id != current_user['tenant_id']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+    
+    # Get user IDs already in this team
+    existing_members_result = await db.execute(
+        select(TeamMember.user_id).where(TeamMember.team_id == team_id)
+    )
+    existing_member_ids = {row[0] for row in existing_members_result}
+    
+    # Get all active users in tenant who are not in this team
+    all_users_result = await db.execute(
+        select(UserModel).where(
+            UserModel.tenant_id == current_user['tenant_id'],
+            UserModel.is_active == True,
+            UserModel.deleted_at.is_(None)
+        )
+    )
+    all_users = all_users_result.scalars().all()
+    
+    # Filter out existing members
+    available_users = [
+        {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email
+        }
+        for user in all_users
+        if user.id not in existing_member_ids
+    ]
+    
+    return available_users

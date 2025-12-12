@@ -33,6 +33,7 @@ from services.b2b.routers import (
     team_roles,  # NEW: Team Role Definitions
     account,
     audit_logs,  # NEW
+    dashboard,   # NEW: Dashboard stats
 )
 
 @asynccontextmanager
@@ -77,6 +78,7 @@ app.include_router(teams.router)
 app.include_router(team_roles.router)  # NEW: Team Role Definitions
 app.include_router(account.router)
 app.include_router(audit_logs.router)  # Audit Logs
+app.include_router(dashboard.router)   # Dashboard Stats
 
 
 

@@ -91,10 +91,54 @@ const TaskDetailPage = () => {
                     </div>
                 )}
 
+                {/* Breadcrumb Navigation */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '16px',
+                    fontSize: '14px',
+                    color: '#6b7280'
+                }}>
+                    <button
+                        onClick={() => navigate('/projects')}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#4f46e5',
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontSize: '14px'
+                        }}
+                    >
+                        Projects
+                    </button>
+                    <span>→</span>
+                    {task.project_id && (
+                        <>
+                            <button
+                                onClick={() => navigate(`/projects/${task.project_id}`)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#4f46e5',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    fontSize: '14px'
+                                }}
+                            >
+                                {task.project_name || 'Project'}
+                            </button>
+                            <span>→</span>
+                        </>
+                    )}
+                    <span style={{ color: '#111827', fontWeight: '500' }}>{task.title}</span>
+                </div>
+
                 {/* Task Header */}
                 <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', marginBottom: '24px', border: '1px solid #e5e7eb' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
-                        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '700' }}>{task.title}</h2>
+                        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827' }}>{task.title}</h2>
                         <div style={{ display: 'flex', gap: '8px' }}>
                             {['todo', 'in_progress', 'done'].map(status => (
                                 <button
@@ -127,6 +171,25 @@ const TaskDetailPage = () => {
                     )}
 
                     <div style={{ display: 'flex', gap: '24px', fontSize: '14px', color: '#6b7280' }}>
+                        {task.project_id && (
+                            <div>
+                                <strong>Project:</strong>{' '}
+                                <button
+                                    onClick={() => navigate(`/projects/${task.project_id}`)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#4f46e5',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        fontSize: '14px',
+                                        textDecoration: 'underline'
+                                    }}
+                                >
+                                    {task.project_name || 'View Project'}
+                                </button>
+                            </div>
+                        )}
                         {task.due_date && (
                             <div>
                                 <strong>Due:</strong> {new Date(task.due_date).toLocaleDateString()}

@@ -19,6 +19,8 @@ For **Authentication**, see [Authentication Architecture](./authentication.md).
 *   **`PermissionChecker`**: Core logic for verifying `user_id + resource + action`.
 *   **`RoleTemplateService`**: Manages seeding and updating roles from templates.
 *   **`ScopeChecker`**: specialized logic for hierarchical data access (Team vs Tenant scope).
+    *   **`is_team_manager(user_id, team_id)`**: Returns true if user is a manager of the specific team.
+    *   **`can_manage_team(user_id, team_id)`**: Returns true if user is a team manager OR has global `teams:write` permission.
 
 ---
 
