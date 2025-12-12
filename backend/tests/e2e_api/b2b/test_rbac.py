@@ -9,7 +9,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from uuid import uuid4
-from services.b2b.models import Role, RolePermission
+from services.b2b.models import Role, RolePermission, UserModel
 from core.constants import B2BRoleName
 from tests.conftest import (
     create_test_user,
@@ -139,6 +139,37 @@ class TestRoleManagement:
         
         sys_del_resp = await api_client.delete(f"/api/b2b/roles/{admin_role['id']}", headers={"Authorization": f"Bearer {token}"})
         assert sys_del_resp.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_admin_can_update_user_role(self, api_client: AsyncClient, b2b_test_setup):
+        """Test admin can successfully update a user's role"""
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
+        
+        # 1. Create a target user (viewer)
+        target_user = await create_test_user(
+            setup['session'],
+            tenant_id=tenant.id,
+            email=f"target_{uuid4().hex[:8]}@{tenant.domain}",
+            role_slug="viewer"
+        )
+        
+        # 2. Update role to 'admin'
+        response = await api_client.put(
+            f"/api/b2b/users/{target_user.id}/role",
+            json={"role": "admin"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        assert response.status_code == 200
+        
+        # 3. Verify validation
+        result = await setup['session'].execute(
+            select(Role).join(UserModel).where(UserModel.id == target_user.id)
+        )
+        new_role = result.scalar_one()
+        assert new_role.name == "admin"
 
 
 @pytest.mark.integration

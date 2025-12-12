@@ -32,6 +32,12 @@ const InvitationsPage = () => {
     const [selectedRole, setSelectedRole] = useState('member');
     const [selectedTeam, setSelectedTeam] = useState('');
     const [selectedTeamRole, setSelectedTeamRole] = useState('team_contributor');
+
+    // Edit User Modal State
+    const [showEditUserModal, setShowEditUserModal] = useState(false);
+    const [editingUser, setEditingUser] = useState(null);
+    const [newRole, setNewRole] = useState('');
+
     const navigate = useNavigate();
     const { user, getInvitableRoles, getScopeLabel } = useAuth();
 
@@ -160,6 +166,32 @@ const InvitationsPage = () => {
             await loadData();
         } catch (err) {
             setError(err.message || 'Failed to cancel invitation');
+        }
+    };
+
+    const handleEditUser = (user) => {
+        setEditingUser(user);
+        setNewRole(user.role);
+        setShowEditUserModal(true);
+    };
+
+    const handleUpdateUserRole = async (e) => {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        setLoading(true);
+        setError('');
+
+        try {
+            await b2bClient.updateUserRole(editingUser.id, newRole);
+            setSuccess(`Role updated for ${editingUser.name || editingUser.email}`);
+            setShowEditUserModal(false);
+            setEditingUser(null);
+            loadData();
+        } catch (err) {
+            setError(err.message || 'Failed to update user role');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -322,8 +354,8 @@ const InvitationsPage = () => {
                         >
                             <option value="all">All Roles</option>
                             <option value="admin">Admin</option>
-                            <option value="field_manager">Field Manager</option>
-                            <option value="field_agent">Field Agent</option>
+                            <option value="member">Member</option>
+                            <option value="viewer">Viewer</option>
                         </select>
                         <select
                             value={statusFilter}
@@ -430,8 +462,7 @@ const InvitationsPage = () => {
                                             <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                                 <ActionMenu
                                                     actions={[
-                                                        { label: 'View Details', icon: '👁️', onClick: () => console.log('View', user.id) },
-                                                        { label: 'Edit Role', icon: '✏️', onClick: () => console.log('Edit', user.id) }
+                                                        { label: 'Edit Role', icon: '✏️', onClick: () => handleEditUser(user) }
                                                     ]}
                                                 />
                                             </td>
@@ -728,8 +759,8 @@ const InvitationsPage = () => {
                                     </div>
                                 )}
 
-                                {/* Field Manager Note */}
-                                {user?.role === 'field_manager' && (
+                                {/* Restricted Invite Note logic (optional, removing Field Manager specific) */}
+                                {false && (
                                     <div style={{
                                         marginBottom: '24px',
                                         padding: '12px',
@@ -799,6 +830,132 @@ const InvitationsPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Edit User Modal */}
+            {showEditUserModal && editingUser && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '20px'
+                }} onClick={() => setShowEditUserModal(false)}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '520px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                        overflow: 'hidden'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            padding: '24px',
+                            color: 'white'
+                        }}>
+                            <h2 style={{
+                                margin: 0,
+                                fontSize: '24px',
+                                fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span style={{ fontSize: '28px' }}>✏️</span>
+                                Edit User Role
+                            </h2>
+                            <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
+                                Update role for {editingUser.name || editingUser.email}
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleUpdateUserRole} style={{ padding: '28px' }}>
+                            <div style={{ marginBottom: '28px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Role
+                                </label>
+                                <select
+                                    value={newRole}
+                                    onChange={(e) => setNewRole(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        fontSize: '14px',
+                                        backgroundColor: '#f9fafb',
+                                        color: '#111827',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {availableRoles.map(role => (
+                                        <option key={role.value} value={role.value} disabled={role.disabled}>
+                                            {role.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditUserModal(false)}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb',
+                                        background: 'white',
+                                        color: '#374151',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                        transition: 'all 0.2s',
+                                        opacity: loading ? 0.7 : 1
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                    onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+                                >
+                                    {loading ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 };

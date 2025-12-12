@@ -108,6 +108,26 @@ class ApiService {
         }
     }
 
+
+    /**
+     * Update user role
+     */
+    async updateUserRole(userId, role) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/users/${userId}/role`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ role }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Failed to update role: ${response.status} - ${error}`);
+        }
+
+        return response.json();
+    }
+
     /**
      * Logout (just clear Firebase auth, backend is stateless now)
      */

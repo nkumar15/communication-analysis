@@ -49,9 +49,8 @@ const RoleBadge = ({ role }) => {
             case 'field_manager':
             case 'manager':
                 return 'Field Manager';
-            case 'field_agent':
             case 'member':
-                return 'Field Agent';
+                return 'Member';
             default:
                 return role.charAt(0).toUpperCase() + role.slice(1);
         }
