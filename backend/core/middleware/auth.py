@@ -42,31 +42,31 @@ async def get_current_user(
         )
 
 
-async def require_auth(request: Request) -> Dict[str, Any]:
-    """
-    Require authentication (backward compatible wrapper)
+# async def require_auth(request: Request) -> Dict[str, Any]:
+#     """
+#     Require authentication (backward compatible wrapper)
     
-    Args:
-        request: FastAPI request
+#     Args:
+#         request: FastAPI request
         
-    Returns:
-        Decoded token data
-    """
-    auth_header = request.headers.get("Authorization")
+#     Returns:
+#         Decoded token data
+#     """
+#     auth_header = request.headers.get("Authorization")
     
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+#     if not auth_header or not auth_header.startswith("Bearer "):
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Not authenticated"
+#         )
     
-    token = auth_header.split(" ")[1]
+#     token = auth_header.split(" ")[1]
     
-    try:
-        decoded_token = await firebase_auth_service.verify_id_token(token)
-        return decoded_token
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
+#     try:
+#         decoded_token = await firebase_auth_service.verify_id_token(token)
+#         return decoded_token
+#     except ValueError as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail=str(e)
+#         )

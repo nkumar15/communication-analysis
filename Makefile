@@ -185,8 +185,9 @@ clean-all: clean ## Complete cleanup including node_modules
 
 test-api: ## Run all API integration tests
 	@echo "$(BLUE)Running API integration tests...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v
+	docker-compose run --rm e2e-tests pytest -n auto tests/e2e_api/ -v
 	@echo "$(GREEN)✓ API tests complete$(NC)"
+
 
 test-browser: ## Run E2E browser tests
 	@echo "$(BLUE)Running E2E browser tests...$(NC)"
