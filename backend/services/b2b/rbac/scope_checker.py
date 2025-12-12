@@ -124,29 +124,76 @@ async def is_team_manager(user_id: UUID, team_id: UUID, db: AsyncSession) -> boo
     )
     row = result.first()
     
+    
     if not row:
         return False
     
     member, role_def = row
     
     # New system: check permissions JSON for granular capability
-    # Default behavior: Team Manager has all management capabilities
     if role_def:
-        can_manage = False
-        perms = role_def.permissions or []
-        for p in perms:
-            # Check for explicitly granted management permission
-            if p.get('resource') == 'team_members' and 'manage' in p.get('actions', []):
-                can_manage = True
-                break
-        
-        if can_manage:
-            return True
+        # Check for explicitly granted management permission
+        return await check_team_permission(
+            user_id, team_id, 'team_members', 'manage', db, 
+            role_def_override=role_def
+        )
 
     # Legacy fallback: check old team_role column
     if member.team_role == 'team_manager':
         return True
     
+    return False
+
+
+async def check_team_permission(
+    user_id: UUID, 
+    team_id: UUID, 
+    resource: str, 
+    action: str, 
+    db: AsyncSession,
+    role_def_override=None
+) -> bool:
+    """
+    Check if user has a specific granular permission within a team.
+    
+    Args:
+        user_id: User ID
+        team_id: Team ID
+        resource: Resource name (e.g., 'projects', 'team_members')
+        action: Action name (e.g., 'read', 'write', 'manage')
+        db: Database session
+        role_def_override: Optional pre-fetched role definition to save a query
+        
+    Returns:
+        bool: True if user has the permission
+    """
+    from services.b2b.models.team_role_definition import TeamRoleDefinition
+    
+    role_def = role_def_override
+    
+    if not role_def:
+        # Query team membership with role definition
+        result = await db.execute(
+            select(TeamRoleDefinition)
+            .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
+            .where(
+                TeamMember.user_id == user_id,
+                TeamMember.team_id == team_id
+            )
+        )
+        role_def = result.scalar_one_or_none()
+    
+    if not role_def:
+        return False
+        
+    # Check permissions JSON
+    # structure: [{"resource": "projects", "actions": ["read", "write"]}]
+    perms = role_def.permissions or []
+    for perm in perms:
+        if perm.get('resource') == resource:
+            if action in perm.get('actions', []):
+                return True
+                
     return False
 
 
