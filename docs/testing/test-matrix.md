@@ -30,7 +30,7 @@ This document maps functional requirements to specific test files, ensuring comp
 
 ## 3. User Management (Tenant Level)
 
-**Ref:** `docs/guides/tenant-admin.md`
+**Ref:** [`docs/specifications/user.md`](../specifications/user.md) (SPEC-04)
 
 | ID | Requirement | API Test | Browser Test | Status |
 |----|-------------|----------|--------------|--------|
@@ -40,12 +40,14 @@ This document maps functional requirements to specific test files, ensuring comp
 
 ## 4. Domain Features (Projects/Teams)
 
-**Ref:** `docs/architecture/domain-apis.md`
+**Ref:** [`docs/specifications/project.md`](../specifications/project.md) (SPEC-05)
 
 | ID | Requirement | API Test | Browser Test | Status |
 |----|-------------|----------|--------------|--------|
 | **DOM-01** | **Create Project**: User can create project in their tenant | `tests/e2e_api/domain/test_projects.py` | *Pending* | ✅ (API Only) |
 | **DOM-02** | **Team Scope**: Project only visible to assigned team members | `tests/e2e_api/domain/test_projects.py` | *Pending* | ✅ (API Only) |
+| **DOM-03** | **Task Management**: Users can create/update tasks | `tests/e2e_api/domain/test_tasks.py` | *Pending* | ✅ (API Only) |
+| **DOM-04** | **Comment Access**: Comments scoped to task and team | `tests/e2e_api/domain/test_comments.py` | *Pending* | ✅ (API Only) |
 
 ## 5. Platform Administration
 

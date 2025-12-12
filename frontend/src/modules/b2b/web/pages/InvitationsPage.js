@@ -318,10 +318,35 @@ const InvitationsPage = () => {
                             />
                             <button
                                 onClick={() => setShowInviteModal(true)}
-                                className="button button-primary"
-                                style={{ marginBottom: '16px' }}
+                                style={{
+                                    backgroundColor: '#4F46E5',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '10px 24px',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s',
+                                    marginBottom: '16px'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#4338CA';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                    e.currentTarget.style.boxShadow = '0 6px 8px -1px rgba(79, 70, 229, 0.3)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#4F46E5';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(79, 70, 229, 0.2)';
+                                }}
                             >
-                                + Invite User
+                                <span style={{ fontSize: '16px', fontWeight: 'bold' }}>+</span>
+                                Invite User
                             </button>
                         </div>
                     </div>

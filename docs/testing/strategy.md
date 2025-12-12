@@ -92,10 +92,11 @@ We are following a phased approach to testing.
 
 **Documentation**: See `backend/tests/e2e_browser/README.md`
 
-### 🔮 Phase 5: Granular RBAC Testing
+### 🔮 Phase 5: Granular RBAC Testing (In Progress)
 **Goal**: Verify complex permission matrices beyond simple roles.
 - **Scope**:
     - Matrix testing of every permission against every role.
+    - **Team Roles**: Verify `team_manager` vs `team_contributor` vs `team_reader` permissions for Projects, Tasks, and Comments (Ref: `SPEC-05`).
     - API endpoint fuzzing for unauthorized access.
     - Horizontal privilege escalation checks.
 

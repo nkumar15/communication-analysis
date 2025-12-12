@@ -92,8 +92,12 @@ This is the most important distinction in the RBAC system.
 | **Users** | `read` | ✅ | ✅ | ✅ | ✅ |
 | | `invite` | ✅ | ✅ | ❌ | ❌ |
 | | `delete` | ✅ | ❌ | ❌ | ❌ |
+| **Tenant Roles** | `read` | ✅ | ✅ | ✅ | ✅ |
+| | `write` | ✅ | ✅ | ❌ | ❌ |
 | **Teams** | `write` | ✅ | ✅ | ❌ | ❌ |
 | | `delete` | ✅ | ✅ | ❌ | ❌ |
+| **Team Roles** | `read` | ✅ | ✅ | ✅ | ✅ |
+| | `write` | ✅ | ✅ | ❌ | ❌ |
 | **Billing** | `manage` | ✅ | ❌ | ❌ | ❌ |
 | **Audit Logs** | `read` | ✅ | ✅ | ❌ | ❌ |
 

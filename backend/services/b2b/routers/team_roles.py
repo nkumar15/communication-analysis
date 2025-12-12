@@ -22,6 +22,10 @@ router = APIRouter(prefix="/api/b2b/team-roles", tags=["team-roles"])
 # SCHEMAS
 # ============================================================================
 
+# ============================================================================
+# SCHEMAS
+# ============================================================================
+
 class TeamRoleResponse(BaseModel):
     """Team role response"""
     id: UUID
@@ -29,10 +33,7 @@ class TeamRoleResponse(BaseModel):
     name: str
     display_name: str
     description: Optional[str] = None
-    can_manage_members: bool
-    can_manage_settings: bool
-    can_write_resources: bool
-    can_delete_resources: bool
+    permissions: List[dict] = []
     is_system: bool
     is_default: bool
     
@@ -45,10 +46,7 @@ class TeamRoleCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50, pattern=r'^[a-z_]+$')
     display_name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
-    can_manage_members: bool = False
-    can_manage_settings: bool = False
-    can_write_resources: bool = True
-    can_delete_resources: bool = False
+    permissions: List[dict] = []
     is_default: bool = False
 
 
@@ -56,10 +54,7 @@ class TeamRoleUpdate(BaseModel):
     """Update team role request"""
     display_name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
-    can_manage_members: Optional[bool] = None
-    can_manage_settings: Optional[bool] = None
-    can_write_resources: Optional[bool] = None
-    can_delete_resources: Optional[bool] = None
+    permissions: Optional[List[dict]] = None
     is_default: Optional[bool] = None
 
 
@@ -125,10 +120,7 @@ async def create_team_role(
         name=data.name,
         display_name=data.display_name,
         description=data.description,
-        can_manage_members=data.can_manage_members,
-        can_manage_settings=data.can_manage_settings,
-        can_write_resources=data.can_write_resources,
-        can_delete_resources=data.can_delete_resources,
+        permissions=data.permissions,
         is_default=data.is_default
     )
     await db.commit()
