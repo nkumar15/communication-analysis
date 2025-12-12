@@ -85,7 +85,7 @@ async def create_tenant_async(
 @click.option('--oidc-web-provider-id', prompt='Web OIDC Provider ID (e.g., oidc.auth0)', help='Existing OIDC provider ID')
 @click.option('--oidc-web-client-id', prompt='OIDC Client ID (for web)', required=False, help='OIDC Client ID')
 @click.option('--oidc-mobile-client-id', prompt='OIDC Client ID (for mobile app)', required=False, help='Mobile Client ID')
-@click.option('--oidc-mobile-provider-id', prompt='Mobile OIDC Provider ID (optional)', required=False, default=None, help='Existing Mobile OIDC provider ID')
+@click.option('--oidc-mobile-provider-id', prompt='Mobile OIDC Provider ID', required=False, default=None, help='Existing Mobile OIDC provider ID')
 @click.option('--oidc-issuer', prompt='OIDC Issuer URL (for mobile app)', required=False, help='OIDC Issuer URL')
 @click.option('--owner-email', prompt='Owner Email', help='Owner email address')
 def create_local(company, domain, firebase_tenant_id, oidc_web_provider_id, oidc_web_client_id, oidc_mobile_client_id, oidc_mobile_provider_id, oidc_issuer, owner_email):

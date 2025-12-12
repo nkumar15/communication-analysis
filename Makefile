@@ -102,7 +102,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			$(MAKE) migrate; \
 			docker-compose restart postgres; \
 			sleep 5; \
-			docker-compose restart platform-api b2b-api b2c-api; \
+			docker-compose restart platform-api b2b-api b2c-api domain-api nginx; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
 			;; \
 		*) echo "Cancelled."; ;; \
