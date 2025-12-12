@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from typing import List
 
-from services.b2b.models.user import UserModel
 from services.b2b.models.team_member import TeamMember
 from services.domains.projects.models.project import Project
 from services.domains.projects.models.task import Task
@@ -145,74 +144,74 @@ async def can_perform_action(
     return False
 
 
-async def get_user_team_role_capabilities(user_id: UUID, team_id: UUID, user_role: str, db: AsyncSession) -> dict:
-    """
-    Get a dictionary of capabilities for a user within a specific team,
-    based on their assigned team role.
-    """
-    # Owner/Admin have implicit access to everything
-    if user_role in ['owner', 'admin']:
-        return {
-            'can_manage_members': True,
-            'can_manage_settings': True,
-            'can_write_resources': True,
-            'can_delete_resources': True,
-        }
+# async def get_user_team_role_capabilities(user_id: UUID, team_id: UUID, user_role: str, db: AsyncSession) -> dict:
+#     """
+#     Get a dictionary of capabilities for a user within a specific team,
+#     based on their assigned team role.
+#     """
+#     # Owner/Admin have implicit access to everything
+#     if user_role in ['owner', 'admin']:
+#         return {
+#             'can_manage_members': True,
+#             'can_manage_settings': True,
+#             'can_write_resources': True,
+#             'can_delete_resources': True,
+#         }
 
-    result = await db.execute(
-        select(TeamRoleDefinition)
-        .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
-        .where(
-            TeamMember.user_id == user_id,
-            TeamMember.team_id == team_id
-        )
-    )
-    role_def = result.scalar_one_or_none()
+#     result = await db.execute(
+#         select(TeamRoleDefinition)
+#         .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
+#         .where(
+#             TeamMember.user_id == user_id,
+#             TeamMember.team_id == team_id
+#         )
+#     )
+#     role_def = result.scalar_one_or_none()
     
-    # Require team_role_id to be set - no legacy fallback
-    if not role_def:
-        return {
-            'can_manage_members': False,
-            'can_manage_settings': False,
-            'can_write_resources': False,
-            'can_delete_resources': False,
-        }
+#     # Require team_role_id to be set - no legacy fallback
+#     if not role_def:
+#         return {
+#             'can_manage_members': False,
+#             'can_manage_settings': False,
+#             'can_write_resources': False,
+#             'can_delete_resources': False,
+#         }
     
-    # Map granular permissions back to legacy flags for backward compatibility
-    perms = role_def.permissions or []
+#     # Map granular permissions back to legacy flags for backward compatibility
+#     perms = role_def.permissions or []
     
-    can_manage_members = False
-    can_manage_settings = False
-    can_write_resources = False # This is tricky, implies ALL resources. Set true if ANY write.
-    can_delete_resources = False
+#     can_manage_members = False
+#     can_manage_settings = False
+#     can_write_resources = False # This is tricky, implies ALL resources. Set true if ANY write.
+#     can_delete_resources = False
     
-    for p in perms:
-        res = p.get('resource')
-        actions = p.get('actions', [])
+#     for p in perms:
+#         res = p.get('resource')
+#         actions = p.get('actions', [])
         
-        if res == 'team_members' and 'manage' in actions:
-            can_manage_members = True
-        if res == 'team_settings' and 'manage' in actions:
-            can_manage_settings = True
-        if 'write' in actions:
-            can_write_resources = True
-        if 'delete' in actions:
-            can_delete_resources = True
+#         if res == 'team_members' and 'manage' in actions:
+#             can_manage_members = True
+#         if res == 'team_settings' and 'manage' in actions:
+#             can_manage_settings = True
+#         if 'write' in actions:
+#             can_write_resources = True
+#         if 'delete' in actions:
+#             can_delete_resources = True
 
-    return {
-        'can_manage_members': can_manage_members,
-        'can_manage_settings': can_manage_settings,
-        'can_write_resources': can_write_resources,
-        'can_delete_resources': can_delete_resources,
-    }
+#     return {
+#         'can_manage_members': can_manage_members,
+#         'can_manage_settings': can_manage_settings,
+#         'can_write_resources': can_write_resources,
+#         'can_delete_resources': can_delete_resources,
+#     }
 
 
-# DEPRECATED HELPER - keeping for backward compatibility if needed, but should be phased out
-# We map old concepts to new granular permissions for safety
-async def can_write_in_team(user_id: UUID, team_id: UUID, user_role: str, db: AsyncSession, resource: str = 'projects') -> bool:
-    return await can_perform_action(user_id, team_id, resource, 'write', user_role, db)
+# # DEPRECATED HELPER - keeping for backward compatibility if needed, but should be phased out
+# # We map old concepts to new granular permissions for safety
+# async def can_write_in_team(user_id: UUID, team_id: UUID, user_role: str, db: AsyncSession, resource: str = 'projects') -> bool:
+#     return await can_perform_action(user_id, team_id, resource, 'write', user_role, db)
 
-async def can_delete_in_team(user_id: UUID, team_id: UUID, user_role: str, db: AsyncSession, resource: str = 'projects') -> bool:
-    return await can_perform_action(user_id, team_id, resource, 'delete', user_role, db)
+# async def can_delete_in_team(user_id: UUID, team_id: UUID, user_role: str, db: AsyncSession, resource: str = 'projects') -> bool:
+#     return await can_perform_action(user_id, team_id, resource, 'delete', user_role, db)
 
 

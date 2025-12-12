@@ -18,8 +18,6 @@ from services.domains.projects.scope_checker import (
     can_access_project,
     can_user_access_team,
     can_perform_action,
-    can_write_in_team,
-    can_delete_in_team
 )
 from services.domains.projects.models.project import Project
 from services.domains.projects.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse

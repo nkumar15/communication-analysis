@@ -16,8 +16,6 @@ from services.domains.projects.scope_checker import (
     can_access_task,
     validate_team_member_assignment,
     can_perform_action,
-    can_write_in_team,
-    can_delete_in_team
 )
 from services.domains.projects.models.task import Task
 from services.domains.projects.models.project import Project

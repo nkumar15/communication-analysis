@@ -12,7 +12,7 @@ from uuid import UUID
 
 from core.database import get_db
 from services.b2b.rbac import require_permission
-from services.domains.projects.scope_checker import can_access_task, can_write_in_team, can_perform_action
+from services.domains.projects.scope_checker import can_access_task , can_perform_action
 from services.domains.projects.models.comment import Comment
 from services.domains.projects.models.task import Task
 from services.domains.projects.models.project import Project
