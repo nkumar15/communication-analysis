@@ -14,9 +14,9 @@ This document maps functional requirements to specific test files, ensuring comp
 | ID | Requirement | API Test | Browser Test | Status |
 |----|-------------|----------|--------------|--------|
 | **ONB-01** | **Platform Admin Invite**: Platform admin can invite a new tenant owner via API/CLI | `tests/e2e_api/platform/test_tenants.py` | `tests/e2e_browser/test_platform_admin.py` | ⚠️ (Browser WIP) |
-| **ONB-02** | **Activation Email**: System generates valid activation token and "sends" email | `tests/e2e_api/b2b/test_activation.py` | *Implicit in ONB-03* | ✅ |
-| **ONB-03** | **Owner Activation**: Tenant owner can click link, SSO login, and activate account | `tests/e2e_api/b2b/test_activation.py` | `tests/e2e_browser/test_tenant_onboarding.py` | ⚠️ (Browser Skipped) |
-| **ONB-04** | **Token Expiry**: Activation link fails if expired (>48h) | `tests/e2e_api/b2b/test_activation.py` | *Manual* | ✅ (API Only) |
+| **ONB-02** | **Activation Email**: System generates valid activation token and "sends" email | `tests/e2e_api/b2b/onboarding/test_activation.py` | *Implicit in ONB-03* | ✅ |
+| **ONB-03** | **Owner Activation**: Tenant owner can click link, SSO login, and activate account | `tests/e2e_api/b2b/onboarding/test_activation.py` | `tests/e2e_browser/test_tenant_onboarding.py` | ⚠️ (Browser Skipped) |
+| **ONB-04** | **Token Expiry**: Activation link fails if expired (>48h) | `tests/e2e_api/b2b/onboarding/test_activation.py` | *Manual* | ✅ (API Only) |
 
 ## 2. Authentication & Isolation
 
@@ -24,9 +24,9 @@ This document maps functional requirements to specific test files, ensuring comp
 
 | ID | Requirement | API Test | Browser Test | Status |
 |----|-------------|----------|--------------|--------|
-| **AUTH-01** | **SSO Login**: Existing user can login via OIDC (Firebase mock/custom token) | `tests/e2e_api/b2b/test_auth.py` | `tests/e2e_browser/test_login_flow.py` | ✅ |
-| **SEC-01** | **Cross-Tenant Block**: Tenant A cannot access Tenant B's data | `tests/e2e_api/b2b/test_security.py` | *N/A (API enforcement)* | ✅ |
-| **SEC-02** | **Unactivated Block**: Users in "Pending" tenants cannot login | `tests/e2e_api/b2b/test_auth.py` | *N/A* | ✅ |
+| **AUTH-01** | **SSO Login**: Existing user can login via OIDC (Firebase mock/custom token) | `tests/e2e_api/b2b/iam/test_auth.py` | `tests/e2e_browser/test_login_flow.py` | ✅ |
+| **SEC-01** | **Cross-Tenant Block**: Tenant A cannot access Tenant B's data | `tests/e2e_api/b2b/iam/test_multi_tenant_isolation.py` | *N/A (API enforcement)* | ✅ |
+| **SEC-02** | **Unactivated Block**: Users in "Pending" tenants cannot login | `tests/e2e_api/b2b/iam/test_auth.py` | *N/A* | ✅ |
 
 ## 3. User Management (Tenant Level)
 
@@ -34,9 +34,9 @@ This document maps functional requirements to specific test files, ensuring comp
 
 | ID | Requirement | API Test | Browser Test | Status |
 |----|-------------|----------|--------------|--------|
-| **USR-01** | **Invite Member**: Tenant Admin can invite `manager` or `member` | `tests/e2e_api/b2b/test_invitations.py` | `tests/e2e_browser/test_invitation_flow.py` | ⚠️ (Browser WIP) |
-| **USR-02** | **Accept Invite**: User can accept invite and join tenant | `tests/e2e_api/b2b/test_invitations.py` | `tests/e2e_browser/test_invitation_flow.py` | ⚠️ |
-| **USR-03** | **RBAC Enforcement**: `member` cannot invite others | `tests/e2e_api/b2b/test_rbac_permissions.py` | *Manual* | ✅ (API Only) |
+| **USR-01** | **Invite Member**: Tenant Admin can invite `manager` or `member` | `tests/e2e_api/b2b/organization/test_invitations.py` | `tests/e2e_browser/test_invitation_flow.py` | ⚠️ (Browser WIP) |
+| **USR-02** | **Accept Invite**: User can accept invite and join tenant | `tests/e2e_api/b2b/organization/test_invitations.py` | `tests/e2e_browser/test_invitation_flow.py` | ⚠️ |
+| **USR-03** | **RBAC Enforcement**: `member` cannot invite others | `tests/e2e_api/b2b/iam/test_rbac.py` | *Manual* | ✅ (API Only) |
 
 ## 4. Domain Features (Projects/Teams)
 
@@ -44,10 +44,10 @@ This document maps functional requirements to specific test files, ensuring comp
 
 | ID | Requirement | API Test | Browser Test | Status |
 |----|-------------|----------|--------------|--------|
-| **DOM-01** | **Create Project**: User can create project in their tenant | `tests/e2e_api/domain/test_projects.py` | *Pending* | ✅ (API Only) |
-| **DOM-02** | **Team Scope**: Project only visible to assigned team members | `tests/e2e_api/domain/test_projects.py` | *Pending* | ✅ (API Only) |
-| **DOM-03** | **Task Management**: Users can create/update tasks | `tests/e2e_api/domain/test_tasks.py` | *Pending* | ✅ (API Only) |
-| **DOM-04** | **Comment Access**: Comments scoped to task and team | `tests/e2e_api/domain/test_comments.py` | *Pending* | ✅ (API Only) |
+| **DOM-01** | **Create Project**: User can create project in their tenant | `tests/e2e_api/b2b/domain/test_projects.py` | *Pending* | ✅ (API Only) |
+| **DOM-02** | **Team Scope**: Project only visible to assigned team members | `tests/e2e_api/b2b/domain/test_projects.py` | *Pending* | ✅ (API Only) |
+| **DOM-03** | **Task Management**: Users can create/update tasks | `tests/e2e_api/b2b/domain/test_tasks.py` | *Pending* | ✅ (API Only) |
+| **DOM-04** | **Comment Access**: Comments scoped to task and team | `tests/e2e_api/b2b/domain/test_comments.py` | *Pending* | ✅ (API Only) |
 
 ## 5. Platform Administration
 
@@ -57,7 +57,7 @@ This document maps functional requirements to specific test files, ensuring comp
 |----|-------------|----------|--------------|--------|
 | **PLT-01** | **List Tenants**: Super Admin can view all tenants with stats | `tests/e2e_api/platform/test_tenants.py` | *Pending* | ✅ (API Only) |
 | **PLT-02** | **Create Tenant**: Super Admin can provision new tenant | `tests/e2e_api/platform/test_tenants.py` | *Pending* | ✅ (API Only) |
-| **PLT-03** | **Impersonate**: Super Admin can login as any tenant owner | `tests/e2e_api/platform/test_impersonation.py` | *Pending* | ✅ (API Only) |
+| **PLT-03** | **Impersonate**: Super Admin can login as any tenant owner | `tests/e2e_api/b2b/iam/test_impersonation.py` | *Pending* | ✅ (API Only) |
 
 
 ## 6. Mobile App Support (Android)
@@ -67,10 +67,10 @@ This document maps functional requirements to specific test files, ensuring comp
 | **MOB-01** | **Deep Link Activation**: App intercepts `https://app.example.com/activate` and parses token | ✅ **DONE** | Verified via ADB Intent (App opened & parsed token) |
 | **MOB-02** | **Native Connectivity**: App successfully reaches backend (`10.0.2.2`) | ✅ **DONE** | Verified via API call (Tenant resolution works) |
 | **MOB-03** | **Login Screen**: Email input, tenant resolution, UI display | ✅ **DONE** | Manual testing (UI renders, API connects) |
-| **MOB-04** | **Native SSO**: Production OIDC via react-native-app-auth | ✅ **DONE** | `test_mobile_auth.py::TestMobileOnboardingFlow` |
+| **MOB-04** | **Native SSO**: Production OIDC via react-native-app-auth | ✅ **DONE** | `tests/e2e_api/b2b/iam/test_mobile_auth.py::TestMobileOnboardingFlow` |
 | **MOB-05** | **Firebase Multi-Tenancy**: Tenant context via `setTenantId()` method | ✅ **DONE** | Confirmed via native SDK implementation |
-| **MOB-06** | **Tenant Resolution API**: `/api/b2b/auth/resolve-tenant` returns OIDC provider | ✅ **DONE** | `test_mobile_auth.py::test_resolve_tenant_returns_oidc_provider` |
-| **MOB-07** | **OIDC Config API**: `/api/b2b/auth/oidc-config/{id}` returns issuer/client | ✅ **DONE** | `test_mobile_auth.py::test_oidc_config_endpoint` |
+| **MOB-06** | **Tenant Resolution API**: `/api/b2b/auth/resolve-tenant` returns OIDC provider | ✅ **DONE** | `tests/e2e_api/b2b/iam/test_mobile_auth.py::test_resolve_tenant_returns_oidc_provider` |
+| **MOB-07** | **OIDC Config API**: `/api/b2b/auth/oidc-config/{id}` returns issuer/client | ✅ **DONE** | `tests/e2e_api/b2b/iam/test_mobile_auth.py::test_oidc_config_endpoint` |
 
 ### Mobile Development Notes
 - **Build Fixed**: Package name `com.saas.b2b`, SDK 36, Gradle 8.13
@@ -84,10 +84,10 @@ This document maps functional requirements to specific test files, ensuring comp
 
 | ID | Requirement | API Test | Status |
 |----|-------------|----------|--------|
-| **UID-01** | Web user recognized on Mobile flow | `test_mobile_auth.py::test_user_created_on_web_recognized_on_mobile_flow` | ✅ |
-| **UID-02** | Mobile user recognized on Web flow | `test_mobile_auth.py::test_user_created_on_mobile_recognized_on_web_flow` | ✅ |
-| **UID-03** | Email is canonical identity (UID can change) | `test_mobile_auth.py::test_email_is_canonical_identity_not_uid` | ✅ |
-| **UID-04** | Different emails = different users | `test_mobile_auth.py::test_different_emails_create_different_users` | ✅ |
+| **UID-01** | Web user recognized on Mobile flow | `tests/e2e_api/b2b/iam/test_mobile_auth.py::test_user_created_on_web_recognized_on_mobile_flow` | ✅ |
+| **UID-02** | Mobile user recognized on Web flow | `tests/e2e_api/b2b/iam/test_mobile_auth.py::test_user_created_on_mobile_recognized_on_web_flow` | ✅ |
+| **UID-03** | Email is canonical identity (UID can change) | `tests/e2e_api/b2b/iam/test_mobile_auth.py::test_email_is_canonical_identity_not_uid` | ✅ |
+| **UID-04** | Different emails = different users | `tests/e2e_api/b2b/iam/test_mobile_auth.py::test_different_emails_create_different_users` | ✅ |
 
 ### Key Implementation Points
 - User lookup is by `(tenant_id, email)` NOT `firebase_uid`
@@ -100,6 +100,6 @@ This document maps functional requirements to specific test files, ensuring comp
 
 | ID | Requirement | API Test | Status |
 |----|-------------|----------|--------|
-| **AUD-01** | **Synchronous Logging**: Audit logs are created in same transaction as action | `tests/e2e_api/b2b/test_audit_logs.py` | ✅ |
-| **AUD-02** | **Strict RLS**: Audit logs respect tenant isolation (viewing) | `tests/e2e_api/b2b/test_audit_logs.py` | ✅ |
+| **AUD-01** | **Synchronous Logging**: Audit logs are created in same transaction as action | `tests/e2e_api/b2b/validation/test_audit_logs.py` | ✅ |
+| **AUD-02** | **Strict RLS**: Audit logs respect tenant isolation (viewing) | `tests/e2e_api/b2b/validation/test_audit_logs.py` | ✅ |
 | **ISO-01** | **Test Isolation**: Tests reset RLS context between requests | `tests/conftest.py` (Infrastructure) | ✅ |
