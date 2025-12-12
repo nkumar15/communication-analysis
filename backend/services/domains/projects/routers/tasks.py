@@ -3,23 +3,22 @@ Task Management API Router
 
 CRUD endpoints for tasks with project/team-based scoping
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from uuid import UUID
 
 from core.database import get_db
 from services.b2b.rbac import require_permission
-from services.domains.projects.scope_checker import (
-    can_access_project,
-    can_access_task,
-    validate_team_member_assignment,
-    can_perform_action,
-)
-from services.domains.projects.models.task import Task
-from services.domains.projects.models.project import Project
 from services.domains.projects.schemas.tasks import TaskCreate, TaskUpdate, TaskResponse
+from services.domains.projects.services.tasks import (
+    create_task as service_create_task,
+    list_tasks as service_list_tasks,
+    get_task as service_get_task,
+    update_task as service_update_task,
+    update_task_status as service_update_task_status,
+    delete_task as service_delete_task
+)
 
 router = APIRouter(prefix="/api/domain/tasks", tags=["tasks"])
 
@@ -31,66 +30,7 @@ async def create_task(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new task in a project"""
-    # Verify user can access the project
-    if not await can_access_project(
-        current_user['id'], 
-        task_data.project_id, 
-        current_user['role'], 
-        current_user['tenant_id'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this project"
-        )
-    
-    # Get project to get team_id
-    project = await db.get(Project, task_data.project_id)
-    
-    # If assigning to someone, validate they're in the team
-    if task_data.assigned_to:
-        if not await validate_team_member_assignment(
-            task_data.assigned_to, 
-            project.team_id, 
-            db
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Assignee must be a member of the project's team"
-            )
-    
-    # Check team role capability: tasks:write
-    if not await can_perform_action(
-        current_user['id'],
-        project.team_id,
-        'tasks',
-        'write',
-        current_user['role'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your team role doesn't allow creating tasks"
-        )
-    
-    # Create task
-    task = Task(
-        tenant_id=current_user['tenant_id'],
-        project_id=task_data.project_id,
-        title=task_data.title,
-        description=task_data.description,
-        assigned_to=task_data.assigned_to,
-        due_date=task_data.due_date,
-        created_by=current_user['id']
-    )
-    
-    db.add(task)
-    # Flush, re-query with RLS context (FastAPI commits on success)
-    await db.flush()
-    result = await db.execute(select(Task).where(Task.id == task.id))
-    task = result.scalar_one()
-    
-    return task
+    return await service_create_task(db, current_user, task_data)
 
 
 @router.get("", response_model=List[TaskResponse])
@@ -101,31 +41,7 @@ async def list_tasks(
     db: AsyncSession = Depends(get_db)
 ):
     """List tasks with optional filtering"""
-    query = select(Task).where(Task.deleted_at == None)
-    
-    # Filter by project if specified
-    if project_id:
-        if not await can_access_project(
-            current_user['id'], 
-            project_id, 
-            current_user['role'], 
-            current_user['tenant_id'],
-            db
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have access to this project"
-            )
-        query = query.where(Task.project_id == project_id)
-    
-    # Filter by status if specified
-    if status:
-        query = query.where(Task.status == status)
-    
-    result = await db.execute(query.order_by(Task.created_at.desc()))
-    tasks = result.scalars().all()
-    
-    return tasks
+    return await service_list_tasks(db, current_user, project_id, status)
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
@@ -135,20 +51,7 @@ async def get_task(
     db: AsyncSession = Depends(get_db)
 ):
     """Get task details"""
-    if not await can_access_task(
-        current_user['id'], 
-        task_id, 
-        current_user['role'], 
-        current_user['tenant_id'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Task not found or access denied"
-        )
-    
-    task = await db.get(Task, task_id)
-    return task
+    return await service_get_task(db, current_user, task_id)
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
@@ -159,67 +62,7 @@ async def update_task(
     db: AsyncSession = Depends(get_db)
 ):
     """Update task details"""
-    if not await can_access_task(
-        current_user['id'], 
-        task_id, 
-        current_user['role'], 
-        current_user['tenant_id'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Task not found or access denied"
-        )
-    
-    task = await db.get(Task, task_id)
-    
-    # If changing assignee, validate they're in the team
-    if task_data.assigned_to:
-        project = await db.get(Project, task.project_id)
-        if not await validate_team_member_assignment(
-            task_data.assigned_to, 
-            project.team_id, 
-            db
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Assignee must be a member of the project's team"
-            )
-    else:
-        project = await db.get(Project, task.project_id)
-    
-    # Check team role capability: tasks:write
-    if not await can_perform_action(
-        current_user['id'],
-        project.team_id,
-        'tasks',
-        'write',
-        current_user['role'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your team role doesn't allow editing tasks"
-        )
-    
-    # Update fields
-    if task_data.title is not None:
-        task.title = task_data.title
-    if task_data.description is not None:
-        task.description = task_data.description
-    if task_data.status is not None:
-        task.status = task_data.status
-    if task_data.assigned_to is not None:
-        task.assigned_to = task_data.assigned_to
-    if task_data.due_date is not None:
-        task.due_date = task_data.due_date
-    
-    # Flush, re-query with RLS context (FastAPI commits on success)
-    await db.flush()
-    result = await db.execute(select(Task).where(Task.id == task.id))
-    task = result.scalar_one()
-    
-    return task
+    return await service_update_task(db, current_user, task_id, task_data)
 
 
 @router.patch("/{task_id}/status", response_model=TaskResponse)
@@ -230,27 +73,7 @@ async def update_task_status(
     db: AsyncSession = Depends(get_db)
 ):
     """Update task status only (quick status change)"""
-    if not await can_access_task(
-        current_user['id'], 
-        task_id, 
-        current_user['role'], 
-        current_user['tenant_id'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Task not found or access denied"
-        )
-    
-    task = await db.get(Task, task_id)
-    task.status = status
-    
-    # Flush, re-query with RLS context (FastAPI commits on success)
-    await db.flush()
-    result = await db.execute(select(Task).where(Task.id == task.id))
-    task = result.scalar_one()
-    
-    return task
+    return await service_update_task_status(db, current_user, task_id, status)
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -260,36 +83,6 @@ async def delete_task(
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a task"""
-    if not await can_access_task(
-        current_user['id'], 
-        task_id, 
-        current_user['role'], 
-        current_user['tenant_id'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    task = await db.get(Task, task_id)
-    project = await db.get(Project, task.project_id)
-    
-    # Check team role capability: can_delete_resources
-    if not await can_perform_action(
-        current_user['id'],
-        project.team_id,
-        'tasks',
-        'delete',
-        current_user['role'],
-        db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your team role doesn't allow deleting tasks"
-        )
-    
-    await db.delete(task)
-    
+    await service_delete_task(db, current_user, task_id)
     return None
 
