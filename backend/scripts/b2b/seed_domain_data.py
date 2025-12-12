@@ -138,6 +138,94 @@ if __name__ == "__main__":
             await db.commit()
             print("✓ Updated viewer role with domain permissions")
 
+    async def seed_team_role_permissions(db: AsyncSession) -> None:
+        """
+        Update default TEAM roles with domain permissions
+        This is where we implement GRANULAR control (projects vs tasks)
+        """
+        print("Updating team roles with domain permissions...")
+        from services.b2b.models.team_role_definition import TeamRoleDefinition
+        
+        # 1. Team Manager (Full Access)
+        result = await db.execute(select(TeamRoleDefinition).where(
+            TeamRoleDefinition.name == 'team_manager',
+            TeamRoleDefinition.tenant_id.is_(None) # System role
+        ))
+        team_manager = result.scalar_one_or_none()
+        if team_manager:
+            domain_perms = [
+                {"resource": "projects", "actions": ["read", "write", "delete"]},
+                {"resource": "tasks", "actions": ["read", "write", "delete"]},
+                {"resource": "comments", "actions": ["read", "write", "delete"]},
+            ]
+            # Merge permissions
+            current_perms = list(team_manager.permissions)
+            changed = False
+            for perm in domain_perms:
+                if perm not in current_perms:
+                    current_perms.append(perm)
+                    changed = True
+            
+            if changed:
+                team_manager.permissions = current_perms
+                flag_modified(team_manager, 'permissions')
+                await db.commit()
+                print("✓ Updated team_manager with domain permissions")
+
+        # 2. Team Contributor (The Key Change: Read-only Projects, Write Tasks)
+        result = await db.execute(select(TeamRoleDefinition).where(
+            TeamRoleDefinition.name == 'team_contributor',
+            TeamRoleDefinition.tenant_id.is_(None)
+        ))
+        contributor = result.scalar_one_or_none()
+        if contributor:
+            domain_perms = [
+                {"resource": "projects", "actions": ["read"]}, # Read only!
+                {"resource": "tasks", "actions": ["read", "write"]},
+                {"resource": "comments", "actions": ["read", "write", "delete"]}, 
+            ]
+            # Force overwrite checks for system roles to ensure correctness
+            # We want to ensure these EXACT permissions are present.
+            # Merging is fine, but let's be safe.
+            current_perms = list(contributor.permissions)
+            
+            # Remove any existing perms for these resources to avoid duplicates/conflicts
+            resources_to_update = {"projects", "tasks", "comments"}
+            filtered_perms = [p for p in current_perms if p.get("resource") not in resources_to_update]
+            
+            # Add new perms
+            filtered_perms.extend(domain_perms)
+            
+            if filtered_perms != current_perms:
+                contributor.permissions = filtered_perms
+                flag_modified(contributor, 'permissions')
+                await db.commit()
+                print("✓ Updated team_contributor with granular domain permissions")
+
+        # 3. Team Reader (Read Only)
+        result = await db.execute(select(TeamRoleDefinition).where(
+            TeamRoleDefinition.name == 'team_reader',
+            TeamRoleDefinition.tenant_id.is_(None)
+        ))
+        reader = result.scalar_one_or_none()
+        if reader:
+            domain_perms = [
+                {"resource": "projects", "actions": ["read"]},
+                {"resource": "tasks", "actions": ["read"]},
+                {"resource": "comments", "actions": ["read"]},
+            ]
+            
+            current_perms = list(reader.permissions)
+            filtered_perms = [p for p in current_perms if p.get("resource") not in {"projects", "tasks", "comments"}]
+            filtered_perms.extend(domain_perms)
+            
+            if filtered_perms != current_perms:
+                reader.permissions = filtered_perms
+                flag_modified(reader, 'permissions')
+                await db.commit()
+                print("✓ Updated team_reader with domain permissions")
+
+
     async def main():
         """Main seeding function"""
         print("\n" + "="*50)
@@ -154,6 +242,7 @@ if __name__ == "__main__":
             async with AsyncSession(engine) as db:
                 await seed_domain_resources(db)
                 await seed_domain_role_templates(db)
+                await seed_team_role_permissions(db)
                 
             print("\n" + "="*50)
             print("✅ Domain data seeding complete!")

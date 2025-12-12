@@ -195,9 +195,11 @@ class TestTeamManagement:
         
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["user_id"] == str(user.id)
-        assert data[0]["team_role"] == "team_manager"
+        assert len(data) == 2  # Creator + Added Member
+        
+        # Check added member is present
+        member_entry = next(m for m in data if m["user_id"] == str(user.id))
+        assert member_entry["team_role"] == "team_manager"
 
     @pytest.mark.asyncio
     async def test_update_team_member_role(self, api_client: AsyncClient, b2b_test_setup):
@@ -272,13 +274,14 @@ class TestTeamManagement:
         
         assert response.status_code == 200
         
-        # Verify removed
+        # Verify removed (creator should still remain)
         response = await api_client.get(
             f"/api/b2b/teams/{team_id}/members",
             headers={"Authorization": f"Bearer {token}"}
         )
         data = response.json()
-        assert len(data) == 0
+        assert len(data) == 1
+        assert data[0]["user_id"] != str(user.id)
 
     @pytest.mark.asyncio
     async def test_move_team_member(self, api_client: AsyncClient, b2b_test_setup):
@@ -316,12 +319,14 @@ class TestTeamManagement:
         
         assert response.status_code == 200
         
-        # Verify removed from Team 1
+        # Verify removed from Team 1 (creator remains)
         r1 = await api_client.get(f"/api/b2b/teams/{t1_id}/members", headers={"Authorization": f"Bearer {token}"})
-        assert len(r1.json()) == 0
+        assert len(r1.json()) == 1
+        assert r1.json()[0]["user_id"] != str(user.id)
         
-        # Verify added to Team 2
+        # Verify added to Team 2 (creator + user)
         r2 = await api_client.get(f"/api/b2b/teams/{t2_id}/members", headers={"Authorization": f"Bearer {token}"})
-        assert len(r2.json()) == 1
-        assert r2.json()[0]["user_id"] == str(user.id)
-        assert r2.json()[0]["team_role"] == "team_manager"
+        assert len(r2.json()) == 2
+        
+        member_in_t2 = next(m for m in r2.json() if m["user_id"] == str(user.id))
+        assert member_in_t2["team_role"] == "team_manager"

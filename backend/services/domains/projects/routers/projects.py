@@ -17,6 +17,7 @@ from services.domains.projects.scope_checker import (
     get_accessible_projects_query,
     can_access_project,
     can_user_access_team,
+    can_perform_action,
     can_write_in_team,
     can_delete_in_team
 )
@@ -29,16 +30,18 @@ router = APIRouter(prefix="/api/domain/projects", tags=["projects"])
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(
     project_data: ProjectCreate,
-    current_user: dict = require_permission('projects', 'write'),
+    current_user: dict = require_permission('projects', 'read'),  # Relaxed to read for entry
     db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new project
     
-    Permission required: projects:write
+    Permission required: projects:write OR (projects:read AND team_manager of target team)
     User must be a member of the specified team or be owner/admin.
     """
-    # Verify user can access this team
+    from services.b2b.rbac.permission_checker import has_permission
+    
+    # 1. Verify user can access this team
     if not await can_user_access_team(
         current_user['id'], 
         project_data.team_id, 
@@ -50,17 +53,25 @@ async def create_project(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have access to this team"
         )
+
+    # 2. Check Permission: Either global write OR team write capability
+    # Global Admin/Owner check
+    has_global_write = await has_permission(current_user['id'], 'projects', 'write', db)
     
-    # Check team role capability: can_write_resources
-    if not await can_write_in_team(
+    # Team Manager/Member capability check
+    can_team_write = await can_perform_action(
         current_user['id'],
         project_data.team_id,
+        'projects',
+        'write',
         current_user['role'],
         db
-    ):
+    )
+    
+    if not (has_global_write or can_team_write):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your team role doesn't allow creating projects"
+            detail="You do not have permission to create projects in this team"
         )
     
     # Create project
@@ -162,10 +173,12 @@ async def update_project(
     
     project = await db.get(Project, project_id)
     
-    # Check team role capability: can_write_resources
-    if not await can_write_in_team(
+    # Check team role capability: can_write_resources (project specific)
+    if not await can_perform_action(
         current_user['id'],
         project.team_id,
+        'projects',
+        'write',
         current_user['role'],
         db
     ):
@@ -216,9 +229,11 @@ async def delete_project(
     project = await db.get(Project, project_id)
     
     # Check team role capability: can_delete_resources
-    if not await can_delete_in_team(
+    if not await can_perform_action(
         current_user['id'],
         project.team_id,
+        'projects',
+        'delete',
         current_user['role'],
         db
     ):

@@ -423,7 +423,20 @@ async def update_team_member_role(
             detail="User is not a member of this team"
         )
     
+    # Look up new role definition
+    # Check tenant-specific first, then system
+    team = await get_team_by_id(db, team_id)
+    role_def_result = await db.execute(
+        select(TeamRoleDefinition).where(
+            TeamRoleDefinition.name == new_role,
+            (TeamRoleDefinition.tenant_id.is_(None)) | (TeamRoleDefinition.tenant_id == team.tenant_id)
+        ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())
+    )
+    role_def = role_def_result.scalars().first()
+    
     member.team_role = new_role
+    member.team_role_id = role_def.id if role_def else None
+    
     await db.flush()
     # Re-query instead of refresh (Standardization)
     result = await db.execute(select(TeamMember).where(TeamMember.id == member.id))

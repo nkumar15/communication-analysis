@@ -12,7 +12,7 @@ from uuid import UUID
 
 from core.database import get_db
 from services.b2b.rbac import require_permission
-from services.domains.projects.scope_checker import can_access_task, can_write_in_team
+from services.domains.projects.scope_checker import can_access_task, can_write_in_team, can_perform_action
 from services.domains.projects.models.comment import Comment
 from services.domains.projects.models.task import Task
 from services.domains.projects.models.project import Project
@@ -87,9 +87,11 @@ async def create_comment(
     project = await db.get(Project, task.project_id)
     
     # Check team role capability: can_write_resources
-    if not await can_write_in_team(
+    if not await can_perform_action(
         current_user['id'],
         project.team_id,
+        'comments',
+        'write',
         current_user['role'],
         db
     ):

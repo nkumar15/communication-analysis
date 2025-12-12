@@ -173,11 +173,8 @@ CREATE TABLE IF NOT EXISTS b2b.team_role_definitions (
     display_name VARCHAR(100) NOT NULL,
     description TEXT,
     
-    -- Capability flags for domain resource access
-    can_manage_members BOOLEAN DEFAULT FALSE NOT NULL,   -- Add/remove team members
-    can_manage_settings BOOLEAN DEFAULT FALSE NOT NULL,  -- Edit team settings
-    can_write_resources BOOLEAN DEFAULT TRUE NOT NULL,   -- Create/edit domain resources
-    can_delete_resources BOOLEAN DEFAULT FALSE NOT NULL, -- Delete domain resources
+    -- Permission capabilities (JSONB)
+    permissions JSONB DEFAULT '[]'::jsonb NOT NULL,
     
     is_system BOOLEAN DEFAULT FALSE NOT NULL,  -- Cannot be deleted by tenants
     is_default BOOLEAN DEFAULT FALSE NOT NULL, -- Default for new team assignments
@@ -197,15 +194,15 @@ CREATE INDEX IF NOT EXISTS idx_team_role_defs_default ON b2b.team_role_definitio
 -- Seed system default roles (tenant_id = NULL = global)
 INSERT INTO b2b.team_role_definitions 
     (tenant_id, name, display_name, description, 
-     can_manage_members, can_manage_settings, can_write_resources, can_delete_resources, 
+     permissions, 
      is_system, is_default, sort_order) 
 VALUES
     (NULL, 'team_manager', 'Team Manager', 'Full access to team management and domain resources',
-     TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, 1),
+     '[{"resource": "team_settings", "actions": ["manage"]}, {"resource": "team_members", "actions": ["manage"]}]'::jsonb, TRUE, FALSE, 1),
     (NULL, 'team_contributor', 'Contributor', 'Can create and edit domain resources within the team',
-     FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, 2),
+     '[]'::jsonb, TRUE, TRUE, 2),
     (NULL, 'team_reader', 'Reader', 'Read-only access to team domain resources',
-     FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, 3)
+     '[]'::jsonb, TRUE, FALSE, 3)
 ON CONFLICT (tenant_id, name) DO NOTHING;
 
 -- ============================================================================
@@ -266,11 +263,7 @@ COMMENT ON COLUMN b2b.teams.config_data IS 'Additional team configuration in JSO
 COMMENT ON COLUMN b2b.team_members.team_role IS 'Legacy team role: team_manager, team_contributor, team_reader';
 COMMENT ON COLUMN b2b.team_members.team_role_id IS 'FK to team_role_definitions (preferred over team_role)';
 
-COMMENT ON COLUMN b2b.team_role_definitions.tenant_id IS 'NULL for system roles (visible to all tenants)';
-COMMENT ON COLUMN b2b.team_role_definitions.can_manage_members IS 'Can add/remove team members';
-COMMENT ON COLUMN b2b.team_role_definitions.can_manage_settings IS 'Can edit team name, description';
-COMMENT ON COLUMN b2b.team_role_definitions.can_write_resources IS 'Can create/edit domain resources (projects, tasks, etc)';
-COMMENT ON COLUMN b2b.team_role_definitions.can_delete_resources IS 'Can delete domain resources';
+COMMENT ON COLUMN b2b.team_role_definitions.permissions IS 'JSONB array of team-scoped permissions';
 
 -- ============================================================================
 -- ADDITIONAL COLUMNS FOR TEAMS FEATURE

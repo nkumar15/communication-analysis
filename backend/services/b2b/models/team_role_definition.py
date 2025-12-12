@@ -23,11 +23,15 @@ class TeamRoleDefinition(Base, TimestampMixin):
     display_name = Column(String(100), nullable=False)
     description = Column(Text)
     
-    # Capability flags
-    can_manage_members = Column(Boolean, default=False, nullable=False)
-    can_manage_settings = Column(Boolean, default=False, nullable=False)
-    can_write_resources = Column(Boolean, default=True, nullable=False)
-    can_delete_resources = Column(Boolean, default=False, nullable=False)
+    # Capability flags - REPLACED BY granular permissions
+    # can_manage_members = Column(Boolean, default=False, nullable=False)
+    # can_manage_settings = Column(Boolean, default=False, nullable=False)
+    # can_write_resources = Column(Boolean, default=True, nullable=False)
+    # can_delete_resources = Column(Boolean, default=False, nullable=False)
+    
+    # Granular Access Control
+    from sqlalchemy.dialects.postgresql import JSONB
+    permissions = Column(JSONB, default=list, nullable=False, server_default=text("'[]'::jsonb"))
     
     is_system = Column(Boolean, default=False, nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)

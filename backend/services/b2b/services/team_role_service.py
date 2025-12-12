@@ -125,22 +125,19 @@ class TeamRoleService:
         name: str,
         display_name: str,
         description: Optional[str] = None,
-        can_manage_members: bool = False,
-        can_manage_settings: bool = False,
-        can_write_resources: bool = True,
-        can_delete_resources: bool = False,
+        permissions: List[dict] = None,
         is_default: bool = False
     ) -> TeamRoleDefinition:
         """Create a custom team role for a tenant"""
+        if permissions is None:
+            permissions = []
+            
         role = TeamRoleDefinition(
             tenant_id=tenant_id,
             name=name,
             display_name=display_name,
             description=description,
-            can_manage_members=can_manage_members,
-            can_manage_settings=can_manage_settings,
-            can_write_resources=can_write_resources,
-            can_delete_resources=can_delete_resources,
+            permissions=permissions,
             is_system=False,  # Custom roles are never system roles
             is_default=is_default,
             sort_order=100  # Custom roles after system roles

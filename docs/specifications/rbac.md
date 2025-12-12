@@ -45,7 +45,8 @@ This is the most important distinction in the RBAC system.
 | `team_member` | Participant | Access team's projects/tasks/comments |
 | `team_viewer` | Observer | Read-only access to team's data |
 
-**Storage**: `team_members.team_role` column (string value)
+**Storage**: `team_members.team_role_id` → `b2b.team_role_definitions.id`.
+(Note: `team_role` string is kept denormalized for quick access/legacy support, but permissions live in the definition).
 
 **Team Management Rules**:
 1. **Creation**: The user who creates a team is automatically assigned the `team_manager` role.
@@ -97,20 +98,29 @@ This is the most important distinction in the RBAC system.
 | **Audit Logs** | `read` | ✅ | ✅ | ❌ | ❌ |
 
 ### 2.2 Domain (Task Management)
-
 *Seeded via `seed_domain_data.py`*
+
+**Tenant Roles (Global)**
 
 | Resource | Action | Owner | Admin | Member | Viewer |
 |----------|--------|:-----:|:-----:|:------:|:------:|
 | **Projects** | `read` | ✅ | ✅ | ✅ | ✅ |
 | | `write` | ✅ | ✅ | ❌ | ❌ |
 | | `delete` | ✅ | ✅ | ❌ | ❌ |
-| **Tasks** | `read` | ✅ | ✅ | ✅ | ✅ |
-| | `write` | ✅ | ✅ | ✅ | ❌ |
-| | `delete` | ✅ | ✅ | ❌ | ❌ |
-| **Comments** | `read` | ✅ | ✅ | ✅ | ✅ |
-| | `write` | ✅ | ✅ | ✅ | ❌ |
-| | `delete` | ✅ | ✅ | ✅ | ❌ |
+
+**Team Roles (Contextual)**
+
+| Resource | Action | Manager | Contributor | Reader |
+|----------|--------|:-------:|:-----------:|:------:|
+| **Projects** | `read` | ✅ | ✅ | ✅ |
+| | `write` | ✅ | ❌ | ❌ |
+| | `delete` | ✅ | ❌ | ❌ |
+| **Tasks** | `read` | ✅ | ✅ | ✅ |
+| | `write` | ✅ | ✅ | ❌ |
+| | `delete` | ✅ | ❌ | ❌ |
+| **Comments** | `read` | ✅ | ✅ | ✅ |
+| | `write` | ✅ | ✅ | ❌ |
+| | `delete` | ✅ | ✅ | ❌ |
 
 ---
 
@@ -134,7 +144,8 @@ This is the most important distinction in the RBAC system.
 | `b2b.role_permissions` | Relational permission grants | Per-tenant-role |
 | `b2b.resources` | Available resources | Global |
 | `b2b.actions` | Available actions | Global |
-| `b2b.team_members.team_role` | Team scope level | Per-team-membership |
+| `b2b.team_role_definitions`| JSON permission definitions | Tenant/Global |
+| `b2b.team_members` | Link user to team + role def | Per-team-membership |
 
 ### Enforcement
 
@@ -205,28 +216,38 @@ make db-reset       # Or apply migration
 make b2b-seed-roles-templates
 ```
 
-### 5.2 Add a New Team Scope Level
+### 5.2 Add a New Team Scope Level (Team Role)
 
-Team scope levels are simpler - just strings stored in `team_members.team_role`.
+Team roles are now defined by granular permissions in the `b2b.team_role_definitions` table.
 
-#### Step 1: Update the Enum/Validation (Optional)
+#### Step 1: Add Definition (Seed Script)
 
-If you have validation, add the new level:
+Edit `scripts/b2b/seed_domain_data.py` (or creating a new migration if adding a system-wide default):
 
 ```python
-# In models or constants
-TEAM_ROLES = ['team_manager', 'team_member', 'team_viewer', 'team_lead']  # Add new
+# Create or Update a team role
+role = TeamRoleDefinition(
+    name='team_lead',
+    display_name='Team Lead',
+    permissions=[
+        {"resource": "projects", "actions": ["read", "write"]},
+        {"resource": "tasks", "actions": ["read", "write", "delete"]},
+        {"resource": "team_members", "actions": ["manage"]} # Special management perm
+    ]
+)
+db.add(role)
 ```
 
-#### Step 2: Update Scope Checker
+#### Step 2: Use helper in code
 
-Edit `services/b2b/rbac/scope_checker.py` to handle the new level:
+You can now rely on `can_perform_action` or specific capability checks:
 
 ```python
-async def can_manage_team(user_id: UUID, team_id: UUID, db) -> bool:
-    # Add team_lead to allowed list
-    if team_role in ('team_manager', 'team_lead'):
-        return True
+# Check generic permission
+await can_perform_action(user_id, team_id, 'tasks', 'delete', role_slug, db)
+
+# Check management capability (mapped from 'team_members:manage')
+await can_manage_team(user_id, team_id, db)
 ```
 
 ### 5.3 Add a New Resource

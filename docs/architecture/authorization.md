@@ -14,13 +14,14 @@ For **Authentication**, see [Authentication Architecture](./authentication.md).
 *   **`b2b.roles`**: Tenant-specific roles (e.g., Owner, Admin).
 *   **`b2b.role_permissions`**: Mapping of Roles to Permissions (`resource` + `action`).
 *   **`b2b.role_templates`**: Global templates used to seed roles for new tenants.
+*   **`b2b.team_role_definitions`**: Team-level role definitions containing a JSONB `permissions` column.
 
 ### 2. Services
-*   **`PermissionChecker`**: Core logic for verifying `user_id + resource + action`.
-*   **`RoleTemplateService`**: Manages seeding and updating roles from templates.
-*   **`ScopeChecker`**: specialized logic for hierarchical data access (Team vs Tenant scope).
-    *   **`is_team_manager(user_id, team_id)`**: Returns true if user is a manager of the specific team.
-    *   **`can_manage_team(user_id, team_id)`**: Returns true if user is a team manager OR has global `teams:write` permission.
+*   **`PermissionChecker`**: Core logic for verifying `user_id + resource + action` (Tenant Level).
+*   **`TeamRoleService`**: CRUD for team-level role definitions.
+*   **`ScopeChecker`**: Specialized logic for hierarchical data access (Team vs Tenant scope).
+    *   **`can_perform_action(user_id, team_id, resource, action)`**: Checks if user has permission within a specific team context (e.g., creates a task).
+    *   **`can_manage_team(user_id, team_id)`**: Checks for `team_members:manage` permission.
 
 ---
 
@@ -63,6 +64,21 @@ async def invite_user(
     pass
 ```
 
+### 3. Granular Team Scope (Resource Access)
+For actions within a team (e.g., creating tasks), use `can_perform_action` inside the endpoint.
+
+```python
+from services.domains.projects.scope_checker import can_perform_action
+
+@router.post("/tasks")
+async def create_task(data: TaskCreate, ...):
+    project = await get_project(data.project_id)
+    
+    # Check if user's team role allows writing tasks
+    if not await can_perform_action(user.id, project.team_id, 'tasks', 'write', user.role, db):
+        raise Forbidden("Cannot create tasks in this team")
+```
+
 ---
 
 ## 🔍 Data Scoping (RLS vs Application)
@@ -93,14 +109,27 @@ New tenants are automatically seeded with roles defined in `b2b.role_templates`.
 *   **Standard Roles**: `owner`, `admin`, `viewer`.
 *   **Team Roles**: `team_manager`, `team_member`.
 
-### Adding New Domain Roles
-To add a domain-specific role (e.g., "Auditor"):
+### Adding New Permissions
+To support new features or domains:
 
-1.  **Seed Resource**: Add resource to `seed_domain_data.py`.
-2.  **Seed Template**: Add/Update template in `seed_domain_data.py`.
-3.  **Run Script**: `python -m scripts.b2b.seed_domain_data`.
-
+#### 1. Add Resource
+Add the new resource definition to `scripts/b2b/seed_domain_data.py`:
 ```python
-# scripts/b2b/seed_domain_data.py
-Resource(name='audits', display_name='Audits', ...)
+dom_resources = [
+    Resource(name='invoices', display_name='Invoices', ...)
+]
+```
+
+#### 2. Update Tenant Roles (Global)
+Update `role_templates` in the seed script to include permissions for the new resource.
+```python
+# For 'admin' template
+admin.permissions.append({"resource": "invoices", "actions": ["read", "write"]})
+```
+
+#### 3. Update Team Roles (Contextual)
+Update `TeamRoleDefinition` seeding in `seed_domain_data.py`.
+```python
+# For 'team_contributor'
+contributor.permissions.append({"resource": "invoices", "actions": ["read"]})
 ```

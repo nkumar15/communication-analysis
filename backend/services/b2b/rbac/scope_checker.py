@@ -129,10 +129,20 @@ async def is_team_manager(user_id: UUID, team_id: UUID, db: AsyncSession) -> boo
     
     member, role_def = row
     
-    # New system: check capability flag
-    if role_def and role_def.can_manage_members:
-        return True
-    
+    # New system: check permissions JSON for granular capability
+    # Default behavior: Team Manager has all management capabilities
+    if role_def:
+        can_manage = False
+        perms = role_def.permissions or []
+        for p in perms:
+            # Check for explicitly granted management permission
+            if p.get('resource') == 'team_members' and 'manage' in p.get('actions', []):
+                can_manage = True
+                break
+        
+        if can_manage:
+            return True
+
     # Legacy fallback: check old team_role column
     if member.team_role == 'team_manager':
         return True

@@ -15,6 +15,7 @@ from services.domains.projects.scope_checker import (
     can_access_project,
     can_access_task,
     validate_team_member_assignment,
+    can_perform_action,
     can_write_in_team,
     can_delete_in_team
 )
@@ -60,10 +61,12 @@ async def create_task(
                 detail="Assignee must be a member of the project's team"
             )
     
-    # Check team role capability: can_write_resources
-    if not await can_write_in_team(
+    # Check team role capability: tasks:write
+    if not await can_perform_action(
         current_user['id'],
         project.team_id,
+        'tasks',
+        'write',
         current_user['role'],
         db
     ):
@@ -187,10 +190,12 @@ async def update_task(
     else:
         project = await db.get(Project, task.project_id)
     
-    # Check team role capability: can_write_resources
-    if not await can_write_in_team(
+    # Check team role capability: tasks:write
+    if not await can_perform_action(
         current_user['id'],
         project.team_id,
+        'tasks',
+        'write',
         current_user['role'],
         db
     ):
@@ -273,9 +278,11 @@ async def delete_task(
     project = await db.get(Project, task.project_id)
     
     # Check team role capability: can_delete_resources
-    if not await can_delete_in_team(
+    if not await can_perform_action(
         current_user['id'],
         project.team_id,
+        'tasks',
+        'delete',
         current_user['role'],
         db
     ):
