@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """
-Domain-Specific Data Seeding Script
+RBAC and Domain Data Seeding Script
 
-Seeds domain-specific resources and role templates.
-Run this after migrations to add business-specific data.
+Seeds all RBAC data (actions, resources, role templates, team roles) from YAML files.
+Run this after migrations to populate the database with initial configuration.
+
+YAML Files Used:
+- actions.yaml: Universal RBAC actions
+- resources.yaml: SaaS boilerplate resources
+- domain_resources.yaml: Domain-specific resources
+- role_templates.yaml: Default role templates
+- team_role_definitions.yaml: Default team roles
+- domain_role_permissions.yaml: Domain permissions for role templates
+- domain_team_permissions.yaml: Domain permissions for team roles
 """
 
 if __name__ == "__main__":
@@ -20,217 +29,282 @@ if __name__ == "__main__":
     
     # Now safe to import everything else
     import asyncio
+    import yaml
+    from pathlib import Path
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy.orm.attributes import flag_modified
     from core.database import database_url
-    from services.b2b.models.rbac import Resource
+    from services.b2b.models.rbac import Resource, Action
     from services.b2b.models.role_template import RoleTemplate
+    from services.b2b.models.team_role_definition import TeamRoleDefinition
+
+    # Base path for YAML files
+    YAML_DIR = Path(__file__).parent
+
+    def load_yaml(filename: str) -> dict:
+        """Load and parse a YAML file"""
+        filepath = YAML_DIR / filename
+        if not filepath.exists():
+            print(f"⚠️  Warning: {filename} not found")
+            return {}
+        
+        with open(filepath, 'r') as f:
+            return yaml.safe_load(f) or {}
+
+    async def seed_actions(db: AsyncSession) -> None:
+        """Seed RBAC actions from actions.yaml"""
+        data = load_yaml('actions.yaml')
+        actions_data = data.get('actions', [])
+        
+        if not actions_data:
+            print("⚠️  No actions found in actions.yaml")
+            return
+        
+        # Check if already seeded
+        result = await db.execute(select(Action).limit(1))
+        if result.scalar_one_or_none():
+            print("✓ Actions already seeded")
+            return
+        
+        print(f"Seeding {len(actions_data)} actions...")
+        actions = [
+            Action(name=action['name'], display_name=action['display_name'])
+            for action in actions_data
+        ]
+        db.add_all(actions)
+        await db.flush()
+        print(f"✓ Seeded {len(actions)} actions")
+
+    async def seed_resources(db: AsyncSession) -> None:
+        """Seed SaaS boilerplate resources from resources.yaml"""
+        data = load_yaml('resources.yaml')
+        resources_data = data.get('resources', [])
+        
+        if not resources_data:
+            print("⚠️  No resources found in resources.yaml")
+            return
+        
+        # Check if already seeded (check for a common resource)
+        result = await db.execute(select(Resource).where(Resource.name == 'dashboard'))
+        if result.scalar_one_or_none():
+            print("✓ SaaS resources already seeded")
+            return
+        
+        print(f"Seeding {len(resources_data)} SaaS resources...")
+        resources = [
+            Resource(
+                name=res['name'],
+                display_name=res['display_name'],
+                category=res.get('category'),
+                description=res.get('description')
+            )
+            for res in resources_data
+        ]
+        db.add_all(resources)
+        await db.flush()
+        print(f"✓ Seeded {len(resources)} SaaS resources")
 
     async def seed_domain_resources(db: AsyncSession) -> None:
-        """
-        Seed DOMAIN-SPECIFIC resources (Task Management)
+        """Seed domain-specific resources from domain_resources.yaml"""
+        data = load_yaml('domain_resources.yaml')
+        resources_data = data.get('resources', [])
         
-        These resources are for the task management and collaboration domain.
-        For a different domain (e.g., ecommerce), replace with domain-appropriate 
-        resources like 'products', 'orders', 'inventory', etc.
-        """
+        if not resources_data:
+            print("⚠️  No domain resources found in domain_resources.yaml")
+            return
+        
+        # Check if already seeded
         result = await db.execute(select(Resource).where(Resource.name == 'projects'))
         if result.scalar_one_or_none():
             print("✓ Domain resources already seeded")
             return
         
-        print("Seeding domain resources (Task Management)...")
-        domain_resources = [
+        print(f"Seeding {len(resources_data)} domain resources...")
+        resources = [
             Resource(
-                name='projects',
-                display_name='Projects',
-                category='Domain',
-                description='Project management and team collaboration'
-            ),
-            Resource(
-                name='tasks',
-                display_name='Tasks',
-                category='Domain',
-                description='Task tracking and assignment'
-            ),
-            Resource(
-                name='comments',
-                display_name='Comments',
-                category='Domain',
-                description='Task comments and discussions'
-            ),
+                name=res['name'],
+                display_name=res['display_name'],
+                category=res.get('category'),
+                description=res.get('description')
+            )
+            for res in resources_data
         ]
-        db.add_all(domain_resources)
-        await db.commit()
-        print(f"✓ Seeded {len(domain_resources)} domain resources")
+        db.add_all(resources)
+        await db.flush()
+        print(f"✓ Seeded {len(resources)} domain resources")
 
-    async def seed_domain_role_templates(db: AsyncSession) -> None:
-        """
-        Update existing role templates with domain permissions
+    async def seed_role_templates(db: AsyncSession) -> None:
+        """Seed role templates from role_templates.yaml"""
+        data = load_yaml('role_templates.yaml')
+        templates_data = data.get('role_templates', [])
         
-        Adds projects, tasks, and comments permissions to standard roles
-        """
+        if not templates_data:
+            print("⚠️  No role templates found in role_templates.yaml")
+            return
+        
+        print(f"Seeding {len(templates_data)} role templates...")
+        
+        for template_data in templates_data:
+            # Check if already exists
+            result = await db.execute(
+                select(RoleTemplate).where(RoleTemplate.name == template_data['name'])
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                # Update existing template
+                existing.display_name = template_data['display_name']
+                existing.description = template_data.get('description')
+                existing.is_system_role = template_data.get('is_system_role', False)
+                existing.is_default = template_data.get('is_default', False)
+                existing.permissions = template_data.get('permissions', [])
+                flag_modified(existing, 'permissions')
+                print(f"  ✓ Updated role template: {template_data['name']}")
+            else:
+                # Create new template
+                template = RoleTemplate(
+                    name=template_data['name'],
+                    display_name=template_data['display_name'],
+                    description=template_data.get('description'),
+                    is_system_role=template_data.get('is_system_role', False),
+                    is_default=template_data.get('is_default', False),
+                    permissions=template_data.get('permissions', [])
+                )
+                db.add(template)
+                print(f"  ✓ Created role template: {template_data['name']}")
+        
+        await db.flush()
+        print(f"✓ Processed {len(templates_data)} role templates")
+
+    async def seed_team_role_definitions(db: AsyncSession) -> None:
+        """Seed team role definitions from team_role_definitions.yaml"""
+        data = load_yaml('team_role_definitions.yaml')
+        roles_data = data.get('team_roles', [])
+        
+        if not roles_data:
+            print("⚠️  No team roles found in team_role_definitions.yaml")
+            return
+        
+        print(f"Seeding {len(roles_data)} team role definitions...")
+        
+        for role_data in roles_data:
+            # Check if already exists (system role with tenant_id = None)
+            result = await db.execute(
+                select(TeamRoleDefinition).where(
+                    TeamRoleDefinition.name == role_data['name'],
+                    TeamRoleDefinition.tenant_id.is_(None)
+                )
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                # Update existing role
+                existing.display_name = role_data['display_name']
+                existing.description = role_data.get('description')
+                existing.is_system = role_data.get('is_system', False)
+                existing.permissions = role_data.get('permissions', [])
+                flag_modified(existing, 'permissions')
+                print(f"  ✓ Updated team role: {role_data['name']}")
+            else:
+                # Create new role
+                role = TeamRoleDefinition(
+                    name=role_data['name'],
+                    display_name=role_data['display_name'],
+                    description=role_data.get('description'),
+                    is_system=role_data.get('is_system', False),
+                    tenant_id=None,  # System role
+                    permissions=role_data.get('permissions', [])
+                )
+                db.add(role)
+                print(f"  ✓ Created team role: {role_data['name']}")
+        
+        await db.flush()
+        print(f"✓ Processed {len(roles_data)} team role definitions")
+
+    async def update_role_templates_with_domain_permissions(db: AsyncSession) -> None:
+        """Add domain permissions to role templates from domain_role_permissions.yaml"""
+        data = load_yaml('domain_role_permissions.yaml')
+        domain_perms = data.get('domain_permissions', {})
+        
+        if not domain_perms:
+            print("⚠️  No domain permissions found in domain_role_permissions.yaml")
+            return
+        
         print("Updating role templates with domain permissions...")
         
-        # Update owner role
-        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'owner'))
-        owner = result.scalar_one_or_none()
-        if owner:
+        for role_name, perms in domain_perms.items():
+            result = await db.execute(
+                select(RoleTemplate).where(RoleTemplate.name == role_name)
+            )
+            template = result.scalar_one_or_none()
+            
+            if not template:
+                print(f"  ⚠️  Role template '{role_name}' not found")
+                continue
+            
             # Add domain permissions if not already present
-            domain_perms = [
-                {"resource": "projects", "actions": ["read", "write", "delete"]},
-                {"resource": "tasks", "actions": ["read", "write", "delete"]},
-                {"resource": "comments", "actions": ["read", "write", "delete"]},
-            ]
-            for perm in domain_perms: 
-                if perm not in owner.permissions:
-                    owner.permissions.append(perm)
-            flag_modified(owner, 'permissions')  # Force SQLAlchemy to detect JSONB change
-            await db.commit()
-            print("✓ Updated owner role with domain permissions")
-        
-        # Update admin role
-        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'admin'))
-        admin = result.scalar_one_or_none()
-        if admin:
-            domain_perms = [
-                {"resource": "projects", "actions": ["read", "write", "delete"]},
-                {"resource": "tasks", "actions": ["read", "write", "delete"]},
-                {"resource": "comments", "actions": ["read", "write", "delete"]},
-            ]
-            for perm in domain_perms:
-                if perm not in admin.permissions:
-                    admin.permissions.append(perm)
-            flag_modified(admin, 'permissions')
-            await db.commit()
-            print("✓ Updated admin role with domain permissions")
-        
-        # Update member role
-        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'member'))
-        member = result.scalar_one_or_none()
-        if member:
-            domain_perms = [
-                {"resource": "projects", "actions": ["read"]},
-                {"resource": "tasks", "actions": ["read", "write"]},
-                {"resource": "comments", "actions": ["read", "write", "delete"]},  # delete for own comments
-            ]
-            for perm in domain_perms:
-                if perm not in member.permissions:
-                    member.permissions.append(perm)
-            flag_modified(member, 'permissions')
-            await db.commit()
-            print("✓ Updated member role with domain permissions")
-        
-        # Update viewer role (read-only access)
-        result = await db.execute(select(RoleTemplate).where(RoleTemplate.name == 'viewer'))
-        viewer = result.scalar_one_or_none()
-        if viewer:
-            domain_perms = [
-                {"resource": "projects", "actions": ["read"]},
-                {"resource": "tasks", "actions": ["read"]},
-                {"resource": "comments", "actions": ["read"]},
-            ]
-            for perm in domain_perms:
-                if perm not in viewer.permissions:
-                    viewer.permissions.append(perm)
-            flag_modified(viewer, 'permissions')
-            await db.commit()
-            print("✓ Updated viewer role with domain permissions")
-
-    async def seed_team_role_permissions(db: AsyncSession) -> None:
-        """
-        Update default TEAM roles with domain permissions
-        This is where we implement GRANULAR control (projects vs tasks)
-        """
-        print("Updating team roles with domain permissions...")
-        from services.b2b.models.team_role_definition import TeamRoleDefinition
-        
-        # 1. Team Manager (Full Access)
-        result = await db.execute(select(TeamRoleDefinition).where(
-            TeamRoleDefinition.name == 'team_manager',
-            TeamRoleDefinition.tenant_id.is_(None) # System role
-        ))
-        team_manager = result.scalar_one_or_none()
-        if team_manager:
-            domain_perms = [
-                {"resource": "projects", "actions": ["read", "write", "delete"]},
-                {"resource": "tasks", "actions": ["read", "write", "delete"]},
-                {"resource": "comments", "actions": ["read", "write", "delete"]},
-            ]
-            # Merge permissions
-            current_perms = list(team_manager.permissions)
+            current_perms = list(template.permissions)
             changed = False
-            for perm in domain_perms:
+            
+            for perm in perms:
                 if perm not in current_perms:
                     current_perms.append(perm)
                     changed = True
             
             if changed:
-                team_manager.permissions = current_perms
-                flag_modified(team_manager, 'permissions')
-                await db.commit()
-                print("✓ Updated team_manager with domain permissions")
+                template.permissions = current_perms
+                flag_modified(template, 'permissions')
+                print(f"  ✓ Updated {role_name} with domain permissions")
+        
+        print("✓ Role templates updated with domain permissions")
 
-        # 2. Team Contributor (The Key Change: Read-only Projects, Write Tasks)
-        result = await db.execute(select(TeamRoleDefinition).where(
-            TeamRoleDefinition.name == 'team_contributor',
-            TeamRoleDefinition.tenant_id.is_(None)
-        ))
-        contributor = result.scalar_one_or_none()
-        if contributor:
-            domain_perms = [
-                {"resource": "projects", "actions": ["read"]}, # Read only!
-                {"resource": "tasks", "actions": ["read", "write"]},
-                {"resource": "comments", "actions": ["read", "write", "delete"]}, 
-            ]
-            # Force overwrite checks for system roles to ensure correctness
-            # We want to ensure these EXACT permissions are present.
-            # Merging is fine, but let's be safe.
-            current_perms = list(contributor.permissions)
+    async def update_team_roles_with_domain_permissions(db: AsyncSession) -> None:
+        """Add domain permissions to team roles from domain_team_permissions.yaml"""
+        data = load_yaml('domain_team_permissions.yaml')
+        domain_perms = data.get('domain_permissions', {})
+        
+        if not domain_perms:
+            print("⚠️  No domain permissions found in domain_team_permissions.yaml")
+            return
+        
+        print("Updating team roles with domain permissions...")
+        
+        for role_name, perms in domain_perms.items():
+            result = await db.execute(
+                select(TeamRoleDefinition).where(
+                    TeamRoleDefinition.name == role_name,
+                    TeamRoleDefinition.tenant_id.is_(None)
+                )
+            )
+            role = result.scalar_one_or_none()
             
-            # Remove any existing perms for these resources to avoid duplicates/conflicts
-            resources_to_update = {"projects", "tasks", "comments"}
-            filtered_perms = [p for p in current_perms if p.get("resource") not in resources_to_update]
+            if not role:
+                print(f"  ⚠️  Team role '{role_name}' not found")
+                continue
+            
+            # Replace existing permissions for these resources to ensure correctness
+            current_perms = list(role.permissions)
+            resources_to_update = {p.get('resource') for p in perms}
+            
+            # Remove old perms for these resources
+            filtered_perms = [p for p in current_perms if p.get('resource') not in resources_to_update]
             
             # Add new perms
-            filtered_perms.extend(domain_perms)
+            filtered_perms.extend(perms)
             
             if filtered_perms != current_perms:
-                contributor.permissions = filtered_perms
-                flag_modified(contributor, 'permissions')
-                await db.commit()
-                print("✓ Updated team_contributor with granular domain permissions")
-
-        # 3. Team Reader (Read Only)
-        result = await db.execute(select(TeamRoleDefinition).where(
-            TeamRoleDefinition.name == 'team_reader',
-            TeamRoleDefinition.tenant_id.is_(None)
-        ))
-        reader = result.scalar_one_or_none()
-        if reader:
-            domain_perms = [
-                {"resource": "projects", "actions": ["read"]},
-                {"resource": "tasks", "actions": ["read"]},
-                {"resource": "comments", "actions": ["read"]},
-            ]
-            
-            current_perms = list(reader.permissions)
-            filtered_perms = [p for p in current_perms if p.get("resource") not in {"projects", "tasks", "comments"}]
-            filtered_perms.extend(domain_perms)
-            
-            if filtered_perms != current_perms:
-                reader.permissions = filtered_perms
-                flag_modified(reader, 'permissions')
-                await db.commit()
-                print("✓ Updated team_reader with domain permissions")
-
+                role.permissions = filtered_perms
+                flag_modified(role, 'permissions')
+                print(f"  ✓ Updated {role_name} with domain permissions")
+        
+        print("✓ Team roles updated with domain permissions")
 
     async def main():
         """Main seeding function"""
-        print("\n" + "="*50)
-        print("Domain Data Seeding - Task Management")
-        print("="*50 + "\n")
+        print("\n" + "="*60)
+        print("RBAC and Domain Data Seeding (From YAML)")
+        print("="*60 + "\n")
         
         if not database_url:
             print("❌ Error: DATABASE_URL not configured")
@@ -240,13 +314,26 @@ if __name__ == "__main__":
         
         try:
             async with AsyncSession(engine) as db:
-                await seed_domain_resources(db)
-                await seed_domain_role_templates(db)
-                await seed_team_role_permissions(db)
-                
-            print("\n" + "="*50)
-            print("✅ Domain data seeding complete!")
-            print("="*50 + "\n")
+                async with db.begin():
+                    # Seed base RBAC data
+                    await seed_actions(db)
+                    await seed_resources(db)
+                    await seed_domain_resources(db)
+                    
+                    # Seed role configurations
+                    await seed_role_templates(db)
+                    await seed_team_role_definitions(db)
+                    
+                    # Add domain-specific permissions
+                    await update_role_templates_with_domain_permissions(db)
+                    await update_team_roles_with_domain_permissions(db)
+                    
+                    # Transaction will auto-commit when exiting this block
+                    print("\n✓ All changes committed successfully")
+            
+            print("\n" + "="*60)
+            print("✅ RBAC and domain data seeding complete!")
+            print("="*60 + "\n")
             
         except Exception as e:
             print(f"\n❌ Error during seeding: {e}")

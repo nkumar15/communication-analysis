@@ -1,0 +1,22 @@
+# B2B RBAC Actions
+# These are universal actions that can be performed on resources
+# Format: name, display_name
+
+actions:
+  - name: read
+    display_name: View
+  
+  - name: write
+    display_name: Create/Edit
+  
+  - name: delete
+    display_name: Delete
+  
+  - name: invite
+    display_name: Invite Users
+  
+  - name: export
+    display_name: Export Data
+  
+  - name: manage
+    display_name: Full Management

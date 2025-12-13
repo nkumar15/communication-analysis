@@ -186,24 +186,25 @@ CREATE TABLE IF NOT EXISTS b2b.team_role_definitions (
     CONSTRAINT unique_tenant_team_role UNIQUE(tenant_id, name)
 );
 
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_team_role_defs_tenant ON b2b.team_role_definitions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_team_role_defs_system ON b2b.team_role_definitions(is_system);
 CREATE INDEX IF NOT EXISTS idx_team_role_defs_default ON b2b.team_role_definitions(is_default);
 
--- Seed system default roles (tenant_id = NULL = global)
-INSERT INTO b2b.team_role_definitions 
-    (tenant_id, name, display_name, description, 
-     permissions, 
-     is_system, is_default, sort_order) 
-VALUES
-    (NULL, 'team_manager', 'Team Manager', 'Full access to team management and domain resources',
-     '[{"resource": "team_settings", "actions": ["manage"]}, {"resource": "team_members", "actions": ["manage"]}]'::jsonb, TRUE, FALSE, 1),
-    (NULL, 'team_contributor', 'Contributor', 'Can create and edit domain resources within the team',
-     '[]'::jsonb, TRUE, TRUE, 2),
-    (NULL, 'team_reader', 'Reader', 'Read-only access to team domain resources',
-     '[]'::jsonb, TRUE, FALSE, 3)
-ON CONFLICT (tenant_id, name) DO NOTHING;
+-- ============================================================================
+-- Seed Data for Team Role Definitions
+-- ============================================================================
+-- Team role definitions are now seeded from YAML files via:
+--   python backend/scripts/b2b/seed_domain_data.py
+-- 
+-- YAML Files:
+--   - backend/scripts/b2b/team_role_definitions.yaml (base team roles)
+--   - backend/scripts/b2b/domain_team_permissions.yaml (domain permissions)
+-- 
+-- Default Roles: team_manager, team_contributor, team_reader
+-- ============================================================================
+
 
 -- ============================================================================
 -- TEAM MEMBERS TABLE (Many-to-Many)

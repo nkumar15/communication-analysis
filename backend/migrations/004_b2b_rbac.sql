@@ -23,124 +23,15 @@ CREATE TABLE IF NOT EXISTS b2b.role_templates (
 CREATE INDEX IF NOT EXISTS idx_role_templates_is_default ON b2b.role_templates(is_default);
 
 -- ============================================================================
--- Seed Default Templates (SaaS Best Practices)
+-- Seed Data for Role Templates
+-- ============================================================================
+-- Role templates are now seeded from YAML files via:
+--   python backend/scripts/b2b/seed_domain_data.py
+-- 
+-- YAML File: backend/scripts/b2b/role_templates.yaml
+-- Contains: owner, admin, member, viewer role definitions
 -- ============================================================================
 
-INSERT INTO b2b.role_templates (name, display_name, description, is_system_role, is_default, permissions) VALUES
-(
-    'owner', 
-    'Owner', 
-    'Primary administrator with total control over account, billing, security, and all features', 
-    TRUE, 
-    TRUE,
-    '[
-        {"resource": "dashboard", "actions": ["read"]},
-        {"resource": "reports", "actions": ["read", "export"]},
-        {"resource": "analytics", "actions": ["read"]},
-        
-        {"resource": "users", "actions": ["read", "write", "delete", "invite"]},
-        {"resource": "roles", "actions": ["read", "write", "delete"]},
-        {"resource": "invitations", "actions": ["read", "write", "delete"]},
-        {"resource": "teams", "actions": ["read", "write", "delete"]},
-        
-        {"resource": "account", "actions": ["read", "write", "delete"]},
-        {"resource": "billing", "actions": ["read", "write", "manage"]},
-        {"resource": "invoices", "actions": ["read", "export"]},
-        
-        {"resource": "integrations", "actions": ["read", "write", "delete"]},
-        {"resource": "webhooks", "actions": ["read", "write", "delete"]},
-        {"resource": "api_keys", "actions": ["read", "write", "delete"]},
-        
-        {"resource": "audit_logs", "actions": ["read", "export"]},
-        {"resource": "security", "actions": ["read", "write", "manage"]},
-        
-        {"resource": "support", "actions": ["read", "write"]},
-        {"resource": "notifications", "actions": ["read", "write"]}
-    ]'::jsonb
-),
-(
-    'admin', 
-    'Admin', 
-    'Administrator with management capabilities, but no billing or account deletion access', 
-    TRUE, 
-    TRUE,
-    '[
-        {"resource": "dashboard", "actions": ["read"]},
-        {"resource": "reports", "actions": ["read", "export"]},
-        {"resource": "analytics", "actions": ["read"]},
-        
-        {"resource": "users", "actions": ["read", "write", "invite"]},
-        {"resource": "roles", "actions": ["read", "write", "delete"]},
-        {"resource": "invitations", "actions": ["read", "write", "delete"]},
-        {"resource": "teams", "actions": ["read", "write", "delete"]},
-        
-        {"resource": "account", "actions": ["read"]},
-        {"resource": "billing", "actions": ["read"]},
-        {"resource": "invoices", "actions": ["read"]},
-        
-        {"resource": "integrations", "actions": ["read", "write"]},
-        {"resource": "webhooks", "actions": ["read", "write"]},
-        {"resource": "api_keys", "actions": ["read", "write"]},
-        
-        {"resource": "audit_logs", "actions": ["read"]},
-        {"resource": "security", "actions": ["read"]},
-        
-        {"resource": "support", "actions": ["read", "write"]},
-        {"resource": "notifications", "actions": ["read", "write"]}
-    ]'::jsonb
-),
-(
-    'viewer', 
-    'Viewer', 
-    'Read-only access to dashboards, reports, and non-sensitive information', 
-    TRUE, 
-    TRUE,
-    '[
-        {"resource": "dashboard", "actions": ["read"]},
-        {"resource": "reports", "actions": ["read"]},
-        {"resource": "analytics", "actions": ["read"]},
-        
-        {"resource": "users", "actions": ["read"]},
-        {"resource": "roles", "actions": ["read"]},
-        {"resource": "teams", "actions": ["read"]},
-        
-        {"resource": "notifications", "actions": ["read", "write"]}
-    ]'::jsonb
-),
-(
-    'member',
-    'Member',
-    'Standard team member with operational access to core features',
-    TRUE,
-    TRUE,
-    '[
-        {"resource": "dashboard", "actions": ["read"]},
-        {"resource": "reports", "actions": ["read"]},
-        {"resource": "analytics", "actions": ["read"]},
-        
-        {"resource": "users", "actions": ["read"]},
-        {"resource": "roles", "actions": ["read"]},
-        {"resource": "teams", "actions": ["read"]},
-        
-        {"resource": "notifications", "actions": ["read", "write"]},
-        {"resource": "support", "actions": ["read", "write"]}
-    ]'::jsonb
-)
--- NOTE: Team-level roles (team_manager, team_contributor, team_reader) are now 
--- defined in team_role_definitions table (003_b2b.sql), NOT in role_templates.
-ON CONFLICT (name) DO UPDATE SET
-    permissions = EXCLUDED.permissions,
-    display_name = EXCLUDED.display_name,
-    description = EXCLUDED.description,
-    is_default = EXCLUDED.is_default;
-
--- ============================================================================
--- COMMENTS
--- ============================================================================
-
-COMMENT ON TABLE b2b.role_templates IS 'Global role templates used to seed tenant roles';
-COMMENT ON COLUMN b2b.role_templates.is_default IS 'Default templates are automatically seeded for new tenants';
-COMMENT ON COLUMN b2b.role_templates.permissions IS 'JSONB array of {resource, actions[]} defining permissions';
 
 
 -- ============================================================================
@@ -227,57 +118,16 @@ CREATE INDEX IF NOT EXISTS idx_role_permissions_resource_id ON b2b.role_permissi
 CREATE INDEX IF NOT EXISTS idx_role_permissions_action_id ON b2b.role_permissions(action_id);
 
 -- ============================================================================
--- SEED DATA: ACTIONS (Universal across all SaaS)
+-- Seed Data for Actions and Resources
 -- ============================================================================
-
-INSERT INTO b2b.actions (name, display_name) VALUES
-    ('read', 'View'),
-    ('write', 'Create/Edit'),
-    ('delete', 'Delete'),
-    ('invite', 'Invite Users'),
-    ('export', 'Export Data'),
-    ('manage', 'Full Management')
-ON CONFLICT (name) DO NOTHING;
-
+-- Actions and resources are now seeded from YAML files via:
+--   python backend/scripts/b2b/seed_domain_data.py
+-- 
+-- YAML Files:
+--   - backend/scripts/b2b/actions.yaml (universal actions)
+--   - backend/scripts/b2b/resources.yaml (SaaS boilerplate resources)
+--   - backend/scripts/b2b/domain_resources.yaml (domain-specific resources)
 -- ============================================================================
--- SEED DATA: RESOURCES (SaaS Boilerplate - Domain Agnostic)
--- ============================================================================
--- Common resources found in any multi-tenant SaaS application
--- Domain-specific resources (shops) should be added via Python seed scripts
-
-INSERT INTO b2b.resources (name, display_name, category, description) VALUES
-    -- Analytics & Reporting
-    ('dashboard', 'Dashboard', 'Analytics', 'Statistics, metrics, and overview'),
-    ('reports', 'Reports', 'Analytics', 'Generate and view business reports'),
-    ('analytics', 'Analytics', 'Analytics', 'Advanced analytics and insights'),
-    
-    -- User & Access Management  
-    ('users', 'User Management', 'Administration', 'Manage users and team members'),
-    ('roles', 'Role Management', 'Administration', 'Manage roles and permissions'),
-    ('invitations', 'Invitations', 'Administration', 'Invite new users to the platform'),
-    ('teams', 'Team Management', 'Administration', 'Organize users into teams'),
-    ('team_members', 'Team Members', 'Team Management', 'Manage team membership'),
-    ('team_settings', 'Team Settings', 'Team Management', 'Configure team settings'),
-    
-    -- Account & Billing
-    ('account', 'Account Settings', 'Configuration', 'Manage account configuration and preferences'),
-    ('billing', 'Billing & Subscription', 'Administration', 'Manage billing, payments, and subscription plans'),
-    ('invoices', 'Invoices', 'Billing', 'View and download invoices'),
-    
-    -- Integration & API
-    ('integrations', 'Integrations', 'Configuration', 'Third-party integrations and connections'),
-    ('webhooks', 'Webhooks', 'Configuration', 'Configure outbound webhooks'),
-    ('api_keys', 'API Keys', 'Security', 'Manage API keys and access tokens'),
-    
-    -- Audit & Security
-    ('audit_logs', 'Audit Logs', 'Security', 'View system audit logs and user activity'),
-    ('security', 'Security Settings', 'Security', 'Manage security policies and two-factor authentication'),
-    
-    -- Support & Documentation
-    ('support', 'Support', 'Help', 'Access support tickets and help resources'),
-    ('notifications', 'Notifications', 'Configuration', 'Manage notification preferences')
-ON CONFLICT (name) DO NOTHING;
-
 -- ============================================================================
 -- SOFT DELETE SUPPORT
 -- ============================================================================
@@ -291,6 +141,10 @@ CREATE INDEX idx_roles_deleted_at ON b2b.roles(deleted_at) WHERE deleted_at IS N
 -- ============================================================================
 -- COMMENTS FOR DOCUMENTATION
 -- ============================================================================
+
+COMMENT ON TABLE b2b.role_templates IS 'Global role templates used to seed tenant roles';
+COMMENT ON COLUMN b2b.role_templates.is_default IS 'Default templates are automatically seeded for new tenants';
+COMMENT ON COLUMN b2b.role_templates.permissions IS 'JSONB array of {resource, actions[]} defining permissions';
 
 COMMENT ON TABLE b2b.roles IS 'B2B tenant-specific roles with customizable permissions';
 COMMENT ON TABLE b2b.resources IS 'B2B SaaS boilerplate resources - domain-agnostic, reusable across tenants';
