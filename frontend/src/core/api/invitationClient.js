@@ -185,6 +185,139 @@ const invitationApi = {
         }
 
         return response.json();
+    },
+
+    // ============================================================================
+    // BULK INVITATIONS
+    // ============================================================================
+
+    /**
+     * Upload CSV for bulk user invitations
+     * @param {File} file - CSV file
+     * @returns {Promise} Bulk invite job result
+     */
+    bulkInviteUsers: async (file) => {
+        const token = await firebaseAuthService.getIdToken();
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/bulk`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                // Note: Don't set Content-Type for FormData - browser sets it with boundary
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail?.message || error.detail || 'Failed to process bulk invitations');
+        }
+
+        return response.json();
+    },
+
+    /**
+     * Download CSV template for bulk invitations
+     * @returns {Promise<Blob>} CSV file blob
+     */
+    downloadTemplate: async () => {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/bulk/template`, {
+            method: 'GET',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download template');
+        }
+
+        return response.blob();
+    },
+
+    /**
+     * Get list of bulk invite jobs
+     * @param {number} page - Page number
+     * @param {number} pageSize - Items per page
+     * @returns {Promise} List of bulk jobs
+     */
+    getBulkJobs: async (page = 1, pageSize = 20) => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(
+            `${API_BASE_URL}/api/b2b/invitations/bulk/jobs?page=${page}&page_size=${pageSize}`,
+            { method: 'GET', headers }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to load bulk jobs');
+        }
+
+        return response.json();
+    },
+
+    /**
+     * Get bulk job status
+     * @param {string} jobId - Job UUID
+     * @returns {Promise} Job details
+     */
+    getBulkJobStatus: async (jobId) => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/bulk/${jobId}`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to get job status');
+        }
+
+        return response.json();
+    },
+
+    /**
+     * Download bulk job results as CSV
+     * @param {string} jobId - Job UUID
+     * @returns {Promise<Blob>} CSV file blob
+     */
+    downloadBulkResults: async (jobId) => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/bulk/${jobId}/download`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download results');
+        }
+
+        return response.blob();
+    },
+
+    /**
+     * Download only failed rows as CSV
+     * @param {string} jobId - Job UUID
+     * @returns {Promise<Blob>} CSV file blob
+     */
+    downloadBulkFailures: async (jobId) => {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/invitations/bulk/${jobId}/download/failures`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('No failures to download');
+            }
+            throw new Error('Failed to download failures');
+        }
+
+        return response.blob();
     }
 };
 

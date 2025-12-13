@@ -11,6 +11,7 @@ import AdminLayout from '../layouts/AdminLayout';
 import { useAuth } from '../../../../core/hooks/useAuth';
 import { formatDateTime } from '../../../../utils/dateUtils';
 import TeamSelector from '../components/TeamSelector';
+import BulkInviteModal from '../components/BulkInviteModal';
 
 const InvitationsPage = () => {
     const [stats, setStats] = useState(null);
@@ -37,6 +38,10 @@ const InvitationsPage = () => {
     const [showEditUserModal, setShowEditUserModal] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [newRole, setNewRole] = useState('');
+
+    // Bulk Invite State
+    const [showBulkInviteModal, setShowBulkInviteModal] = useState(false);
+    const [bulkJobs, setBulkJobs] = useState([]);
 
     const navigate = useNavigate();
     const { user, getInvitableRoles, getScopeLabel } = useAuth();
@@ -112,6 +117,15 @@ const InvitationsPage = () => {
                     console.error('Failed to load invitations:', err);
                 }
                 setInvitations([]);
+            }
+
+            // Try to load bulk jobs (admin only)
+            try {
+                const bulkJobsData = await invitationApi.getBulkJobs();
+                setBulkJobs(bulkJobsData.jobs || []);
+            } catch (err) {
+                console.error('Failed to load bulk jobs:', err);
+                setBulkJobs([]);
             }
         } catch (err) {
             console.error('Failed to load data:', err);
@@ -311,7 +325,8 @@ const InvitationsPage = () => {
                             <TabNav
                                 tabs={[
                                     { id: 'users', label: 'Users', count: users.length },
-                                    { id: 'invitations', label: 'Pending Invitations', count: pendingInvitations.length }
+                                    { id: 'invitations', label: 'Pending Invitations', count: pendingInvitations.length },
+                                    { id: 'bulk_history', label: 'Bulk History', count: bulkJobs.length }
                                 ]}
                                 activeTab={activeTab}
                                 onTabChange={setActiveTab}
@@ -347,6 +362,36 @@ const InvitationsPage = () => {
                             >
                                 <span style={{ fontSize: '16px', fontWeight: 'bold' }}>+</span>
                                 Invite User
+                            </button>
+                            <button
+                                onClick={() => setShowBulkInviteModal(true)}
+                                style={{
+                                    backgroundColor: '#10B981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '10px 24px',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s',
+                                    marginBottom: '16px'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#059669';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#10B981';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                }}
+                            >
+                                <span style={{ fontSize: '16px' }}>📋</span>
+                                Bulk Invite
                             </button>
                         </div>
                     </div>
@@ -562,7 +607,127 @@ const InvitationsPage = () => {
                             )}
                         </div>
                     )}
+
+                    {/* Bulk History Table */}
+                    {activeTab === 'bulk_history' && (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Date</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Total</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Successful</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Failed</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Created By</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {bulkJobs.map((job) => (
+                                        <tr key={job.job_id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <td style={{ padding: '16px 24px', fontWeight: '500', color: '#111827' }}>
+                                                {formatDate(job.created_at)}
+                                            </td>
+                                            <td style={{ padding: '16px 24px', color: '#374151' }}>
+                                                {job.total_rows}
+                                            </td>
+                                            <td style={{ padding: '16px 24px' }}>
+                                                <span style={{
+                                                    padding: '4px 10px',
+                                                    backgroundColor: '#ECFDF5',
+                                                    color: '#059669',
+                                                    borderRadius: '99px',
+                                                    fontSize: '13px',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {job.successful}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '16px 24px' }}>
+                                                {job.failed > 0 ? (
+                                                    <span style={{
+                                                        padding: '4px 10px',
+                                                        backgroundColor: '#FEE2E2',
+                                                        color: '#DC2626',
+                                                        borderRadius: '99px',
+                                                        fontSize: '13px',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        {job.failed}
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: '#9CA3AF' }}>0</span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '16px 24px', color: '#6B7280', fontSize: '14px' }}>
+                                                {job.created_by}
+                                            </td>
+                                            <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                                <ActionMenu
+                                                    actions={[
+                                                        {
+                                                            label: 'Download Results',
+                                                            icon: '📥',
+                                                            onClick: async () => {
+                                                                try {
+                                                                    const blob = await invitationApi.downloadBulkResults(job.job_id);
+                                                                    const url = window.URL.createObjectURL(blob);
+                                                                    const a = document.createElement('a');
+                                                                    a.href = url;
+                                                                    a.download = `bulk_results_${job.job_id.slice(0, 8)}.csv`;
+                                                                    document.body.appendChild(a);
+                                                                    a.click();
+                                                                    document.body.removeChild(a);
+                                                                } catch (err) {
+                                                                    setError('Failed to download results');
+                                                                }
+                                                            }
+                                                        },
+                                                        ...(job.failed > 0 ? [{
+                                                            label: 'Download Failures',
+                                                            icon: '⚠️',
+                                                            onClick: async () => {
+                                                                try {
+                                                                    const blob = await invitationApi.downloadBulkFailures(job.job_id);
+                                                                    const url = window.URL.createObjectURL(blob);
+                                                                    const a = document.createElement('a');
+                                                                    a.href = url;
+                                                                    a.download = `bulk_failures_${job.job_id.slice(0, 8)}.csv`;
+                                                                    document.body.appendChild(a);
+                                                                    a.click();
+                                                                    document.body.removeChild(a);
+                                                                } catch (err) {
+                                                                    setError('Failed to download failures');
+                                                                }
+                                                            }
+                                                        }] : [])
+                                                    ]}
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {bulkJobs.length === 0 && (
+                                <div style={{ padding: '60px 24px', textAlign: 'center', color: '#9CA3AF' }}>
+                                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>No bulk invite history</div>
+                                    <div style={{ fontSize: '14px' }}>Upload a CSV file to invite multiple users at once</div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
+
+                {/* Bulk Invite Modal */}
+                <BulkInviteModal
+                    isOpen={showBulkInviteModal}
+                    onClose={() => setShowBulkInviteModal(false)}
+                    onSuccess={() => {
+                        loadData();
+                        setSuccess('Bulk invitations processed successfully!');
+                    }}
+                />
 
                 {/* Invite Modal */}
                 {showInviteModal && (
