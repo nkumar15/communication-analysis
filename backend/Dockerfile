@@ -12,7 +12,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install uv for fast package management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
@@ -25,8 +29,8 @@ FROM base AS builder
 WORKDIR /install
 
 COPY requirements.txt .
-# Install production deps to /install
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+# Install production deps using uv (10-100x faster than pip)
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # ==========================================
 # 3. Test Base Stage (Heavy Test Deps)
@@ -55,11 +59,11 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install test python dependencies
+# Install test python dependencies using uv
 COPY requirements.txt .
 COPY requirements-test.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements-test.txt
+RUN uv pip install --system --no-cache -r requirements.txt && \
+    uv pip install --system --no-cache -r requirements-test.txt
 
 # Install Playwright browsers (Heavy, cached)
 RUN playwright install chromium
