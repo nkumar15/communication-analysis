@@ -29,6 +29,13 @@ For **Authentication**, see [Authentication Architecture](./authentication.md).
 
 Use the decorators from `services.b2b.rbac.decorators` to secure API routes.
 
+> [!NOTE]
+> **Design Decision: Dependencies vs. Wrappers**
+> We use FastAPI **Dependency Factories** (via `Depends()`) instead of standard Python reference decorators for three reasons:
+> 1.  **OpenAPI Integration**: Permissions automatically appear in the Swagger documentation security scheme.
+> 2.  **Dependency Injection**: Dependencies automatically receive the `db` session and `current_user` without complex argument inspection.
+> 3.  **Testability**: Permissions can be easily mocked using `app.dependency_overrides` during testing.
+
 ### 1. Require Permission (Preferred)
 Checks if the user's role has the specific capability.
 

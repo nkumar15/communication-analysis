@@ -160,8 +160,10 @@ This is the most important distinction in the RBAC system.
 
 ```python
 # 1. Optimized Permission check
-# The decorator extracts role_id from current_user automatically
-@require_permission('projects', 'write') 
+# The dependency extracts role_id from current_user automatically
+async def create_item(
+    current_user: dict = require_permission('projects', 'write')
+): ...
 
 # 2. Manual Scope check (which teams can user access?)
 team_ids = await get_user_team_ids(user_id, db)
