@@ -1,42 +1,35 @@
+"""
+B2B Authentication Router
+
+Handles OAuth flows, mobile login, tenant resolution, and user synchronization.
+"""
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from pydantic import BaseModel, EmailStr
+
 from services.b2b.schemas import TenantResolutionRequest, TenantResolutionResponse, UserResponse
-from services.b2b.services.tenant_service import tenant_service
-from services.b2b.services.user_service import user_service
-from services.b2b.services.auth_provider_service import auth_provider_service
-from core.rls import rls_service
+from services.b2b.schemas.auth import (
+    MobileLoginRequest,
+    MobileLoginResponse,
+    OIDCConfigResponse
+)
+from services.b2b.schemas.user import TeamMembership
+from services.b2b.services.auth_service import auth_service
 from core.utils.firebase import firebase_auth_service
-from services.b2b.models import InvitationModel
 from core.middleware import get_current_user
 from core.database import get_db
-from core.constants import B2BRoleName
-
-# Import structured logging
 from core.logging import get_logger
 
-# Get logger for this module
 logger = get_logger(__name__)
-
 
 router = APIRouter(prefix="/api/b2b/auth", tags=["authentication"])
 
 
-# Mobile-specific schemas
-class MobileLoginRequest(BaseModel):
-    """Request model for mobile OAuth token exchange"""
-    oidc_id_token: str
-    email: EmailStr
-    firebase_tenant_id: str
-    provider_id: str  # e.g., 'oidc.auth0-mycompany'
-    nonce: str | None = None
-
-@router.post("/mobile-login")
+@router.post("/mobile-login", response_model=MobileLoginResponse)
 async def mobile_login(
     request: MobileLoginRequest,
-    db: AsyncSession = Depends(get_db)):
+    db: AsyncSession = Depends(get_db)
+):
     """
     Exchange OIDC ID token for Firebase ID token using GCIP signInWithIdp
     
@@ -44,116 +37,23 @@ async def mobile_login(
     It returns a standard Firebase ID Token (not custom token) which ensures
     stable UIDs across Web and Mobile.
     """
-    logger.info("mobile_login_started", 
-                email=request.email, 
-                firebase_tenant_id=request.firebase_tenant_id,
-                provider_id=request.provider_id)
+    result = await auth_service.mobile_login_exchange(
+        db=db,
+        oidc_id_token=request.oidc_id_token,
+        email=request.email,
+        firebase_tenant_id=request.firebase_tenant_id,
+        provider_id=request.provider_id,
+        nonce=request.nonce
+    )
     
-    # 1. Get API Key from config
-    from core.config import settings
-    api_key = settings.firebase_api_key
-    
-    if not api_key:
-        logger.error("missing_firebase_api_key")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server configuration error: Missing Firebase Web API Key"
-        )
-        
-    # 2. Call Google Identity Toolkit API
-    import httpx
-    
-    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={api_key}"
-    
-    # Construct postBody for generic OIDC provider
-    # Format: id_token=[ID_TOKEN]&providerId=[PROVIDER_ID]&nonce=[NONCE]
-    post_body = f"id_token={request.oidc_id_token}&providerId={request.provider_id}"
-    
-    if request.nonce:
-        post_body += f"&nonce={request.nonce}"
-    
-    payload = {
-        "postBody": post_body,
-        "requestUri": "http://localhost:3000/auth/callback",  # Dummy URI required by API
-        "returnIdpCredential": True,
-        "returnSecureToken": True,
-        "tenantId": request.firebase_tenant_id
-    }
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload)
-            
-            if response.status_code != 200:
-                error_data = response.json()
-                error_msg = error_data.get('error', {}).get('message', 'Unknown error')
-                logger.warning("gcip_signin_failed", status=response.status_code, error=error_msg)
-                
-                # Map specific GCIP errors to HTTP exceptions
-                if "INVALID_ID_TOKEN" in error_msg:
-                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid OIDC ID Token")
-                elif "EMAIL_EXISTS" in error_msg:
-                     # This happens if account linking is required but not handled here
-                     # For B2B SSO, emails should match and link automatically
-                     raise HTTPException(status.HTTP_409_CONFLICT, "Account linking required")
-                else:
-                    raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Login failed: {error_msg}")
-            
-            data = response.json()
-            
-            # 3. Extract tokens
-            firebase_id_token = data.get('idToken')
-            firebase_uid = data.get('localId')
-            refresh_token = data.get('refreshToken')
-            expires_in = data.get('expiresIn', '3600')
-            
-            logger.info("mobile_login_successful", 
-                        email=request.email, 
-                        firebase_uid=firebase_uid)
-            
-            # 4. Resolve Tenant (for correct return format)
-            tenant = await tenant_service.get_tenant_by_firebase_id(db, request.firebase_tenant_id)
-            
-            if not tenant:
-                 # Should theoretically not happen if GCIP accepted tenantId
-                logger.error("tenant_not_found_after_gcip", tenant_id=request.firebase_tenant_id)
-                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant context lost")
-
-            # 5. Mint Custom Token for Client SDK
-            # The client needs a Custom Token to perform 'signInWithCustomToken'.
-            # The ID token we got from GCIP is valid but cannot be used to 'start' a session in the Client SDK easily.
-            custom_token_bytes = firebase_auth_service.create_custom_token(
-                uid=firebase_uid,
-                tenant_id=request.firebase_tenant_id
-            )
-            custom_token = custom_token_bytes.decode('utf-8')
-
-            return {
-                "firebase_custom_token": custom_token, # CRITICAL: Used by Client to Sign In
-                "firebase_id_token": firebase_id_token, # Optional: For immediate API calls if needed
-                "firebase_uid": firebase_uid,
-                "refresh_token": refresh_token,
-                "expires_in": int(expires_in),
-                "tenant_id": str(tenant.id),
-                "tenant_name": tenant.name
-            }
-            
-    except httpx.RequestError as e:
-        logger.error("gcip_network_error", error=str(e))
-        raise HTTPException(
-            detail="Authentication service unavailable"
-        )
-
-class OIDCConfigResponse(BaseModel):
-    """OIDC configuration for mobile app"""
-    issuer: str
-    client_id: str
-    scopes: list[str]
-
+    return MobileLoginResponse(**result)
 
 
 @router.post("/resolve-tenant", response_model=TenantResolutionResponse)
-async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = Depends(get_db)):
+async def resolve_tenant(
+    request: TenantResolutionRequest,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Resolve tenant from email address
     
@@ -161,114 +61,30 @@ async def resolve_tenant(request: TenantResolutionRequest, db: AsyncSession = De
     the corresponding tenant, returning the Firebase tenant ID that
     the frontend needs to set the auth context.
     """
-    logger.info("tenant_resolution_started", email=request.email)
-    
-    # Extract domain from email
-    domain = tenant_service.extract_domain_from_email(request.email)
-    
-    if not domain:
-        logger.warning("invalid_email_format", email=request.email)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email address"
-        )
-    
-    logger.debug("domain_extracted", domain=domain, email=request.email)
-    
-    # Look up tenant by domain
-    tenant = await tenant_service.get_tenant_by_domain(db, domain)
-    
-    if not tenant:
-        logger.warning("tenant_not_found", domain=domain, email=request.email)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No tenant found for domain: {domain}"
-        )
-    
-    # Get primary auth provider
-    primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
-    
-    logger.info("tenant_resolved",
-                tenant_id=str(tenant.id),
-                tenant_name=tenant.name,
-                domain=domain,
-                has_auth_provider=primary_provider is not None)
-    
-    # Get mobile specific provider ID if available
-    mobile_provider_id = None
-    if primary_provider and primary_provider.config_data:
-        mobile_provider_id = primary_provider.config_data.get('mobile_provider_id')
-
-    return TenantResolutionResponse(
-        tenant_id=tenant.id,
-        tenant_name=tenant.name,
-        domain=tenant.domain,
-        firebase_tenant_id=tenant.firebase_tenant_id,
-        oidc_provider_id=primary_provider.provider_id if primary_provider else None,
-        mobile_oidc_provider_id=mobile_provider_id
-    )
+    result = await auth_service.resolve_tenant_by_email(db, request.email)
+    return TenantResolutionResponse(**result)
 
 
 @router.get("/oidc-config/{provider_id}", response_model=OIDCConfigResponse)
-async def get_oidc_config(provider_id: str, db: AsyncSession = Depends(get_db)):
+async def get_oidc_config(
+    provider_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Get OIDC configuration for mobile authentication
     
     Returns the issuer URL, client ID, and scopes needed for
     react-native-app-auth to perform OAuth flow.
     """
-    logger.info("oidc_config_requested", provider_id=provider_id)
-    
-    # Get auth provider by provider_id (string identifier like 'oidc.auth0-firstcompany')
-    from services.b2b.models.auth_provider import AuthProvider
-    result = await db.execute(
-        select(AuthProvider)
-        .where(AuthProvider.provider_id == provider_id)
-        .where(AuthProvider.is_active == True)
-        .where(AuthProvider.deleted_at.is_(None))
-    )
-    provider = result.scalar_one_or_none()
-    
-    if not provider:
-        logger.warning("oidc_provider_not_found", provider_id=provider_id)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"OIDC provider not found: {provider_id}"
-        )
-    
-    logger.info("oidc_config_retrieved", 
-                provider_id=provider_id,
-                provider_type=provider.provider_type)
-    
-    # Extract OIDC config from config_data JSONB
-    config = provider.config_data or {}
-    issuer_url = config.get('issuer_url') or config.get('issuer')
-    client_id = config.get('client_id')
-    
-    if not issuer_url or not client_id:
-        logger.error("oidc_config_incomplete", 
-                    provider_id=provider_id,
-                    has_issuer=bool(issuer_url),
-                    has_client_id=bool(client_id))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OIDC provider configuration incomplete"
-        )
-    
-    return OIDCConfigResponse(
-        issuer=issuer_url,
-        client_id=config.get('mobile_client_id') or client_id,  # Prefer mobile-specific client ID
-        scopes=['openid', 'profile', 'email']
-    )
-
-
-
+    result = await auth_service.get_oidc_config(db, provider_id)
+    return OIDCConfigResponse(**result)
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     decoded_token: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)):
+    db: AsyncSession = Depends(get_db)
+):
     """
     Get current authenticated user
     
@@ -289,68 +105,31 @@ async def get_current_user_info(
             detail="Invalid token: missing required claims"
         )
     
-    # Get tenant from Firebase tenant ID
-    tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
-    
-    if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
-        )
-    
-    # Set RLS Context for this request
-    await rls_service.set_tenant_context(db, tenant.id)
-    
-    # Determine role from invitation (for new users)
-    result = await db.execute(
-        select(InvitationModel)
-        .where(InvitationModel.tenant_id == tenant.id)
-        .where(InvitationModel.email == email.lower())
-    )
-    invitation = result.scalar_one_or_none()
-    user_role = invitation.role if invitation else B2BRoleName.VIEWER
-    
-    # Use email-based identity lookup (industry standard for cross-platform)
-    # This ensures web and mobile users are recognized as the same person
-    user = await user_service.get_or_create_user_by_email(
+    # Get or sync user
+    user, tenant, permissions, teams = await auth_service.get_or_sync_user(
         db=db,
-        tenant_id=tenant.id,
-        email=email,
         firebase_uid=firebase_uid,
+        email=email,
         name=name,
-        role=user_role
+        firebase_tenant_id=firebase_tenant_id
     )
     
-    # Fetch permissions for frontend visibility control
-    from services.b2b.rbac import get_user_permissions, get_user_team_ids
-    from services.b2b.models.team import Team
-    from services.b2b.models.team_member import TeamMember
-    from services.b2b.schemas.user import TeamMembership
-    
-    permissions = await get_user_permissions(user.id, db)
-    
-    # Fetch teams the user belongs to
-    teams_result = await db.execute(
-        select(Team, TeamMember.team_role)
-        .join(TeamMember, Team.id == TeamMember.team_id)
-        .where(TeamMember.user_id == user.id)
-        .where(Team.deleted_at.is_(None))
-    )
-    teams = [
-        TeamMembership(id=team.id, name=team.name, team_role=team_role)
-        for team, team_role in teams_result.all()
+    # Convert teams to TeamMembership objects
+    team_memberships = [
+        TeamMembership(id=t["id"], name=t["name"], team_role=t["team_role"])
+        for t in teams
     ]
     
     return UserResponse(
         id=user.id,
         email=user.email,
         name=user.name,
-        role=user.role,  # Slug (e.g., 'admin')
+        role=user.role,
         role_display_name=user.role_display_name,
         tenant_id=tenant.id,
         tenant_name=tenant.name,
         permissions=permissions,
-        teams=teams
+        teams=team_memberships
     )
 
 
@@ -359,7 +138,8 @@ async def sync_user(
     background_tasks: BackgroundTasks,
     request: Request,
     decoded_token: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)):
+    db: AsyncSession = Depends(get_db)
+):
     """
     Sync user with database after authentication
     
@@ -380,40 +160,16 @@ async def sync_user(
             detail="Invalid token: missing required claims"
         )
     
-    # Get tenant from Firebase tenant ID
-    tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
-    
-    if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
-        )
-    
-    # Set RLS Context for this request
-    await rls_service.set_tenant_context(db, tenant.id)
-    
-    # Determine role from invitation (for new users)
-    result = await db.execute(
-        select(InvitationModel)
-        .where(InvitationModel.tenant_id == tenant.id)
-        .where(InvitationModel.email == email.lower())
-    )
-    invitation = result.scalar_one_or_none()
-    user_role = invitation.role if invitation else B2BRoleName.VIEWER
-    
-    # Use email-based identity lookup (industry standard for cross-platform)
-    user = await user_service.get_or_create_user_by_email(
+    # Get or sync user
+    user, tenant, permissions, teams = await auth_service.get_or_sync_user(
         db=db,
-        tenant_id=tenant.id,
-        email=email,
         firebase_uid=firebase_uid,
+        email=email,
         name=name,
-        role=user_role
+        firebase_tenant_id=firebase_tenant_id
     )
     
-    # Synchronous Audit Log (Unit of Work Pattern)
-    # This uses the SAME db session and transaction.
-    # It will be committed automatically when the request ends successfully.
+    # Log audit event
     from services.b2b.services.audit_service import AuditService
     audit_service = AuditService(db)
     
@@ -428,32 +184,12 @@ async def sync_user(
         user_agent=request.headers.get("User-Agent")
     )
     
-    # Fetch permissions for frontend visibility control
-    from services.b2b.rbac import get_user_permissions
-    from services.b2b.models.team import Team
-    from services.b2b.models.team_member import TeamMember
-    
-    permissions = await get_user_permissions(user.id, db)
-    
-    # Fetch teams
-    teams_result = await db.execute(
-        select(Team.id, Team.name, TeamMember.team_role)
-        .join(TeamMember, Team.id == TeamMember.team_id)
-        .where(TeamMember.user_id == user.id)
-        .where(Team.deleted_at.is_(None))
-    )
-    teams = [
-        {"id": str(team_id), "name": name, "team_role": team_role}
-        for team_id, name, team_role in teams_result.all()
-    ]
-    
     return {
         "message": "User synced successfully",
         "user_id": user.id,
         "email": user.email,
-        "role": user.role,  # Slug
+        "role": user.role,
         "role_display_name": user.role_display_name,
         "permissions": permissions,
         "teams": teams
     }
-
