@@ -241,6 +241,196 @@ class UserService:
         await db.flush()
         return True
     
+    async def get_user_stats(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        user_id: UUID
+    ) -> dict:
+        """
+        Get user statistics for dashboard
+        
+        Returns:
+            Dictionary with total_users, active_users, pending_invitations, managers_count
+        """
+        from sqlalchemy import func
+        from services.b2b.models import InvitationModel
+        from services.b2b.rbac import get_dashboard_stats
+        from services.b2b.rbac.permission_checker import has_permission
+        from fastapi import HTTPException, status
+        
+        # Check if user has dashboard access
+        if not await has_permission(user_id, 'dashboard', 'read', db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Dashboard access denied. Field agents cannot access dashboard."
+            )
+        
+        # Get scoped stats based on user's role and hierarchy
+        stats = await get_dashboard_stats(user_id, db)
+        
+        # Get pending invitations count
+        pending_result = await db.execute(
+            select(func.count(InvitationModel.id))
+            .where(InvitationModel.tenant_id == tenant_id)
+            .where(InvitationModel.accepted_at.is_(None))
+        )
+        pending_invitations = pending_result.scalar()
+        
+        return {
+            "total_users": stats['total_users'],
+            "active_users": stats['accessible_users'],
+            "pending_invitations": pending_invitations,
+            "managers_count": stats.get('total_projects', 0)
+        }
+    
+    async def list_accessible_users(
+        self,
+        db: AsyncSession,
+        user_id: UUID
+    ) -> list:
+        """
+        List all users accessible to the current user based on hierarchy
+        
+        Returns:
+            List of dictionaries with user information and role names
+        """
+        from services.b2b.rbac import get_accessible_user_ids
+        from services.b2b.models import Role
+        
+        # Get accessible user IDs based on hierarchy
+        accessible_ids = await get_accessible_user_ids(user_id, db)
+        
+        # Get users along with their roles
+        users_result = await db.execute(
+            select(UserModel, Role)
+            .join(Role, UserModel.role_id == Role.id)
+            .where(UserModel.id.in_(accessible_ids))
+            .order_by(UserModel.created_at.desc())
+        )
+        users = users_result.all()
+        
+        return [
+            {
+                "id": u[0].id,
+                "name": u[0].name,
+                "email": u[0].email,
+                "role": u[1].name if u[1] else None,
+                "is_active": u[0].is_active,
+                "last_login": u[0].last_login,
+                "created_at": u[0].created_at
+            }
+            for u in users
+        ]
+    
+    async def update_user_role(
+        self,
+        db: AsyncSession,
+        user_id: UUID,
+        role_name: str,
+        current_user_id: UUID,
+        current_user_role: str,
+        tenant_id: UUID
+    ) -> dict:
+        """
+        Update a user's role with validation and hierarchy checks
+        
+        Args:
+            db: Database session
+            user_id: ID of user whose role to update
+            role_name: New role name to assign
+            current_user_id: ID of user making the change
+            current_user_role: Role of user making the change
+            tenant_id: Tenant ID
+            
+        Returns:
+            Success message dictionary
+            
+        Raises:
+            HTTPException: For various validation failures
+        """
+        from services.b2b.models import Role
+        from services.b2b.rbac.permission_checker import has_permission
+        from fastapi import HTTPException, status
+        
+        # 1. Check permission
+        if not await has_permission(current_user_id, 'users', 'invite', db) and current_user_role != 'owner':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied. Only admins can update roles."
+            )
+        
+        # 2. Get target user with role
+        result = await db.execute(
+            select(UserModel, Role.name.label("role_name"))
+            .join(Role, UserModel.role_id == Role.id)
+            .where(
+                UserModel.id == user_id,
+                UserModel.tenant_id == tenant_id
+            )
+        )
+        user_row = result.first()
+        
+        if not user_row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        user = user_row[0]
+        user_role_name = user_row.role_name
+        
+        # 3. Validate new role exists
+        role_result = await db.execute(
+            select(Role).where(
+                Role.tenant_id == tenant_id,
+                Role.name == role_name
+            )
+        )
+        role_obj = role_result.scalar_one_or_none()
+        
+        if not role_obj:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role '{role_name}' not found."
+            )
+        
+        # 4. Hierarchy and safety checks
+        
+        # 4.1 Prevent self-modification
+        if user.id == current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot change your own role. Ask another admin to do it."
+            )
+        
+        # 4.2 Owner protection
+        if user_role_name == 'owner' and current_user_role != 'owner':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admins cannot modify the Owner's role."
+            )
+        
+        # 4.3 Admin vs Admin protection
+        if user_role_name == 'admin' and current_user_role != 'owner':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admins cannot modify other Admins. Only the Owner can do that."
+            )
+        
+        # 4.4 Prevent elevating to Owner
+        if role_name == 'owner':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot assign 'owner' role via this endpoint. Use specific transfer ownership process."
+            )
+        
+        # 5. Update role
+        user.role_id = role_obj.id
+        await db.flush()
+        
+        return {"message": "User role updated successfully"}
+    
     async def _model_to_pydantic(self, model: UserModel, db: AsyncSession = None) -> User:
         """Convert SQLAlchemy model to Pydantic model"""
         # Fetch role slug and display name if role_id is set
