@@ -70,8 +70,8 @@ INSERT INTO b2b.role_templates (name, display_name, description, is_system_role,
         {"resource": "analytics", "actions": ["read"]},
         
         {"resource": "users", "actions": ["read", "write", "invite"]},
-        {"resource": "roles", "actions": ["read", "write"]},
-        {"resource": "invitations", "actions": ["read", "write"]},
+        {"resource": "roles", "actions": ["read", "write", "delete"]},
+        {"resource": "invitations", "actions": ["read", "write", "delete"]},
         {"resource": "teams", "actions": ["read", "write", "delete"]},
         
         {"resource": "account", "actions": ["read"]},

@@ -1,9 +1,9 @@
 """
-Pydantic schemas for Role Management API
+Role Management Schemas
 """
-from pydantic import BaseModel
-from typing import Optional
 from uuid import UUID
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
 
 class ResourceResponse(BaseModel):
@@ -37,29 +37,43 @@ class PermissionResponse(BaseModel):
         from_attributes = True
 
 
-class RoleTemplateResponse(BaseModel):
-    """Role template information"""
+class RoleCreate(BaseModel):
+    """Request schema for creating a new role"""
+    name: str = Field(..., min_length=1, max_length=50)
+    display_name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    template_id: Optional[UUID] = None
+    permissions: List[dict] = []
+
+
+class RoleUpdate(BaseModel):
+    """Request schema for updating a role"""
+    display_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    permissions: Optional[List[dict]] = None
+
+
+class RoleResponse(BaseModel):
+    """Response schema for role"""
     id: UUID
+    tenant_id: UUID
     name: str
     display_name: str
-    description: Optional[str]
+    description: Optional[str] = None
     is_system_role: bool
-    is_default: bool
-    permissions: list[dict]
-
+    
     class Config:
         from_attributes = True
 
 
-class RoleResponse(BaseModel):
-    """Role with basic information"""
+class RoleTemplateResponse(BaseModel):
+    """Response schema for role templates"""
     id: UUID
     name: str
     display_name: str
-    description: Optional[str]
+    description: Optional[str] = None
+    permissions: List[dict] = []
     is_system_role: bool
-    is_active: bool
-    permissions: Optional[list[dict]] = []  # Simple permission format for list view
     
     class Config:
         from_attributes = True

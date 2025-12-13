@@ -489,3 +489,75 @@ async def move_user_to_team(
     
     # Add to new team
     return await add_team_member(db, to_team_id, user_id, team_role)
+
+
+async def get_team_stats(
+    db: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID
+) -> Dict[str, Any]:
+    """Get team statistics for a user/tenant"""
+    from services.b2b.rbac.scope_checker import get_user_team_ids
+    
+    # Get default team
+    result = await db.execute(
+        select(Team.id).where(
+            Team.tenant_id == tenant_id,
+            Team.is_default == True,
+            Team.deleted_at.is_(None)
+        )
+    )
+    default_team_id = result.scalar_one_or_none()
+    
+    # Count total teams
+    count_result = await db.execute(
+        select(func.count(Team.id)).where(
+            Team.tenant_id == tenant_id,
+            Team.deleted_at.is_(None)
+        )
+    )
+    total_teams = count_result.scalar() or 0
+    
+    # Get user's teams
+    user_teams = await get_user_team_ids(user_id, db)
+    
+    return {
+        "total_teams": total_teams,
+        "default_team_id": default_team_id,
+        "user_teams_count": len(user_teams)
+    }
+
+
+async def get_available_users_for_team(
+    db: AsyncSession,
+    tenant_id: UUID,
+    team_id: UUID
+) -> List[Dict[str, Any]]:
+    """Get users in tenant who are not members of the team"""
+    
+    # Get user IDs already in this team
+    existing_members_result = await db.execute(
+        select(TeamMember.user_id).where(TeamMember.team_id == team_id)
+    )
+    existing_member_ids = {row[0] for row in existing_members_result}
+    
+    # Get all active users in tenant
+    all_users_result = await db.execute(
+        select(UserModel).where(
+            UserModel.tenant_id == tenant_id,
+            UserModel.is_active == True,
+            UserModel.deleted_at.is_(None)
+        )
+    )
+    all_users = all_users_result.scalars().all()
+    
+    # Filter and format
+    return [
+        {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email
+        }
+        for user in all_users
+        if user.id not in existing_member_ids
+    ]

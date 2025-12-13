@@ -4,63 +4,23 @@ Team Roles API Router
 Endpoints for managing configurable team-level roles.
 """
 from uuid import UUID
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
 
 from core.database import get_db
 from services.b2b.middleware import get_current_active_user
-from services.b2b.rbac import require_permission
+from services.b2b.rbac.decorators import require_permission
 from services.b2b.services.team_role_service import team_role_service
+from services.b2b.schemas.team_roles import (
+    TeamRoleCreate,
+    TeamRoleUpdate,
+    TeamRoleResponse
+)
 
 
 router = APIRouter(prefix="/api/b2b/team-roles", tags=["team-roles"])
 
-
-# ============================================================================
-# SCHEMAS
-# ============================================================================
-
-# ============================================================================
-# SCHEMAS
-# ============================================================================
-
-class TeamRoleResponse(BaseModel):
-    """Team role response"""
-    id: UUID
-    tenant_id: Optional[UUID] = None
-    name: str
-    display_name: str
-    description: Optional[str] = None
-    permissions: List[dict] = []
-    is_system: bool
-    is_default: bool
-    
-    class Config:
-        from_attributes = True
-
-
-class TeamRoleCreate(BaseModel):
-    """Create team role request"""
-    name: str = Field(..., min_length=1, max_length=50, pattern=r'^[a-z_]+$')
-    display_name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = None
-    permissions: List[dict] = []
-    is_default: bool = False
-
-
-class TeamRoleUpdate(BaseModel):
-    """Update team role request"""
-    display_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    permissions: Optional[List[dict]] = None
-    is_default: Optional[bool] = None
-
-
-# ============================================================================
-# ENDPOINTS
-# ============================================================================
 
 @router.get("", response_model=List[TeamRoleResponse])
 async def list_team_roles(

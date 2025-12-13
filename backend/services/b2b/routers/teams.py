@@ -36,37 +36,12 @@ async def get_team_stats(
     
     Returns team counts and user's team membership info.
     """
-    from services.b2b.rbac.scope_checker import get_user_team_ids
-    from services.b2b.models import Team
-    from sqlalchemy import select, func
-    
-    # Get default team
-    default_team_result = await db.execute(
-        select(Team.id).where(
-            Team.tenant_id == current_user['tenant_id'],
-            Team.is_default == True,
-            Team.deleted_at.is_(None)
-        )
+    stats = await team_service.get_team_stats(
+        db, 
+        current_user['tenant_id'], 
+        current_user['id']
     )
-    default_team_id = default_team_result.scalar_one_or_none()
-    
-    # Count total teams
-    teams_count_result = await db.execute(
-        select(func.count(Team.id)).where(
-            Team.tenant_id == current_user['tenant_id'],
-            Team.deleted_at.is_(None)
-        )
-    )
-    total_teams = teams_count_result.scalar() or 0
-    
-    # Get user's teams
-    user_teams = await get_user_team_ids(current_user['id'], db)
-    
-    return TeamStatsResponse(
-        total_teams=total_teams,
-        default_team_id=default_team_id,
-        user_teams_count=len(user_teams)
-    )
+    return TeamStatsResponse(**stats)
 
 
 @router.get("/team-roles")
@@ -166,7 +141,7 @@ async def create_team(
         config_data=team.config_data
     )
     
-    # await db.commit() - Handled by dependency
+    await db.commit()
     
     member_count = await team_service.get_team_member_count(db, created_team.id)
     
@@ -273,7 +248,7 @@ async def update_team(
         config_data=updates.config_data
     )
     
-    # await db.commit() - Handled by dependency
+    await db.commit()
     
     member_count = await team_service.get_team_member_count(db, updated_team.id)
     
@@ -325,6 +300,7 @@ async def delete_team(
         )
     
     await team_service.delete_team(db, team_id)
+    await db.commit()
     return {"message": "Team deleted successfully"}
 
 
@@ -424,7 +400,7 @@ async def add_team_member(
         team_role=member.team_role
     )
     
-    # await db.commit() - Handled by dependency
+    await db.commit()
     
     return TeamMemberResponse(
         id=team_member.id,
@@ -479,7 +455,7 @@ async def remove_team_member(
             )
     
     await team_service.remove_team_member(db, team_id, user_id)
-    # await db.commit() - Handled by dependency
+    await db.commit()
     return {"message": "Member removed successfully"}
 
 
@@ -524,7 +500,7 @@ async def update_team_member_role(
         new_role=update.team_role
     )
     
-    # await db.commit() - Handled by dependency
+    await db.commit()
     
     # Get user details
     user = await db.get(UserModel, user_id)
@@ -586,7 +562,7 @@ async def move_user_between_teams(
         team_role=move_request.team_role
     )
     
-    # await db.commit() - Handled by dependency
+    await db.commit()
     
     # Get user details
     user = await db.get(UserModel, user_id)
@@ -614,37 +590,6 @@ async def get_available_users_for_team(
     Returns list of users available to be added to the team.
     Requires: teams:write permission OR team_manager of this team
     """
-    from sqlalchemy import select
-    from services.b2b.models import TeamMember
-    
-    # Check permission
-    if not await can_manage_team(current_user['id'], team_id, db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to manage this team"
-        )
-    
-    # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
-    if not team:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Team not found"
-        )
-    
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
-    
-    # Get user IDs already in this team
-    existing_members_result = await db.execute(
-        select(TeamMember.user_id).where(TeamMember.team_id == team_id)
-    )
-    existing_member_ids = {row[0] for row in existing_members_result}
-    
-    # Get all active users in tenant who are not in this team
     all_users_result = await db.execute(
         select(UserModel).where(
             UserModel.tenant_id == current_user['tenant_id'],
