@@ -75,17 +75,10 @@ async def invite_user(
     # Get tenant for email
     tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
     
-    # Send invitation email
-    frontend_url = settings.frontend_url or "http://localhost:3000"
-    invitation_url = f"{frontend_url}/invite/{invitation_token}"
-    
-    email_service.send_user_invitation_email(
-        to_email=request.email,
-        tenant_name=tenant.name,
-        inviter_name=current_user.get('name') or current_user['email'],
-        role=request.role,
-        invitation_url=invitation_url,
-        expires_at=invitation.expires_at
+    # Send invitation email via Celery (async)
+    send_invitation_email.delay(
+        invitation_id=str(invitation.id),
+        tenant_id=str(current_user['tenant_id'])
     )
     
     # Log audit event
@@ -207,17 +200,10 @@ async def resend_invitation(
     # Get tenant for email
     tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
     
-    # Resend email
-    frontend_url = settings.frontend_url or "http://localhost:3000"
-    invitation_url = f"{frontend_url}/invite/{invitation.invitation_token}"
-    
-    email_service.send_user_invitation_email(
-        to_email=invitation.email,
-        tenant_name=tenant.name,
-        inviter_name=current_user.get('name') or current_user['email'],
-        role=invitation.role,
-        invitation_url=invitation_url,
-        expires_at=invitation.expires_at
+    # Resend invitation email via Celery (async)
+    send_invitation_email.delay(
+        invitation_id=str(invitation.id),
+        tenant_id=str(current_user['tenant_id'])
     )
     
     return {"message": f"Invitation resent to {invitation.email}"}
