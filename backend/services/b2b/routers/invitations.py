@@ -3,10 +3,15 @@ Invitations API Router
 
 Handles user invitation creation, validation, and acceptance.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List
 from uuid import UUID
+from io import StringIO
+import csv
+from datetime import datetime
 
 from core.database import get_db
 from core.middleware import get_current_user
@@ -22,6 +27,9 @@ from services.b2b.rbac import has_permission
 from core.email import email_service
 from core.config import settings
 from core.rls import rls_service
+from services.b2b.utils.csv_parser import BulkInviteCSVParser
+from core.tasks.email_tasks import send_bulk_invitation_emails, send_invitation_email
+from services.b2b.models import UserModel
 
 
 router = APIRouter(prefix="/api/b2b/invitations", tags=["invitations"])
@@ -304,3 +312,290 @@ async def join_tenant(
         "role": result['role'],
         "team_id": result['team_id']
     }
+
+
+# ============================================================================
+# BULK INVITATIONS
+# ============================================================================
+
+@router.post("/bulk")
+async def bulk_invite_users(
+    file: UploadFile,
+    send_emails: bool = True,
+    auto_create_teams: bool = True,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Upload CSV file and create bulk invitations.
+    
+    Permission required: users:invite
+    
+    File format:
+    - Required columns: email, role
+    - Optional columns: team_name, team_role, name
+    - Max 100 rows, max 2MB file size
+    
+    Returns:
+        Job ID, results summary, and download URLs
+    """
+    # Check permission
+    if not await has_permission(current_user['id'], 'users', 'invite', db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to invite users"
+        )
+    
+    # Get tenant
+    tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found"
+        )
+    
+    # Parse CSV
+    parser = BulkInviteCSVParser()
+    parsed_csv = await parser.parse_file(file)
+    
+    if not parsed_csv.is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "validation_failed",
+                "message": "CSV validation failed",
+                "errors": [error.dict() for error in parsed_csv.errors]
+            }
+        )
+    
+    # Business rules validation
+    business_errors = await parser.validate_business_rules(
+        rows=parsed_csv.rows,
+        current_user=current_user,
+        db=db,
+        tenant_domain=tenant.domain
+    )
+    
+    if business_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "validation_failed",
+                "message": "Business validation failed",
+                "errors": [error.dict() for error in business_errors]
+            }
+        )
+    
+    # Set RLS context
+    await rls_service.set_tenant_context(db, str(current_user['tenant_id']))
+    
+    # Create invitations
+    result = await invitation_service.bulk_create_invitations(
+        db=db,
+        tenant_id=current_user['tenant_id'],
+        rows=parsed_csv.rows,
+        created_by=current_user['id'],
+        tenant_domain=tenant.domain,
+        auto_create_teams=auto_create_teams
+    )
+    
+    # Commit all changes
+    await db.commit()
+    
+    # Queue email sending (background)
+    if send_emails and result['invitation_ids']:
+        send_bulk_invitation_emails.delay(
+            invitation_ids=result['invitation_ids'],
+            tenant_id=str(current_user['tenant_id'])
+        )
+    
+    # Return results
+    return {
+        "job_id": str(result['job_id']),
+        "total_processed": result['total_processed'],
+        "successful": result['successful'],
+        "failed": result['failed'],
+        "results": result['results'],
+        "teams_created": result['teams_created'],
+        "download_url": f"/api/b2b/invitations/bulk/{result['job_id']}/download",
+        "failures_url": f"/api/b2b/invitations/bulk/{result['job_id']}/download/failures"
+    }
+
+
+@router.get("/bulk/template")
+async def download_template():
+    """Download CSV template for bulk invitations"""
+    template = """email,role,team_name,team_role,name
+# Example rows (remove these before uploading):
+alice@yourdomain.com,admin,Engineering,team_manager,Alice Smith
+bob@yourdomain.com,member,Engineering,team_contributor,Bob Jones
+carol@yourdomain.com,viewer,Sales,team_reader,Carol White
+"""
+    
+    return StreamingResponse(
+        iter([template]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="bulk_invite_template.csv"'
+        }
+    )
+
+
+@router.get("/bulk/jobs")
+async def list_bulk_jobs(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List bulk invite jobs for current tenant"""
+    offset = (page - 1) * page_size
+    jobs = await invitation_service.list_bulk_jobs(
+        db=db,
+        tenant_id=current_user['tenant_id'],
+        limit=page_size,
+        offset=offset
+    )
+    
+    # Format results
+    job_list = []
+    for job in jobs:
+        creator_result = await db.execute(
+            select(UserModel).where(UserModel.id == job.created_by)
+        )
+        creator = creator_result.scalar_one_or_none()
+        
+        job_list.append({
+            "job_id": str(job.id),
+            "total_rows": job.total_rows,
+            "successful": job.successful_count,
+            "failed": job.failed_count,
+            "created_at": job.created_at.isoformat(),
+            "created_by": creator.email if creator else "Unknown"
+        })
+    
+    return {
+        "jobs": job_list,
+        "total": len(job_list),
+        "page": page,
+        "page_size": page_size
+    }
+
+
+@router.get("/bulk/{job_id}")
+async def get_bulk_job_status(
+    job_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get bulk invite job status and summary"""
+    job = await invitation_service.get_bulk_job(db, job_id, current_user['tenant_id'])
+    
+    creator_result = await db.execute(
+        select(UserModel).where(UserModel.id == job.created_by)
+    )
+    creator = creator_result.scalar_one_or_none()
+    
+    return {
+        "job_id": str(job.id),
+        "status": "completed",
+        "total_rows": job.total_rows,
+        "successful": job.successful_count,
+        "failed": job.failed_count,
+        "created_at": job.created_at.isoformat(),
+        "created_by": {
+            "id": str(creator.id),
+            "email": creator.email,
+            "name": creator.name
+        } if creator else None,
+        "download_url": f"/api/b2b/invitations/bulk/{job.id}/download"
+    }
+
+
+@router.get("/bulk/{job_id}/download")
+async def download_bulk_results(
+    job_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Download full bulk invite results as CSV"""
+    job = await invitation_service.get_bulk_job(db, job_id, current_user['tenant_id'])
+    
+    output = StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=['row', 'email', 'name', 'role', 'team_name', 'status', 'invitation_id', 'error']
+    )
+    writer.writeheader()
+    
+    for row_data in job.results.get('rows', []):
+        writer.writerow({
+            'row': row_data.get('row', ''),
+            'email': row_data.get('email', ''),
+            'name': row_data.get('name', ''),
+            'role': row_data.get('role', ''),
+            'team_name': row_data.get('team_name', ''),
+            'status': row_data.get('status', ''),
+            'invitation_id': row_data.get('invitation_id', ''),
+            'error': row_data.get('error', '')
+        })
+    
+    output.seek(0)
+    filename = f"bulk_invite_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
+@router.get("/bulk/{job_id}/download/failures")
+async def download_failures(
+    job_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Download only failed rows for correction and re-upload"""
+    job = await invitation_service.get_bulk_job(db, job_id, current_user['tenant_id'])
+    
+    failures = [
+        row for row in job.results.get('rows', [])
+        if row.get('status') == 'error'
+    ]
+    
+    if not failures:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No failures found in this job"
+        )
+    
+    output = StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=['row', 'email', 'name', 'role', 'team_name', 'error']
+    )
+    writer.writeheader()
+    
+    for row in failures:
+        writer.writerow({
+            'row': row.get('row', ''),
+            'email': row.get('email', ''),
+            'name': row.get('name', ''),
+            'role': row.get('role', ''),
+            'team_name': row.get('team_name', ''),
+            'error': row.get('error', '')
+        })
+    
+    output.seek(0)
+    filename = f"bulk_invite_failures_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )

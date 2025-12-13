@@ -224,6 +224,40 @@ class EmailService:
             print(f"Expires: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}")
             print("=" * 80)
             print()
+    
+    async def send_invitation_email(
+        self,
+        to_email: str,
+        invitation_token: str,
+        tenant_name: str,
+        expires_at: datetime
+    ):
+        """
+        Send invitation email (simplified for Celery tasks).
+        
+        This method is called by Celery background tasks and generates
+        the invitation URL internally.
+        
+        Args:
+            to_email: Invitee email address
+            invitation_token: Invitation token
+            tenant_name: Tenant name
+            expires_at: Expiration timestamp
+        """
+        from core.config import settings
+        
+        # Generate invitation URL
+        invitation_url = f"{settings.frontend_url}/join?token={invitation_token}"
+        
+        # Use inviter_name as tenant name for now (can be enhanced later)
+        return self.send_user_invitation_email(
+            to_email=to_email,
+            tenant_name=tenant_name,
+            inviter_name=tenant_name,  # Using tenant name as inviter
+            role="member",  # Generic role for async emails
+            invitation_url=invitation_url,
+            expires_at=expires_at
+        )
 
 
 # Global email service instance

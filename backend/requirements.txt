@@ -20,3 +20,6 @@ email-validator==2.1.0
 resend==0.8.0
 click==8.1.7
 
+# Background Task Queue
+celery[redis]==5.3.4
+

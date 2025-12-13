@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # Email (Resend)
     resend_api_key: Optional[str] = None
     
+    # Redis (for Celery task queue)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    
     # CORS
     cors_origins: str = "http://localhost:3000,http://localhost:8000,http://localhost:8001"
     

@@ -30,10 +30,10 @@ from services.b2b.routers import (
     users,
     roles,
     teams,
-    team_roles,  # NEW: Team Role Definitions
+    team_roles,  # Team Role Definitions
     account,
-    audit_logs,  # NEW
-    dashboard,   # NEW: Dashboard stats
+    audit_logs,
+    dashboard,
 )
 
 @asynccontextmanager
@@ -68,10 +68,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include B2B routers
+# Include all routers
 app.include_router(auth.router)
 app.include_router(activation.router)
-app.include_router(invitations.router)
+app.include_router(invitations.router)  # Also includes bulk_invitations routes
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(teams.router)

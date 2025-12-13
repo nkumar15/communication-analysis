@@ -592,6 +592,180 @@ class InvitationService:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
+    
+    async def bulk_create_invitations(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        rows: List,  # List[BulkInviteRow]
+        created_by: UUID,
+        tenant_domain: str,
+        auto_create_teams: bool = True
+    ) -> dict:
+        """
+        Create multiple invitations from bulk upload.
+        
+        Args:
+            db: Database session
+            tenant_id: Tenant ID
+            rows: List of validated BulkInviteRow objects
+            created_by: User ID who created bulk invite
+            tenant_domain: Tenant's email domain
+            auto_create_teams: Whether to auto-create teams if they don't exist
+            
+        Returns:
+            Dict with job_id, results, successful_count, failed_count, teams_created
+        """
+        from fastapi import HTTPException, status
+        from services.b2b.models import Team
+        from services.b2b.models.bulk_invite_job import BulkInviteJob
+        import secrets
+        from datetime import timedelta
+        
+        results = []
+        successful_invitations = []
+        failed_count = 0
+        teams_created = []
+        team_cache = {}  # Cache teams to avoid repeated lookups
+        
+        # Process each row
+        for row in rows:
+            try:
+                # Get or create team if specified
+                team_id = None
+                if row.team_name:
+                    # Check cache first
+                    if row.team_name.lower() in team_cache:
+                        team_id = team_cache[row.team_name.lower()]
+                    else:
+                        # Look up team
+                        team_result = await db.execute(
+                            select(Team).where(
+                                Team.tenant_id == tenant_id,
+                                Team.name.ilike(row.team_name),
+                                Team.deleted_at.is_(None)
+                            )
+                        )
+                        team = team_result.scalar_one_or_none()
+                        
+                        if not team and auto_create_teams:
+                            # Create team
+                            team = Team(
+                                tenant_id=tenant_id,
+                                name=row.team_name,
+                                created_by=created_by
+                            )
+                            db.add(team)
+                            await db.flush()
+                            teams_created.append(row.team_name)
+                        
+                        if team:
+                            team_id = team.id
+                            team_cache[row.team_name.lower()] = team_id
+                
+                # Generate token and create invitation
+                invitation_token = secrets.token_urlsafe(32)
+                invitation = InvitationModel(
+                    tenant_id=tenant_id,
+                    email=row.email.lower(),
+                    role=row.role,
+                    invitation_token=invitation_token,
+                    invited_by=created_by,
+                    team_id=team_id,
+                    team_role=row.team_role,
+                    expires_at=get_utc_now() + timedelta(days=7)
+                )
+                
+                db.add(invitation)
+                await db.flush()
+                
+                successful_invitations.append(invitation.id)
+                
+                results.append({
+                    "row": row.row_number,
+                    "email": row.email,
+                    "name": row.name,
+                    "role": row.role,
+                    "team_name": row.team_name,
+                    "status": "success",
+                    "invitation_id": str(invitation.id)
+                })
+                
+            except Exception as e:
+                failed_count += 1
+                results.append({
+                    "row": row.row_number,
+                    "email": row.email,
+                    "status": "error",
+                    "error": str(e)
+                })
+        
+        # Create bulk invite job record
+        job = BulkInviteJob(
+            tenant_id=tenant_id,
+            created_by=created_by,
+            total_rows=len(rows),
+            successful_count=len(successful_invitations),
+            failed_count=failed_count,
+            results={"rows": results}
+        )
+        db.add(job)
+        await db.flush()
+        
+        return {
+            "job_id": job.id,
+            "total_processed": len(rows),
+            "successful": len(successful_invitations),
+            "failed": failed_count,
+            "results": results,
+            "teams_created": teams_created,
+            "invitation_ids": [str(id) for id in successful_invitations]
+        }
+    
+    async def get_bulk_job(
+        self,
+        db: AsyncSession,
+        job_id: UUID,
+        tenant_id: UUID
+    ):
+        """Get bulk invite job by ID with tenant validation"""
+        from fastapi import HTTPException, status
+        from services.b2b.models.bulk_invite_job import BulkInviteJob
+        
+        result = await db.execute(
+            select(BulkInviteJob).where(
+                BulkInviteJob.id == job_id,
+                BulkInviteJob.tenant_id == tenant_id
+            )
+        )
+        job = result.scalar_one_or_none()
+        
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Bulk invite job not found"
+            )
+        
+        return job
+    
+    async def list_bulk_jobs(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        limit: int = 20,
+        offset: int = 0
+    ):
+        """List bulk invite jobs for a tenant"""
+        from services.b2b.models.bulk_invite_job import BulkInviteJob
+        
+        result = await db.execute(
+            select(BulkInviteJob)
+            .where(BulkInviteJob.tenant_id == tenant_id)
+            .order_by(BulkInviteJob.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return result.scalars().all()
 
 
 # Global invitation service instance

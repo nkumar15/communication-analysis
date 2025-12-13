@@ -115,6 +115,47 @@ services:
         condition: service_healthy
     command: uvicorn services.domains.main:app --host 0.0.0.0 --port 8003 --reload
 
+  # Redis - Message Broker for ARQ Background Tasks
+  redis:
+    image: redis:7-alpine
+    container_name: sso_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Celery Worker - Background Task Processor
+  # Processes: emails, audit logs, bulk operations
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: b2b
+    container_name: sso_celery_worker
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A core.tasks.celery_app worker --loglevel=info --concurrency=4
+    restart: unless-stopped
+
   # API Gateway - Routes requests to all microservices
   nginx:
     image: nginx:alpine
@@ -159,6 +200,8 @@ services:
       - TEST_DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - FRONTEND_URL=http://frontend:3000
       - API_URL=http://b2b-api:8000
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
@@ -169,5 +212,6 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 
