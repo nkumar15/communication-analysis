@@ -200,6 +200,16 @@ test: ## Run all tests
 	@$(MAKE) test-api
 	@$(MAKE) test-browser
 
+test-coverage: ## Run tests with code coverage report
+	@echo "$(BLUE)Running tests with coverage...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=services --cov=core --cov-report=term-missing --cov-report=html:coverage_html
+	@echo "$(GREEN)✓ Coverage report generated in backend/coverage_html/$(NC)"
+
+test-coverage-xml: ## Run tests with coverage (XML for CI)
+	@echo "$(BLUE)Running tests with coverage (XML)...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=services --cov=core --cov-report=xml:coverage.xml
+	@echo "$(GREEN)✓ Coverage XML generated$(NC)"
+
 test-env: ## Validate environment configuration
 	@echo "$(BLUE)Checking environment configuration...$(NC)"
 	@for file in .env backend/.env frontend/.env secrets/firebase-credentials.json; do \
