@@ -202,6 +202,379 @@ class InvitationService:
         await db.flush()
         return count
     
+    async def invite_user_to_tenant(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        email: str,
+        role: str,
+        invited_by_user_id: UUID,
+        current_user_role: str,
+        team_id: Optional[UUID] = None,
+        team_role: Optional[str] = None
+    ) -> tuple[InvitationModel, str]:
+        """
+        Create invitation with full validation
+        
+        Returns:
+            Tuple of (invitation_model, invitation_token)
+        """
+        from fastapi import HTTPException, status
+        from services.b2b.models import UserModel, Team
+        from services.b2b.services.tenant_service import tenant_service
+        from core.constants import B2BRoleName
+        import secrets
+        from datetime import timedelta
+        
+        # Get tenant
+        tenant = await tenant_service.get_tenant_by_id(db, tenant_id)
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tenant not found"
+            )
+        
+        # Validate email domain
+        email_domain = email.lower().split('@')[1]
+        if email_domain != tenant.domain.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email domain must match tenant domain ({tenant.domain})"
+            )
+        
+        # Validate team if provided
+        if team_id:
+            team_result = await db.execute(
+                select(Team).where(
+                    Team.id == team_id,
+                    Team.tenant_id == tenant_id,
+                    Team.deleted_at.is_(None)
+                )
+            )
+            team = team_result.scalar_one_or_none()
+            if not team:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Team not found"
+                )
+        
+        # Validate role
+        valid_roles = [B2BRoleName.OWNER, B2BRoleName.ADMIN, B2BRoleName.MEMBER, B2BRoleName.VIEWER]
+        if role not in valid_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role: {role}"
+            )
+        
+        # Role hierarchy validation
+        if current_user_role == B2BRoleName.ADMIN and role == B2BRoleName.OWNER:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admins cannot invite Owners"
+            )
+        
+        # Check for existing user
+        existing_user_result = await db.execute(
+            select(UserModel)
+            .where(UserModel.tenant_id == tenant_id)
+            .where(UserModel.email == email.lower())
+        )
+        if existing_user_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already exists in this tenant"
+            )
+        
+        # Check for pending invitation
+        existing_inv_result = await db.execute(
+            select(InvitationModel)
+            .where(InvitationModel.tenant_id == tenant_id)
+            .where(InvitationModel.email == email.lower())
+            .where(InvitationModel.accepted_at.is_(None))
+        )
+        if existing_inv_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Pending invitation already exists for this email"
+            )
+        
+        # Generate token and create invitation
+        invitation_token = secrets.token_urlsafe(32)
+        invitation = InvitationModel(
+            tenant_id=tenant_id,
+            email=email.lower(),
+            role=role,
+            invitation_token=invitation_token,
+            invited_by=invited_by_user_id,
+            team_id=team_id,
+            team_role=team_role,
+            expires_at=get_utc_now() + timedelta(days=7)
+        )
+        
+        db.add(invitation)
+        await db.flush()
+        await db.refresh(invitation)
+        
+        return invitation, invitation_token
+    
+    async def list_tenant_invitations(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID
+    ) -> List[InvitationModel]:
+        """List all invitations for a tenant"""
+        result = await db.execute(
+            select(InvitationModel)
+            .where(InvitationModel.tenant_id == tenant_id)
+            .order_by(InvitationModel.created_at.desc())
+        )
+        return result.scalars().all()
+    
+    async def cancel_invitation(
+        self,
+        db: AsyncSession,
+        invitation_id: UUID,
+        tenant_id: UUID
+    ) -> None:
+        """
+        Cancel a pending invitation with validation
+        
+        Raises HTTPException if invalid
+        """
+        from fastapi import HTTPException, status
+        
+        result = await db.execute(
+            select(InvitationModel).where(InvitationModel.id == invitation_id)
+        )
+        invitation = result.scalar_one_or_none()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invitation not found"
+            )
+        
+        if invitation.tenant_id != tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot cancel invitation from another tenant"
+            )
+        
+        if invitation.accepted_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot cancel accepted invitation"
+            )
+        
+        await db.delete(invitation)
+        await db.flush()
+    
+    async def get_invitation_for_resend(
+        self,
+        db: AsyncSession,
+        invitation_id: UUID,
+        tenant_id: UUID
+    ) -> InvitationModel:
+        """
+        Get invitation for resending with validation
+        
+        Returns invitation if valid for resend
+        Raises HTTPException if invalid
+        """
+        from fastapi import HTTPException, status
+        
+        result = await db.execute(
+            select(InvitationModel).where(InvitationModel.id == invitation_id)
+        )
+        invitation = result.scalar_one_or_none()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invitation not found"
+            )
+        
+        if invitation.tenant_id != tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot resend invitation from another tenant"
+            )
+        
+        if invitation.accepted_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invitation already accepted"
+            )
+        
+        return invitation
+    
+    async def validate_invitation_token(
+        self,
+        db: AsyncSession,
+        token: str
+    ) -> dict:
+        """
+        Validate invitation token and return details
+        
+        Returns dict with tenant info and invitation details
+        Raises HTTPException if invalid
+        """
+        from fastapi import HTTPException, status
+        from services.b2b.services.tenant_service import tenant_service
+        from services.b2b.services.auth_provider_service import auth_provider_service
+        from datetime import datetime, timezone
+        
+        result = await db.execute(
+            select(InvitationModel).where(InvitationModel.invitation_token == token)
+        )
+        invitation = result.scalar_one_or_none()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid or expired invitation"
+            )
+        
+        if invitation.expires_at < datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invitation has expired"
+            )
+        
+        if invitation.accepted_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invitation already accepted"
+            )
+        
+        # Get tenant info
+        tenant = await tenant_service.get_tenant_by_id(db, invitation.tenant_id)
+        
+        # Get primary auth provider
+        primary_provider = await auth_provider_service.get_primary_provider(db, tenant.id)
+        
+        return {
+            "tenant_name": tenant.name,
+            "firebase_tenant_id": tenant.firebase_tenant_id,
+            "oidc_provider_id": primary_provider.provider_id if primary_provider else None,
+            "role": invitation.role,
+            "email": invitation.email
+        }
+    
+    async def accept_invitation_and_create_user(
+        self,
+        db: AsyncSession,
+        token: str,
+        firebase_uid: str,
+        email: str,
+        name: Optional[str],
+        email_verified: bool,
+        user_id_for_audit: Optional[UUID] = None,
+        client_ip: Optional[str] = None
+    ) -> dict:
+        """
+        Accept invitation and create/update user
+        
+        Returns dict with tenant_id, role, team_id, user_id
+        Raises HTTPException if validation fails
+        """
+        from fastapi import HTTPException, status
+        from services.b2b.services.tenant_service import tenant_service
+        from services.b2b.services.user_service import user_service
+        from services.b2b.services import team_service
+        from datetime import datetime, timezone
+        
+        # Get invitation
+        result = await db.execute(
+            select(InvitationModel).where(InvitationModel.invitation_token == token)
+        )
+        invitation = result.scalar_one_or_none()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid invitation"
+            )
+        
+        # Enforce email verification
+        if not email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email must be verified before accepting invitation. Please verify your email in your authentication provider."
+            )
+        
+        # Verify email match
+        if email.lower() != invitation.email.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email mismatch - invitation is for a different email"
+            )
+        
+        # Get tenant
+        tenant = await tenant_service.get_tenant_by_id(db, invitation.tenant_id)
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tenant not found"
+            )
+        
+        # Check if user exists
+        existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+        
+        if not existing_user:
+            # Create user
+            created_user = await user_service.create_or_update_user(
+                db=db,
+                tenant_id=tenant.id,
+                email=email,
+                firebase_uid=firebase_uid,
+                name=name,
+                role=invitation.role
+            )
+            user_id = created_user.id
+        else:
+            user_id = existing_user.id
+        
+        # Mark invitation as accepted
+        invitation.accepted_at = datetime.now(timezone.utc)
+        invitation.accepted_by = user_id
+        invitation.accepted_from_ip = client_ip
+        await db.flush()
+        
+        # Handle team assignment
+        if invitation.team_id:
+            try:
+                team_role = invitation.team_role if invitation.team_role else "team_contributor"
+                await team_service.add_team_member(
+                    db=db,
+                    team_id=invitation.team_id,
+                    user_id=user_id,
+                    team_role=team_role
+                )
+            except Exception:
+                pass  # Don't fail if team assignment fails
+        else:
+            try:
+                default_team = await team_service.get_or_create_default_team(
+                    db=db,
+                    tenant_id=tenant.id
+                )
+                await team_service.add_team_member(
+                    db=db,
+                    team_id=default_team.id,
+                    user_id=user_id,
+                    team_role="team_contributor"
+                )
+            except Exception:
+                pass
+        
+        return {
+            "tenant_id": invitation.tenant_id,
+            "role": invitation.role,
+            "team_id": invitation.team_id,
+            "user_id": user_id
+        }
+    
     def _model_to_pydantic(self, model: InvitationModel) -> Invitation:
         """Convert SQLAlchemy model to Pydantic model"""
         return Invitation(
