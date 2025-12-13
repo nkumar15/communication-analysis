@@ -169,20 +169,18 @@ async def sync_user(
         firebase_tenant_id=firebase_tenant_id
     )
     
-    # Log audit event
-    from services.b2b.services.audit_service import AuditService
-    audit_service = AuditService(db)
-    
-    await audit_service.log_event(
-        tenant_id=tenant.id,
-        event_type="auth.login",
-        resource_type="user",
-        actor_id=user.id,
-        resource_id=user.id,
-        details={"email": email, "method": "sso_sync"},
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("User-Agent")
-    )
+    # Log audit event (async via Celery)
+    from core.tasks.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(tenant.id),
+        'event_type': 'auth.login',
+        'resource_type': 'user',
+        'actor_id': str(user.id),
+        'resource_id': str(user.id),
+        'details': {'email': email, 'method': 'sso_sync'},
+        'ip_address': request.client.host if request.client else None,
+        'user_agent': request.headers.get('User-Agent')
+    })
     
     return {
         "message": "User synced successfully",

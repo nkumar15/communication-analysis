@@ -18,6 +18,22 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+def run_async(coro):
+    """
+    Run an async coroutine, handling the case where we're already in an event loop.
+    This is needed for Celery eager mode during tests.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        # Already in an async context - use nest_asyncio pattern or create task
+        import nest_asyncio
+        nest_asyncio.apply()
+        return loop.run_until_complete(coro)
+    except RuntimeError:
+        # No running loop - use asyncio.run()
+        return asyncio.run(coro)
+
+
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def send_invitation_email(self, invitation_id: str, tenant_id: str):
     """
@@ -30,7 +46,7 @@ def send_invitation_email(self, invitation_id: str, tenant_id: str):
     Retry: Up to 3 times with 60 second delay
     """
     try:
-        asyncio.run(_send_invitation_email_async(invitation_id, tenant_id))
+        run_async(_send_invitation_email_async(invitation_id, tenant_id))
     except Exception as exc:
         logger.error(f"Failed to send invitation email {invitation_id}: {exc}")
         raise self.retry(exc=exc)
@@ -88,7 +104,7 @@ def send_bulk_invitation_emails(self, invitation_ids: List[str], tenant_id: str)
     Retry: Up to 2 times with 120 second delay
     """
     try:
-        asyncio.run(_send_bulk_invitation_emails_async(invitation_ids, tenant_id))
+        run_async(_send_bulk_invitation_emails_async(invitation_ids, tenant_id))
     except Exception as exc:
         logger.error(f"Failed to send bulk invitation emails: {exc}")
         raise self.retry(exc=exc)

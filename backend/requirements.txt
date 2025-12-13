@@ -22,4 +22,5 @@ click==8.1.7
 
 # Background Task Queue
 celery[redis]==5.3.4
+nest_asyncio>=1.5.8
 

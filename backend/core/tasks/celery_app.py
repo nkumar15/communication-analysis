@@ -5,8 +5,12 @@ This module initializes and configures the Celery application for background tas
 Tasks include: email sending, audit log persistence, and bulk operations.
 """
 
+import os
 from celery import Celery
 from core.config import settings
+
+# Detect test environment
+IS_TESTING = os.environ.get('TESTING', '').lower() in ('true', '1', 'yes')
 
 # Initialize Celery app
 celery_app = Celery(
@@ -51,6 +55,10 @@ celery_app.conf.update(
     # Retry configuration
     task_acks_late=True,  # Acknowledge tasks after completion
     task_reject_on_worker_lost=True,  # Requeue tasks if worker crashes
+    
+    # TEST MODE: Run tasks synchronously for predictable test behavior
+    task_always_eager=IS_TESTING,
+    task_eager_propagates=IS_TESTING,
 )
 
 

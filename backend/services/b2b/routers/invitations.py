@@ -81,20 +81,18 @@ async def invite_user(
         tenant_id=str(current_user['tenant_id'])
     )
     
-    # Log audit event
-    from services.b2b.services.audit_service import AuditService
-    audit_service = AuditService(db)
-    
-    await audit_service.log_event(
-        tenant_id=current_user['tenant_id'],
-        event_type="user.invited",
-        resource_type="invitation",
-        actor_id=current_user['id'],
-        resource_id=invitation.id,
-        details={"email": request.email, "role": request.role, "team_id": str(request.team_id) if request.team_id else None},
-        ip_address=req.client.host if req.client else None,
-        user_agent=req.headers.get("User-Agent")
-    )
+    # Log audit event (async via Celery)
+    from core.tasks.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'user.invited',
+        'resource_type': 'invitation',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(invitation.id),
+        'details': {'email': request.email, 'role': request.role, 'team_id': str(request.team_id) if request.team_id else None},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     return InviteUserResponse(
         invitation_id=invitation.id,
@@ -277,20 +275,18 @@ async def join_tenant(
     # Switch to invitation's tenant context for audit log
     await rls_service.set_tenant_context(db, result['tenant_id'])
     
-    # Log audit event
-    from services.b2b.services.audit_service import AuditService
-    audit_service = AuditService(db)
-    
-    await audit_service.log_event(
-        tenant_id=result['tenant_id'],
-        event_type="user.accepted_invite",
-        resource_type="invitation",
-        actor_id=result['user_id'],
-        resource_id=None,  # Invitation ID not returned
-        details={"email": email, "role": result['role']},
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("User-Agent")
-    )
+    # Log audit event (async via Celery)
+    from core.tasks.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(result['tenant_id']),
+        'event_type': 'user.accepted_invite',
+        'resource_type': 'invitation',
+        'actor_id': str(result['user_id']),
+        'resource_id': None,
+        'details': {'email': email, 'role': result['role']},
+        'ip_address': request.client.host if request.client else None,
+        'user_agent': request.headers.get('User-Agent')
+    })
     
     return {
         "message": "Successfully joined tenant",

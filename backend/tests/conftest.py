@@ -2,6 +2,10 @@
 Pytest configuration and shared fixtures for E2E testing - SIMPLIFIED VERSION
 """
 import os
+
+# Set TESTING flag BEFORE importing app (enables Celery eager mode for sync task execution)
+os.environ['TESTING'] = 'true'
+
 import asyncio
 import pytest
 import pytest_asyncio
