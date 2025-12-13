@@ -26,7 +26,7 @@ RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 # ==========================================
 FROM base AS builder
 
-WORKDIR /install
+WORKDIR /app
 
 COPY requirements.txt .
 # Install production deps using uv (10-100x faster than pip)
@@ -73,10 +73,8 @@ RUN playwright install chromium
 # ==========================================
 
 # --- B2B Microservice ---
-FROM base AS b2b
+FROM builder AS b2b
 USER appuser
-# Copy installed deps from builder
-COPY --from=builder /install /usr/local
 # Copy only necessary code
 COPY --chown=appuser:appuser core /app/core
 COPY --chown=appuser:appuser services/domains /app/services/domains
@@ -86,9 +84,8 @@ EXPOSE 8000
 CMD ["uvicorn", "services.b2b.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # --- Platform Microservice ---
-FROM base AS platform
+FROM builder AS platform
 USER appuser
-COPY --from=builder /install /usr/local
 COPY --chown=appuser:appuser core /app/core
 COPY --chown=appuser:appuser services/platform /app/services/platform
 COPY --chown=appuser:appuser migrations /app/migrations
@@ -96,9 +93,8 @@ EXPOSE 8001
 CMD ["uvicorn", "services.platform.main:app", "--host", "0.0.0.0", "--port", "8001"]
 
 # --- B2C Microservice ---
-FROM base AS b2c
+FROM builder AS b2c
 USER appuser
-COPY --from=builder /install /usr/local
 # Copy code
 COPY core/ /app/core/
 COPY services/b2c/ /app/services/b2c/
@@ -108,10 +104,8 @@ EXPOSE 8002
 CMD ["uvicorn", "services.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
 
 # --- Domain Microservice ---
-FROM base AS domain
+FROM builder AS domain
 USER appuser
-# Copy installed deps from builder
-COPY --from=builder /install /usr/local
 # Copy code
 COPY core/ /app/core/
 COPY services/domains/ /app/services/domains/
