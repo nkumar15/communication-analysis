@@ -1,6 +1,7 @@
 from core.models.base import Base, TimestampMixin
 from sqlalchemy import Column, String, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 class InvitationModel(Base, TimestampMixin):
     """Customer Tenant Invitation ORM model"""
@@ -25,3 +26,6 @@ class InvitationModel(Base, TimestampMixin):
     # Audit fields
     accepted_by = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id'), nullable=True)
     accepted_from_ip = Column(String(45), nullable=True)
+    
+    # Relationships
+    tenant = relationship("TenantModel", lazy="select")

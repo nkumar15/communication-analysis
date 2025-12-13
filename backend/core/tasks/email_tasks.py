@@ -5,6 +5,7 @@ Background tasks for sending invitation emails using Celery.
 Each task creates its own database session to avoid lock issues.
 """
 
+import os
 from core.tasks.celery_app import celery_app
 from core.database import AsyncSessionLocal
 from sqlalchemy import select
@@ -17,21 +18,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-
-def run_async(coro):
-    """
-    Run an async coroutine, handling the case where we're already in an event loop.
-    This is needed for Celery eager mode during tests.
-    """
-    try:
-        loop = asyncio.get_running_loop()
-        # Already in an async context - use nest_asyncio pattern or create task
-        import nest_asyncio
-        nest_asyncio.apply()
-        return loop.run_until_complete(coro)
-    except RuntimeError:
-        # No running loop - use asyncio.run()
-        return asyncio.run(coro)
+# Check for test mode
+IS_TESTING = os.environ.get('TESTING', '').lower() in ('true', '1', 'yes')
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
@@ -45,8 +33,13 @@ def send_invitation_email(self, invitation_id: str, tenant_id: str):
     
     Retry: Up to 3 times with 60 second delay
     """
+    # Skip in test mode - no need to actually send emails
+    if IS_TESTING:
+        logger.info(f"[TEST MODE] Skipping email for invitation {invitation_id}")
+        return
+    
     try:
-        run_async(_send_invitation_email_async(invitation_id, tenant_id))
+        asyncio.run(_send_invitation_email_async(invitation_id, tenant_id))
     except Exception as exc:
         logger.error(f"Failed to send invitation email {invitation_id}: {exc}")
         raise self.retry(exc=exc)
@@ -80,10 +73,6 @@ async def _send_invitation_email_async(invitation_id: str, tenant_id: str):
                 expires_at=invitation.expires_at
             )
             
-            # Update email sent timestamp
-            invitation.email_sent_at = datetime.utcnow()
-            await db.commit()
-            
             logger.info(f"✅ Invitation email sent to {invitation.email}")
             
         except Exception as e:
@@ -103,8 +92,13 @@ def send_bulk_invitation_emails(self, invitation_ids: List[str], tenant_id: str)
     
     Retry: Up to 2 times with 120 second delay
     """
+    # Skip in test mode - no need to actually send emails
+    if IS_TESTING:
+        logger.info(f"[TEST MODE] Skipping bulk emails for {len(invitation_ids)} invitations")
+        return
+    
     try:
-        run_async(_send_bulk_invitation_emails_async(invitation_ids, tenant_id))
+        asyncio.run(_send_bulk_invitation_emails_async(invitation_ids, tenant_id))
     except Exception as exc:
         logger.error(f"Failed to send bulk invitation emails: {exc}")
         raise self.retry(exc=exc)
@@ -139,7 +133,6 @@ async def _send_bulk_invitation_emails_async(invitation_ids: List[str], tenant_i
                         expires_at=invitation.expires_at
                     )
                     
-                    invitation.email_sent_at = datetime.utcnow()
                     success_count += 1
                     logger.info(f"✅ Sent email to {invitation.email}")
                     
@@ -147,9 +140,6 @@ async def _send_bulk_invitation_emails_async(invitation_ids: List[str], tenant_i
                     failure_count += 1
                     logger.error(f"❌ Failed to send to {invitation.email}: {e}")
                     # Continue with next email
-            
-            # Commit all updates
-            await db.commit()
             
             logger.info(
                 f"📧 Bulk emails completed: {success_count} success, "
