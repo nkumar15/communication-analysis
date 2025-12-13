@@ -171,11 +171,11 @@ Use the standard decorators in `services/domains/hr/router.py`.
 from services.b2b.rbac.decorators import require_permission
 
 @router.get("/employees")
-@require_permission('employees', 'read')
 async def list_employees(
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = require_permission('employees', 'read'),
     db: AsyncSession = Depends(get_db)
 ):
+    """Only users with 'employees:read' permission can access."""
     return await hr_service.get_all(db)
 ```
 
