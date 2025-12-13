@@ -197,9 +197,13 @@ async def platform_admin_setup(db_session: AsyncSession):
     from core.constants import PlatformRoleName
     
     # 1. Check/Create System Tenant (PlatformTenant)
-    # Check for ANY existing platform tenant due to singleton constraint
-    result = await db_session.execute(select(PlatformTenant))
-    system_tenant = result.scalars().first()
+    # Check by firebase_tenant_id to avoid duplicates
+    result = await db_session.execute(
+        select(PlatformTenant).where(
+            PlatformTenant.firebase_tenant_id == "system-platform"
+        )
+    )
+    system_tenant = result.scalar_one_or_none()
     
     if not system_tenant:
         system_tenant = PlatformTenant(
@@ -245,6 +249,9 @@ async def platform_admin_setup(db_session: AsyncSession):
         )
         db_session.add(admin_user)
         await db_session.flush()
+    
+    # Commit all changes
+    await db_session.commit()
     
     return {
         "tenant": system_tenant,

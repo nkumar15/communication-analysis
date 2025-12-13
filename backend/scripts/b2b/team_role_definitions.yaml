@@ -10,9 +10,9 @@ team_roles:
     permissions:
       # Team Management
       - resource: team_members
-        actions: [read, write, delete]
+        actions: [manage]
       - resource: team_settings
-        actions: [read, write]
+        actions: [manage]
 
   - name: team_contributor
     display_name: Team Contributor
