@@ -7,24 +7,33 @@ The system is designed as a **microservices architecture** with 3 independent ba
 ### Service Topology
 
 ```
-┌─────────────┐
-│   Frontend  │  React App (Port 3000)
-│   (React)   │
-└──────┬──────┘
-       │
-       ├────────────┬────────────┬─────────────┐
-       │            │            │             │
-┌──────▼──────┐┌───▼────────┐┌──▼──────────┐
-│  B2B API    ││Platform API││  B2C API    │
-│  Port 8000  ││  Port 8001 ││  Port 8002  │
-└──────┬──────┘└────┬───────┘└──┬──────────┘
-       │            │            │
-       └────────────┴────────────┴─────────────┐
-                                               │
-                                        ┌──────▼──────┐
-                                        │  PostgreSQL │
-                                        │  (Shared)   │
-                                        └─────────────┘
+```mermaid
+graph TD
+    user[User/Browser] --> Nginx[Nginx Gateway :8080]
+    
+    subgraph "Backend Cluster"
+        Nginx --> B2B[B2B API :8000]
+        Nginx --> Platform[Platform API :8001]
+        Nginx --> B2C[B2C API :8002]
+        
+        B2B --> DB[(PostgreSQL)]
+        Platform --> DB
+        B2C --> DB
+        
+        B2B --> Redis[(Redis)]
+        Worker[Celery Worker] --> Redis
+        Worker --> DB
+    end
+
+    subgraph "Observability"
+        B2B -.-> Jaeger
+        Platform -.-> Jaeger
+        B2C -.-> Jaeger
+        
+        Prometheus -.-> B2B
+        Prometheus -.-> Platform
+    end
+```
 ```
 
 ---
@@ -81,7 +90,22 @@ The system is designed as a **microservices architecture** with 3 independent ba
 - Subscription/billing integration
 
 ---
-
+ 
+ ## Background Processing (Celery)
+ 
+ To handle long-running tasks asynchronously, the system uses **Celery** backed by **Redis**.
+ 
+ ### Components
+ *   **Message Broker**: Redis (Port 6379).
+ *   **Worker**: A dedicated `celery-worker` container running the same codebase as the API services.
+ 
+ ### Responsibilities
+ *   **Email Sending**: Transactional emails (invitations, activation) are queued and sent asynchronously.
+ *   **Bulk Operations**: Large CSV processing (e.g., bulk invites) utilizes the worker to prevent blocking API threads.
+ *   **Audit Logging**: (Future) Async persistence of audit logs.
+ 
+ ---
+ 
 ## Database Architecture
 
 ### Schema Separation
@@ -333,12 +357,22 @@ All microservices use `structlog` for cloud-adaptive structured logging:
 - `LOG_LEVEL`: DEBUG, INFO, WARNING, ERROR, CRITICAL
 - Environment-specific formatters auto-selected
 
-### Future Monitoring
+### Observability Stack
 
-- [ ] OpenTelemetry traces
-- [ ] Prometheus metrics
-- [ ] Datadog/New Relic integration
-- [ ] Real-time alerting
+> **Detailed Documentation**: [Observability Architecture](./observability.md)
+
+**Logging:**
+*   **Structlog**: JSON/Console structured logging with context.
+*   **Correlation**: Automated `trace_id` injection.
+
+**Metrics (Prometheus):**
+*   **Endpoints**: `/metrics` on all services.
+*   **Data**: Request rates, latency, custom business metrics (signups, logins).
+
+**Tracing (Jaeger/OpenTelemetry):**
+*   **Standard**: OpenTelemetry (OTLP).
+*   **Visualization**: Jaeger UI (Local).
+*   **Cloud Support**: GCP Trace / AWS X-Ray compatible.
 
 ---
 

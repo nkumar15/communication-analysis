@@ -72,6 +72,8 @@ The backend consists of 3 independent microservices:
 | **B2B API** | 8000 | Enterprise tenant management | `services.b2b.main:app` |
 | **Platform API** | 8001 | Platform administration | `services.platform.main:app` |
 | **B2C API** | 8002 | Personal workspaces | `services.b2c.main:app` |
+| **Jaeger UI** | 16686 | Distributed Tracing | `http://localhost:16686` |
+| **Prometheus** | 9090 | Metrics | `http://localhost:9090` |
 
 **Tech Stack:**
 - FastAPI (Python async web framework)
@@ -594,6 +596,52 @@ REACT_APP_FIREBASE_APP_ID=xxx
 # Backend API URLs (IMPORTANT: Must use localhost, not Docker hostnames)
 REACT_APP_API_URL=http://localhost:8080 # API Gateway
 ```
+
+---
+
+---
+
+## Background Tasks & Celery
+
+Messages are processed asynchronously by Celery workers backed by Redis.
+
+### Running Workers
+*   **Docker**: `celery-worker` runs automatically with `make up`.
+*   **Local**:
+    ```bash
+    celery -A core.tasks.celery_app worker --loglevel=info
+    ```
+
+### Debugging Tasks
+*   **Logs**: `docker-compose logs -f celery-worker`
+*   **Local Mode**: Set `CELERY_TASK_ALWAYS_EAGER=True` in `.env` to run tasks synchronously (useful for breakpoints).
+
+---
+
+## Observability & Monitoring
+
+The system comes pre-configured with a complete observability stack.
+
+### 1. Distributed Tracing (Jaeger)
+Visualize the flow of requests across services.
+*   **UI**: http://localhost:16686
+*   **Usage**: Make an API request, then check Jaeger to see the trace span, duration, and database queries (SQLAlchemy instrumentation).
+
+### 2. Metrics (Prometheus)
+Monitor application health and performance.
+*   **UI**: http://localhost:9090
+*   **Raw Endpoint**: Each service exposes `http://localhost:800x/metrics`.
+*   **Key Metrics**:
+    *   `http_requests_total`: Traffic volume.
+    *   `http_request_duration_seconds`: Latency distribution.
+    *   `user_logins_total`: Business metric.
+
+### 3. Cloud Integration
+To enable observability in cloud environments (GCP/AWS):
+1.  **Logging**: Set `LOG_ENVIRONMENT=gcp` or `aws` to emit JSON logs.
+2.  **Tracing**: Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your cloud collector (e.g., `http://otel-collector:4318`).
+    *   **GCP**: Auto-forwards to Cloud Trace.
+    *   **AWS**: Auto-forwards to X-Ray via ADOT collector.
 
 ---
 
