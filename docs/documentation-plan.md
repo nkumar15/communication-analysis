@@ -68,7 +68,7 @@ To provide a clear, role-based and product-based navigation path for developers 
 - [x] Restructure `docs/specifications/` into shared/b2b/b2c
 - [x] Add product prefixes to guides (`b2b-tenant-admin.md`, `b2b-rbac-concepts.md`)
 - [x] Rename `testing/e2e-activation.md` → `testing/b2b-e2e-activation.md`
-- [ ] Add `docs/guides/mobile-development.md`
+- [x] Add `docs/guides/mobile-development.md`
 
 ## 📏 Rules
 1. **Don't Duplicate:** If it's in `development.md`, link to it from `README.md`. Don't copy-paste.

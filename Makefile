@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed frontend-install frontend-start frontend-build up-backend dev shell clean clean-all test-api test-browser test test-env
+.PHONY: help setup status up down restart build logs ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env
 
 # Default target
 .DEFAULT_GOAL := help
@@ -31,7 +31,7 @@ setup: ## Initial project setup (create .env files, install dependencies)
 	@if [ ! -f secrets/firebase-credentials.json ]; then \
 		echo "$(YELLOW)⚠ Missing secrets/firebase-credentials.json (see secrets/README.md)$(NC)"; \
 	fi
-	@$(MAKE) frontend-install
+	@if [ ! -d "frontend/node_modules" ]; then cd frontend && npm install; fi
 	@echo "$(GREEN)✓ Setup complete!$(NC)"
 
 status: ## Show status of all services and configuration
@@ -43,12 +43,12 @@ status: ## Show status of all services and configuration
 
 ##@ Docker Services
 
-up: ## Start all services
-	@echo "$(BLUE)Starting services...$(NC)"
-	docker-compose up -d
-	@echo "$(GREEN)✓ Services started$(NC)"
+up: ## Start all backend services (frontend runs locally)
+	@echo "$(BLUE)Starting backend services...$(NC)"
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate celery-worker nginx
+	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
-	@echo "Frontend:     http://localhost:3000"
+	@echo "Run 'make web-b2b' for B2B frontend on port 3000"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
@@ -97,14 +97,12 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	case "$$REPLY" in \
 		[Yy]*) \
 			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api frontend dbmigrate celery-worker nginx; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate celery-worker nginx; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			docker-compose restart postgres; \
 			sleep 5; \
-			docker-compose restart platform-api b2b-api b2c-api domain-api; \
-			docker-compose restart nginx; \
-			docker-compose stop frontend; \
+			docker-compose restart platform-api b2b-api b2c-api domain-api nginx; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
 			;; \
 		*) echo "Cancelled."; ;; \
@@ -139,16 +137,31 @@ else
 	@echo "Example: make b2b-resend-invite d=acme.com"
 endif
 
-##@ Frontend
+##@ Frontend (Local Development)
 
-frontend-install: ## Install frontend dependencies (locally)
-	cd frontend && npm install
+web-b2b: ## Start B2B portal (port 3000)
+	@if [ ! -d "frontend/node_modules" ]; then \
+		echo "$(YELLOW)Installing frontend dependencies...$(NC)"; \
+		cd frontend && npm install; \
+	fi
+	cd frontend && npm run start:b2b
 
-frontend-start: ## Start frontend dev server
-	cd frontend && npm start
+web-b2c: ## Start B2C portal (port 3001)
+	@if [ ! -d "frontend/node_modules" ]; then \
+		echo "$(YELLOW)Installing frontend dependencies...$(NC)"; \
+		cd frontend && npm install; \
+	fi
+	cd frontend && npm run start:b2c
 
-frontend-build: ## Build frontend for production
-	cd frontend && npm run build
+web-platform: ## Start Platform portal (port 3002)
+	@if [ ! -d "frontend/node_modules" ]; then \
+		echo "$(YELLOW)Installing frontend dependencies...$(NC)"; \
+		cd frontend && npm install; \
+	fi
+	cd frontend && npm run start:platform
+
+web-all: ## Build all portals for production
+	cd frontend && npm run build:all
 
 ##@ Development
 
@@ -157,11 +170,23 @@ up-backend: ## Start only backend services
 	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 
-dev: ## Start full dev env (backend docker + frontend local)
+dev-b2b: ## Start dev env: backend + B2B frontend (port 3000)
 	@$(MAKE) up-backend
 	@sleep 3
-	@echo "$(BLUE)Backend started, starting frontend...$(NC)"
-	@$(MAKE) frontend-start
+	@echo "$(BLUE)Backend started, starting B2B frontend...$(NC)"
+	@$(MAKE) web-b2b
+
+dev-b2c: ## Start dev env: backend + B2C frontend (port 3001)
+	@$(MAKE) up-backend
+	@sleep 3
+	@echo "$(BLUE)Backend started, starting B2C frontend...$(NC)"
+	@$(MAKE) web-b2c
+
+dev-platform: ## Start dev env: backend + Platform frontend (port 3002)
+	@$(MAKE) up-backend
+	@sleep 3
+	@echo "$(BLUE)Backend started, starting Platform frontend...$(NC)"
+	@$(MAKE) web-platform
 
 shell: ## Open shell (usage: make shell s=b2b-api)
 ifdef s

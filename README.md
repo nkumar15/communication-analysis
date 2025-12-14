@@ -40,10 +40,11 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 
 - **[Development Guide](docs/guides/development.md)**: Setup, local development, and coding standards.
 - **[Deployment Guide](docs/guides/deployment.md)**: Deployment strategies and production configuration.
+- **[Mobile Development](docs/guides/mobile-development.md)**: React Native setup for B2B/B2C apps.
 - **[Contributing](CONTRIBUTING.md)**: Guidelines for submitting PRs and reporting issues.
 - **[Platform Admin Guide](docs/guides/platform-admin.md)**: Using the Super Admin Console and platform features.
-- **[Tenant Admin Guide](docs/guides/tenant-admin.md)**: Instructions for tenant administrators.
-- **[RBAC Concepts](docs/guides/rbac-concepts.md)**: Understanding the permission model.
+- **[B2B Tenant Admin Guide](docs/guides/b2b-tenant-admin.md)**: Instructions for B2B tenant administrators.
+- **[B2B RBAC Concepts](docs/guides/b2b-rbac-concepts.md)**: Understanding the B2B permission model.
 
 ### 📅 Planning
 *Project status, roadmap, and history.*
@@ -68,8 +69,7 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[Authorization](docs/architecture/authorization.md)**: Technical deep dive into permission enforcement.
 - **[Multi-Tenant Isolation](docs/architecture/multi-tenant-isolation.md)**: Detailed API sequence diagram for tenant isolation.
 - **[UI Design](docs/architecture/ui-design.md)**: Design system and reusable frontend components.
-- **[Domain APIs](docs/architecture/domain-apis.md)**: Projects, Tasks, and Comments APIs.
-- **[B2C Module](docs/architecture/b2c-module.md)**: Personal and team workspace functionality.
+- **[Domain APIs](docs/architecture/shared/domain-apis.md)**: Projects, Tasks, and Comments APIs.
 
 
 ### 🧪 Testing
@@ -77,7 +77,7 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 
 - **[Testing Strategy](docs/testing/strategy.md)**: Overall approach, tools, and roadmap.
 - **[Testing Workflows](docs/testing/workflows.md)**: Manual and automated testing procedures.
-- **[E2E Activation Tests](docs/testing/e2e-activation.md)**: Guide to testing the critical activation flow.
+- **[B2B E2E Activation Tests](docs/testing/b2b-e2e-activation.md)**: Guide to testing the critical activation flow.
 
 ---
 
@@ -96,15 +96,24 @@ make setup
 # Add secrets/firebase-credentials.json
 
 # 3. Run
-make up              # Start Backend Services
-make frontend-start  # Start Frontend
+make up          # Start Backend Services
+make web-b2b     # Start B2B Frontend (port 3000)
+# OR
+make dev-b2b     # Start both backend + B2B frontend
+```
+
+**Multi-Portal Commands:**
+```bash
+make web-b2b       # B2B portal (port 3000)
+make web-b2c       # B2C portal (port 3001)
+make web-platform  # Platform portal (port 3002)
 ```
 
 **Access:**
-- **Frontend**: http://localhost:3000
-- **B2B API**: http://localhost:8000/docs
-- **Platform API**: http://localhost:8001/docs
-- **B2C API**: http://localhost:8002/docs
+- **B2B Portal**: http://localhost:3000
+- **B2C Portal**: http://localhost:3001
+- **Platform Portal**: http://localhost:3002
+- **API Gateway**: http://localhost:8080
 
 For detailed setup and testing instructions, see the [Development Guide](docs/guides/development.md).
 

@@ -28,33 +28,39 @@ make setup
 # IMPORTANT: Set frontend API URLs in frontend/.env
 REACT_APP_API_URL=http://localhost:8080
 
-# 3. Start all services
-make up          # Starts all backend APIs + frontend in Docker
-# OR for local frontend development:
-make dev         # Starts backend in Docker + frontend locally
+# 3. Start backend services
+make up
 
 # 4. Run migrations
 make migrate
+
+# 5. Start a frontend portal
+make web-b2b       # B2B portal (port 3000)
+# OR
+make web-b2c       # B2C portal (port 3001)
+# OR
+make web-platform  # Platform portal (port 3002)
 ```
 
 **Development Workflows:**
 
-1. **Full Docker Stack** (`make up`):
-   - All services run in Docker containers
-   - Frontend: http://localhost:3000 (Dockerized)
-   - Slower hot-reload for frontend changes
+1. **Backend Only** (`make up`):
+   - All backend services run in Docker
+   - Run frontend locally with `make web-*` commands
+   - Recommended for most development
 
-2. **Hybrid Development** (`make dev`) - **Recommended**:
-   - Backend APIs run in Docker
-   - Frontend runs locally with fast hot-reload
-   - Best for frontend development
+2. **Full Dev Environment** (`make dev-b2b`, `make dev-b2c`, `make dev-platform`):
+   - Starts backend + specified frontend portal
+   - One command for complete dev environment
 
-3. **Backend Only** (`make up-backend`):
-   - Only starts backend services (no frontend container)
-   - Use if you want to run frontend separately
+**Portal Access:**
+| Portal | Port | Command |
+|--------|------|---------|
+| B2B | 3000 | `make web-b2b` |
+| B2C | 3001 | `make web-b2c` |
+| Platform | 3002 | `make web-platform` |
 
-**Access:**
-- **Frontend**: http://localhost:3000
+**API Documentation:**
 - **B2B API**: http://localhost:8000/docs
 - **Platform API**: http://localhost:8001/docs
 - **B2C API**: http://localhost:8002/docs
@@ -231,7 +237,7 @@ make platform-create-admin
 - Firebase user in platform tenant
 - Platform admin record in database
 
-**Access:** http://localhost:3000/platform-login
+**Access:** http://localhost:3002 (Platform portal)
 
 ---
 
@@ -292,7 +298,7 @@ make create-platform-admin
 ```
 
 **Manual Verification:**
-1. Go to `http://localhost:3000/platform-login`
+1. Go to `http://localhost:3002` (Platform portal)
 2. Login with platform admin credentials
 3. Verify access to Super Admin Dashboard
 
@@ -546,19 +552,20 @@ make clean
 ### Frontend
 
 ```bash
+# Multi-portal development
+make web-b2b       # B2B portal (port 3000)
+make web-b2c       # B2C portal (port 3001)
+make web-platform  # Platform portal (port 3002)
+
+# Build all portals
+make web-all
+
+# Or manually:
 cd frontend
-
-# Install dependencies
-npm install
-
-# Start dev server
-npm start
-
-# Build production
-npm run build
-
-# Check for errors
-npm run lint
+npm run start:b2b
+npm run start:b2c
+npm run start:platform
+npm run build:all
 ```
 
 ---
