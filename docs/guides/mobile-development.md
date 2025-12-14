@@ -19,11 +19,16 @@ cd frontend/mobile-b2b
 # Install dependencies
 npm install
 
-# iOS
+# Start Metro bundler (in separate terminal)
+npx react-native start
+# Or with cache clear:
+npx react-native start --reset-cache
+
+# iOS (in another terminal)
 npx pod-install ios
 npx react-native run-ios
 
-# Android
+# Android (in another terminal)
 npx react-native run-android
 ```
 
