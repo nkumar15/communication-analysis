@@ -33,12 +33,15 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can authenticate and get info"""
+        from uuid import uuid4
+        unique_email = f"admin-{uuid4().hex[:8]}@platform.net"
+        
         # Setup platform tenant and admin
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
             platform_tenant_id=platform_tenant.id,
-            email="admin@platform.net",
+            email=unique_email,
             role_name="platform_admin"
         )
         
@@ -67,12 +70,15 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can view global stats"""
+        from uuid import uuid4
+        unique_email = f"admin-{uuid4().hex[:8]}@platform.net"
+        
         # Setup platform tenant and admin
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
             platform_tenant_id=platform_tenant.id,
-            email="admin@platform.net",
+            email=unique_email,
             role_name="platform_admin"
         )
         
@@ -104,11 +110,14 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can create new tenants"""
+        from uuid import uuid4
+        unique_email = f"admin-{uuid4().hex[:8]}@platform.net"
+        
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
             platform_tenant_id=platform_tenant.id,
-            email="admin@platform.net",
+            email=unique_email,
             role_name="platform_admin"
         )
         
@@ -158,12 +167,15 @@ class TestPlatformAdmin:
         db_session: AsyncSession
     ):
         """Platform admin can impersonate tenant admin"""
+        from uuid import uuid4
+        unique_email = f"admin-{uuid4().hex[:8]}@platform.net"
+        
         # Setup platform
         platform_tenant = await create_platform_tenant(db_session)
         platform_admin = await create_platform_user(
             db_session,
             platform_tenant_id=platform_tenant.id,
-            email="admin@platform.net",
+            email=unique_email,
             role_name=PlatformRoleName.PLATFORM_ADMIN
         )
         

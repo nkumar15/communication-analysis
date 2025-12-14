@@ -11,7 +11,8 @@ from uuid import UUID
 from core.database import get_db
 from services.b2b.middleware import get_current_active_user
 from services.b2b.rbac.decorators import require_permission
-from services.b2b.schemas.roles import RoleCreate, RoleUpdate, RoleResponse, RoleTemplateResponse
+from services.b2b.schemas.roles import RoleCreate, RoleUpdate, RoleResponse, RoleTemplateResponse, ResourceResponse
+from services.b2b.schemas.actions_all import ActionsAllResponse
 from services.b2b.services.role_service import role_service
 from services.b2b.services.role_template_service import role_template_service
 
@@ -30,6 +31,38 @@ async def list_templates(
     Permission required: roles:read
     """
     return await role_template_service.get_all_templates(db)
+
+
+
+@router.get("/actions/all", response_model=ActionsAllResponse)
+async def list_actions_and_resources(
+    current_user: dict = require_permission('roles', 'read'),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all available actions and resources for defining permissions
+    
+    Permission required: roles:read
+    """
+    resources = await role_service.get_all_resources(db)
+    actions = await role_service.get_all_actions(db)
+    return {
+        "resources": resources,
+        "actions": actions
+    }
+
+
+@router.get("/resources/all", response_model=List[ResourceResponse])
+async def list_resources(
+    current_user: dict = require_permission('roles', 'read'),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all available resources
+    
+    Permission required: roles:read
+    """
+    return await role_service.get_all_resources(db)
 
 
 @router.post("", response_model=RoleResponse)

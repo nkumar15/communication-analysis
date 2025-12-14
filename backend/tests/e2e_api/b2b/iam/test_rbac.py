@@ -108,6 +108,43 @@ class TestRoleManagement:
         )
         permissions = result.scalars().all()
         assert len(permissions) > 0
+        
+        # Verify API response contains permissions
+        assert "permissions" in data
+        assert len(data["permissions"]) > 0
+        assert "resource" in data["permissions"][0]
+        assert "action" in data["permissions"][0]
+
+    @pytest.mark.asyncio
+    async def test_get_metadata_endpoints(self, api_client: AsyncClient, b2b_test_setup):
+        """Test actions/all and resources/all endpoints exist and return data"""
+        setup = b2b_test_setup
+        token = setup["token"]
+        
+        # 1. Test /actions/all
+        resp_actions = await api_client.get(
+            "/api/b2b/roles/actions/all",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp_actions.status_code == 200
+        data_actions = resp_actions.json()
+        assert "resources" in data_actions
+        assert "actions" in data_actions
+        assert isinstance(data_actions["resources"], list)
+        assert isinstance(data_actions["actions"], list)
+        
+        # 2. Test /resources/all
+        resp_resources = await api_client.get(
+            "/api/b2b/roles/resources/all",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp_resources.status_code == 200
+        data_resources = resp_resources.json()
+        assert isinstance(data_resources, list)
+        # Assuming system is seeded, we should have some resources
+        if len(data_resources) > 0:
+            assert "name" in data_resources[0]
+            assert "display_name" in data_resources[0]
 
     @pytest.mark.asyncio
     async def test_role_deletion_flow(self, api_client: AsyncClient, b2b_test_setup):

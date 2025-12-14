@@ -184,7 +184,7 @@ const RoleManagementPage = () => {
                                                             fontSize: '12px',
                                                             fontWeight: '500'
                                                         }}>
-                                                            {perm.resource}:{perm.action}
+                                                            {perm.resource.display_name}:{perm.action.display_name}
                                                         </span>
                                                     ))}
                                                 </div>

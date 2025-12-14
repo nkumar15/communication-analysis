@@ -8,9 +8,10 @@ from uuid import UUID
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_, func
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 
-from services.b2b.models import Role, RolePermission
+from services.b2b.models import Role, RolePermission, Resource, Action
 from services.b2b.schemas.roles import RoleCreate, RoleUpdate
 
 
@@ -18,7 +19,12 @@ class RoleService:
     async def get_all_roles(self, db: AsyncSession, tenant_id: UUID) -> List[Role]:
         """List all roles for a tenant"""
         result = await db.execute(
-            select(Role).where(
+            select(Role)
+            .options(
+                selectinload(Role.permissions).joinedload(RolePermission.resource),
+                selectinload(Role.permissions).joinedload(RolePermission.action)
+            )
+            .where(
                 Role.tenant_id == tenant_id,
                 Role.deleted_at.is_(None)
             )
@@ -27,7 +33,15 @@ class RoleService:
 
     async def get_role_by_id(self, db: AsyncSession, role_id: UUID) -> Optional[Role]:
         """Get role by ID (tenant-agnostic fetch, verify tenant in router if needed)"""
-        return await db.get(Role, role_id)
+        result = await db.execute(
+            select(Role)
+            .options(
+                selectinload(Role.permissions).joinedload(RolePermission.resource),
+                selectinload(Role.permissions).joinedload(RolePermission.action)
+            )
+            .where(Role.id == role_id)
+        )
+        return result.scalars().first()
 
     async def get_role_by_name(self, db: AsyncSession, name: str, tenant_id: UUID) -> Optional[Role]:
         """Get role by name for a tenant"""
@@ -77,7 +91,9 @@ class RoleService:
         if role_data.permissions:
             await self._update_permissions(db, role.id, role_data.permissions)
 
-        return role
+        # Re-fetch with eager loading for proper serialization
+        await db.flush()
+        return await self.get_role_by_id(db, role.id)
 
     async def update_role(
         self, 
@@ -108,7 +124,9 @@ class RoleService:
             )
             await self._update_permissions(db, role.id, update_data.permissions)
 
-        return role
+        # Re-fetch with eager loading for proper serialization
+        await db.flush()
+        return await self.get_role_by_id(db, role.id)
 
     async def delete_role(self, db: AsyncSession, role: Role) -> None:
         """Soft delete a role"""
@@ -147,6 +165,16 @@ class RoleService:
                 resource_id=resource_id,
                 action_id=action_id
             ))
+
+    async def get_all_resources(self, db: AsyncSession) -> List[Resource]:
+        """List all available resources"""
+        result = await db.execute(select(Resource))
+        return result.scalars().all()
+
+    async def get_all_actions(self, db: AsyncSession) -> List[Action]:
+        """List all available actions"""
+        result = await db.execute(select(Action))
+        return result.scalars().all()
 
 # Singleton instance
 role_service = RoleService()

@@ -85,7 +85,7 @@ db-setup-auth: ## Setup app user and permissions
 
 migrate: ## Run database migrations
 	@echo "$(BLUE)Running database migrations...$(NC)"
-	@docker-compose exec dbmigrate python /app/migrations/run_migrations.py
+	@docker-compose exec -T dbmigrate python /app/migrations/run_migrations.py
 	@$(MAKE) b2b-seed-roles-templates
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
@@ -112,11 +112,11 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 
 platform-seed: ## Seed System Tenant (Platform)
 	@echo "$(BLUE)Seeding System Tenant...$(NC)"
-	@docker-compose exec platform-api python /app/scripts/platform/seed_system_tenant.py
+	@docker-compose exec -T platform-api python /app/scripts/platform/seed_system_tenant.py
 
 platform-create-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
-	@docker-compose exec platform-api python /app/scripts/platform/create_platform_admin.py
+	@docker-compose exec -T platform-api python /app/scripts/platform/create_platform_admin.py
 
 b2b-seed-roles-templates: ## Seed domain-specific roles-templates
 	@echo "$(BLUE)Seeding domain data...$(NC)"

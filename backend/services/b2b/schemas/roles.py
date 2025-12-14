@@ -61,6 +61,7 @@ class RoleResponse(BaseModel):
     display_name: str
     description: Optional[str] = None
     is_system_role: bool
+    permissions: List[PermissionResponse] = []
     
     class Config:
         from_attributes = True

@@ -53,7 +53,7 @@ class Action(Base, TimestampMixin):
     __tablename__ = "actions"
     __table_args__ = {'schema': 'b2b'}
     
-    id = Column(Integer, primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     name = Column(String(50), unique=True, nullable=False)  # 'read', 'write', 'delete'
     display_name = Column(String(100), nullable=False)  # 'View', 'Create/Edit', 'Delete'
     

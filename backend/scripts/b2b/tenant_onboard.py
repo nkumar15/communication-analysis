@@ -163,7 +163,7 @@ async def create_local_async(
                 company_name=company,
                 domain=domain,
                 owner_email=owner_email,
-                oidc_provider="oidc", # Default generic type for local
+                provider_type="oidc", # Default generic type for local
                 oidc_client_id=oidc_web_client_id,
                 oidc_client_secret=None,
                 oidc_issuer=oidc_issuer,
