@@ -97,7 +97,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	case "$$REPLY" in \
 		[Yy]*) \
 			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api frontend dbmigrate nginx; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api frontend dbmigrate celery-worker nginx; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			docker-compose restart postgres; \

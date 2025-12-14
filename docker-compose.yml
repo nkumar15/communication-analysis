@@ -177,6 +177,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/app
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
@@ -185,7 +186,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A core.tasks.celery_app worker --loglevel=info --concurrency=4
+    command: celery -A core.tasks.celery_app worker --loglevel=info --concurrency=4 -Q celery,emails,audit
     restart: unless-stopped
 
   # API Gateway - Routes requests to all microservices
