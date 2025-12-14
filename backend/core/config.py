@@ -34,6 +34,22 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_db: int = 0
     
+    # Celery (defaults to Redis, can be overridden for SQS/GCP)
+    celery_broker_url: Optional[str] = None
+    celery_result_backend: Optional[str] = None
+    
+    @property
+    def celery_broker_url_resolved(self) -> str:
+        if self.celery_broker_url:
+            return self.celery_broker_url
+        return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        
+    @property
+    def celery_result_backend_resolved(self) -> str:
+        if self.celery_result_backend:
+            return self.celery_result_backend
+        return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
+    
     # CORS
     cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8000,http://localhost:8001"
     

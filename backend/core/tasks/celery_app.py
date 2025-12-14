@@ -15,8 +15,8 @@ IS_TESTING = os.environ.get('TESTING', '').lower() in ('true', '1', 'yes')
 # Initialize Celery app
 celery_app = Celery(
     'sso_tasks',
-    broker=f'redis://{settings.redis_host}:{settings.redis_port}/0',
-    backend=f'redis://{settings.redis_host}:{settings.redis_port}/0',
+    broker=settings.celery_broker_url_resolved,
+    backend=settings.celery_result_backend_resolved,
     include=[
         'core.tasks.email_tasks',
         'core.tasks.audit_tasks',
