@@ -55,7 +55,10 @@ def setup_tracing(app, service_name: str, sqlalchemy_engine=None):
 
     # 6. Instrument SQLAlchemy
     if sqlalchemy_engine:
+        # If it's an AsyncEngine, we must instrument the underlying sync_engine
+        engine_to_instrument = getattr(sqlalchemy_engine, "sync_engine", sqlalchemy_engine)
+        
         SQLAlchemyInstrumentor().instrument(
-            engine=sqlalchemy_engine,
+            engine=engine_to_instrument,
             tracer_provider=provider
         )
