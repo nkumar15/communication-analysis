@@ -56,7 +56,7 @@ class TestActivationFlow:
             owner_email = f"owner@{domain}"
             
             onboard_response = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json={
                     "company_name": "Test Corp",
                     "domain": domain,

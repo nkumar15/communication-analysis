@@ -67,7 +67,7 @@ class TestCompleteOnboardingJourney:
             print(f"Owner Email: {owner_email}")
             
             onboard_response = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json={
                     "company_name": "E2E Test Corp",
                     "domain": domain,

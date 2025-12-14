@@ -172,6 +172,13 @@ class PlatformApiService {
     }
 
     /**
+     * Reactivate tenant
+     */
+    async reactivateTenant(tenantId) {
+        return this.patch(`/api/platform/b2b/tenants/${tenantId}/reactivate`);
+    }
+
+    /**
      * Generic PATCH request with auth headers
      */
     async patch(path, data) {

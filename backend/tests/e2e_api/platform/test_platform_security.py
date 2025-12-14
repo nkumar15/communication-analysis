@@ -45,7 +45,7 @@ class TestPlatformSecurity:
         
         # Try to access platform stats
         response = await api_client.get(
-            "/api/platform/stats",
+            "/api/platform/b2b/stats",
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
@@ -74,7 +74,7 @@ class TestPlatformSecurity:
         
         # Try to list tenants
         response = await api_client.get(
-            "/api/platform/tenants",
+            "/api/platform/b2b/tenants",
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
@@ -86,6 +86,6 @@ class TestPlatformSecurity:
         api_client: AsyncClient
     ):
         """Unauthenticated request is denied"""
-        response = await api_client.get("/api/platform/stats")
+        response = await api_client.get("/api/platform/b2b/stats")
         assert response.status_code == 401
         assert "Not authenticated" in response.json()["detail"]

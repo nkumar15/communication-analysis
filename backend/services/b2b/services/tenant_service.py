@@ -35,6 +35,23 @@ class TenantService:
         
         return self._model_to_pydantic(tenant_model)
     
+    async def get_tenant_by_domain_include_inactive(self, db: AsyncSession, domain: str) -> Optional[Tenant]:
+        """
+        Get tenant by email domain, including inactive (deactivated) tenants.
+        Used to provide specific error messages for deactivated organizations.
+        """
+        result = await db.execute(
+            select(TenantModel)
+            .where(TenantModel.domain == domain.lower())
+            .where(TenantModel.deleted_at.is_(None))  # Not hard-deleted
+        )
+        tenant_model = result.scalar_one_or_none()
+        
+        if not tenant_model:
+            return None
+        
+        return self._model_to_pydantic(tenant_model)
+    
     async def get_tenant_by_id(self, db: AsyncSession, tenant_id: UUID) -> Optional[Tenant]:
         """
         Get tenant by ID

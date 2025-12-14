@@ -17,13 +17,13 @@ from tests.conftest import create_test_tenant, create_test_user, create_mock_fir
 @pytest.mark.asyncio
 async def test_platform_stats_access_denied(api_client: AsyncClient):
     """Verify regular user cannot access platform stats"""
-    response = await api_client.get("/api/platform/stats")
+    response = await api_client.get("/api/platform/b2b/stats")
     assert response.status_code == 401  # No token
 
     # Create regular user token
     token = encode_mock_jwt(create_mock_firebase_token(uid="regular-user", email="user@test.com"))
     response = await api_client.get(
-        "/api/platform/stats",
+        "/api/platform/b2b/stats",
         headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 403  # Forbidden (user not found or no role)
@@ -34,7 +34,7 @@ async def test_platform_stats_success(api_client: AsyncClient, platform_admin_se
     token = platform_admin_setup["token"]
     
     response = await api_client.get(
-        "/api/platform/stats",
+        "/api/platform/b2b/stats",
         headers={"Authorization": f"Bearer {token}"}
     )
     
@@ -58,7 +58,7 @@ async def test_create_tenant_via_platform(api_client: AsyncClient, platform_admi
     }
     
     response = await api_client.post(
-        "/api/platform/tenants",
+        "/api/platform/b2b/tenants",
         json=new_tenant_data,
         headers={"Authorization": f"Bearer {token}"}
     )
@@ -74,7 +74,7 @@ async def test_list_tenants(api_client: AsyncClient, platform_admin_setup):
     token = platform_admin_setup["token"]
     
     response = await api_client.get(
-        "/api/platform/tenants",
+        "/api/platform/b2b/tenants",
         headers={"Authorization": f"Bearer {token}"}
     )
     

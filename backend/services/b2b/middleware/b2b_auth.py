@@ -45,12 +45,19 @@ async def get_current_active_user(
     if not tenant:
         raise HTTPException(status_code=401, detail="Tenant not found")
     
-    # SECURITY: Verify tenant is activated
+    # SECURITY: Verify tenant is activated and not deactivated by admin
     # Pending tenants should not be able to access B2B endpoints
     if tenant.activation_status != 'active':
         raise HTTPException(
             status_code=403, 
             detail="Tenant is not yet activated. Please complete the activation process."
+        )
+    
+    # Check if tenant was deactivated by platform admin
+    if not tenant.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="This organization has been deactivated. Please contact your administrator."
         )
 
     # 2. Set RLS Context

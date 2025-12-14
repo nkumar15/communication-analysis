@@ -41,7 +41,7 @@ class TestTenantOnboarding:
             
             # 1. Call Onboard Endpoint
             response = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json=payload,
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
@@ -125,7 +125,7 @@ class TestTenantOnboarding:
             }
             
             create_res = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json=payload,
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
@@ -133,7 +133,7 @@ class TestTenantOnboarding:
             
             # Get Details
             response = await api_client.get(
-                f"/api/platform/tenants/{tenant_id}/details",
+                f"/api/platform/b2b/tenants/{tenant_id}/details",
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
             
@@ -170,7 +170,7 @@ class TestTenantOnboarding:
             }
             
             create_res = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json=payload,
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
@@ -179,7 +179,7 @@ class TestTenantOnboarding:
             
             # Resend Activation
             response = await api_client.post(
-                f"/api/platform/tenants/{tenant_id}/resend-activation",
+                f"/api/platform/b2b/tenants/{tenant_id}/resend-activation",
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
             
@@ -218,7 +218,7 @@ class TestTenantOnboarding:
             }
             
             create_res = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json=payload,
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
@@ -226,7 +226,7 @@ class TestTenantOnboarding:
             
             # Deactivate
             response = await api_client.patch(
-                f"/api/platform/tenants/{tenant_id}/deactivate",
+                f"/api/platform/b2b/tenants/{tenant_id}/deactivate",
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
             

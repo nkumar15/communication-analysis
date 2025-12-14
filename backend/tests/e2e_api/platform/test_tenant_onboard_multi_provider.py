@@ -36,7 +36,7 @@ class TestTenantOnboardMultiProvider:
             }
             
             response = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json=payload,
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
@@ -85,7 +85,7 @@ class TestTenantOnboardMultiProvider:
             }
             
             response = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json=payload,
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )
@@ -133,7 +133,7 @@ class TestTenantOnboardMultiProvider:
             }
             
             response = await api_client.post(
-                "/api/platform/tenants/onboard",
+                "/api/platform/b2b/tenants/onboard",
                 json=payload,
                 headers={"Authorization": f"Bearer {platform_admin_token}"}
             )

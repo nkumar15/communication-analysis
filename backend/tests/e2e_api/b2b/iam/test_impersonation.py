@@ -55,7 +55,7 @@ async def test_impersonate_success(api_client: AsyncClient, platform_admin_setup
     tenant_id = tenant_with_admin["tenant"].id
     
     response = await api_client.post(
-        f"/api/platform/tenants/{tenant_id}/impersonate",
+        f"/api/platform/b2b/tenants/{tenant_id}/impersonate",
         headers={"Authorization": f"Bearer {platform_token}"}
     )
     
@@ -85,7 +85,7 @@ async def test_impersonate_forbidden_regular_user(api_client: AsyncClient, tenan
     ))
     
     response = await api_client.post(
-        f"/api/platform/tenants/{tenant_id}/impersonate",
+        f"/api/platform/b2b/tenants/{tenant_id}/impersonate",
         headers={"Authorization": f"Bearer {regular_token}"}
     )
     
@@ -98,7 +98,7 @@ async def test_impersonate_tenant_not_found(api_client: AsyncClient, platform_ad
     fake_tenant_id = uuid4()
     
     response = await api_client.post(
-        f"/api/platform/tenants/{fake_tenant_id}/impersonate",
+        f"/api/platform/b2b/tenants/{fake_tenant_id}/impersonate",
         headers={"Authorization": f"Bearer {platform_token}"}
     )
     

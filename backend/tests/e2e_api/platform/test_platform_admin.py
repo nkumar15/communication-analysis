@@ -93,7 +93,7 @@ class TestPlatformAdmin:
         ))
         
         response = await api_client.get(
-            "/api/platform/stats",
+            "/api/platform/b2b/stats",
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
@@ -140,7 +140,7 @@ class TestPlatformAdmin:
         }
         
         response = await api_client.post(
-            "/api/platform/tenants",
+            "/api/platform/b2b/tenants",
             json=payload,
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
@@ -196,7 +196,7 @@ class TestPlatformAdmin:
         ))
         
         response = await api_client.post(
-            f"/api/platform/tenants/{target_tenant.id}/impersonate",
+            f"/api/platform/b2b/tenants/{target_tenant.id}/impersonate",
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         

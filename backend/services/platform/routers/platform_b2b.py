@@ -137,11 +137,17 @@ async def list_tenants(
         user_count = await db.scalar(
             select(func.count(UserModel.id)).where(UserModel.tenant_id == tenant.id)
         )
+        # Determine status: inactive if deactivated, otherwise use activation_status
+        if not tenant.is_active:
+            status = 'inactive'
+        else:
+            status = tenant.activation_status or 'pending'
+        
         items.append(TenantItem(
             id=tenant.id,
             name=tenant.name,
             domain=tenant.domain,
-            status=tenant.activation_status or 'pending',
+            status=status,
             created_at=tenant.created_at,
             user_count=user_count or 0
         ))
@@ -466,3 +472,43 @@ async def deactivate_tenant(
     )
     
     return DeactivateTenantResponse(tenant_id=str(tenant_id))
+
+
+class ReactivateTenantResponse(BaseModel):
+    tenant_id: str
+    message: str = "Tenant reactivated successfully"
+
+
+@router.patch("/tenants/{tenant_id}/reactivate", response_model=ReactivateTenantResponse)
+async def reactivate_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(verify_platform_admin)
+):
+    """Reactivate a deactivated B2B tenant"""
+    tenant = await db.get(TenantModel, tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant {tenant_id} not found"
+        )
+    
+    if tenant.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tenant is already active"
+        )
+    
+    tenant.is_active = True
+    await db.commit()
+    
+    await log_platform_action(
+        admin=current_user,
+        action="reactivate_tenant",
+        resource_type="tenant",
+        resource_id=str(tenant_id),
+        details={},
+        db=db
+    )
+    
+    return ReactivateTenantResponse(tenant_id=str(tenant_id))

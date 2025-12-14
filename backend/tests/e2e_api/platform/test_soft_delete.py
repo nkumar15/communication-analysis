@@ -35,7 +35,7 @@ class TestSoftDelete:
         }
         
         response = await api_client.post(
-            "/api/platform/tenants",
+            "/api/platform/b2b/tenants",
             json=tenant_data,
             headers=platform_auth_headers
         )
@@ -44,7 +44,7 @@ class TestSoftDelete:
         
         # 2. Verify existence in list
         response = await api_client.get(
-            "/api/platform/tenants",
+            "/api/platform/b2b/tenants",
             headers=platform_auth_headers
         )
         assert response.status_code == 200
@@ -55,7 +55,7 @@ class TestSoftDelete:
         
         # 3. Delete Tenant
         response = await api_client.delete(
-            f"/api/platform/tenants/{tenant_id}",
+            f"/api/platform/b2b/tenants/{tenant_id}",
             headers=platform_auth_headers
         )
         assert response.status_code == 200
@@ -63,7 +63,7 @@ class TestSoftDelete:
         
         # 4. Verify removal from list
         response = await api_client.get(
-            "/api/platform/tenants",
+            "/api/platform/b2b/tenants",
             headers=platform_auth_headers
         )
         assert response.status_code == 200

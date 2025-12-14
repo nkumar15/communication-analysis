@@ -200,13 +200,12 @@ async def platform_admin_setup(db_session: AsyncSession):
     from services.platform.models import PlatformTenant, PlatformRole, PlatformUser
     from core.constants import PlatformRoleName
     
+    # Generate unique identifiers for this test run
+    unique_suffix = uuid4().hex[:8]
+    
     # 1. Check/Create System Tenant (PlatformTenant)
-    # Check by firebase_tenant_id to avoid duplicates
-    result = await db_session.execute(
-        select(PlatformTenant).where(
-            PlatformTenant.firebase_tenant_id == "system-platform"
-        )
-    )
+    # Platform tenant is a SINGLETON - check for ANY existing one
+    result = await db_session.execute(select(PlatformTenant))
     system_tenant = result.scalar_one_or_none()
     
     if not system_tenant:
@@ -236,26 +235,21 @@ async def platform_admin_setup(db_session: AsyncSession):
         db_session.add(role)
         await db_session.flush()
     
-    # 3. Check/Create Platform Admin User
-    result = await db_session.execute(
-        select(PlatformUser).where(PlatformUser.email == "admin@system.local")
+    # 3. Create Platform Admin User with UNIQUE email per test
+    # This avoids IntegrityError when tests run in parallel or sequentially
+    unique_email = f"admin-{unique_suffix}@system.local"
+    admin_user = PlatformUser(
+        platform_tenant_id=system_tenant.id,
+        platform_role_id=role.id,
+        email=unique_email,
+        firebase_uid=f"firebase-admin-{unique_suffix}",
+        display_name="Platform Admin",
+        is_active=True
     )
-    admin_user = result.scalar_one_or_none()
+    db_session.add(admin_user)
+    await db_session.flush()
     
-    if not admin_user:
-        admin_user = PlatformUser(
-            platform_tenant_id=system_tenant.id,
-            platform_role_id=role.id,
-            email="admin@system.local",
-            firebase_uid=f"firebase-admin-{uuid4().hex}",
-            display_name="Platform Admin",
-            is_active=True
-        )
-        db_session.add(admin_user)
-        await db_session.flush()
-    
-    # Commit all changes
-    await db_session.commit()
+    # Don't commit - let the test session handle rollback
     
     return {
         "tenant": system_tenant,

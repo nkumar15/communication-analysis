@@ -162,6 +162,15 @@ class AuthService:
         tenant = await tenant_service.get_tenant_by_domain(db, domain)
         
         if not tenant:
+            # Check if tenant exists but is deactivated
+            deactivated_tenant = await tenant_service.get_tenant_by_domain_include_inactive(db, domain)
+            if deactivated_tenant:
+                logger.warning("tenant_deactivated", domain=domain, email=email)
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This organization has been deactivated. Please contact your administrator."
+                )
+            
             logger.warning("tenant_not_found", domain=domain, email=email)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

@@ -109,6 +109,20 @@ function TenantList() {
         }
     };
 
+    const handleReactivate = async (tenantId, tenantName) => {
+        if (!window.confirm(`Are you sure you want to reactivate ${tenantName}?`)) {
+            return;
+        }
+
+        try {
+            await platformApiService.reactivateTenant(tenantId);
+            fetchData(); // Refresh list
+            alert(`${tenantName} has been reactivated successfully!`);
+        } catch (error) {
+            alert('Failed to reactivate: ' + error.message);
+        }
+    };
+
     const totalPages = Math.ceil(total / limit);
 
     const getStatusBadge = (status) => {
@@ -270,7 +284,7 @@ function TenantList() {
                                                 Details
                                             </Link>
 
-                                            {tenant.status === 'active' ? (
+                                            {tenant.status === 'active' && (
                                                 <>
                                                     <button
                                                         className="platform-btn platform-btn-primary"
@@ -295,7 +309,8 @@ function TenantList() {
                                                         Deactivate
                                                     </button>
                                                 </>
-                                            ) : (
+                                            )}
+                                            {tenant.status === 'pending' && (
                                                 <button
                                                     className="platform-btn"
                                                     onClick={() => handleResendInvite(tenant.id)}
@@ -310,6 +325,23 @@ function TenantList() {
                                                     title="Resend Activation Email"
                                                 >
                                                     Resend Invite
+                                                </button>
+                                            )}
+                                            {tenant.status === 'inactive' && (
+                                                <button
+                                                    className="platform-btn"
+                                                    onClick={() => handleReactivate(tenant.id, tenant.name)}
+                                                    style={{
+                                                        fontSize: '0.75rem',
+                                                        padding: '0.3rem 0.6rem',
+                                                        background: '#ecfdf5',
+                                                        color: '#059669',
+                                                        border: '1px solid #6ee7b7',
+                                                        fontWeight: '500'
+                                                    }}
+                                                    title="Reactivate Tenant"
+                                                >
+                                                    Reactivate
                                                 </button>
                                             )}
                                         </div>
