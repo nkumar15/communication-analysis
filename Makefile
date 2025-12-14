@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs ps migrate db-shell reset-db platform-seed platform-create-admin b2b-seed web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env
+.PHONY: help setup status up down restart build logs ps migrate migrate-b2b migrate-b2c db-shell reset-db platform-seed platform-create-admin b2b-seed web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env
 
 # Default target
 .DEFAULT_GOAL := help
@@ -83,12 +83,25 @@ db-setup-auth: ## Setup app user and permissions
 	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/grant_permissions.sql"
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
-migrate: ## Run database migrations
-	@echo "$(BLUE)Running database migrations...$(NC)"
-	@docker-compose exec -T dbmigrate python /app/migrations/run_migrations.py
+migrate: ## Run migrations for all products (platform + b2b + b2c)
+	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
+	@docker-compose exec -T dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) b2b-seed-roles-templates
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
+
+migrate-b2b: ## Run migrations for B2B only (platform + b2b)
+	@echo "$(BLUE)Running B2B migrations...$(NC)"
+	@docker-compose exec -T dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
+	@$(MAKE) b2b-seed-roles-templates
+	@$(MAKE) db-setup-auth
+	@echo "$(GREEN)✓ B2B migrations complete$(NC)"
+
+migrate-b2c: ## Run migrations for B2C only (platform + b2c)
+	@echo "$(BLUE)Running B2C migrations...$(NC)"
+	@docker-compose exec -T dbmigrate env ENABLED_PRODUCTS=platform,b2c python /app/migrations/run_migrations.py
+	@$(MAKE) db-setup-auth
+	@echo "$(GREEN)✓ B2C migrations complete$(NC)"
 
 reset-db: ## Reset database (WARNING: deletes all data!)
 	@echo "$(YELLOW)⚠ This will delete all data!$(NC)"
