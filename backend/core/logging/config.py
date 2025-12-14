@@ -10,12 +10,30 @@ import sys
 from typing import Any, Optional
 import structlog
 from structlog.types import BindableLogger, Processor
+from opentelemetry import trace
 
+# Reuse existing formatters 
+# In a real refactor we might move these files too, but import works for now
 from core.logging.formatters import (
     GCPFormatter,
     AWSFormatter,
     GenericJSONFormatter,
 )
+
+def add_open_telemetry_spans(_, __, event_dict):
+    """
+    Add trace_id/span_id to logs if a trace is active.
+    """
+    span = trace.get_current_span()
+    if not span:
+        return event_dict
+        
+    span_context = span.get_span_context()
+    if span_context.is_valid:
+        event_dict["trace_id"] = format(span_context.trace_id, "032x")
+        event_dict["span_id"] = format(span_context.span_id, "016x")
+        
+    return event_dict
 
 
 def setup_logging(environment: str = "local", log_level: str = "INFO") -> None:
@@ -39,6 +57,7 @@ def setup_logging(environment: str = "local", log_level: str = "INFO") -> None:
     # Common processors for all environments
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
+        add_open_telemetry_spans,  # <--- Added Correlation Here
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
@@ -84,16 +103,6 @@ def setup_logging(environment: str = "local", log_level: str = "INFO") -> None:
 def get_logger(name: str) -> BindableLogger:
     """
     Get a structured logger instance.
-    
-    Args:
-        name: Logger name (typically __name__)
-        
-    Returns:
-        Structured logger with bound context
-        
-    Example:
-        logger = get_logger(__name__)
-        logger.info("user_created", user_id="123", email="user@example.com")
     """
     return structlog.get_logger(name)
 
@@ -101,16 +110,6 @@ def get_logger(name: str) -> BindableLogger:
 def add_context(**kwargs: Any) -> None:
     """
     Add context to all subsequent log messages in current execution context.
-    
-    Uses structlog's context variables to inject fields into logs.
-    Useful for adding request_id, tenant_id, etc.
-    
-    Args:
-        **kwargs: Key-value pairs to add to log context
-        
-    Example:
-        add_context(request_id="abc-123", tenant_id="tenant-xyz")
-        logger.info("processing_request")  # Will include request_id and tenant_id
     """
     structlog.contextvars.bind_contextvars(**kwargs)
 
@@ -118,6 +117,5 @@ def add_context(**kwargs: Any) -> None:
 def clear_context() -> None:
     """
     Clear all context variables.
-    Should be called after request processing to avoid context leakage.
     """
     structlog.contextvars.clear_contextvars()

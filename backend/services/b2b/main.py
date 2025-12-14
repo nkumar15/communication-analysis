@@ -11,16 +11,12 @@ This microservice handles all B2B tenant-related functionality:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
 from core.config import settings
-from core.database import init_db, close_db
-from core.utils.firebase import firebase_auth_service
-
-# Import logging
-from core.logging import setup_logging, get_logger
+from core.database import init_db, engine
+from core.logging.config import setup_logging, get_logger
+from core.observability.config import setup_observability
 from core.logging.middleware import LoggingMiddleware
-
-# Get logger for this module
-logger = get_logger(__name__)
 
 # Import B2B routers
 from services.b2b.routers import (
@@ -30,31 +26,37 @@ from services.b2b.routers import (
     users,
     roles,
     teams,
-    team_roles,  # Team Role Definitions
+    team_roles,
     account,
     audit_logs,
     dashboard,
 )
 
+# Setup logging first
+setup_logging(environment=settings.log_environment, log_level=settings.log_level)
+logger = get_logger(__name__)
+
+logger.info(f"Starting B2B Service in {settings.log_environment} mode")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
     # Startup
-    logger.info("service_startup")
+    logger.info("Initializing database...")
     await init_db()
-    firebase_auth_service.initialize()
-    logger.info("service_ready")
     
+    # Startup: Initialize Observability (Tracing, Metrics)
+    # We pass the engine for SQL instrumentation
+    setup_observability(app, service_name="b2b-api", sqlalchemy_engine=engine)
+
     yield
     
     # Shutdown
-    logger.info("service_shutdown")
-    await close_db()
+    logger.info("Shutting down...")
 
 
 app = FastAPI(
-    title="B2B Tenant Management API",
-    description="API for managing B2B tenants, users, and roles",
+    title="Enterprise SSO - B2B Service",
+    description="Multi-tenant B2B Authentication & Management API",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -68,10 +70,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include all routers
+# Add structured logging middleware
+app.add_middleware(LoggingMiddleware)
+
+# Include routers
 app.include_router(auth.router)
 app.include_router(activation.router)
-app.include_router(invitations.router)  # Also includes bulk_invitations routes
+app.include_router(invitations.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(teams.router)
