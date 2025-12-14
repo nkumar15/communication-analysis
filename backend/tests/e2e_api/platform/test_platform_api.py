@@ -80,11 +80,15 @@ async def test_list_tenants(api_client: AsyncClient, platform_admin_setup):
     
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
+    # Handle paginated response structure
+    assert "items" in data
+    assert "total" in data
+    tenants = data["items"]
+    assert isinstance(tenants, list)
+    assert len(tenants) >= 1
     
     # Verify structure
-    tenant = data[0]
+    tenant = tenants[0]
     assert "id" in tenant
     assert "name" in tenant
     assert "domain" in tenant

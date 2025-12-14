@@ -48,7 +48,9 @@ class TestSoftDelete:
             headers=platform_auth_headers
         )
         assert response.status_code == 200
-        tenants = response.json()
+        data = response.json()
+        assert "items" in data
+        tenants = data["items"]
         assert any(t["id"] == tenant_id for t in tenants)
         
         # 3. Delete Tenant
@@ -65,7 +67,9 @@ class TestSoftDelete:
             headers=platform_auth_headers
         )
         assert response.status_code == 200
-        tenants = response.json()
+        data = response.json()
+        assert "items" in data
+        tenants = data["items"]
         assert not any(t["id"] == tenant_id for t in tenants)
         
         # 5. Verify persistence in DB (Direct DB check)
