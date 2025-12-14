@@ -52,6 +52,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - EMAIL_PROVIDER=mailhog
+      - MAILHOG_HOST=mailhog
     ports:
       - "8000:8000"
     volumes:
@@ -79,6 +81,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - EMAIL_PROVIDER=mailhog
+      - MAILHOG_HOST=mailhog
     ports:
       - "8001:8001"
     volumes:
@@ -106,6 +110,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - EMAIL_PROVIDER=mailhog
+      - MAILHOG_HOST=mailhog
     ports:
       - "8002:8002"
     volumes:
@@ -133,6 +139,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - EMAIL_PROVIDER=mailhog
+      - MAILHOG_HOST=mailhog
     ports:
       - "8003:8003"
     volumes:
@@ -163,6 +171,17 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Mailhog - Local Email Testing
+  # Web UI: http://localhost:8025
+  # SMTP: localhost:1025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: sso_mailhog
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    restart: unless-stopped
+
   # Celery Worker - Background Task Processor
   # Processes: emails, audit logs, bulk operations
   celery-worker:
@@ -177,6 +196,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - EMAIL_PROVIDER=mailhog
+      - MAILHOG_HOST=mailhog
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app

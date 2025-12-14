@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs ps migrate migrate-b2b migrate-b2c db-shell reset-db platform-seed platform-create-admin b2b-seed web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env
+.PHONY: help setup status up down restart build logs ps migrate migrate-b2b migrate-b2c db-shell reset-db platform-seed platform-create-admin b2b-seed web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui
 
 # Default target
 .DEFAULT_GOAL := help
@@ -45,9 +45,10 @@ status: ## Show status of all services and configuration
 
 up: ## Start all backend services (frontend runs locally)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate celery-worker nginx
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate celery-worker nginx mailhog
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
+	@echo "Email UI:     http://localhost:8025 (Mailhog)"
 	@echo "Run 'make web-b2b' for B2B frontend on port 3000"
 
 down: ## Stop all services
@@ -72,6 +73,9 @@ endif
 ps: ## List running services
 	docker-compose ps
 
+email-ui: ## Open Mailhog email UI in browser
+	@echo "$(BLUE)Opening Mailhog at http://localhost:8025$(NC)"
+	@xdg-open http://localhost:8025 2>/dev/null || open http://localhost:8025 2>/dev/null || echo "Open http://localhost:8025 in your browser"
 ##@ Database
 
 db-shell: ## Open PostgreSQL shell
