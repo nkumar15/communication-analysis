@@ -31,4 +31,5 @@ class TenantResolutionResponse(BaseModel):
     firebase_tenant_id: str
     oidc_provider_id: Optional[str] = None  # Primary auth provider ID from auth_providers table
     mobile_oidc_provider_id: Optional[str] = None # Separate provider ID for mobile (if different)
+    provider_type: Optional[str] = 'oidc' # 'oidc', 'saml', 'google', etc.
 

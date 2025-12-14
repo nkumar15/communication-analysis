@@ -29,6 +29,7 @@ class ActivationTenantInfoResponse(BaseModel):
     firebase_tenant_id: str
     oidc_provider_id: str | None
     mobile_oidc_provider_id: str | None = None
+    provider_type: str | None = 'oidc'
 
 
 class ActivationStatusResponse(BaseModel):

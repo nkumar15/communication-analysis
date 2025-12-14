@@ -25,33 +25,77 @@ def cli():
 @click.option('--company', required=True, help='Company name')
 @click.option('--domain', required=True, help='Email domain (e.g., acme.com)')
 @click.option('--owner-email', required=True, help='Owner email address')
-@click.option('--oidc-provider', required=True,
-              type=click.Choice(['auth0', 'okta', 'google', 'azure']),
-              help='OIDC provider type')
-@click.option('--oidc-client-id', required=True, help='OIDC Client ID')
-@click.option('--oidc-client-secret', required=True, help='OIDC Client Secret')
-@click.option('--oidc-issuer', required=True, help='OIDC Issuer URL')
+@click.option('--provider-type', default='oidc',
+              type=click.Choice(['oidc', 'saml', 'google', 'microsoft']),
+              help='Authentication Provider Type')
+# OIDC Options
+@click.option('--oidc-provider', required=False, default='oidc',
+              help='OIDC provider alias (e.g. auth0, okta) - for OIDC type')
+@click.option('--oidc-client-id', required=False, help='OIDC Client ID')
+@click.option('--oidc-client-secret', required=False, help='OIDC Client Secret')
+@click.option('--oidc-issuer', required=False, help='OIDC Issuer URL')
 @click.option('--oidc-mobile-client-id', required=False, help='Mobile OIDC Client ID (optional)')
-def create(company, domain, owner_email, oidc_provider,
-           oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id):
+# SAML Options (Skeletal)
+@click.option('--saml-entity-id', required=False, help='SAML Identity Provider Entity ID')
+@click.option('--saml-sso-url', required=False, help='SAML SSO URL')
+def create(company, domain, owner_email, provider_type,
+           oidc_provider, oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id,
+           saml_entity_id, saml_sso_url):
     """Create a new tenant with pre-configured SSO"""
     asyncio.run(create_tenant_async(
-        company, domain, owner_email, oidc_provider,
-        oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id
+        company, domain, owner_email, provider_type,
+        oidc_provider, oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id,
+        saml_entity_id, saml_sso_url
     ))
 
 
 async def create_tenant_async(
-    company, domain, owner_email, oidc_provider,
-    oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id=None
+    company, domain, owner_email, provider_type,
+    oidc_provider, oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id,
+    saml_entity_id, saml_sso_url
 ):
     """Async tenant creation logic"""
     click.echo(f"🚀 Creating tenant for {company}...\n")
+    click.echo(f"   Provider Type: {provider_type}")
     
+    # Validation Logic
+    provider_config = {}
+    
+    if provider_type == 'oidc':
+        if not all([oidc_client_id, oidc_client_secret, oidc_issuer]):
+             click.echo("❌ Error: --oidc-client-id, --oidc-client-secret, and --oidc-issuer are required for OIDC.", err=True)
+             sys.exit(1)
+        provider_config = {
+            "client_id": oidc_client_id,
+            "client_secret": oidc_client_secret,
+            "issuer": oidc_issuer,
+            "provider_id": oidc_provider,
+            "mobile_client_id": oidc_mobile_client_id
+        }
+        
+    elif provider_type == 'saml':
+         if not all([saml_entity_id, saml_sso_url]):
+             click.echo("❌ Error: --saml-entity-id and --saml-sso-url are required for SAML.", err=True)
+             sys.exit(1)
+         provider_config = {
+             "idp_entity_id": saml_entity_id,
+             "sso_url": saml_sso_url
+         }
+         
+    elif provider_type in ['google', 'microsoft']:
+         # For Google/MS, we just need Client ID/Secret. Issuer is auto-handled.
+         if not all([oidc_client_id, oidc_client_secret]):
+              click.echo(f"❌ Error: --oidc-client-id and --oidc-client-secret are required for {provider_type}.", err=True)
+              sys.exit(1)
+         provider_config = {
+             "client_id": oidc_client_id,
+             "client_secret": oidc_client_secret,
+             "issuer": oidc_issuer # Optional, mostly for Microsoft tenant-specific
+         }
+
     async with AsyncSessionLocal() as db:
         try:
             # Explicitly set platform admin context to ensure RLS bypass works
-            # The service needs this to query/create across tenants if needed
             from core.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
@@ -60,11 +104,13 @@ async def create_tenant_async(
                 company_name=company,
                 domain=domain,
                 owner_email=owner_email,
-                oidc_provider=oidc_provider,
+                provider_type=provider_type,
+                provider_config=provider_config,
+                # Legacy params still passed if service needs them (though it shouldn't for non-OIDC path)
+                # oidc_provider removed from signature, handled via provider_config['provider_id']
                 oidc_client_id=oidc_client_id,
                 oidc_client_secret=oidc_client_secret,
-                oidc_issuer=oidc_issuer,
-                oidc_mobile_client_id=oidc_mobile_client_id
+                oidc_issuer=oidc_issuer
             )
             
             await db.commit()

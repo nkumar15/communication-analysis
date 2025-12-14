@@ -51,6 +51,55 @@ class FirebaseAuthService {
     }
 
     /**
+     * Skeletal SAML Sign In
+     * @param {string} providerId 
+     */
+    async signInWithSAML(providerId) {
+        console.warn('⚠️ SAML Sign-In not yet implemented. Provider:', providerId);
+        // TODO: Implement SAMLAuthProvider logic
+        // const provider = new SAMLAuthProvider(providerId);
+        // return signInWithPopup(this.auth, provider);
+        alert("SAML Login is not fully implemented yet.");
+        throw new Error("SAML_NOT_IMPLEMENTED");
+    }
+
+    /**
+     * Sign In with Google (treated as OIDC)
+     */
+    async signInWithGoogle(providerId, loginHint) {
+        return this.signInWithOIDC(providerId, loginHint);
+    }
+
+    /**
+     * Sign In with Microsoft (treated as OIDC)
+     */
+    async signInWithMicrosoft(providerId, loginHint) {
+        return this.signInWithOIDC(providerId, loginHint);
+    }
+
+    /**
+     * Generic Sign In Dispatcher
+     * @param {string} providerType - 'oidc', 'saml', 'google', 'microsoft'
+     * @param {string} providerId 
+     * @param {string} loginHint 
+     */
+    async signIn(providerType, providerId, loginHint) {
+        console.log(`🔐 Signing in with ${providerType} (${providerId})`);
+
+        switch (providerType) {
+            case 'saml':
+                return this.signInWithSAML(providerId);
+            case 'google':
+                return this.signInWithGoogle(providerId, loginHint);
+            case 'microsoft':
+                return this.signInWithMicrosoft(providerId, loginHint);
+            case 'oidc':
+            default:
+                return this.signInWithOIDC(providerId, loginHint);
+        }
+    }
+
+    /**
      * Sign in with a Firebase custom token (for E2E testing)
      * 
      * @param {string} customToken - Firebase custom token from Admin SDK

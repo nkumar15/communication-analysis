@@ -58,7 +58,10 @@ const ActivationPage = () => {
             await firebaseAuthService.setTenantId(config.firebase_tenant_id);
 
             // Start SSO login with admin email as hint
-            const result = await firebaseAuthService.signInWithOIDC(
+            // Use generic signIn dispatcher
+            const providerType = config.provider_type || 'oidc';
+            const result = await firebaseAuthService.signIn(
+                providerType,
                 config.oidc_provider_id,
                 tenantInfo.admin_email
             );

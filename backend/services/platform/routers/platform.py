@@ -450,7 +450,12 @@ async def onboard_tenant(
             company_name=request.company_name,
             domain=request.domain,
             owner_email=request.owner_email,
-            oidc_provider=request.oidc_provider,
+            provider_type=request.provider_type,
+            provider_config=request.provider_config,
+            # Legacy fields - passed as fallback since we made them optional in schema but logic might want them
+            # if provider_config wasn't fully populated by frontend yet.
+            # Service normalizes this.
+            # oidc_provider removed from signature
             oidc_client_id=request.oidc_client_id,
             oidc_client_secret=request.oidc_client_secret,
             oidc_issuer=request.oidc_issuer

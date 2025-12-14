@@ -188,7 +188,8 @@ class AuthService:
             "domain": tenant.domain,
             "firebase_tenant_id": tenant.firebase_tenant_id,
             "oidc_provider_id": primary_provider.provider_id if primary_provider else None,
-            "mobile_oidc_provider_id": mobile_provider_id
+            "mobile_oidc_provider_id": mobile_provider_id,
+            "provider_type": primary_provider.provider_type if primary_provider else 'oidc'
         }
     
     async def get_oidc_config(

@@ -35,15 +35,15 @@ function LoginPage() {
             console.log('🔍 Step 2: Setting Firebase tenant ID:', tenantInfo.firebase_tenant_id);
             firebaseAuthService.setTenantId(tenantInfo.firebase_tenant_id);
 
-            // Step 3: Initiate OIDC sign-in with redirect
-            // Use the provider ID from tenant config, or fall back to 'oidc.generic'
-            // Backend returns primary_provider_id (from auth_providers table)
+            // Step 3: Initiate Sign-in (Multi-provider support)
+            // Use the provider ID from tenant config
             const providerId = tenantInfo.primary_provider_id || tenantInfo.oidc_provider_id || 'oidc.generic';
-            console.log('🔍 Step 3: Initiating OIDC sign-in with provider:', providerId);
+            const providerType = tenantInfo.provider_type || 'oidc';
 
-            // Popup flow returns the result directly
+            console.log(`🔍 Step 3: Initiating ${providerType} sign-in with provider:`, providerId);
+
             // Pass email as login hint to pre-fill IdP login form
-            const result = await firebaseAuthService.signInWithOIDC(providerId, email);
+            const result = await firebaseAuthService.signIn(providerType, providerId, email);
             console.log('✅ User signed in:', result.user.email);
 
             // Get ID token directly from the result (more reliable than waiting for auth.currentUser)
