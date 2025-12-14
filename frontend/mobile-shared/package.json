@@ -1,0 +1,12 @@
+{
+    "name": "@enterprisesso/mobile-shared",
+    "version": "0.0.1",
+    "description": "Shared code for B2B and B2C mobile apps",
+    "main": "src/index.js",
+    "scripts": {},
+    "keywords": [
+        "react-native",
+        "shared"
+    ],
+    "license": "MIT"
+}
