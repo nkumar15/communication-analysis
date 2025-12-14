@@ -75,32 +75,40 @@ async def invite_user(
     # Get tenant for email
     tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
     
+    # Capture response data before commit (RLS context is lost after commit)
+    res_id = invitation.id
+    res_email = invitation.email
+    res_team_id = invitation.team_id
+    
+    # Commit transaction so background tasks can see the data
+    await db.commit()
+    
     # Send invitation email via Celery (async)
     send_invitation_email.delay(
-        invitation_id=str(invitation.id),
+        invitation_id=str(res_id),
         tenant_id=str(current_user['tenant_id'])
     )
     
-    # Log audit event (synchronous for proper transaction handling)
-    from services.b2b.services.audit_service import AuditService
-    audit_service = AuditService(db)
-    await audit_service.log_event(
-        tenant_id=current_user['tenant_id'],
-        event_type="user.invited",
-        resource_type="invitation",
-        actor_id=current_user['id'],
-        resource_id=invitation.id,
-        details={'email': request.email, 'role': request.role, 'team_id': str(request.team_id) if request.team_id else None},
-        ip_address=req.client.host if req.client else None,
-        user_agent=req.headers.get('User-Agent')
-    )
+    # Log audit event via Celery (async in production, sync in tests via eager mode)
+    from core.tasks.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'user.invited',
+        'resource_type': 'invitation',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(res_id),
+        'details': {'email': request.email, 'role': request.role, 'team_id': str(request.team_id) if request.team_id else None},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     return InviteUserResponse(
-        invitation_id=invitation.id,
-        email=invitation.email,
+        invitation_id=res_id,
+        email=res_email,
         status="sent",
         message=f"Invitation sent to {request.email}",
-        team_id=invitation.team_id
+        team_id=res_team_id
+
     )
 
 
@@ -199,13 +207,20 @@ async def resend_invitation(
     # Get tenant for email
     tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
     
+    # Capture email before commit
+    res_email = invitation.email
+    res_id = invitation.id
+
+    # Commit transaction so background tasks can see the data
+    await db.commit()
+    
     # Resend invitation email via Celery (async)
     send_invitation_email.delay(
-        invitation_id=str(invitation.id),
+        invitation_id=str(res_id),
         tenant_id=str(current_user['tenant_id'])
     )
     
-    return {"message": f"Invitation resent to {invitation.email}"}
+    return {"message": f"Invitation resent to {res_email}"}
 
 
 @router.get("/accept/{token}")
@@ -276,25 +291,33 @@ async def join_tenant(
     # Switch to invitation's tenant context for audit log
     await rls_service.set_tenant_context(db, result['tenant_id'])
     
-    # Log audit event (synchronous for proper transaction handling)
-    from services.b2b.services.audit_service import AuditService
-    audit_service = AuditService(db)
-    await audit_service.log_event(
-        tenant_id=result['tenant_id'],
-        event_type="user.accepted_invite",
-        resource_type="invitation",
-        actor_id=result['user_id'],
-        resource_id=None,
-        details={'email': email, 'role': result['role']},
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get('User-Agent')
-    )
+    # Capture response data
+    res_tenant_id = result['tenant_id']
+    res_role = result['role']
+    res_team_id = result['team_id']
+    res_user_id = result['user_id']
+    
+    # Commit transaction so background tasks can see the data
+    await db.commit()
+    
+    # Log audit event via Celery (async in production, sync in tests via eager mode)
+    from core.tasks.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(res_tenant_id),
+        'event_type': 'user.accepted_invite',
+        'resource_type': 'invitation',
+        'actor_id': str(res_user_id),
+        'resource_id': None,
+        'details': {'email': email, 'role': res_role},
+        'ip_address': request.client.host if request.client else None,
+        'user_agent': request.headers.get('User-Agent')
+    })
     
     return {
         "message": "Successfully joined tenant",
-        "tenant_id": result['tenant_id'],
-        "role": result['role'],
-        "team_id": result['team_id']
+        "tenant_id": res_tenant_id,
+        "role": res_role,
+        "team_id": res_team_id
     }
 
 

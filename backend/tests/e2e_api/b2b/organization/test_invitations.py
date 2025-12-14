@@ -193,6 +193,10 @@ class TestInvitationFlow:
         # Verify audit trail
         from services.b2b.models import InvitationModel
         from sqlalchemy import select
+        from tests.conftest import set_tenant_context
+        
+        # Re-set RLS context as it might be lost after app commit
+        await set_tenant_context(db_session, tenant.id)
         
         result = await db_session.execute(
             select(InvitationModel).where(
@@ -333,6 +337,9 @@ class TestInvitationFlow:
         assert data["team_id"] == str(team.id)
         
         # Verify invitation saved with team_role
+        from tests.conftest import set_tenant_context
+        await set_tenant_context(db_session, tenant.id)
+        
         result = await db_session.execute(
             select(InvitationModel).where(
                 InvitationModel.email == f"newuser@{tenant.domain}"
@@ -400,6 +407,9 @@ class TestInvitationFlow:
         assert response.status_code == 200
         
         # Verify user was added to team with correct role
+        from tests.conftest import set_tenant_context
+        await set_tenant_context(db_session, tenant.id)
+        
         result = await db_session.execute(
             select(UserModel).where(
                 UserModel.email == f"newuser@{tenant.domain}"
@@ -464,6 +474,9 @@ class TestInvitationFlow:
         assert response.status_code == 200
         
         # Verify user was added to default team
+        from tests.conftest import set_tenant_context
+        await set_tenant_context(db_session, tenant.id)
+        
         result = await db_session.execute(
             select(UserModel).where(
                 UserModel.email == f"newuser@{tenant.domain}"

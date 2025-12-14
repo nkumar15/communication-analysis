@@ -111,17 +111,29 @@ class TestAuditLogCreation:
         )
         assert response.status_code == 200
         
-        # 2. Check audit logs
+        # 2. Check audit logs (Poll for async task completion)
         
         query = select(AuditLog).where(
             AuditLog.tenant_id == b2b_test_data['tenant_id'],
             AuditLog.event_type == "user.invited"
         ).order_by(AuditLog.created_at.desc())
         
-        result = await db_session.execute(query)
-        log = result.scalar_one_or_none()
+        log = None
+        from tests.conftest import set_tenant_context
         
-        assert log is not None
+        for _ in range(20):  # Retry 20 times (wait up to 4s for engine spin-up)
+            await db_session.commit() # End current transaction to see new data
+            
+            # CRITICAL: Must set RLS context to see rows!
+            await set_tenant_context(db_session, b2b_test_data['tenant_id'])
+            
+            result = await db_session.execute(query)
+            log = result.scalar_one_or_none()
+            if log:
+                break
+            await asyncio.sleep(0.2)
+        
+        assert log is not None, "Audit log not found after polling"
         assert log.resource_type == "invitation"
         assert str(log.actor_id) == str(b2b_test_data['owner_id'])
         assert log.details['email'] == f"audit_test@{b2b_test_data['tenant_domain']}"
@@ -136,16 +148,28 @@ class TestAuditLogCreation:
         )
         assert response.status_code == 200
         
-        # 2. Verify audit log created in DB (Synchronous)
+        # 2. Verify audit log created in DB (Poll for async task completion)
         query = select(AuditLog).where(
             AuditLog.tenant_id == b2b_test_data['tenant_id'],
             AuditLog.event_type == "auth.login"
         ).order_by(AuditLog.created_at.desc())
         
-        result = await db_session.execute(query)
-        log = result.scalar_one_or_none()
+        log = None
+        from tests.conftest import set_tenant_context
         
-        assert log is not None
+        for _ in range(20):
+            await db_session.commit() # Refresh snapshot
+            
+            # CRITICAL: Must set RLS context
+            await set_tenant_context(db_session, b2b_test_data['tenant_id'])
+            
+            result = await db_session.execute(query)
+            log = result.scalar_one_or_none()
+            if log:
+                break
+            await asyncio.sleep(0.2)
+        
+        assert log is not None, "Audit log not found after polling"
         assert log.resource_type == "user"
         assert str(log.actor_id) == str(b2b_test_data['owner_id'])
         assert log.details["method"] == "sso_sync"

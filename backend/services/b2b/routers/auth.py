@@ -169,26 +169,35 @@ async def sync_user(
         firebase_tenant_id=firebase_tenant_id
     )
     
-    # Log audit event (synchronous for proper transaction handling)
-    from services.b2b.services.audit_service import AuditService
-    audit_service = AuditService(db)
-    await audit_service.log_event(
-        tenant_id=tenant.id,
-        event_type="auth.login",
-        resource_type="user",
-        actor_id=user.id,
-        resource_id=user.id,
-        details={'email': email, 'method': 'sso_sync'},
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get('User-Agent')
-    )
+    # Capture response data
+    res_id = user.id
+    res_email = user.email
+    res_role = user.role
+    res_role_display_name = user.role_display_name
+    res_tenant_id = tenant.id
+    
+    # Commit transaction so background tasks can see the data
+    await db.commit()
+    
+    # Log audit event via Celery (async in production, sync in tests via eager mode)
+    from core.tasks.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(res_tenant_id),
+        'event_type': 'auth.login',
+        'resource_type': 'user',
+        'actor_id': str(res_id),
+        'resource_id': str(res_id),
+        'details': {'email': email, 'method': 'sso_sync'},
+        'ip_address': request.client.host if request.client else None,
+        'user_agent': request.headers.get('User-Agent')
+    })
     
     return {
         "message": "User synced successfully",
-        "user_id": user.id,
-        "email": user.email,
-        "role": user.role,
-        "role_display_name": user.role_display_name,
+        "user_id": res_id,
+        "email": res_email,
+        "role": res_role,
+        "role_display_name": res_role_display_name,
         "permissions": permissions,
         "teams": teams
     }
