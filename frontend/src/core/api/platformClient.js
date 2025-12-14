@@ -47,10 +47,17 @@ class PlatformApiService {
     }
 
     /**
-     * Get platform statistics
+     * Get B2B platform statistics (enterprise tenants)
      */
-    async getStats() {
-        return this.get('/api/platform/stats');
+    async getB2BStats() {
+        return this.get('/api/platform/b2b/stats');
+    }
+
+    /**
+     * Get B2C platform statistics (personal workspaces)
+     */
+    async getB2CStats() {
+        return this.get('/api/platform/b2c/stats');
     }
 
     /**
@@ -64,21 +71,21 @@ class PlatformApiService {
         if (search) {
             params.append('search', search);
         }
-        return this.get(`/api/platform/tenants?${params.toString()}`);
+        return this.get(`/api/platform/b2b/tenants?${params.toString()}`);
     }
 
     /**
      * Create a new tenant
      */
     async createTenant(tenantData) {
-        return this.post('/api/platform/tenants', tenantData);
+        return this.post('/api/platform/b2b/tenants', tenantData);
     }
 
     /**
      * Impersonate a tenant admin
      */
     async impersonateTenant(tenantId) {
-        return this.post(`/api/platform/tenants/${tenantId}/impersonate`);
+        return this.post(`/api/platform/b2b/tenants/${tenantId}/impersonate`);
     }
 
     /**
@@ -140,28 +147,28 @@ class PlatformApiService {
      * Onboard a new tenant (full workflow)
      */
     async onboardTenant(tenantData) {
-        return this.post('/api/platform/tenants/onboard', tenantData);
+        return this.post('/api/platform/b2b/tenants/onboard', tenantData);
     }
 
     /**
      * Get tenant details
      */
     async getTenantDetails(tenantId) {
-        return this.get(`/api/platform/tenants/${tenantId}/details`);
+        return this.get(`/api/platform/b2b/tenants/${tenantId}/details`);
     }
 
     /**
      * Resend activation email
      */
     async resendActivation(tenantId) {
-        return this.post(`/api/platform/tenants/${tenantId}/resend-activation`);
+        return this.post(`/api/platform/b2b/tenants/${tenantId}/resend-activation`);
     }
 
     /**
      * Deactivate tenant
      */
     async deactivateTenant(tenantId) {
-        return this.patch(`/api/platform/tenants/${tenantId}/deactivate`);
+        return this.patch(`/api/platform/b2b/tenants/${tenantId}/deactivate`);
     }
 
     /**

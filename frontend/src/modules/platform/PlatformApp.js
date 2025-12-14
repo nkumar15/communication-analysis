@@ -8,6 +8,7 @@ import SuperAdminLayout from './web/layouts/SuperAdminLayout';
 import TenantList from './web/pages/TenantListPage';
 import TenantDetailsPage from './web/pages/TenantDetailsPage';
 import Dashboard from './web/pages/DashboardPage';
+import WorkspacesPage from './web/pages/WorkspacesPage';
 import AnalyticsPage from './web/pages/AnalyticsPage';
 import SettingsPage from './web/pages/SettingsPage';
 import PlatformLogin from './web/pages/LoginPage';
@@ -47,6 +48,7 @@ function PlatformApp() {
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/tenants" element={<TenantList />} />
                         <Route path="/tenants/:tenantId" element={<TenantDetailsPage />} />
+                        <Route path="/workspaces" element={<WorkspacesPage />} />
                         <Route path="/analytics" element={<AnalyticsPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
                     </Route>

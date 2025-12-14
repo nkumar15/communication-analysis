@@ -41,7 +41,7 @@ function TenantList() {
 
     const fetchStats = async () => {
         try {
-            const statsData = await platformApiService.getStats();
+            const statsData = await platformApiService.getB2BStats();
             setStats(statsData);
         } catch (error) {
             console.error('Error fetching stats:', error);
