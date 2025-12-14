@@ -87,7 +87,8 @@ android {
         
         // Required for react-native-app-auth
         manifestPlaceholders = [
-            appAuthRedirectScheme: 'com.saas.b2b'
+            appAuthRedirectScheme: 'com.saas.b2b',
+            usesCleartextTraffic: 'true'  // Allow HTTP for local development
         ]
     }
     signingConfigs {
