@@ -28,6 +28,21 @@ import SettingsPage from './modules/platform/web/pages/SettingsPage';
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
 
+// Redirect component to handle /join?token=... URLs from emails
+function JoinRedirect() {
+    const searchParams = new URLSearchParams(window.location.search);
+    const token = searchParams.get('token');
+
+    if (token) {
+        window.location.replace(`/invite/${token}`);
+        return null;
+    }
+
+    // No token, redirect to login
+    window.location.replace('/login');
+    return null;
+}
+
 function App() {
     const [initialized, setInitialized] = useState(false);
 
@@ -86,6 +101,7 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/activate/:token" element={<ActivationPage />} />
                 <Route path="/invite/:token" element={<InvitationAcceptPage />} />
+                <Route path="/join" element={<JoinRedirect />} />
 
                 {/* Protected routes */}
                 <Route
