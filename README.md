@@ -23,6 +23,14 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **Threaded Comments** - Contextual discussions on tasks with nested replies
 - **Multi-Service Architecture** - Independent B2B, Platform, and B2C services
 
+## 📦 Products
+
+| Product | Description | Web | iOS | Android |
+|---------|-------------|-----|-----|---------|
+| **[B2B](docs/products/b2b/)** | Enterprise multi-tenant | ✅ | ✅ | ✅ |
+| **[B2C](docs/products/b2c/)** | Personal workspaces | 🚧 | 🚧 | 🚧 |
+| **[Platform](docs/products/platform/)** | SaaS admin console | ✅ | ❌ | ❌ |
+
 ---
 
 ## 🧭 Documentation

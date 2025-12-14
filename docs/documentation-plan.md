@@ -3,73 +3,77 @@
 This document serves as the **Source of Truth** for the project's documentation structure. All documentation changes must align with this plan to prevent clutter and confusion.
 
 ## 🎯 Goal
-To provide a clear, role-based navigation path for developers and administrators, ensuring information is easy to find without duplication.
+To provide a clear, role-based and product-based navigation path for developers and administrators, ensuring information is easy to find without duplication.
 
 ## 🗺️ Documentation Map
-
 
 ### 1. The Entry Point
 **File:** `README.md`
 - **Audience:** Everyone (New Developers, Evaluators)
-- **Purpose:** High-level overview, "What is this?", Key Features, Architecture Summary, and **Links to detailed guides**.
+- **Purpose:** High-level overview, "What is this?", Key Features, Product Matrix.
 - **Content:**
     - Project Description
     - Key Features
-    - Tech Stack (Brief)
+    - **Product Matrix** - B2B / B2C / Platform availability
     - **Quick Start (Minimal)** - Just enough to get `make up` running.
-    - **Navigation** - Links to Development, Platform Admin, and Tenant Admin guides.
+    - **Navigation** - Links to guides and product docs.
 
 ### 2. The Developer Track
 **File:** `docs/guides/development.md`
 - **Audience:** Contributors, Engineers
 - **Purpose:** The "Daily Driver" for working on the codebase.
 - **Content:**
-    - **Setup:** Detailed environment setup (Docker, Node, Python).
-    - **Running:** How to start Backend/Frontend.
-    - **Testing:** Unit, Integration, E2E workflows (Platform & Tenant).
-    - **Debugging:** Common issues, logs, database access.
-    - **CLI Tools:** How to use the tenant CLI.
-    - **Architecture:** Deep dive into code structure.
+    - Setup, Running, Testing, Debugging, CLI Tools, Architecture
 
 ### 3. The Platform Admin Track (SaaS Owner)
 **File:** `docs/guides/platform-admin.md`
 - **Audience:** SaaS Operators, DevOps, Super Admins
 - **Purpose:** Managing the SaaS platform itself.
-- **Content:**
-    - **Setup:** Seeding the platform tenant.
-    - **Authentication:** Platform login flow.
-    - **Dashboard:** Using the Super Admin Console.
-    - **Tenant Management:** creating/suspending tenants.
-    - **Monitoring:** Audit logs, system stats.
 
 ### 4. The Tenant Admin Track (Customer)
-**File:** `docs/guides/tenant-admin.md`
-- **Audience:** Customer Administrators (The users of the SaaS)
-- **Purpose:** How to use the application.
-- **Content:**
-    - **Onboarding:** Activation flow.
-    - **User Management:** Inviting users, roles.
-    - **SSO Setup:** Configuring their IdP.
+**File:** `docs/guides/b2b-tenant-admin.md`
+- **Audience:** Customer Administrators (B2B SaaS users)
+- **Purpose:** How B2B tenants use the application.
 
 ### 5. The Product/Specification Track
-**File:** `docs/specifications/README.md`
+**Directory:** `docs/specifications/`
 - **Audience:** Product Managers, Developers, QA
 - **Purpose:** Detailed functional requirements and acceptance criteria.
+- **Structure:**
+    - `specifications/shared/` - Cross-product specs
+    - `specifications/b2b/` - B2B-specific specs
+    - `specifications/b2c/` - B2C-specific specs
+
+### 6. The Product Track
+**Directory:** `docs/products/`
+- **Audience:** Product Managers, New Team Members
+- **Purpose:** Per-product overview ("What does this product do?")
 - **Content:**
-    - **Specs:** Broken down by feature (e.g., Onboarding, RBAC).
-    - **Source of Truth:** Defines "How it should work" vs "How it is built".
+    - `products/b2b/README.md` - Enterprise multi-tenant features
+    - `products/b2c/README.md` - Personal workspace features
+    - `products/platform/README.md` - SaaS administration
+
+### 7. The Architecture Track
+**Directory:** `docs/architecture/`
+- **Audience:** Engineers, Architects
+- **Purpose:** Technical design and system documentation.
+- **Structure:**
+    - `architecture/shared/` - Cross-product architecture
+    - `architecture/b2b/` - B2B-specific architecture
+    - `architecture/b2c/` - B2C-specific architecture
 
 ## 🧹 Cleanup Actions
-- [x] Rename `docs/guides/admin-guide.md` -> `docs/guides/tenant-admin.md`
-- [x] Merge `docs/guides/admin-setup.md` into `docs/guides/tenant-admin.md`
-- [x] Simplify `README.md` to remove duplicate "How to" content.
-- [x] Ensure `docs/guides/development.md` is the **single source** for testing instructions.
-- [x] **Rename & Clarify RBAC:** `guides/rbac.md` -> `guides/rbac-concepts.md` & `architecture/rbac.md` -> `architecture/rbac-implementation.md`.
-- [x] **Consolidate Architecture Flows:** Flatten `docs/architecture/flows/` -> `docs/architecture/`.
-- [x] **Move Deployment:** `DEPLOYMENT.md` -> `docs/guides/deployment.md`.
-- [x] **Move Contributing:** `docs/guides/contributing.md` -> `CONTRIBUTING.md`.
+- [x] Create `docs/products/` with B2B, B2C, Platform READMEs
+- [x] Restructure `docs/architecture/` into shared/b2b/b2c
+- [x] Restructure `docs/specifications/` into shared/b2b/b2c
+- [x] Add product prefixes to guides (`b2b-tenant-admin.md`, `b2b-rbac-concepts.md`)
+- [x] Rename `testing/e2e-activation.md` → `testing/b2b-e2e-activation.md`
+- [ ] Add `docs/guides/mobile-development.md`
 
 ## 📏 Rules
 1. **Don't Duplicate:** If it's in `development.md`, link to it from `README.md`. Don't copy-paste.
-2. **Role-Based:** Ask "Who is reading this?" before creating a file.
-3. **Clean Root:** Only `README.md`, `LICENSE`, `CONTRIBUTING.md` in root. Move everything else to `docs/`.
+2. **Role-Based:** Ask "Who is reading this?" before creating a guide.
+3. **Product-Based:** Architecture and specs are organized by product (shared/b2b/b2c).
+4. **Clean Root:** Only `README.md`, `LICENSE`, `CONTRIBUTING.md` in root.
+5. **Prefixes:** Use product prefixes for product-specific files in flat directories.
+
