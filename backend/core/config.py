@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     redis_db: int = 0
     
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:8000,http://localhost:8001"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8000,http://localhost:8001"
     
     # Logging Configuration
     log_environment: str = "local"  # local, gcp, aws, production

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { auth } from '../firebase/config';
 
 function PlatformAdminRoute({ children }) {
@@ -93,12 +93,12 @@ function PlatformAdminRoute({ children }) {
     }
 
     if (!isAuthorized) {
-        // Redirect to platform login if not logged in, or dashboard if not authorized
-        return <Navigate to={auth.currentUser ? "/dashboard" : "/platform-login"} replace />;
+        // Redirect to platform login (use /login for standalone portal, /platform-login for combined app)
+        return <Navigate to="/login" replace />;
     }
 
-    return children;
+    // Support both nested routes (Outlet) and children pattern
+    return children ? children : <Outlet />;
 }
 
 export default PlatformAdminRoute;
-

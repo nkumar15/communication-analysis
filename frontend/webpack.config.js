@@ -3,10 +3,35 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const Dotenv = require('dotenv-webpack');
 
+/**
+ * Multi-Portal Webpack Configuration
+ * 
+ * Build specific portal:
+ *   PORTAL=b2b npm run build   (default)
+ *   PORTAL=b2c npm run build
+ *   PORTAL=platform npm run build
+ * 
+ * Development:
+ *   PORTAL=b2c npm start
+ */
+const PORTAL = process.env.PORTAL || 'b2b';
+
+const entryPoints = {
+    b2b: './src/index.js',
+    b2c: './src/b2c.js',
+    platform: './src/platform.js',
+};
+
+const titles = {
+    b2b: 'Enterprise SSO - B2B',
+    b2c: 'Personal Workspace',
+    platform: 'Platform Admin Console',
+};
+
 module.exports = {
-    entry: './src/index.js',
+    entry: entryPoints[PORTAL] || entryPoints.b2b,
     output: {
-        path: path.resolve(__dirname, 'dist'),
+        path: path.resolve(__dirname, `dist/${PORTAL}`),
         filename: 'bundle.[contenthash].js',
         publicPath: '/',
         clean: true
@@ -35,17 +60,21 @@ module.exports = {
     plugins: [
         new HtmlWebpackPlugin({
             template: './public/index.html',
-            favicon: false
+            favicon: false,
+            title: titles[PORTAL] || 'Enterprise SSO'
         }),
         new Dotenv({
             path: './.env',
             safe: false,
             systemvars: true,
             defaults: false
+        }),
+        new webpack.DefinePlugin({
+            'process.env.PORTAL': JSON.stringify(PORTAL)
         })
     ],
     devServer: {
-        port: 3000,
+        port: PORTAL === 'b2c' ? 3001 : PORTAL === 'platform' ? 3002 : 3000,
         hot: true,
         historyApiFallback: true,
         open: true
@@ -54,3 +83,4 @@ module.exports = {
         extensions: ['.js', '.jsx']
     }
 };
+

@@ -5,10 +5,17 @@
   "private": true,
   "scripts": {
     "start": "webpack serve --mode development --open",
+    "start:b2b": "PORTAL=b2b webpack serve --mode development --open",
+    "start:b2c": "PORTAL=b2c webpack serve --mode development --open",
+    "start:platform": "PORTAL=platform webpack serve --mode development --open",
     "build": "webpack --mode production",
+    "build:b2b": "PORTAL=b2b webpack --mode production",
+    "build:b2c": "PORTAL=b2c webpack --mode production",
+    "build:platform": "PORTAL=platform webpack --mode production",
+    "build:all": "npm run build:b2b && npm run build:b2c && npm run build:platform",
     "dev": "webpack serve --mode development",
-    "android": "cd mobile && npm run android",
-    "ios": "cd mobile && npm run ios"
+    "android": "cd mobile-b2b && npm run android",
+    "ios": "cd mobile-b2b && npm run ios"
   },
   "dependencies": {
     "react": "^18.2.0",

@@ -24,7 +24,6 @@ import TenantDetailsPage from './modules/platform/web/pages/TenantDetailsPage';
 import Dashboard from './modules/platform/web/pages/DashboardPage';
 import AnalyticsPage from './modules/platform/web/pages/AnalyticsPage';
 import SettingsPage from './modules/platform/web/pages/SettingsPage';
-import PlatformLogin from './modules/platform/web/pages/LoginPage';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
@@ -133,8 +132,6 @@ function App() {
                     <Route path="analytics" element={<AnalyticsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                 </Route>
-                {/* Platform Admin Login */}
-                <Route path="/platform-login" element={<PlatformLogin />} />
 
                 {/* Default redirect */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
