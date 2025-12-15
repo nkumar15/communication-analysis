@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -13,15 +13,69 @@ import {
 import auth from '@react-native-firebase/auth';
 import Config from 'react-native-config';
 
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
 /**
  * Login Screen Component (B2C)
- * Standard Email/Password flow with verification check
+ * Standard Email/Password flow + Google Sign-In
  */
 export default function LoginScreen({ onLoginSuccess, navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
+
+    useEffect(() => {
+        GoogleSignin.configure({
+            webClientId: Config.REACT_APP_GOOGLE_WEB_CLIENT_ID, // From .env
+        });
+    }, []);
+
+    const handleGoogleLogin = async () => {
+        try {
+            setLoading(true);
+            setStatus('Connecting to Google...');
+
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+            const { idToken } = await GoogleSignin.signIn();
+            const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+            setStatus('Signing in...');
+            const userCredential = await auth().signInWithCredential(googleCredential);
+            const user = userCredential.user;
+
+            // Sync with backend (same as email login)
+            setStatus('Syncing account...');
+            const firebaseIdToken = await user.getIdToken(true);
+            await syncWithBackend(firebaseIdToken, onLoginSuccess);
+
+        } catch (error) {
+            console.error('Google Sign-In Error:', error);
+            setLoading(false);
+            setStatus('');
+            if (error.code !== 'SIGN_IN_CANCELLED') {
+                Alert.alert('Google Sign-In Failed', error.message);
+            }
+        }
+    };
+
+    const syncWithBackend = async (idToken, callback) => {
+        const apiUrl = Config.REACT_APP_API_URL || 'http://10.0.2.2:8080';
+        const response = await fetch(`${apiUrl}/api/b2c/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_token: idToken }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Backend sync failed');
+        }
+
+        const userData = await response.json();
+        setStatus('Success!');
+        if (callback) callback(userData);
+    };
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -59,30 +113,10 @@ export default function LoginScreen({ onLoginSuccess, navigation }) {
                 return;
             }
 
-            // 3. Force Refresh Token (to get verified claim)
+            // 3. Force Refresh Token & Sync
             setStatus('Syncing account...');
             const idToken = await user.getIdToken(true);
-
-            // 4. Call Backend Login to Sync/Create User
-            // Note: In B2C, 'login' endpoint creates the user record if missing (on first login)
-            const apiUrl = Config.REACT_APP_API_URL || 'http://10.0.2.2:8080';
-            const response = await fetch(`${apiUrl}/api/b2c/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_token: idToken }),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Backend sync failed');
-            }
-
-            const userData = await response.json();
-
-            setStatus('Success!');
-            if (onLoginSuccess) {
-                onLoginSuccess(userData);
-            }
+            await syncWithBackend(idToken, onLoginSuccess);
 
         } catch (error) {
             console.error('❌ Login failed:', error);
@@ -150,6 +184,15 @@ export default function LoginScreen({ onLoginSuccess, navigation }) {
                     ) : (
                         <Text style={styles.buttonText}>Sign In</Text>
                     )}
+                </TouchableOpacity>
+
+                {/* Google Sign In */}
+                <TouchableOpacity
+                    style={[styles.googleButton, loading && styles.buttonDisabled]}
+                    onPress={handleGoogleLogin}
+                    disabled={loading}
+                >
+                    <Text style={styles.googleButtonText}>Sign in with Google</Text>
                 </TouchableOpacity>
 
                 {/* Footer */}
@@ -224,12 +267,31 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderRadius: 8,
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 16, // Reduced margin
         shadowColor: '#4F46E5',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
         elevation: 4,
+    },
+    googleButton: {
+        backgroundColor: '#FFF',
+        paddingVertical: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    googleButtonText: {
+        color: '#1F2937',
+        fontSize: 16,
+        fontWeight: '600',
     },
     buttonDisabled: {
         opacity: 0.6,
