@@ -39,6 +39,69 @@ services:
       - postgres
     command: uvicorn services.b2b.main:app --host 0.0.0.0 --port 9000 --reload
 
+  # B2B Worker - Celery Background Tasks
+  b2b-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: b2b
+    container_name: sso_b2b_worker
+    env_file:
+      - ./backend/.env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - EMAIL_PROVIDER=mailhog
+      - MAILHOG_HOST=mailhog
+    volumes:
+      - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A workers.b2b_worker.celery_app worker --loglevel=info
+
+  # B2C Worker - Celery Background Tasks for B2C
+  b2c-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: b2c
+    container_name: sso_b2c_worker
+    env_file:
+      - ./backend/.env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - EMAIL_PROVIDER=mailhog
+      - MAILHOG_HOST=mailhog
+    volumes:
+      - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A workers.b2c_worker.celery_app worker --loglevel=info
+
+  # B2C Beat - Celery Periodic Tasks Scheduler
+  b2c-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: b2c
+    container_name: sso_b2c_beat
+    env_file:
+      - ./backend/.env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A workers.b2c_worker.celery_app beat --loglevel=info
+
   # B2B Microservice - Tenant Management
   b2b-api:
     build:

@@ -50,6 +50,25 @@ class Settings(BaseSettings):
             return self.celery_result_backend
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
     
+    # Payment Provider Configuration
+    payment_provider: str = "stripe"  # 'stripe' | 'razorpay' | 'xendit'
+    
+    # Stripe
+    stripe_secret_key: Optional[str] = None
+    stripe_publishable_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
+    
+    # Stripe Price IDs (from Stripe Dashboard)
+    stripe_price_premium_monthly: Optional[str] = None
+    stripe_price_premium_yearly: Optional[str] = None
+    stripe_price_ultimate_monthly: Optional[str] = None
+    stripe_price_ultimate_yearly: Optional[str] = None
+    
+    # Future providers (not implemented yet)
+    razorpay_key_id: Optional[str] = None
+    razorpay_key_secret: Optional[str] = None
+    xendit_secret_key: Optional[str] = None
+    
     # CORS
     cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8000,http://localhost:8001"
     

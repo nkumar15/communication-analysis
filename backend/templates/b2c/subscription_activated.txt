@@ -1,0 +1,37 @@
+Subject: Welcome to {{ tier|capitalize }}!
+
+Hi {{ user_name }},
+
+Thank you for subscribing to {{ tier|capitalize }}!
+
+Subscription Details:
+- Workspace: {{ workspace_name }}
+- Plan: {{ tier|capitalize }} ({{ billing_interval }})
+- Amount: {{ amount }} {{ currency }}
+
+Your {{ tier|capitalize }} features are now active:
+{% if tier == 'premium' %}
+✓ Unlimited projects
+✓ Up to 3 team workspaces
+✓ 10 GB storage
+✓ Priority support
+✓ Custom branding
+✓ Data export
+{% elif tier == 'ultimate' %}
+✓ Unlimited everything
+✓ 100 GB storage
+✓ SSO (SAML/OIDC)
+✓ Advanced analytics
+✓ Audit logs
+✓ API access
+✓ Dedicated support
+{% endif %}
+
+Get Started:
+- [Go to Dashboard]({{ dashboard_url }})
+- [Manage Billing]({{ billing_url }})
+
+Thank you for your business!
+
+Best regards,
+The Team

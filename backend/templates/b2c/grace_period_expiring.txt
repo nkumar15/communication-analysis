@@ -1,0 +1,23 @@
+Subject: ⚠️ Payment Required - {{ days_remaining }} Days Remaining
+
+Hi {{ user_name }},
+
+URGENT: Your grace period for {{ workspace_name }} is expiring soon!
+
+Days remaining: {{ days_remaining }}
+
+If we don't receive payment within {{ days_remaining }} days:
+- Your workspace will be downgraded to the Free tier
+- You'll lose access to premium features
+- Team workspaces may be archived
+
+Update your payment method now:
+[Update Payment Method]({{ update_payment_url }})
+
+Need help?
+Contact {{ support_email }}
+
+This is an automated reminder. Your access will be restricted after the grace period expires.
+
+Best regards,
+The Team

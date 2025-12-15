@@ -1,4 +1,6 @@
 from sqlalchemy import Column, String, UUID, DateTime, text, Enum as SQLEnum, JSON
+from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 from core.models.base import Base, TimestampMixin
 import enum
 
@@ -22,3 +24,6 @@ class Workspace(Base, TimestampMixin):
     owner_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     subscription_tier = Column(String(50), default='free')
     settings = Column(JSON, default={})
+    
+    # Relationships
+    subscription = relationship("Subscription", back_populates="workspace", uselist=False)

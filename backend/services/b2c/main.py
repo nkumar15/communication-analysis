@@ -79,9 +79,10 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 
 # Include B2C routers
-from services.b2c.routers import auth, workspaces
+from services.b2c.routers import auth, workspaces, billing
 app.include_router(auth.router)
 app.include_router(workspaces.router)
+app.include_router(billing.router)
 
 
 
