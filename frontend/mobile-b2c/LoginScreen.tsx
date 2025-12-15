@@ -35,26 +35,48 @@ export default function LoginScreen({ onLoginSuccess, navigation }) {
         try {
             setLoading(true);
             setStatus('Connecting to Google...');
+            console.log('🔹 Starting Google Sign-In...');
 
             await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-            const { idToken } = await GoogleSignin.signIn();
+
+            console.log('🔹 Requesting User Info...');
+            // GoogleSignin v11+ returns { data: { idToken, user } } or similar structure depending on version
+            // For v10 it was { idToken, user }
+            // Let's log the raw response to debug
+            const response = await GoogleSignin.signIn();
+            console.log('🔹 Google Sign-In Response:', JSON.stringify(response));
+
+            const idToken = response.idToken || response.data?.idToken;
+
+            if (!idToken) {
+                console.error('❌ Missing ID Token in response');
+                throw new Error('Google Sign-In failed to return ID Token');
+            }
+
+            console.log('🔹 Creating Credential...');
             const googleCredential = auth.GoogleAuthProvider.credential(idToken);
 
             setStatus('Signing in...');
+            console.log('🔹 signingInWithCredential...');
             const userCredential = await auth().signInWithCredential(googleCredential);
             const user = userCredential.user;
 
             // Sync with backend (same as email login)
             setStatus('Syncing account...');
+            console.log('🔹 Syncing with backend...');
             const firebaseIdToken = await user.getIdToken(true);
             await syncWithBackend(firebaseIdToken, onLoginSuccess);
 
         } catch (error) {
-            console.error('Google Sign-In Error:', error);
+            console.error('❌ Google Sign-In Error Object:', error);
             setLoading(false);
             setStatus('');
-            if (error.code !== 'SIGN_IN_CANCELLED') {
-                Alert.alert('Google Sign-In Failed', error.message);
+
+            const errorCode = error?.code || 'UNKNOWN';
+            const errorMessage = error?.message || 'An unknown error occurred';
+
+            if (errorCode !== 'SIGN_IN_CANCELLED') {
+                Alert.alert('Google Sign-In Failed', `${errorMessage} (${errorCode})`);
             }
         }
     };
