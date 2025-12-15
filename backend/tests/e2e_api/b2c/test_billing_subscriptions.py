@@ -5,7 +5,7 @@ import pytest
 from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from services.b2c.models.subscription import Subscription
 
@@ -15,6 +15,10 @@ async def test_create_checkout_session(api_client: AsyncClient, b2c_billing_user
     """Test creating a Stripe checkout session"""
     
     with patch('services.b2c.services.subscription_service.PaymentProviderFactory.create', return_value=mock_stripe_provider), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_monthly', 'price_test_premium_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
          patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
@@ -41,6 +45,10 @@ async def test_create_checkout_with_coupon(api_client: AsyncClient, b2c_billing_
     """Test checkout with valid coupon code"""
     
     with patch('services.b2c.services.subscription_service.PaymentProviderFactory.create', return_value=mock_stripe_provider), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_monthly', 'price_test_premium_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
          patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
@@ -62,7 +70,9 @@ async def test_create_checkout_with_coupon(api_client: AsyncClient, b2c_billing_
 async def test_checkout_invalid_tier(api_client: AsyncClient, b2c_billing_user):
     """Test checkout rejects invalid tier"""
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('services.b2c.services.subscription_service.PaymentProviderFactory.create', return_value=AsyncMock()), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_monthly', 'price_test_premium_monthly'), \
+         patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/checkout",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -73,12 +83,13 @@ async def test_checkout_invalid_tier(api_client: AsyncClient, b2c_billing_user):
             }
         )
     
+    print(f"DEBUG: Status {response.status_code}, Body: {response.json()}")
     assert response.status_code == 400
 
 
 @pytest.mark.asyncio
 async def test_get_subscription_free_tier(api_client: AsyncClient, b2c_billing_user):
-    """Test getting subscription returns 404 for free tier"""
+    """Test getting subscription returns free tier info for user without subscription"""
     
     with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.get(
@@ -86,7 +97,11 @@ async def test_get_subscription_free_tier(api_client: AsyncClient, b2c_billing_u
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}
         )
     
-    assert response.status_code == 404
+    assert response.status_code == 200
+    data = response.json()
+    assert data["tier"] == "free"
+    assert data["status"] == "active"
+    assert data["amount_cents"] == 0
 
 
 @pytest.mark.asyncio
@@ -112,13 +127,18 @@ async def test_cancel_subscription_at_period_end(api_client: AsyncClient, b2c_bi
     """Test canceling subscription at period end"""
     
     with patch('services.b2c.services.subscription_service.PaymentProviderFactory.create', return_value=mock_stripe_provider), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_monthly', 'price_test_premium_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
          patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
-            f"/api/b2c/billing/subscription/cancel?workspace_id={b2c_billing_user['workspace'].id}&immediate=false",
+            f"/api/b2c/billing/cancel?workspace_id={b2c_billing_user['workspace'].id}&immediate=false",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}
         )
     
+    print(f"DEBUG CANCEL: Status {response.status_code}, Body: {response.json()}")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "active"  # Still active until period end
@@ -130,10 +150,14 @@ async def test_cancel_subscription_immediately(api_client: AsyncClient, b2c_bill
     """Test immediate subscription cancellation"""
     
     with patch('services.b2c.services.subscription_service.PaymentProviderFactory.create', return_value=mock_stripe_provider), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_monthly', 'price_test_premium_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
          patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
-            f"/api/b2c/billing/subscription/cancel?workspace_id={b2c_billing_user['workspace'].id}&immediate=true",
+            f"/api/b2c/billing/cancel?workspace_id={b2c_billing_user['workspace'].id}&immediate=true",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}
         )
     
@@ -147,6 +171,10 @@ async def test_customer_portal_session(api_client: AsyncClient, b2c_billing_user
     """Test creating customer portal session"""
     
     with patch('services.b2c.services.subscription_service.PaymentProviderFactory.create', return_value=mock_stripe_provider), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_monthly', 'price_test_premium_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
+         patch('services.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
          patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
@@ -192,10 +220,10 @@ async def test_download_invoice(api_client: AsyncClient, b2c_billing_user, premi
         currency="USD",
         status="paid",
         invoice_pdf_url="https://invoice.stripe.com/test.pdf",
-        invoice_date=datetime.now()
+        invoice_date=datetime.now(timezone.utc)
     )
     db_session.add(invoice)
-    await db_session.commit()
+    await db_session.flush()
     await db_session.refresh(invoice)
     
     with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):

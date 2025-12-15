@@ -17,6 +17,13 @@ from services.domains.projects.routers import projects, tasks, comments
 from services.platform.routers import platform, platform_b2b, platform_b2c
 from services.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces
 
+# B2C billing router requires stripe - import conditionally
+try:
+    from services.b2c.routers import billing as b2c_billing
+    HAS_B2C_BILLING = True
+except ImportError:
+    HAS_B2C_BILLING = False
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -67,6 +74,10 @@ app.include_router(platform_b2b.router)
 app.include_router(platform_b2c.router)
 app.include_router(b2c_auth.router)
 app.include_router(b2c_workspaces.router)
+
+# Include B2C billing router if stripe is available
+if HAS_B2C_BILLING:
+    app.include_router(b2c_billing.router)
 
 
 @app.get("/")

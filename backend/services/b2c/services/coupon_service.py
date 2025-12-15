@@ -1,18 +1,26 @@
 """
-Coupon Service
+Async Coupon Service
 
 Business logic for coupon validation, redemption, and discount calculation.
+Uses async SQLAlchemy patterns for compatibility with AsyncSession.
 """
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
-from typing import Optional, Dict, Any
-from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
+from typing import Optional, List, Union, Dict, Any
+from datetime import datetime, timezone
 import logging
 
 from services.b2c.models.subscription import Coupon, CouponRedemption, Subscription
 from services.b2c.models.user import B2CUser
 
 logger = logging.getLogger(__name__)
+
+
+def get_user_id(user: Union[B2CUser, Dict[str, Any]]) -> Any:
+    """Extract user ID from either a B2CUser object or a dict."""
+    if isinstance(user, dict):
+        return user.get('id')
+    return user.id
 
 
 # ============================================================================
@@ -55,18 +63,19 @@ class CouponNotApplicableError(CouponError):
 
 
 # ============================================================================
-# Coupon Service
+# Async Coupon Service
 # ============================================================================
 
 class CouponService:
     """
-    Service for managing coupons, discounts, and promotional offers.
+    Async service for managing coupons, discounts, and promotional offers.
+    All database operations use async SQLAlchemy patterns.
     """
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
-    def validate_coupon(
+    async def validate_coupon(
         self,
         code: str,
         user: B2CUser,
@@ -92,9 +101,10 @@ class CouponService:
             CouponNotApplicableError: Not applicable to tier
         """
         # Find coupon
-        coupon = self.db.query(Coupon).filter(
-            Coupon.code == code.upper()
-        ).first()
+        result = await self.db.execute(
+            select(Coupon).where(Coupon.code == code.upper())
+        )
+        coupon = result.scalar_one_or_none()
         
         if not coupon:
             raise CouponNotFoundError(f"Coupon code '{code}' not found")
@@ -104,7 +114,7 @@ class CouponService:
             raise CouponInactiveError(f"Coupon '{code}' is not active")
         
         # Check expiry
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         if coupon.valid_from and now < coupon.valid_from:
             raise CouponExpiredError(f"Coupon '{code}' is not yet valid")
         
@@ -117,12 +127,16 @@ class CouponService:
                 raise CouponMaxRedemptionsError(f"Coupon '{code}' has reached maximum redemptions")
         
         # Check if user already redeemed
-        existing_redemption = self.db.query(CouponRedemption).filter(
-            and_(
-                CouponRedemption.coupon_id == coupon.id,
-                CouponRedemption.user_id == user.id
+        user_id = get_user_id(user)
+        result = await self.db.execute(
+            select(CouponRedemption).where(
+                and_(
+                    CouponRedemption.coupon_id == coupon.id,
+                    CouponRedemption.user_id == user_id
+                )
             )
-        ).first()
+        )
+        existing_redemption = result.scalar_one_or_none()
         
         if existing_redemption:
             raise CouponAlreadyRedeemedError(f"You have already used coupon '{code}'")
@@ -157,9 +171,8 @@ class CouponService:
         if coupon.discount_type == 'percentage':
             discount_cents = int((amount_cents * coupon.discount_percent) / 100)
         elif coupon.discount_type == 'fixed_amount':
-            # Only apply if currency matches
-            if coupon.currency.upper() == currency.upper():
-                discount_cents = coupon.discount_amount_cents
+            if coupon.currency and coupon.currency.upper() == currency.upper():
+                discount_cents = coupon.discount_amount_cents or 0
             else:
                 logger.warning(
                     f"Coupon currency mismatch: {coupon.currency} vs {currency}"
@@ -168,10 +181,9 @@ class CouponService:
         else:
             discount_cents = 0
         
-        # Ensure discount doesn't exceed total
         return min(discount_cents, amount_cents)
     
-    def redeem_coupon(
+    async def redeem_coupon(
         self,
         coupon: Coupon,
         user: B2CUser,
@@ -191,9 +203,10 @@ class CouponService:
             CouponRedemption object
         """
         # Create redemption record
+        user_id = get_user_id(user)
         redemption = CouponRedemption(
             coupon_id=coupon.id,
-            user_id=user.id,
+            user_id=user_id,
             subscription_id=subscription.id,
             discount_amount_cents=discount_amount_cents
         )
@@ -202,26 +215,22 @@ class CouponService:
         # Increment times_redeemed
         coupon.times_redeemed += 1
         
-        self.db.commit()
-        self.db.refresh(redemption)
+        await self.db.flush()
         
         logger.info(
-            f"Coupon redeemed: {coupon.code} by user {user.id}, "
+            f"Coupon redeemed: {coupon.code} by user {user_id}, "
             f"discount: {discount_amount_cents/100:.2f} {subscription.currency}"
         )
         
         return redemption
     
-    def get_available_coupons(
+    async def get_available_coupons(
         self,
         tier: Optional[str] = None,
         limit: int = 10
-    ) -> list[Coupon]:
+    ) -> List[Coupon]:
         """
         Get list of active promotional coupons.
-        
-        Note: In production, you might want to limit this to specific
-        promotional campaigns rather than exposing all active coupons.
         
         Args:
             tier: Filter by applicable tier
@@ -230,38 +239,28 @@ class CouponService:
         Returns:
             List of active coupons
         """
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         
-        query = self.db.query(Coupon).filter(
-            Coupon.is_active == True,
-            Coupon.valid_from <= now
-        )
-        
-        # Filter by expiry
-        query = query.filter(
+        # Build base query
+        stmt = select(Coupon).where(
+            Coupon.is_active == True
+        ).where(
+            (Coupon.valid_from.is_(None)) | (Coupon.valid_from <= now)
+        ).where(
             (Coupon.valid_until.is_(None)) | (Coupon.valid_until > now)
-        )
-        
-        # Filter by tier if specified
-        if tier:
-            query = query.filter(
-                (Coupon.applicable_tiers.is_(None)) | 
-                (Coupon.applicable_tiers.contains([tier]))
-            )
-        
-        # Filter by redemptions
-        query = query.filter(
+        ).where(
             (Coupon.max_redemptions.is_(None)) |
             (Coupon.times_redeemed < Coupon.max_redemptions)
-        )
+        ).limit(limit)
         
-        return query.limit(limit).all()
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
     
-    def get_user_redemptions(
+    async def get_user_redemptions(
         self,
         user: B2CUser,
         limit: int = 10
-    ) -> list[CouponRedemption]:
+    ) -> List[CouponRedemption]:
         """
         Get coupon redemptions for a user.
         
@@ -272,13 +271,22 @@ class CouponService:
         Returns:
             List of CouponRedemption objects
         """
-        return self.db.query(CouponRedemption).filter(
-            CouponRedemption.user_id == user.id
-        ).order_by(
-            CouponRedemption.redeemed_at.desc()
-        ).limit(limit).all()
+        result = await self.db.execute(
+            select(CouponRedemption)
+            .where(CouponRedemption.user_id == get_user_id(user))
+            .order_by(CouponRedemption.redeemed_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
     
-    def create_coupon(
+    async def get_coupon_by_id(self, coupon_id) -> Optional[Coupon]:
+        """Get coupon by ID."""
+        result = await self.db.execute(
+            select(Coupon).where(Coupon.id == coupon_id)
+        )
+        return result.scalar_one_or_none()
+    
+    async def create_coupon(
         self,
         code: str,
         discount_type: str,
@@ -287,25 +295,11 @@ class CouponService:
         currency: str = 'USD',
         max_redemptions: Optional[int] = None,
         valid_until: Optional[datetime] = None,
-        applicable_tiers: Optional[list[str]] = None,
+        applicable_tiers: Optional[List[str]] = None,
         description: Optional[str] = None
     ) -> Coupon:
         """
         Create a new coupon (admin function).
-        
-        Args:
-            code: Unique coupon code
-            discount_type: 'percentage' or 'fixed_amount'
-            discount_percent: Discount percentage (0-100)
-            discount_amount_cents: Fixed discount amount in cents
-            currency: Currency for fixed amount
-            max_redemptions: Maximum number of redemptions
-            valid_until: Expiry date
-            applicable_tiers: List of applicable tiers
-            description: Coupon description
-            
-        Returns:
-            Created Coupon object
         """
         if discount_type == 'percentage' and discount_percent is None:
             raise ValueError("discount_percent required for percentage discount")
@@ -326,31 +320,26 @@ class CouponService:
         )
         
         self.db.add(coupon)
-        self.db.commit()
-        self.db.refresh(coupon)
+        await self.db.flush()
         
         logger.info(f"Coupon created: {coupon.code}")
         
         return coupon
     
-    def deactivate_coupon(self, coupon_id: str) -> Coupon:
+    async def deactivate_coupon(self, coupon_id: str) -> Coupon:
         """
         Deactivate a coupon (admin function).
-        
-        Args:
-            coupon_id: Coupon ID to deactivate
-            
-        Returns:
-            Updated Coupon object
         """
-        coupon = self.db.query(Coupon).filter(Coupon.id == coupon_id).first()
+        result = await self.db.execute(
+            select(Coupon).where(Coupon.id == coupon_id)
+        )
+        coupon = result.scalar_one_or_none()
         
         if not coupon:
             raise CouponNotFoundError(f"Coupon {coupon_id} not found")
         
         coupon.is_active = False
-        self.db.commit()
-        self.db.refresh(coupon)
+        await self.db.flush()
         
         logger.info(f"Coupon deactivated: {coupon.code}")
         

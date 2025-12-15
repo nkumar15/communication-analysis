@@ -2,10 +2,12 @@
 Billing API Router
 
 Endpoints for subscription checkout, management, and invoice retrieval.
+Uses async SQLAlchemy patterns for compatibility with AsyncSession.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import Optional
 import logging
 
@@ -13,11 +15,28 @@ from core.database import get_db
 from services.b2c.middleware.b2c_auth import get_current_b2c_user
 from services.b2c.models.user import B2CUser
 from services.b2c.models.workspace import Workspace
+from services.b2c.models.subscription import Subscription, Invoice
 from services.b2c.services.subscription_service import SubscriptionService
-from services.b2c.services.coupon_service import CouponService, CouponError
+from services.b2c.services.coupon_service import (
+    CouponService,
+    CouponError,
+    CouponNotFoundError,
+    CouponExpiredError,
+    CouponAlreadyRedeemedError,
+    CouponMaxRedemptionsError,
+    CouponNotApplicableError
+)
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+def get_user_id(user) -> str:
+    """Extract user ID from either a dict or object."""
+    if isinstance(user, dict):
+        return user.get('id')
+    return user.id
+
 
 router = APIRouter(prefix="/api/b2c/billing", tags=["B2C Billing"])
 
@@ -62,27 +81,27 @@ class PortalResponse(BaseModel):
 
 
 # ============================================================================
-# Endpoints
+# Subscription Endpoints
 # ============================================================================
 
 @router.post("/checkout", response_model=CheckoutResponse)
 async def create_checkout_session(
     request: CheckoutRequest,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Create a Stripe Checkout session for subscription purchase.
-    
-    The user will be redirected to Stripe's hosted checkout page.
-    After payment, Stripe webhook will activate the subscription.
     """
     try:
         # Get workspace
-        workspace = db.query(Workspace).filter(
-            Workspace.id == request.workspace_id,
-            Workspace.owner_id == current_user.id
-        ).first()
+        result = await db.execute(
+            select(Workspace).where(
+                Workspace.id == request.workspace_id,
+                Workspace.owner_id == get_user_id(current_user)
+            )
+        )
+        workspace = result.scalar_one_or_none()
         
         if not workspace:
             raise HTTPException(status_code=404, detail="Workspace not found or access denied")
@@ -108,6 +127,8 @@ async def create_checkout_session(
         
         return CheckoutResponse(**result)
         
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -119,16 +140,19 @@ async def create_checkout_session(
 async def get_subscription(
     workspace_id: str,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get current subscription for a workspace.
     """
     # Get workspace
-    workspace = db.query(Workspace).filter(
-        Workspace.id == workspace_id,
-        Workspace.owner_id == current_user.id
-    ).first()
+    result = await db.execute(
+        select(Workspace).where(
+            Workspace.id == workspace_id,
+            Workspace.owner_id == get_user_id(current_user)
+        )
+    )
+    workspace = result.scalar_one_or_none()
     
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found or access denied")
@@ -138,45 +162,57 @@ async def get_subscription(
     subscription = await service.get_subscription(workspace)
     
     if not subscription:
-        raise HTTPException(status_code=404, detail="No subscription found")
+        # Return free tier info
+        return SubscriptionResponse(
+            id="free",
+            workspace_id=workspace_id,
+            tier="free",
+            billing_interval="none",
+            status="active",
+            current_period_start=None,
+            current_period_end=None,
+            cancel_at_period_end=False,
+            amount_cents=0,
+            currency="USD"
+        )
     
     return SubscriptionResponse(
         id=str(subscription.id),
         workspace_id=str(subscription.workspace_id),
         tier=subscription.tier,
-        billing_interval=subscription.billing_interval,
+        billing_interval=subscription.billing_interval or "monthly",
         status=subscription.status,
         current_period_start=subscription.current_period_start.isoformat() if subscription.current_period_start else None,
         current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None,
-        cancel_at_period_end=subscription.cancel_at_period_end,
-        amount_cents=subscription.amount_cents,
-        currency=subscription.currency
+        cancel_at_period_end=subscription.cancel_at_period_end or False,
+        amount_cents=subscription.amount_cents or 0,
+        currency=subscription.currency or "USD"
     )
 
 
-@router.post("/subscription/cancel")
+@router.post("/cancel")
 async def cancel_subscription(
     workspace_id: str,
     immediate: bool = False,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Cancel a subscription.
-    
-    By default, cancels at the end of the billing period.
-    Set immediate=true to cancel immediately.
     """
-    # Get workspace
-    workspace = db.query(Workspace).filter(
-        Workspace.id == workspace_id,
-        Workspace.owner_id == current_user.id
-    ).first()
-    
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found or access denied")
-    
     try:
+        # Get workspace
+        result = await db.execute(
+            select(Workspace).where(
+                Workspace.id == workspace_id,
+                Workspace.owner_id == get_user_id(current_user)
+            )
+        )
+        workspace = result.scalar_one_or_none()
+        
+        if not workspace:
+            raise HTTPException(status_code=404, detail="Workspace not found or access denied")
+        
         service = SubscriptionService(db)
         subscription = await service.cancel_subscription(workspace, immediate=immediate)
         
@@ -184,14 +220,15 @@ async def cancel_subscription(
             "success": True,
             "subscription_id": str(subscription.id),
             "status": subscription.status,
-            "cancel_at_period_end": subscription.cancel_at_period_end,
-            "message": "Subscription will be canceled at period end" if not immediate else "Subscription canceled immediately"
+            "cancel_at_period_end": subscription.cancel_at_period_end
         }
         
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error canceling subscription: {str(e)}")
+        logger.error(f"Error cancelling subscription: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to cancel subscription")
 
 
@@ -199,12 +236,10 @@ async def cancel_subscription(
 async def create_portal_session(
     request: PortalRequest,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Create a Stripe Customer Portal session for self-service billing.
-    
-    Users can manage payment methods, view invoices, and update subscriptions.
     """
     try:
         service = SubscriptionService(db)
@@ -220,22 +255,26 @@ async def create_portal_session(
         raise HTTPException(status_code=500, detail="Failed to create portal session")
 
 
+# ============================================================================
+# Invoice Endpoints
+# ============================================================================
+
 @router.get("/invoices")
 async def list_invoices(
     limit: int = 10,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     List invoices for the current user.
     """
-    from services.b2c.models.subscription import Invoice
-    
-    invoices = db.query(Invoice).filter(
-        Invoice.user_id == current_user.id
-    ).order_by(
-        Invoice.created_at.desc()
-    ).limit(limit).all()
+    result = await db.execute(
+        select(Invoice)
+        .where(Invoice.user_id == get_user_id(current_user))
+        .order_by(Invoice.created_at.desc())
+        .limit(limit)
+    )
+    invoices = result.scalars().all()
     
     return {
         "invoices": [
@@ -259,17 +298,18 @@ async def list_invoices(
 async def get_invoice(
     invoice_id: str,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get details of a specific invoice.
     """
-    from backend.services.b2c.models.subscription import Invoice
-    
-    invoice = db.query(Invoice).filter(
-        Invoice.id == invoice_id,
-        Invoice.user_id == current_user.id
-    ).first()
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.id == invoice_id,
+            Invoice.user_id == get_user_id(current_user)
+        )
+    )
+    invoice = result.scalar_one_or_none()
     
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -294,20 +334,18 @@ async def get_invoice(
 async def download_invoice(
     invoice_id: str,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Download invoice PDF.
-    
-    Redirects to Stripe's hosted invoice PDF URL.
     """
-    from services.b2c.models.subscription import Invoice
-    from fastapi.responses import RedirectResponse
-    
-    invoice = db.query(Invoice).filter(
-        Invoice.id == invoice_id,
-        Invoice.user_id == current_user.id
-    ).first()
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.id == invoice_id,
+            Invoice.user_id == get_user_id(current_user)
+        )
+    )
+    invoice = result.scalar_one_or_none()
     
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -315,7 +353,6 @@ async def download_invoice(
     if not invoice.invoice_pdf_url:
         raise HTTPException(status_code=404, detail="Invoice PDF not available")
     
-    # Redirect to Stripe's hosted PDF
     return RedirectResponse(url=invoice.invoice_pdf_url)
 
 
@@ -327,111 +364,48 @@ async def download_invoice(
 async def stripe_webhook(
     request: Request,
     stripe_signature: str = Header(None, alias="stripe-signature"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Handle Stripe webhook events.
-    
-    This endpoint processes subscription lifecycle events:
-    - checkout.session.completed: Activate subscription
-    - customer.subscription.updated: Sync subscription changes
-    - customer.subscription.deleted: Handle cancellation
-    - invoice.payment_succeeded: Record invoice
-    - invoice.payment_failed: Handle failed payment
     """
-    if not stripe_signature:
-        raise HTTPException(status_code=400, detail="Missing stripe-signature header")
+    import stripe
+    from core.config import settings
+    
+    payload = await request.body()
     
     try:
-        # Get raw body
-        payload = await request.body()
-        
-        # Verify webhook signature
-        service = SubscriptionService(db)
-        event_data = await service.provider.verify_webhook(
-            payload=payload,
-            signature=stripe_signature
+        event = stripe.Webhook.construct_event(
+            payload, stripe_signature, settings.stripe_webhook_secret
         )
-        
-        event_type = event_data['event_type']
-        data = event_data['data']
-        
-        logger.info(f"Processing Stripe webhook: {event_type}")
-        
-        # Handle different event types
-        if event_type == 'checkout.session.completed':
-            # Activate subscription after successful checkout
-            subscription = await service.handle_checkout_completed(data)
-            logger.info(f"Subscription activated: {subscription.id}")
-            
-            # Queue welcome email
-            from workers.b2c_worker.tasks import send_subscription_activated_email
-            send_subscription_activated_email.delay(
-                user_id=str(subscription.user_id),
-                workspace_id=str(subscription.workspace_id)
-            )
-            
-        elif event_type == 'customer.subscription.updated':
-            # Sync subscription updates
-            subscription = await service.handle_subscription_updated(data)
-            if subscription:
-                logger.info(f"Subscription updated: {subscription.id}")
-            
-        elif event_type == 'customer.subscription.deleted':
-            # Handle subscription deletion - auto downgrade
-            subscription = await service.handle_subscription_updated(data)
-            if subscription:
-                logger.info(f"Subscription deleted: {subscription.id}")
-                
-                # Queue downgrade task
-                from workers.b2c_worker.tasks import downgrade_workspace_to_free
-                downgrade_workspace_to_free.delay(
-                    workspace_id=str(subscription.workspace_id),
-                    reason="subscription_canceled"
-                )
-            
-        elif event_type == 'invoice.payment_succeeded':
-            # Record successful invoice payment
-            invoice = await service.sync_invoice(data)
-            logger.info(f"Invoice payment succeeded: {invoice.id}")
-            
-            # Queue receipt email
-            if invoice.user_id:
-                from workers.b2c_worker.tasks import send_invoice_payment_succeeded_email
-                send_invoice_payment_succeeded_email.delay(
-                    user_id=str(invoice.user_id),
-                    invoice_id=str(invoice.id)
-                )
-            
-        elif event_type == 'invoice.payment_failed':
-            # Record failed invoice payment
-            invoice = await service.sync_invoice(data)
-            logger.warning(f"Invoice payment failed: {invoice.id}")
-            
-            # Queue payment failure notification
-            if invoice.subscription_id:
-                from services.b2c.models.subscription import Subscription
-                subscription = db.query(Subscription).filter(
-                    Subscription.id == invoice.subscription_id
-                ).first()
-                
-                if subscription:
-                    from workers.b2c_worker.tasks import send_payment_failure_email
-                    send_payment_failure_email.delay(
-                        user_id=str(subscription.user_id),
-                        workspace_id=str(subscription.workspace_id),
-                        grace_period_days=7
-                    )
-        
-        else:
-            logger.info(f"Unhandled webhook event: {event_type}")
-        
-        return JSONResponse(content={"status": "success"})
-        
     except ValueError as e:
-        # Signature verification failed
-        logger.error(f"Webhook signature verification failed: {str(e)}")
+        logger.error(f"Invalid webhook payload: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Invalid webhook signature: {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    event_type = event['type']
+    event_data = event['data']['object']
+    
+    logger.info(f"Received Stripe webhook: {event_type}")
+    
+    service = SubscriptionService(db)
+    
+    try:
+        if event_type == 'checkout.session.completed':
+            await service.handle_checkout_completed(event_data)
+            
+        elif event_type in ['customer.subscription.updated', 'customer.subscription.deleted']:
+            await service.handle_subscription_updated(event_data)
+            
+        elif event_type in ['invoice.paid', 'invoice.payment_failed']:
+            await service.sync_invoice(event_data)
+            
+        else:
+            logger.debug(f"Unhandled webhook event: {event_type}")
+        
+        return JSONResponse(content={"received": True})
         
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
@@ -454,7 +428,7 @@ class ValidateCouponResponse(BaseModel):
     discount_percent: Optional[int]
     discount_amount_cents: Optional[int]
     currency: str
-    applicable_tiers: Optional[list[str]]
+    applicable_tiers: Optional[list]
     description: Optional[str]
 
 
@@ -462,16 +436,14 @@ class ValidateCouponResponse(BaseModel):
 async def validate_coupon(
     request: ValidateCouponRequest,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Validate a coupon code.
-    
-    Checks if coupon exists, is active, not expired, and applicable to tier.
     """
     try:
         coupon_service = CouponService(db)
-        coupon = coupon_service.validate_coupon(
+        coupon = await coupon_service.validate_coupon(
             code=request.code,
             user=current_user,
             tier=request.tier
@@ -483,7 +455,7 @@ async def validate_coupon(
             discount_type=coupon.discount_type,
             discount_percent=coupon.discount_percent,
             discount_amount_cents=coupon.discount_amount_cents,
-            currency=coupon.currency,
+            currency=coupon.currency or "USD",
             applicable_tiers=coupon.applicable_tiers,
             description=coupon.description
         )
@@ -500,15 +472,13 @@ async def get_available_coupons(
     tier: Optional[str] = None,
     limit: int = 10,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get list of available promotional coupons.
-    
-    Note: In production, you might want to limit this to specific campaigns.
     """
     coupon_service = CouponService(db)
-    coupons = coupon_service.get_available_coupons(tier=tier, limit=limit)
+    coupons = await coupon_service.get_available_coupons(tier=tier, limit=limit)
     
     return {
         "coupons": [
@@ -531,23 +501,21 @@ async def get_available_coupons(
 async def get_my_redemptions(
     limit: int = 10,
     current_user: B2CUser = Depends(get_current_b2c_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get user's coupon redemption history.
     """
-    from services.b2c.models.subscription import Coupon
-    
     coupon_service = CouponService(db)
-    redemptions = coupon_service.get_user_redemptions(current_user, limit=limit)
+    redemptions = await coupon_service.get_user_redemptions(current_user, limit=limit)
     
-    return {
-        "redemptions": [
-            {
-                "coupon_code": db.query(Coupon).filter(Coupon.id == r.coupon_id).first().code,
-                "discount_amount_cents": r.discount_amount_cents,
-                "redeemed_at": r.redeemed_at.isoformat()
-            }
-            for r in redemptions
-        ]
-    }
+    result = []
+    for r in redemptions:
+        coupon = await coupon_service.get_coupon_by_id(r.coupon_id)
+        result.append({
+            "coupon_code": coupon.code if coupon else "Unknown",
+            "discount_amount_cents": r.discount_amount_cents,
+            "redeemed_at": r.redeemed_at.isoformat()
+        })
+    
+    return {"redemptions": result}

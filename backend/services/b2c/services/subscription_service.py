@@ -1,10 +1,12 @@
 """
-Subscription Service
+Async Subscription Service
 
 Business logic for subscription management, checkout, and billing.
+Uses async SQLAlchemy patterns for compatibility with AsyncSession.
 """
-from sqlalchemy.orm import Session
-from typing import Optional, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from typing import Optional, Dict, Any, Union
 from datetime import datetime
 import logging
 
@@ -17,12 +19,34 @@ from services.b2c.models.workspace import Workspace
 logger = logging.getLogger(__name__)
 
 
+def get_user_id(user: Union[B2CUser, Dict[str, Any]]) -> Any:
+    """Extract user ID from either a B2CUser object or a dict."""
+    if isinstance(user, dict):
+        return user.get('id')
+    return user.id
+
+
+def get_user_email(user: Union[B2CUser, Dict[str, Any]]) -> str:
+    """Extract user email from either a B2CUser object or a dict."""
+    if isinstance(user, dict):
+        return user.get('email', '')
+    return user.email or ''
+
+
+def get_user_display_name(user: Union[B2CUser, Dict[str, Any]]) -> str:
+    """Extract user display name from either a B2CUser object or a dict."""
+    if isinstance(user, dict):
+        return user.get('display_name', '')
+    return user.display_name or ''
+
+
 class SubscriptionService:
     """
-    Service for managing B2C subscriptions and billing.
+    Async service for managing B2C subscriptions and billing.
+    All database operations use async SQLAlchemy patterns.
     """
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         
         # Initialize payment provider
@@ -42,31 +66,31 @@ class SubscriptionService:
             ('ultimate', 'yearly'): settings.stripe_price_ultimate_yearly,
         }
     
-    async def get_or_create_customer(self, user: B2CUser) -> str:
+    async def get_or_create_customer(self, user) -> str:
         """
         Get existing Stripe customer ID or create a new customer.
-        
-        Args:
-            user: B2C user object
-            
-        Returns:
-            Provider customer ID
         """
+        user_id = get_user_id(user)
+        
         # Check if user already has a subscription with customer ID
-        subscription = self.db.query(Subscription).filter(
-            Subscription.user_id == user.id
-        ).first()
+        result = await self.db.execute(
+            select(Subscription).where(Subscription.user_id == user_id)
+        )
+        subscription = result.scalar_one_or_none()
         
         if subscription and subscription.provider_customer_id:
             return subscription.provider_customer_id
         
         # Create new customer
-        logger.info(f"Creating new Stripe customer for user {user.id}")
+        user_email = get_user_email(user)
+        user_display_name = get_user_display_name(user)
+        
+        logger.info(f"Creating new Stripe customer for user {user_id}")
         result = await self.provider.create_customer(
-            user_id=str(user.id),
-            email=user.email,
-            name=user.display_name,
-            metadata={'user_id': str(user.id)}
+            user_id=str(user_id),
+            email=user_email,
+            name=user_display_name,
+            metadata={'user_id': str(user_id)}
         )
         
         provider_customer_id = result['provider_customer_id']
@@ -74,13 +98,13 @@ class SubscriptionService:
         # Update subscription with customer ID if exists
         if subscription:
             subscription.provider_customer_id = provider_customer_id
-            self.db.commit()
+            await self.db.flush()
         
         return provider_customer_id
     
     async def create_checkout_session(
         self,
-        user: B2CUser,
+        user,
         workspace: Workspace,
         tier: str,
         billing_interval: str = 'monthly',
@@ -90,21 +114,6 @@ class SubscriptionService:
     ) -> Dict[str, Any]:
         """
         Create a Stripe Checkout session for subscription purchase.
-        
-        Args:
-            user: B2C user
-            workspace: Workspace to subscribe
-            tier: 'premium' or 'ultimate'
-            billing_interval: 'monthly' or 'yearly'
-            coupon_code: Optional coupon code for discount
-            success_url: URL to redirect after successful payment
-            cancel_url: URL to redirect if payment cancelled
-            
-        Returns:
-            {
-                'checkout_session_id': str,
-                'checkout_url': str
-            }
         """
         if tier not in ['premium', 'ultimate']:
             raise ValueError(f"Invalid tier: {tier}")
@@ -127,10 +136,11 @@ class SubscriptionService:
             cancel_url = f"{settings.frontend_url}/pricing"
         
         # Create checkout session
-        logger.info(f"Creating checkout session for user {user.id}, tier {tier}")
+        user_id = get_user_id(user)
+        logger.info(f"Creating checkout session for user {user_id}, tier {tier}")
         
         metadata = {
-            'user_id': str(user.id),
+            'user_id': str(user_id),
             'workspace_id': str(workspace.id),
             'tier': tier,
             'billing_interval': billing_interval
@@ -142,7 +152,7 @@ class SubscriptionService:
             coupon_service = CouponService(self.db)
             
             try:
-                coupon = coupon_service.validate_coupon(
+                coupon = await coupon_service.validate_coupon(
                     code=coupon_code,
                     user=user,
                     tier=tier
@@ -151,7 +161,6 @@ class SubscriptionService:
                 logger.info(f"Coupon validated: {coupon.code}")
             except Exception as e:
                 logger.warning(f"Coupon validation failed: {str(e)}")
-                # Don't fail checkout if coupon is invalid, just proceed without it
         
         result = await self.provider.create_checkout_session(
             customer_id=customer_id,
@@ -169,12 +178,6 @@ class SubscriptionService:
     async def handle_checkout_completed(self, session_data: Dict[str, Any]) -> Subscription:
         """
         Process successful checkout (called from webhook).
-        
-        Args:
-            session_data: Stripe checkout.session.completed event data
-            
-        Returns:
-            Updated Subscription object
         """
         metadata = session_data.get('metadata', {})
         user_id = metadata.get('user_id')
@@ -189,9 +192,10 @@ class SubscriptionService:
         subscription_data = await self.provider.get_subscription(provider_subscription_id)
         
         # Update or create subscription
-        subscription = self.db.query(Subscription).filter(
-            Subscription.workspace_id == workspace_id
-        ).first()
+        result = await self.db.execute(
+            select(Subscription).where(Subscription.workspace_id == workspace_id)
+        )
+        subscription = result.scalar_one_or_none()
         
         if not subscription:
             subscription = Subscription(
@@ -213,28 +217,24 @@ class SubscriptionService:
         subscription.amount_cents = subscription_data['items']['data'][0]['price']['unit_amount']
         subscription.currency = subscription_data['items']['data'][0]['price']['currency'].upper()
         
-        self.db.commit()
-        self.db.refresh(subscription)
+        await self.db.flush()
         
         logger.info(f"Subscription activated: {subscription.id} (tier: {tier})")
         
         return subscription
     
-    async def handle_subscription_updated(self, subscription_data: Dict[str, Any]) -> Subscription:
+    async def handle_subscription_updated(self, subscription_data: Dict[str, Any]) -> Optional[Subscription]:
         """
         Sync subscription updates from provider (called from webhook).
-        
-        Args:
-            subscription_data: Stripe subscription.updated event data
-            
-        Returns:
-            Updated Subscription object
         """
         provider_subscription_id = subscription_data['id']
         
-        subscription = self.db.query(Subscription).filter(
-            Subscription.provider_subscription_id == provider_subscription_id
-        ).first()
+        result = await self.db.execute(
+            select(Subscription).where(
+                Subscription.provider_subscription_id == provider_subscription_id
+            )
+        )
+        subscription = result.scalar_one_or_none()
         
         if not subscription:
             logger.warning(f"Subscription not found: {provider_subscription_id}")
@@ -249,27 +249,24 @@ class SubscriptionService:
         if subscription_data.get('canceled_at'):
             subscription.canceled_at = datetime.fromtimestamp(subscription_data['canceled_at'])
         
-        self.db.commit()
-        self.db.refresh(subscription)
+        await self.db.flush()
         
         logger.info(f"Subscription updated: {subscription.id} (status: {subscription.status})")
         
         return subscription
     
-    async def cancel_subscription(self, workspace: Workspace, immediate: bool = False) -> Subscription:
+    async def cancel_subscription(
+        self, 
+        workspace: Workspace, 
+        immediate: bool = False
+    ) -> Subscription:
         """
         Cancel a subscription.
-        
-        Args:
-            workspace: Workspace with subscription
-            immediate: If True, cancel immediately. If False, cancel at period end.
-            
-        Returns:
-            Updated Subscription object
         """
-        subscription = self.db.query(Subscription).filter(
-            Subscription.workspace_id == workspace.id
-        ).first()
+        result = await self.db.execute(
+            select(Subscription).where(Subscription.workspace_id == workspace.id)
+        )
+        subscription = result.scalar_one_or_none()
         
         if not subscription or not subscription.provider_subscription_id:
             raise ValueError("No active subscription found")
@@ -288,35 +285,26 @@ class SubscriptionService:
         if result.get('canceled_at'):
             subscription.canceled_at = result['canceled_at']
         
-        self.db.commit()
-        self.db.refresh(subscription)
+        await self.db.flush()
         
         return subscription
     
     async def get_subscription(self, workspace: Workspace) -> Optional[Subscription]:
         """
         Get subscription for a workspace.
-        
-        Args:
-            workspace: Workspace
-            
-        Returns:
-            Subscription or None
         """
-        return self.db.query(Subscription).filter(
-            Subscription.workspace_id == workspace.id
-        ).first()
+        result = await self.db.execute(
+            select(Subscription).where(Subscription.workspace_id == workspace.id)
+        )
+        return result.scalar_one_or_none()
     
-    async def create_customer_portal_session(self, user: B2CUser, return_url: str) -> str:
+    async def create_customer_portal_session(
+        self, 
+        user, 
+        return_url: str
+    ) -> str:
         """
         Create Stripe Customer Portal session for self-service.
-        
-        Args:
-            user: B2C user
-            return_url: URL to return to after portal session
-            
-        Returns:
-            Portal URL
         """
         customer_id = await self.get_or_create_customer(user)
         
@@ -330,26 +318,24 @@ class SubscriptionService:
     async def sync_invoice(self, invoice_data: Dict[str, Any]) -> Invoice:
         """
         Sync invoice from provider to database.
-        
-        Args:
-            invoice_data: Stripe invoice object
-            
-        Returns:
-            Invoice object
         """
         provider_invoice_id = invoice_data['id']
         
         # Find subscription
         subscription = None
         if invoice_data.get('subscription'):
-            subscription = self.db.query(Subscription).filter(
-                Subscription.provider_subscription_id == invoice_data['subscription']
-            ).first()
+            result = await self.db.execute(
+                select(Subscription).where(
+                    Subscription.provider_subscription_id == invoice_data['subscription']
+                )
+            )
+            subscription = result.scalar_one_or_none()
         
         # Check if invoice exists
-        invoice = self.db.query(Invoice).filter(
-            Invoice.provider_invoice_id == provider_invoice_id
-        ).first()
+        result = await self.db.execute(
+            select(Invoice).where(Invoice.provider_invoice_id == provider_invoice_id)
+        )
+        invoice = result.scalar_one_or_none()
         
         if not invoice:
             invoice = Invoice(provider_invoice_id=provider_invoice_id)
@@ -370,7 +356,6 @@ class SubscriptionService:
         if invoice_data.get('status_transitions', {}).get('paid_at'):
             invoice.paid_at = datetime.fromtimestamp(invoice_data['status_transitions']['paid_at'])
         
-        self.db.commit()
-        self.db.refresh(invoice)
+        await self.db.flush()
         
         return invoice
