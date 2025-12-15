@@ -77,9 +77,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.saas.b2b"
+    namespace "com.saas.b2c"
     defaultConfig {
-        applicationId "com.saas.b2b"
+        applicationId "com.saas.b2c"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -87,7 +87,7 @@ android {
         
         // Required for react-native-app-auth
         manifestPlaceholders = [
-            appAuthRedirectScheme: 'com.saas.b2b',
+            appAuthRedirectScheme: 'com.saas.b2c',
             usesCleartextTraffic: 'true'  // Allow HTTP for local development
         ]
     }

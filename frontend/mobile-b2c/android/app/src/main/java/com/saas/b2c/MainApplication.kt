@@ -1,4 +1,4 @@
-package com.saas.b2b
+package com.saas.b2c
 
 import android.app.Application
 import com.facebook.react.PackageList
