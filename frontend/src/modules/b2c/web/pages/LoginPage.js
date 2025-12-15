@@ -15,7 +15,7 @@ const LoginPage = () => {
     const handleAuthSuccess = async (user) => {
         try {
             setLoading(true);
-            const idToken = await user.getIdToken();
+            const idToken = await user.getIdToken(true); // Force refresh to get latest claims (e.g. email_verified)
 
             const response = await fetch('/api/b2c/auth/login', {
                 method: 'POST',

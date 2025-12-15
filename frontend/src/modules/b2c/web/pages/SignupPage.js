@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../../../core/firebase/b2c-config';
 import AuthButtons from '../components/AuthButtons';
 
@@ -15,7 +15,7 @@ const SignupPage = () => {
     const handleAuthSuccess = async (user) => {
         try {
             setLoading(true);
-            const idToken = await user.getIdToken();
+            const idToken = await user.getIdToken(true);
 
             const response = await fetch('/api/b2c/auth/signup', {
                 method: 'POST',
@@ -48,7 +48,20 @@ const SignupPage = () => {
 
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            await handleAuthSuccess(userCredential.user);
+            const user = userCredential.user;
+
+            if (!user.emailVerified) {
+                // Send verification email
+                await sendEmailVerification(user);
+
+                // Show success/info message instead of calling backend
+                // You might want to add a success state similar to error state
+                alert("Account created! Please check your email to verify your account before logging in.");
+                navigate('/login');
+                return;
+            }
+
+            await handleAuthSuccess(user);
         } catch (err) {
             setError(err.message);
             setLoading(false);
