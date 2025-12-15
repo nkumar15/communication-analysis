@@ -4,8 +4,8 @@ import enum
 
 class WorkspaceType(str, enum.Enum):
     """Workspace type enumeration"""
-    PERSONAL = 'personal'
-    TEAM = 'team'
+    personal = 'personal'
+    team = 'team'
 
 class Workspace(Base, TimestampMixin):
     """
@@ -18,7 +18,7 @@ class Workspace(Base, TimestampMixin):
     
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     name = Column(String(255), nullable=False)
-    type = Column(SQLEnum(WorkspaceType, name='workspace_type'), nullable=False)
+    type = Column(SQLEnum(WorkspaceType, name='workspace_type', schema='b2c'), nullable=False)
     owner_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     subscription_tier = Column(String(50), default='free')
     settings = Column(JSON, default={})

@@ -584,6 +584,88 @@ async def create_test_invitation(
     return invitation
 
 
+# ============================================================================
+# B2C Test Helpers
+# ============================================================================
+
+async def create_b2c_user(
+    db_session: AsyncSession,
+    email: str,
+    firebase_uid: str = None,
+    display_name: str = None
+):
+    """Create a B2C user for testing"""
+    from services.b2c.models.user import B2CUser
+    from sqlalchemy import text
+    
+    if not firebase_uid:
+        firebase_uid = f"b2c-{uuid4().hex[:12]}"
+    
+    # Create user with pre-generated ID so we can set RLS context
+    user_id = uuid4()
+    
+    # Set user context to allow this user's data to be created
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
+    
+    user = B2CUser(
+        id=user_id,
+        firebase_uid=firebase_uid,
+        email=email,
+        display_name=display_name or email.split('@')[0]
+    )
+    db_session.add(user)
+    await db_session.flush()
+    await db_session.refresh(user)
+    
+    return user
+
+
+async def create_b2c_workspace(
+    db_session: AsyncSession,
+    owner_id: UUID,
+    name: str,
+    workspace_type: str = 'personal'
+):
+    """Create a B2C workspace for testing"""
+    from services.b2c.models.workspace import Workspace, WorkspaceType
+    from services.b2c.models.workspace_member import WorkspaceMember
+    from sqlalchemy import text
+    
+    # Set user context to owner to allow workspace creation
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{owner_id}'"))
+    
+    workspace = Workspace(
+        name=name,
+        type=WorkspaceType(workspace_type),
+        owner_id=owner_id,
+        subscription_tier='free'
+    )
+    db_session.add(workspace)
+    await db_session.flush()
+    await db_session.refresh(workspace)
+    
+    # Add owner as member
+    member = WorkspaceMember(
+        workspace_id=workspace.id,
+        user_id=owner_id,
+        role='owner'
+    )
+    db_session.add(member)
+    await db_session.flush()
+    
+    return workspace
+
+
+def create_b2c_mock_token(firebase_uid: str, email: str, email_verified: bool = True):
+    """Create mock Firebase token for B2C testing"""
+    return {
+        'uid': firebase_uid,
+        'email': email,
+        'email_verified': email_verified,
+        'name': email.split('@')[0]
+    }
+
+
 # Pytest configuration
 def pytest_configure(config):
     """Configure pytest markers"""

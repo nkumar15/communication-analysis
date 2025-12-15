@@ -28,6 +28,20 @@ class RLSService:
         await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
     
     @staticmethod
+    async def set_user_context(db: AsyncSession, user_id: UUID) -> None:
+        """
+        Set RLS context for B2C (workspace-scoped isolation)
+        
+        This executes: SET LOCAL app.current_user_id = '<user_id>'
+        Used for B2C workspace filtering via RLS policies.
+        
+        Args:
+            db: Database session
+            user_id: User UUID to set as current context
+        """
+        await db.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
+    
+    @staticmethod
     async def get_current_context(db: AsyncSession) -> Optional[UUID]:
         """
         Get the current RLS tenant context (for testing/debugging)

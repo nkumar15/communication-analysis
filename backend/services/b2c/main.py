@@ -78,10 +78,11 @@ app.add_middleware(
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
 
-# TODO: Include B2C routers when implemented
-# from services.b2c.routers import workspaces, profiles
-# app.include_router(workspaces.router)
-# app.include_router(profiles.router)
+# Include B2C routers
+from services.b2c.routers import auth, workspaces
+app.include_router(auth.router)
+app.include_router(workspaces.router)
+
 
 
 @app.get("/")
