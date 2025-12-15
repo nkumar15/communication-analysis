@@ -19,3 +19,5 @@ class PlatformRoleName:
     These must match the 'name' column in the roles table.
     """ 
     PLATFORM_ADMIN = "platform_admin"
+    SUPPORT_STAFF = "support_staff"
+    BILLING_MANAGER = "billing_manager"

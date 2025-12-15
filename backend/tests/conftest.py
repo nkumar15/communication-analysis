@@ -424,34 +424,43 @@ async def create_platform_tenant(
     from sqlalchemy import select
     
     # Check if exists (singleton)
+    # Check if exists (singleton)
     result = await db_session.execute(select(PlatformTenant))
     existing = result.scalar_one_or_none()
-    if existing:
-        return existing
     
-    suffix = uuid4().hex[:8]
-    firebase_tenant_id = firebase_tenant_id or f"platform-{suffix}"
-    
-    tenant = PlatformTenant(
-        name=name,
-        firebase_tenant_id=firebase_tenant_id,
-        email_domain="platform.local",
-        is_active=True
-    )
-    db_session.add(tenant)
-    await db_session.flush()
-    await db_session.refresh(tenant)
-    
-    # Seed platform roles
-    roles = ["platform_admin", "support_staff", "billing_manager"]
-    for role_name in roles:
-        role = PlatformRole(
-            platform_tenant_id=tenant.id,
-            name=role_name,
-            display_name=role_name.replace("_", " ").title(),
-            is_system_role=True
+    tenant = existing
+    if not existing:
+        suffix = uuid4().hex[:8]
+        firebase_tenant_id = firebase_tenant_id or f"platform-{suffix}"
+        
+        tenant = PlatformTenant(
+            name=name,
+            firebase_tenant_id=firebase_tenant_id,
+            email_domain="platform.local",
+            is_active=True
         )
-        db_session.add(role)
+        db_session.add(tenant)
+        await db_session.flush()
+        await db_session.refresh(tenant)
+    
+    # Ensure all system roles exist (idempotent check)
+    roles = ["platform_admin", "support_staff", "billing_manager"]
+    
+    # Get existing roles
+    existing_roles_result = await db_session.execute(
+        select(PlatformRole.name).where(PlatformRole.platform_tenant_id == tenant.id)
+    )
+    existing_role_names = existing_roles_result.scalars().all()
+    
+    for role_name in roles:
+        if role_name not in existing_role_names:
+            role = PlatformRole(
+                platform_tenant_id=tenant.id,
+                name=role_name,
+                display_name=role_name.replace("_", " ").title(),
+                is_system_role=True
+            )
+            db_session.add(role)
     
     await db_session.flush()
     

@@ -12,7 +12,8 @@ from uuid import UUID
 
 from core.database import get_db
 from core.config import settings
-from services.platform.middleware.platform_auth import verify_platform_admin, log_platform_action
+from core.constants import PlatformRoleName
+from services.platform.middleware.platform_auth import verify_platform_admin, log_platform_action, RequirePlatformRole
 from services.b2b.models import TenantModel, UserModel, AuthProvider, Team, Role
 from services.b2b.services.tenant_service import tenant_service
 from services.platform.services.tenant_onboarding_service import tenant_onboarding_service
@@ -71,7 +72,11 @@ class ImpersonationResponse(BaseModel):
 @router.get("/stats", response_model=B2BStats)
 async def get_b2b_stats(
     db: AsyncSession = Depends(get_db),
-    _: dict = Depends(verify_platform_admin)
+    _: dict = Depends(RequirePlatformRole([
+        PlatformRoleName.PLATFORM_ADMIN, 
+        PlatformRoleName.SUPPORT_STAFF, 
+        PlatformRoleName.BILLING_MANAGER
+    ]))
 ):
     """Get B2B platform statistics (enterprise tenants)"""
     from core.rls import rls_service
@@ -111,7 +116,11 @@ async def list_tenants(
     limit: int = 20,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    _: dict = Depends(verify_platform_admin)
+    _: dict = Depends(RequirePlatformRole([
+        PlatformRoleName.PLATFORM_ADMIN, 
+        PlatformRoleName.SUPPORT_STAFF, 
+        PlatformRoleName.BILLING_MANAGER
+    ]))
 ):
     """List all B2B tenants with basic stats"""
     from core.rls import rls_service
@@ -164,7 +173,7 @@ async def list_tenants(
 async def create_tenant(
     request: TenantCreateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(RequirePlatformRole([PlatformRoleName.PLATFORM_ADMIN]))
 ):
     """Create a new B2B tenant"""
     existing = await tenant_service.get_tenant_by_domain(db, request.domain)
@@ -201,7 +210,7 @@ async def create_tenant(
 async def delete_tenant(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(RequirePlatformRole([PlatformRoleName.PLATFORM_ADMIN]))
 ):
     """Soft delete a B2B tenant"""
     success = await tenant_service.delete_tenant(db, tenant_id)
@@ -228,7 +237,10 @@ async def delete_tenant(
 async def impersonate_tenant_admin(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(RequirePlatformRole([
+        PlatformRoleName.PLATFORM_ADMIN,
+        PlatformRoleName.SUPPORT_STAFF
+    ]))
 ):
     """Generate impersonation token for a tenant's admin user"""
     import jwt
@@ -316,7 +328,7 @@ async def impersonate_tenant_admin(
 async def onboard_tenant(
     request: TenantOnboardRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(RequirePlatformRole([PlatformRoleName.PLATFORM_ADMIN]))
 ):
     """Full B2B tenant onboarding workflow"""
     try:
@@ -359,7 +371,11 @@ async def onboard_tenant(
 async def get_tenant_details(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: dict = Depends(verify_platform_admin)
+    _: dict = Depends(RequirePlatformRole([
+        PlatformRoleName.PLATFORM_ADMIN,
+        PlatformRoleName.SUPPORT_STAFF,
+        PlatformRoleName.BILLING_MANAGER
+    ]))
 ):
     """Get detailed B2B tenant information"""
     from core.rls import rls_service
@@ -420,7 +436,7 @@ async def get_tenant_details(
 async def resend_activation_email(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(RequirePlatformRole([PlatformRoleName.PLATFORM_ADMIN]))
 ):
     """Regenerate activation token and resend activation email"""
     try:
@@ -449,7 +465,10 @@ async def resend_activation_email(
 async def deactivate_tenant(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(RequirePlatformRole([
+        PlatformRoleName.PLATFORM_ADMIN,
+        PlatformRoleName.BILLING_MANAGER
+    ]))
 ):
     """Deactivate a B2B tenant (soft deactivation, preserves data)"""
     tenant = await db.get(TenantModel, tenant_id)
@@ -483,7 +502,10 @@ class ReactivateTenantResponse(BaseModel):
 async def reactivate_tenant(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(verify_platform_admin)
+    current_user: dict = Depends(RequirePlatformRole([
+        PlatformRoleName.PLATFORM_ADMIN,
+        PlatformRoleName.BILLING_MANAGER
+    ]))
 ):
     """Reactivate a deactivated B2B tenant"""
     tenant = await db.get(TenantModel, tenant_id)
