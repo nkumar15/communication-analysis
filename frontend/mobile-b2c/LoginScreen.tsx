@@ -35,40 +35,68 @@ export default function LoginScreen({ onLoginSuccess, navigation }) {
         try {
             setLoading(true);
             setStatus('Connecting to Google...');
-            console.log('🔹 Starting Google Sign-In...');
+            console.log('🔹 Step 1: Starting Google Sign-In...');
+            console.log('🔹 Web Client ID configured:', Config.REACT_APP_GOOGLE_WEB_CLIENT_ID);
 
+            console.log('🔹 Step 2: Checking Play Services...');
             await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+            console.log('✅ Play Services available');
 
-            console.log('🔹 Requesting User Info...');
-            // GoogleSignin v11+ returns { data: { idToken, user } } or similar structure depending on version
-            // For v10 it was { idToken, user }
-            // Let's log the raw response to debug
+            console.log('🔹 Step 3: Requesting User Sign-In...');
             const response = await GoogleSignin.signIn();
-            console.log('🔹 Google Sign-In Response:', JSON.stringify(response));
 
-            const idToken = response.idToken || response.data?.idToken;
+            // Log the ENTIRE response structure for debugging
+            console.log('🔹 Step 4: Raw Response Received');
+            console.log('🔹 Response Type:', typeof response);
+            console.log('🔹 Response Keys:', Object.keys(response || {}));
+            console.log('🔹 Full Response:', JSON.stringify(response, null, 2));
+
+            // Try multiple paths to extract idToken
+            const idToken = response?.idToken
+                || response?.data?.idToken
+                || response?.user?.idToken
+                || response?.serverAuthCode; // Sometimes this is returned instead
+
+            console.log('🔹 Step 5: ID Token extraction');
+            console.log('🔹 response.idToken:', response?.idToken);
+            console.log('🔹 response.data?.idToken:', response?.data?.idToken);
+            console.log('🔹 response.user?.idToken:', response?.user?.idToken);
+            console.log('🔹 response.serverAuthCode:', response?.serverAuthCode);
+            console.log('🔹 Extracted idToken:', idToken ? 'PRESENT' : 'MISSING');
 
             if (!idToken) {
                 console.error('❌ Missing ID Token in response');
-                throw new Error('Google Sign-In failed to return ID Token');
+                console.error('❌ Available fields:', Object.keys(response || {}));
+                throw new Error('Google Sign-In failed to return ID Token. Check Web Client ID configuration.');
             }
 
-            console.log('🔹 Creating Credential...');
+            console.log('🔹 Step 6: Creating Firebase Credential...');
             const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+            console.log('✅ Credential created');
 
             setStatus('Signing in...');
-            console.log('🔹 signingInWithCredential...');
+            console.log('🔹 Step 7: Signing in with Firebase...');
             const userCredential = await auth().signInWithCredential(googleCredential);
             const user = userCredential.user;
+            console.log('✅ Firebase sign-in successful. User:', user.email);
 
-            // Sync with backend (same as email login)
+            // Sync with backend
             setStatus('Syncing account...');
-            console.log('🔹 Syncing with backend...');
+            console.log('🔹 Step 8: Syncing with backend...');
             const firebaseIdToken = await user.getIdToken(true);
+            console.log('✅ Got Firebase ID Token');
+
             await syncWithBackend(firebaseIdToken, onLoginSuccess);
+            console.log('✅ Backend sync complete');
 
         } catch (error) {
-            console.error('❌ Google Sign-In Error Object:', error);
+            console.error('❌ Error occurred at some step');
+            console.error('❌ Error Type:', typeof error);
+            console.error('❌ Error Code:', error?.code);
+            console.error('❌ Error Message:', error?.message);
+            console.error('❌ Error Stack:', error?.stack);
+            console.error('❌ Full Error Object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+
             setLoading(false);
             setStatus('');
 
@@ -76,7 +104,7 @@ export default function LoginScreen({ onLoginSuccess, navigation }) {
             const errorMessage = error?.message || 'An unknown error occurred';
 
             if (errorCode !== 'SIGN_IN_CANCELLED') {
-                Alert.alert('Google Sign-In Failed', `${errorMessage} (${errorCode})`);
+                Alert.alert('Google Sign-In Failed', `${errorMessage}\n\nError Code: ${errorCode}\n\nCheck Metro logs for details.`);
             }
         }
     };
