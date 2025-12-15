@@ -47,16 +47,33 @@ async def get_current_b2c_user(
             detail="Invalid or expired token"
         )
     
-    # Find user in database
+    # Find user ID using Security Definer function (bypass RLS)
+    from sqlalchemy import func
+    user_id = await db.scalar(
+        select(func.b2c.lookup_user_by_firebase_uid(firebase_uid))
+    )
+    
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please sign up first."
+        )
+    
+    # Set RLS context FIRST so we can query the user object
+    from core.rls import rls_service
+    await rls_service.set_user_context(db, str(user_id))
+    
+    # Now fetch user details (RLS allowed)
     result = await db.execute(
-        select(B2CUser).where(B2CUser.firebase_uid == firebase_uid)
+        select(B2CUser).where(B2CUser.id == user_id)
     )
     user = result.scalar_one_or_none()
     
     if not user:
+        # Should not happen if lookup succeeded, unless deleted/race condition
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found. Please sign up first."
+            detail="User account not found"
         )
     
     # Check if user is deleted
@@ -65,11 +82,7 @@ async def get_current_b2c_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User account not found"
         )
-    
-    # Set RLS context for workspace-scoped queries
-    from core.rls import rls_service
-    await rls_service.set_user_context(db, user.id)
-    
+        
     return {
         "id": user.id,
         "email": user.email,

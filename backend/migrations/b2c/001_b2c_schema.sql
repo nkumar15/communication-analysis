@@ -81,7 +81,7 @@ ALTER TABLE b2c.users
     ON DELETE SET NULL;
 
 -- ============================================================================
--- HELPER FUNCTIONS (To prevent RLS recursion)
+-- HELPER FUNCTIONS (To prevent RLS recursion & Safe Lookups)
 -- ============================================================================
 CREATE OR REPLACE FUNCTION b2c.get_user_workspace_ids(uid UUID)
 RETURNS TABLE (workspace_id UUID) 
@@ -90,6 +90,17 @@ SET search_path = b2c, public
 AS $$
 BEGIN
     RETURN QUERY SELECT wm.workspace_id FROM b2c.workspace_members wm WHERE wm.user_id = uid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Lookup user ID by Firebase UID (Bypass RLS for Login)
+CREATE OR REPLACE FUNCTION b2c.lookup_user_by_firebase_uid(f_uid TEXT)
+RETURNS UUID
+SECURITY DEFINER
+SET search_path = b2c, public
+AS $$
+BEGIN
+    RETURN (SELECT id FROM b2c.users WHERE firebase_uid = f_uid);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -104,20 +115,20 @@ ALTER TABLE b2c.workspace_members ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can only see their own profile
 CREATE POLICY user_self_access ON b2c.users
-    USING (id = current_setting('app.current_user_id', true)::uuid);
+    USING (id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
 
 -- Policy: Users can see workspaces they're a member of
 CREATE POLICY workspace_member_access ON b2c.workspaces
     USING (
-        owner_id = current_setting('app.current_user_id', true)::uuid
+        owner_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         OR
-        id IN (SELECT b2c.get_user_workspace_ids(current_setting('app.current_user_id', true)::uuid))
+        id IN (SELECT b2c.get_user_workspace_ids(NULLIF(current_setting('app.current_user_id', true), '')::uuid))
     );
 
 -- Policy: Users can see workspace memberships for their workspaces
 CREATE POLICY workspace_member_visibility ON b2c.workspace_members
     USING (
-        user_id = current_setting('app.current_user_id', true)::uuid
+        user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
         OR
-        workspace_id IN (SELECT b2c.get_user_workspace_ids(current_setting('app.current_user_id', true)::uuid))
+        workspace_id IN (SELECT b2c.get_user_workspace_ids(NULLIF(current_setting('app.current_user_id', true), '')::uuid))
     );

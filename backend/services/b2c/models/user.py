@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, UUID, DateTime, text, ForeignKey
+from sqlalchemy import Column, String, UUID, DateTime, text, ForeignKey, Boolean
 from core.models.base import Base, TimestampMixin
 
 class B2CUser(Base, TimestampMixin):
@@ -14,4 +14,9 @@ class B2CUser(Base, TimestampMixin):
     email = Column(String(255), unique=True, nullable=False, index=True)
     firebase_uid = Column(String(255), unique=True, nullable=False, index=True)
     display_name = Column(String(255))
+    avatar_url = Column(String(500))
+    email_verified = Column(Boolean, default=False)
     default_workspace_id = Column(UUID(as_uuid=True), ForeignKey('b2c.workspaces.id'))
+    
+    last_login_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)

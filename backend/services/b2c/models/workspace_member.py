@@ -14,3 +14,6 @@ class WorkspaceMember(Base):
     user_id = Column(UUID(as_uuid=True), primary_key=True, index=True)
     role = Column(String(50), nullable=False, default='member')  # owner, admin, member
     joined_at = Column(DateTime, server_default=text("NOW()"))
+    
+    from sqlalchemy.orm import relationship
+    workspace = relationship("Workspace", lazy="selectin")

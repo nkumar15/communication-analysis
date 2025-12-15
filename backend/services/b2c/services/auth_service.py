@@ -1,7 +1,7 @@
 """B2C Authentication Service"""
 from typing import Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from fastapi import HTTPException, status
 from uuid import uuid4
 
@@ -9,7 +9,9 @@ from core.utils.firebase import firebase_auth_service
 from services.b2c.models.user import B2CUser
 from services.b2c.models.workspace import Workspace, WorkspaceType
 from services.b2c.models.workspace_member import WorkspaceMember
+from services.b2c.models.workspace_member import WorkspaceMember
 from core.logging import get_logger
+from core.rls import rls_service
 
 logger = get_logger(__name__)
 
@@ -35,18 +37,19 @@ class AuthService:
         
         Returns user and workspace data
         """
-        # Check if user already exists
-        existing_user = await db.scalar(
-            select(B2CUser).where(
-                (B2CUser.firebase_uid == firebase_uid) | (B2CUser.email == email)
-            )
+        # Check if user already exists using Security Definer lookup (RLS safe)
+        from sqlalchemy import func, text
+        existing_user_id = await db.scalar(
+            select(func.b2c.lookup_user_by_firebase_uid(firebase_uid))
         )
         
-        if existing_user:
+        if existing_user_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User already exists"
             )
+        
+
         
         # Require email verification for signup
         if not email_verified:
@@ -59,8 +62,7 @@ class AuthService:
         user_id = uuid4()
         
         # Set RLS context to this user to allow creation
-        from sqlalchemy import text
-        await db.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
+        await rls_service.set_user_context(db, str(user_id))
         
         # Create user
         user = B2CUser(
@@ -93,7 +95,10 @@ class AuthService:
         )
         db.add(member)
         
-        await db.commit()
+        
+        # NOTE: We do NOT commit here to preserve RLS context (SET LOCAL is transaction scoped)
+        # and to allow test transaction isolation.
+        await db.flush()
         await db.refresh(user)
         await db.refresh(workspace)
         
@@ -132,16 +137,27 @@ class AuthService:
         Used for login flow - if user exists, return it
         If not (first-time Google login), create user + workspace
         """
-        # Try to find existing user
-        user = await db.scalar(
-            select(B2CUser).where(B2CUser.firebase_uid == firebase_uid)
+        # Try to find existing user using SECURITY DEFINER function to bypass RLS
+        # We can't query the table directly because RLS requires us to set the user ID first,
+        # but we don't know the user ID yet!
+        
+        user_id = await db.scalar(
+            select(func.b2c.lookup_user_by_firebase_uid(firebase_uid))
         )
         
-        if user:
+        if user_id:
+            # Found user! Set RLS context using centralized service
+            await rls_service.set_user_context(db, str(user_id))
+            
+            # Now we can fetch the user details safely
+            user = await db.scalar(
+                select(B2CUser).where(B2CUser.id == user_id)
+            )
+            
             # Update last login
             from datetime import datetime
             user.last_login_at = datetime.utcnow()
-            await db.commit()
+            await db.flush()
             return user
         
         # First time login - create user via signup

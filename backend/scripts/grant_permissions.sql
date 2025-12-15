@@ -19,6 +19,9 @@ BEGIN
       -- Ensure future tables also get these permissions
       EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', _schema, _user);
       
+      -- Grant execute on all functions (fixes B2C RLS helpers)
+      EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA %I TO %I', _schema, _user);
+      
       RAISE NOTICE 'Granted permissions on schema % to %', _schema, _user;
    END LOOP;
 END

@@ -61,6 +61,13 @@ async def signup(
         email = decoded_token.get('email')
         email_verified = decoded_token.get('email_verified', False)
         
+        # DEBUG: Log token claims to debug 403
+        logger.info("firebase_token_claims", 
+                   uid=firebase_uid, 
+                   email=email, 
+                   email_verified=email_verified,
+                   claims=decoded_token)
+        
         if not firebase_uid or not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -82,6 +89,8 @@ async def signup(
         display_name=request.display_name,
         email_verified=email_verified
     )
+    
+    await db.commit()
     
     return SignupResponse(**result)
 
@@ -130,6 +139,8 @@ async def login(
     
     # Get workspaces
     workspaces = await auth_service.get_user_workspaces(db, str(user.id))
+    
+    await db.commit()
     
     return LoginResponse(
         user={

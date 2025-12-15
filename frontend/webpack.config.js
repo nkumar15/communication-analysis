@@ -3,6 +3,9 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const Dotenv = require('dotenv-webpack');
 
+// Load env vars for the webpack config itself (e.g. proxy target)
+require('dotenv').config();
+
 /**
  * Multi-Portal Webpack Configuration
  * 
@@ -77,7 +80,14 @@ module.exports = {
         port: PORTAL === 'b2c' ? 3001 : PORTAL === 'platform' ? 3002 : 3000,
         hot: true,
         historyApiFallback: true,
-        open: true
+        open: true,
+        proxy: {
+            '/api': {
+                target: process.env.REACT_APP_API_URL || 'http://localhost:8080',
+                changeOrigin: true,
+                secure: false
+            }
+        }
     },
     resolve: {
         extensions: ['.js', '.jsx']

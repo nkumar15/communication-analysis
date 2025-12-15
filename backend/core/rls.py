@@ -72,6 +72,7 @@ class RLSService:
         This is useful for testing scenarios where you need to reset context mid-transaction.
         """
         await db.execute(text("RESET app.current_tenant_id"))
+        await db.execute(text("RESET app.current_user_id"))
         await db.execute(text("RESET app.is_platform_admin"))
     
     @staticmethod

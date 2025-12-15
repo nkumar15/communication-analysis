@@ -1,20 +1,24 @@
-/**
- * B2C Application Root Component
- * Personal workspace portal for individual users
- */
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import WelcomePage from './pages/WelcomePage';
+
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from './web/pages/LoginPage';
+import SignupPage from './web/pages/SignupPage';
+import DashboardPage from './web/pages/DashboardPage';
+import WorkspacePage from './web/pages/WorkspacePage';
 import '../../styles/main.css';
 
-function B2CApp() {
+const B2CApp = () => {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/" element={<WelcomePage />} />
-                <Route path="*" element={<WelcomePage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/workspace/:workspaceId" element={<WorkspacePage />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
         </BrowserRouter>
     );
-}
+};
 
 export default B2CApp;
