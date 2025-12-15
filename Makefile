@@ -114,12 +114,12 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	case "$$REPLY" in \
 		[Yy]*) \
 			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate celery-worker nginx; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate celery-worker nginx mailhog; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			docker-compose restart postgres; \
 			sleep 5; \
-			docker-compose restart platform-api b2b-api b2c-api domain-api nginx; \
+			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
 			;; \
 		*) echo "Cancelled."; ;; \
