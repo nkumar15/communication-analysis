@@ -34,32 +34,24 @@ async def get_b2c_stats(
     """Get B2C platform statistics (personal workspaces)"""
     
     try:
-        # Total B2C Workspaces
-        total_workspaces_result = await db.execute(
-            text("SELECT COUNT(*) FROM b2c.workspaces")
+        # Use SECURITY DEFINER function to bypass RLS for platform admin
+        result = await db.execute(
+            text("SELECT * FROM b2c.get_platform_stats()")
         )
-        total_workspaces = total_workspaces_result.scalar() or 0
+        stats = result.one_or_none()
         
-        # Personal workspaces
-        personal_workspaces_result = await db.execute(
-            text("SELECT COUNT(*) FROM b2c.workspaces WHERE type = 'personal'")
-        )
-        personal_workspaces = personal_workspaces_result.scalar() or 0
+        if stats:
+            total_workspaces, personal_workspaces, team_workspaces, total_users = stats
+        else:
+            total_workspaces = personal_workspaces = team_workspaces = total_users = 0
         
-        # Team workspaces
-        team_workspaces_result = await db.execute(
-            text("SELECT COUNT(*) FROM b2c.workspaces WHERE type = 'team'")
-        )
-        team_workspaces = team_workspaces_result.scalar() or 0
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching B2C stats: {e}")
         
-        # Total B2C Users
-        total_b2c_users_result = await db.execute(
-            text("SELECT COUNT(*) FROM b2c.users")
-        )
-        total_users = total_b2c_users_result.scalar() or 0
-        
-    except Exception:
-        # B2C schema doesn't exist - return zeros
+        # B2C schema doesn't exist or query failed - return zeros
         total_workspaces = 0
         personal_workspaces = 0
         team_workspaces = 0
