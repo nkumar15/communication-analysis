@@ -12,7 +12,7 @@ import logging
 import stripe
 
 from core.database import get_db
-from services.b2b.middleware.auth import get_current_tenant, get_current_b2b_user
+from services.b2b.middleware.b2b_auth import get_current_active_user
 from services.b2b.services.subscription_service import SubscriptionService
 from services.b2b.services.invoice_service import InvoiceService
 from services.b2b.models import SubscriptionTier, InvoiceStatus
@@ -79,19 +79,21 @@ class InvoiceResponse(BaseModel):
 
 @router.get("/subscription", response_model=SubscriptionResponse)
 async def get_subscription(
-    tenant=Depends(get_current_tenant),
+    current_user=Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get current subscription for the tenant.
     Returns starter tier if no subscription exists.
     """
+    # current_user is a UserModel object with tenant_id attribute
+    tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
     service = SubscriptionService(db)
-    subscription = await service.get_tenant_subscription(tenant.id)
+    subscription = await service.get_tenant_subscription(tenant_id)
     
     if not subscription:
         # Return default starter tier info
-        seat_count = await service.get_active_seat_count(tenant.id)
+        seat_count = await service.get_active_seat_count(tenant_id)
         pricing = service.calculate_seat_based_pricing(
             SubscriptionTier.STARTER,
             seat_count,
@@ -100,7 +102,7 @@ async def get_subscription(
         
         return SubscriptionResponse(
             id="",
-            tenant_id=str(tenant.id),
+            tenant_id=str(tenant_id),
             tier="starter",
             payment_mode="card",
             status="active",
@@ -134,13 +136,14 @@ async def get_subscription(
 @router.post("/checkout", response_model=CheckoutResponse)
 async def create_checkout_session(
     request: CheckoutRequest,
-    tenant=Depends(get_current_tenant),
+    current_user=Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Create Stripe checkout session for subscription upgrade.
     Only for card-based payments (professional, enterprise tiers).
     """
+    tenant_id = current_user.get('tenant_id') if isinstance(current_user, dict) else current_user.tenant_id
     try:
         tier = SubscriptionTier(request.tier)
     except ValueError:
@@ -153,7 +156,7 @@ async def create_checkout_session(
     
     try:
         result = await service.create_checkout_session(
-            tenant_id=tenant.id,
+            tenant_id=tenant_id,
             tier=tier,
             billing_interval=request.billing_interval,
             success_url=request.success_url,
@@ -177,12 +180,13 @@ async def create_checkout_session(
 async def list_invoices(
     status: Optional[str] = None,
     limit: int = 50,
-    tenant=Depends(get_current_tenant),
+    current_user=Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     List invoices for the current tenant.
     """
+    tenant_id = current_user.get('tenant_id') if isinstance(current_user, dict) else current_user.tenant_id
     service = InvoiceService(db)
     
     status_filter = None
@@ -193,7 +197,7 @@ async def list_invoices(
             raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
     
     invoices = await service.list_invoices(
-        tenant_id=tenant.id,
+        tenant_id=tenant_id,
         status=status_filter,
         limit=limit
     )
@@ -221,7 +225,7 @@ async def list_invoices(
 @router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
 async def get_invoice(
     invoice_id: UUID,
-    tenant=Depends(get_current_tenant),
+    current_user=Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """

@@ -24,6 +24,7 @@ import TenantDetailsPage from './modules/platform/web/pages/TenantDetailsPage';
 import Dashboard from './modules/platform/web/pages/DashboardPage';
 import AnalyticsPage from './modules/platform/web/pages/AnalyticsPage';
 import SettingsPage from './modules/platform/web/pages/SettingsPage';
+import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
@@ -131,6 +132,10 @@ function App() {
                 <Route path="/b2b/teams/:teamId" element={<ProtectedRoute><TeamDetailsPage /></ProtectedRoute>} />
                 <Route path="/audit-logs" element={<ProtectedRoute><AuditLogsPage /></ProtectedRoute>} />
                 <Route path="/settings/account" element={<ProtectedRoute><AccountSettingsPage /></ProtectedRoute>} />
+
+                {/* Billing routes */}
+                <Route path="/billing/subscription" element={<ProtectedRoute><SubscriptionSettingsPage /></ProtectedRoute>} />
+                <Route path="/billing/invoices" element={<ProtectedRoute><InvoicesListPage /></ProtectedRoute>} />
 
                 {/* SaaS Admin Console */}
                 <Route

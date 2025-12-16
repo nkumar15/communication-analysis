@@ -8,9 +8,9 @@ from .auth_provider import AuthProvider
 from .team_role_definition import TeamRoleDefinition
 from .audit_log import AuditLog
 from .subscription import (
-    Subscription,
-    Invoice,
-    SubscriptionEvent,
+    B2BSubscription,
+    B2BInvoice,
+    B2BSubscriptionEvent,
     PaymentModeRequest,
     SubscriptionTier,
     PaymentMode,
@@ -18,6 +18,12 @@ from .subscription import (
     InvoiceStatus,
     PaymentModeRequestStatus
 )
+
+# Backwards compatibility aliases
+Subscription = B2BSubscription
+Invoice = B2BInvoice
+SubscriptionEvent = B2BSubscriptionEvent
+
 
 __all__ = [
     "TenantModel", 
@@ -32,16 +38,16 @@ __all__ = [
     "AuthProvider",
     "TeamRoleDefinition",
     "AuditLog",
-    # Billing Models
+    # Billing models
     "Subscription",
-    "Invoice",
-    "SubscriptionEvent",
+    "B2BSubscription",
+    "B2BInvoice",
+    "B2BSubscriptionEvent",
     "PaymentModeRequest",
-    # Enums
+    # Billing enums
     "SubscriptionTier",
     "PaymentMode",
     "SubscriptionStatus",
     "InvoiceStatus",
-    "PaymentModeRequestStatus"
+    "PaymentModeRequestStatus",
 ]
-

@@ -133,11 +133,11 @@ CREATE TABLE IF NOT EXISTS b2b.invoices (
     hosted_invoice_url TEXT,
     
     -- Approval Workflow (for manual invoices)
-    approved_by UUID REFERENCES platform.users(id),
+    approved_by UUID, -- Platform admin user ID (no FK - platform schema may not exist yet)
     approved_at TIMESTAMPTZ,
     
     -- Payment Confirmation (for manual invoices)
-    marked_paid_by UUID REFERENCES platform.users(id),
+    marked_paid_by UUID, -- Platform admin user ID (no FK - platform schema may not exist yet)
     payment_notes TEXT,
     
     -- Timestamps
@@ -213,7 +213,7 @@ CREATE TABLE IF NOT EXISTS b2b.payment_mode_requests (
     request_reason TEXT,
     
     -- Reviewer
-    reviewed_by UUID REFERENCES platform.users(id),
+    reviewed_by UUID, -- Platform admin user ID (no FK - platform schema may not exist yet)
     reviewed_at TIMESTAMPTZ,
     admin_notes TEXT,
     

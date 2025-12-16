@@ -61,7 +61,7 @@ class PaymentModeRequestStatus(str, PyEnum):
 # SUBSCRIPTION MODEL
 # ============================================================================
 
-class Subscription(Base):
+class B2BSubscription(Base):
     """B2B Subscription with base + per-seat pricing model"""
     __tablename__ = "subscriptions"
     __table_args__ = {"schema": "b2b"}
@@ -102,8 +102,8 @@ class Subscription(Base):
     
     # Relationships
     tenant = relationship("TenantModel", back_populates="subscription")
-    invoices = relationship("Invoice", back_populates="subscription")
-    events = relationship("SubscriptionEvent", back_populates="subscription")
+    invoices = relationship("B2BInvoice", back_populates="subscription")
+    events = relationship("B2BSubscriptionEvent", back_populates="subscription")
     payment_mode_requests = relationship("PaymentModeRequest", back_populates="subscription")
 
 
@@ -111,7 +111,7 @@ class Subscription(Base):
 # INVOICE MODEL
 # ============================================================================
 
-class Invoice(Base):
+class B2BInvoice(Base):
     """B2B Invoices for both card and invoice payment modes"""
     __tablename__ = "invoices"
     __table_args__ = {"schema": "b2b"}
@@ -152,11 +152,11 @@ class Invoice(Base):
     hosted_invoice_url = Column(Text)
     
     # Approval Workflow (for manual invoices)
-    approved_by = Column(UUID(as_uuid=True), ForeignKey("platform.users.id"))
+    approved_by = Column(UUID(as_uuid=True))  # Platform admin user ID
     approved_at = Column(TIMESTAMP(timezone=True))
     
     # Payment Confirmation (for manual invoices)
-    marked_paid_by = Column(UUID(as_uuid=True), ForeignKey("platform.users.id"))
+    marked_paid_by = Column(UUID(as_uuid=True))  # Platform admin user ID
     payment_notes = Column(Text)
     
     # Timestamps
@@ -164,7 +164,7 @@ class Invoice(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    subscription = relationship("Subscription", back_populates="invoices")
+    subscription = relationship("B2BSubscription", back_populates="invoices")
     tenant = relationship("TenantModel", back_populates="invoices")
 
 
@@ -172,7 +172,7 @@ class Invoice(Base):
 # SUBSCRIPTION EVENT MODEL (Audit Trail)
 # ============================================================================
 
-class SubscriptionEvent(Base):
+class B2BSubscriptionEvent(Base):
     """Audit trail for all subscription-related events"""
     __tablename__ = "subscription_events"
     __table_args__ = {"schema": "b2b"}
@@ -196,7 +196,7 @@ class SubscriptionEvent(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     
     # Relationships
-    subscription = relationship("Subscription", back_populates="events")
+    subscription = relationship("B2BSubscription", back_populates="events")
     tenant = relationship("TenantModel", back_populates="subscription_events")
 
 
@@ -223,7 +223,7 @@ class PaymentModeRequest(Base):
     request_reason = Column(Text)
     
     # Reviewer
-    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("platform.users.id"))
+    reviewed_by = Column(UUID(as_uuid=True))  # Platform admin user ID
     reviewed_at = Column(TIMESTAMP(timezone=True))
     admin_notes = Column(Text)
     
@@ -237,4 +237,4 @@ class PaymentModeRequest(Base):
     
     # Relationships
     tenant = relationship("TenantModel", back_populates="payment_mode_requests")
-    subscription = relationship("Subscription", back_populates="payment_mode_requests")
+    subscription = relationship("B2BSubscription", back_populates="payment_mode_requests")

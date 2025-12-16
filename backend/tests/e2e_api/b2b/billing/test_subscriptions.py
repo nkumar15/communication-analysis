@@ -25,7 +25,7 @@ class TestSubscriptionAPI:
     
     async def test_get_subscription_starter_default(self, client, b2b_tenant, b2b_tenant_owner_token):
         """Test getting starter tier subscription (default)"""
-        response = client.get(
+        response = await client.get(
             "/api/b2b/billing/subscription",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -39,7 +39,7 @@ class TestSubscriptionAPI:
     
     async def test_create_checkout_professional(self, client, b2b_tenant, b2b_tenant_owner_token):
         """Test creating checkout session for professional tier"""
-        response = client.post(
+        response = await client.post(
             "/api/b2b/billing/checkout",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"},
             json={
@@ -67,7 +67,7 @@ class TestSubscriptionAPI:
     
     async def test_create_checkout_starter_fails(self, client, b2b_tenant_owner_token):
         """Test that starter tier cannot be purchased (it's free)"""
-        response = client.post(
+        response = await client.post(
             "/api/b2b/billing/checkout",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"},
             json={
@@ -85,7 +85,7 @@ class TestInvoiceAPI:
     
     async def test_list_invoices_empty(self, client, b2b_tenant_owner_token):
         """Test listing invoices when none exist"""
-        response = client.get(
+        response = await client.get(
             "/api/b2b/billing/invoices",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -104,6 +104,8 @@ class TestInvoiceAPI:
         rls_service
     ):
         """Test listing invoices with RLS enforcement"""
+        import secrets
+        
         # Set RLS context
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
         
@@ -121,11 +123,14 @@ class TestInvoiceAPI:
         db_session.add(subscription)
         await db_session.flush()
         
+        # Generate unique invoice number
+        unique_suffix = secrets.token_hex(4).upper()
+        
         # Create test invoice
         invoice = Invoice(
             subscription_id=subscription.id,
             tenant_id=b2b_tenant.id,
-            invoice_number="INV-202412-TEST001",
+            invoice_number=f"INV-{datetime.now(timezone.utc).strftime('%Y%m')}-TEST-{unique_suffix}",
             status=InvoiceStatus.SENT.value,
             amount_due=15000,
             amount_paid=0,
@@ -139,8 +144,9 @@ class TestInvoiceAPI:
         db_session.add(invoice)
         await db_session.commit()
         
+        
         # Test API
-        response = client.get(
+        response = await client.get(
             "/api/b2b/billing/invoices",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -148,7 +154,8 @@ class TestInvoiceAPI:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
-        assert data[0]["invoice_number"] == "INV-202412-TEST001"
+        # Check that invoice number follows the expected pattern with current date
+        assert data[0]["invoice_number"].startswith(f"INV-{datetime.now(timezone.utc).strftime('%Y%m')}-TEST-")
         assert data[0]["status"] == "sent"
         assert data[0]["amount_due"] == 15000
         assert data[0]["seat_count_snapshot"] == 5
@@ -163,22 +170,35 @@ class TestInvoiceAPI:
         rls_service
     ):
         """Test that tenants cannot access other tenants' invoices"""
+        import secrets
+        from sqlalchemy import select
+        
         # Create invoice for tenant2
         await rls_service.set_tenant_context(db_session, b2b_tenant2.id)
         
-        subscription2 = Subscription(
-            tenant_id=b2b_tenant2.id,
-            tier=SubscriptionTier.PROFESSIONAL.value,
-            seat_count=3,
-            total_amount_cents=11000
+        # Check if subscription exists for tenant2
+        result = await db_session.execute(
+            select(Subscription).where(Subscription.tenant_id == b2b_tenant2.id)
         )
-        db_session.add(subscription2)
-        await db_session.flush()
+        subscription2 = result.scalar_one_or_none()
+        
+        if not subscription2:
+            subscription2 = Subscription(
+                tenant_id=b2b_tenant2.id,
+                tier=SubscriptionTier.PROFESSIONAL.value,
+                seat_count=3,
+                total_amount_cents=11000
+            )
+            db_session.add(subscription2)
+            await db_session.flush()
+        
+        # Generate unique invoice number
+        unique_suffix = secrets.token_hex(4).upper()
         
         invoice2 = Invoice(
             subscription_id=subscription2.id,
             tenant_id=b2b_tenant2.id,
-            invoice_number="INV-202412-TENANT2",
+            invoice_number=f"INV-{datetime.now(timezone.utc).strftime('%Y%m')}-T2-{unique_suffix}",
             status=InvoiceStatus.SENT.value,
             amount_due=11000,
             seat_count_snapshot=3,
@@ -191,7 +211,7 @@ class TestInvoiceAPI:
         await db_session.commit()
         
         # Try to access from tenant1
-        response = client.get(
+        response = await client.get(
             "/api/b2b/billing/invoices",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -223,7 +243,7 @@ class TestSeatCountCalculation:
             user = UserModel(
                 tenant_id=b2b_tenant.id,
                 email=f"user{i}@{b2b_tenant.domain}",
-                display_name=f"User {i}",
+                name=f"User {i}",
                 firebase_uid=f"test_uid_{i}",
                 is_active=True
             )
@@ -232,7 +252,7 @@ class TestSeatCountCalculation:
         await db_session.commit()
         
         # Get subscription - should show 4 seats
-        response = client.get(
+        response = await client.get(
             "/api/b2b/billing/subscription",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
