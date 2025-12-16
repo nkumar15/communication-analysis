@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import apiService from '../../../../core/api/b2bClient';
 import AdminLayout from '../layouts/AdminLayout';
+import { TableSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const RoleManagementPage = () => {
     const [roles, setRoles] = useState([]);
@@ -116,7 +117,13 @@ const RoleManagementPage = () => {
         }
     };
 
-    if (loading) return <div className="loading">Loading roles...</div>;
+    if (loading) return (
+        <AdminLayout title="Role Management" subtitle="Manage user roles and permissions">
+            <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+                <TableSkeleton rows={6} />
+            </div>
+        </AdminLayout>
+    );
     if (error) return <div className="error">{error}</div>;
 
     return (

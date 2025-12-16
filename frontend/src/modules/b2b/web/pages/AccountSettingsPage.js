@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useAuth from '../../../../core/hooks/useAuth';
 import { accountApi } from '../../../../core/api/accountClient';
 import AdminLayout from '../layouts/AdminLayout';
+import { CardSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const AccountSettingsPage = () => {
     const { user, hasRole } = useAuth();
@@ -74,9 +75,12 @@ const AccountSettingsPage = () => {
 
     if (loading) {
         return (
-            <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>
-                Loading settings...
-            </div>
+            <AdminLayout title="Account Settings" subtitle="Manage your organization's profile and preferences">
+                <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+                    <CardSkeleton />
+                    <CardSkeleton />
+                </div>
+            </AdminLayout>
         );
     }
 

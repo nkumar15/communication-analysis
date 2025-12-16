@@ -21,9 +21,9 @@ const QuickActionsWidget = ({ actions = [], role = 'viewer' }) => {
             primary: false
         },
         manage_billing: {
-            label: 'Billing',
+            label: 'Subscription',
             icon: '💳',
-            path: '/settings/billing',
+            path: '/billing/subscription',
             primary: false
         },
         view_audit_logs: {
@@ -81,11 +81,9 @@ const QuickActionsWidget = ({ actions = [], role = 'viewer' }) => {
                             gap: '8px'
                         }}
                         onMouseEnter={(e) => {
-                            e.target.style.transform = 'translateY(-2px)';
                             if (!action.primary) e.target.style.backgroundColor = '#F9FAFB';
                         }}
                         onMouseLeave={(e) => {
-                            e.target.style.transform = 'translateY(0)';
                             if (!action.primary) e.target.style.backgroundColor = 'white';
                         }}
                     >

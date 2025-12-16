@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import apiService from '../../../../core/api/b2bClient';
 import AdminLayout from '../layouts/AdminLayout';
+import { DashboardSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const TeamRoleManagementPage = () => {
     const [teamRoles, setTeamRoles] = useState([]);
@@ -152,10 +153,7 @@ const TeamRoleManagementPage = () => {
     if (loading) {
         return (
             <AdminLayout>
-                <div className="loading-container">
-                    <div className="loading-spinner"></div>
-                    <p>Loading team roles...</p>
-                </div>
+                <DashboardSkeleton />
             </AdminLayout>
         );
     }

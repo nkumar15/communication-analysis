@@ -146,6 +146,102 @@ const UserProfileDropdown = () => {
                         </div>
                     </div>
 
+                    {/* Billing Menu */}
+                    <div style={{ padding: '8px 0', borderBottom: '1px solid #F3F4F6' }}>
+                        <button
+                            onClick={() => { navigate('/billing/subscription'); setIsOpen(false); }}
+                            style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                backgroundColor: 'white',
+                                border: 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                color: '#374151',
+                                fontWeight: '500',
+                                transition: 'background-color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        >
+                            <span>💳</span>
+                            <span>Subscription & Billing</span>
+                        </button>
+                        <button
+                            onClick={() => { navigate('/billing/invoices'); setIsOpen(false); }}
+                            style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                backgroundColor: 'white',
+                                border: 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                color: '#374151',
+                                fontWeight: '500',
+                                transition: 'background-color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        >
+                            <span>📄</span>
+                            <span>Invoices</span>
+                        </button>
+                        <button
+                            onClick={() => { navigate('/settings/account'); setIsOpen(false); }}
+                            style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                backgroundColor: 'white',
+                                border: 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                color: '#374151',
+                                fontWeight: '500',
+                                transition: 'background-color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        >
+                            <span>⚙️</span>
+                            <span>Account Settings</span>
+                        </button>
+                        <button
+                            onClick={() => { navigate('/audit-logs'); setIsOpen(false); }}
+                            style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                backgroundColor: 'white',
+                                border: 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                color: '#374151',
+                                fontWeight: '500',
+                                transition: 'background-color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        >
+                            <span>🔍</span>
+                            <span>Audit Logs</span>
+                        </button>
+                    </div>
+
                     {/* Logout Button */}
                     <button
                         onClick={handleLogout}

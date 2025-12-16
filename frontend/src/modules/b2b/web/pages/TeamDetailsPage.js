@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/AdminLayout';
 import TeamRoleBadge from '../components/TeamRoleBadge';
 import { formatDateTime } from '../../../../utils/dateUtils';
 import useAuth from '../../../../core/hooks/useAuth';
+import { DashboardSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const TeamDetailsPage = () => {
     const { teamId } = useParams();
@@ -153,10 +154,7 @@ const TeamDetailsPage = () => {
     if (loading) {
         return (
             <AdminLayout title="Team Details" subtitle="View and manage team members">
-                <div style={{ padding: '40px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                    <p>Loading team details...</p>
-                </div>
+                <DashboardSkeleton />
             </AdminLayout>
         );
     }
@@ -284,8 +282,6 @@ const TeamDetailsPage = () => {
                                         alignItems: 'center',
                                         gap: '6px'
                                     }}
-                                    onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                    onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                                 >
                                     <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -651,8 +647,6 @@ const TeamDetailsPage = () => {
                                         boxShadow: addingMember ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.4)',
                                         transition: 'all 0.2s'
                                     }}
-                                    onMouseEnter={(e) => !addingMember && (e.target.style.transform = 'translateY(-2px)')}
-                                    onMouseLeave={(e) => !addingMember && (e.target.style.transform = 'translateY(0)')}
                                 >
                                     {addingMember ? '⏳ Adding...' : '✨ Add Member'}
                                 </button>
@@ -828,8 +822,6 @@ const TeamDetailsPage = () => {
                                         boxShadow: saving ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.4)',
                                         transition: 'all 0.2s'
                                     }}
-                                    onMouseEnter={(e) => !saving && (e.target.style.transform = 'translateY(-2px)')}
-                                    onMouseLeave={(e) => !saving && (e.target.style.transform = 'translateY(0)')}
                                 >
                                     {saving ? '⏳ Saving...' : '💾 Save Changes'}
                                 </button>

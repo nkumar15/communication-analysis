@@ -5,6 +5,7 @@ import apiService from '../../../../core/api/b2bClient';
 import useAuth from '../../../../core/hooks/useAuth';
 import { Card } from '../../../../core/components/Card';
 import { Button } from '../../../../core/components/Button';
+import { TableSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const AuditLogsPage = () => {
     const [logs, setLogs] = useState([]);
@@ -155,7 +156,7 @@ const AuditLogsPage = () => {
                 {/* Logs Table */}
                 <Card>
                     {loading ? (
-                        <div style={{ padding: '40px', textAlign: 'center', color: '#6B7280' }}>Loading logs...</div>
+                        <TableSkeleton rows={5} />
                     ) : logs.length === 0 ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: '#6B7280' }}>No audit logs found matching your criteria.</div>
                     ) : (

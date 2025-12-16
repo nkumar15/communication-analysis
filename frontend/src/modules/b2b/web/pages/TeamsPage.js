@@ -4,6 +4,7 @@ import teamApi from '../../../../core/api/teamClient';
 import AdminLayout from '../layouts/AdminLayout';
 import { useAuth } from '../../../../core/hooks/useAuth';
 import { formatDateTime } from '../../../../utils/dateUtils';
+import { DashboardSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const TeamsPage = () => {
     const [teams, setTeams] = useState([]);
@@ -73,10 +74,7 @@ const TeamsPage = () => {
     if (loading) {
         return (
             <AdminLayout title="Teams" subtitle="Manage teams and their members">
-                <div style={{ padding: '40px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                    <p>Loading teams...</p>
-                </div>
+                <DashboardSkeleton />
             </AdminLayout>
         );
     }
@@ -116,8 +114,6 @@ const TeamsPage = () => {
                             alignItems: 'center',
                             gap: '8px'
                         }}
-                        onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                        onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                     >
                         <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -439,8 +435,6 @@ const TeamsPage = () => {
                                         boxShadow: creating ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.4)',
                                         transition: 'all 0.2s'
                                     }}
-                                    onMouseEnter={(e) => !creating && (e.target.style.transform = 'translateY(-2px)')}
-                                    onMouseLeave={(e) => !creating && (e.target.style.transform = 'translateY(0)')}
                                 >
                                     {creating ? '⏳ Creating...' : '✨ Create Team'}
                                 </button>

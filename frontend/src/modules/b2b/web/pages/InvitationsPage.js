@@ -12,6 +12,7 @@ import { useAuth } from '../../../../core/hooks/useAuth';
 import { formatDateTime } from '../../../../utils/dateUtils';
 import TeamSelector from '../components/TeamSelector';
 import BulkInviteModal from '../components/BulkInviteModal';
+import { InvitationsPageSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const InvitationsPage = () => {
     const [stats, setStats] = useState(null);
@@ -273,10 +274,9 @@ const InvitationsPage = () => {
 
     if (loading) {
         return (
-            <div style={{ padding: '40px', textAlign: 'center' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                <p>Loading...</p>
-            </div>
+            <AdminLayout title="User & Invitation Management" subtitle="Manage team members and invitations">
+                <InvitationsPageSkeleton />
+            </AdminLayout>
         );
     }
 
@@ -319,8 +319,8 @@ const InvitationsPage = () => {
 
                 {/* Main Content Card */}
                 <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-                    {/* Tab Navigation with Action Button */}
-                    <div style={{ padding: '24px 24px 0 24px ' }}>
+                    {/* Tab Navigation with Action Buttons */}
+                    <div style={{ padding: '24px 24px 0 24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <TabNav
                                 tabs={[
@@ -331,68 +331,66 @@ const InvitationsPage = () => {
                                 activeTab={activeTab}
                                 onTabChange={setActiveTab}
                             />
-                            <button
-                                onClick={() => setShowInviteModal(true)}
-                                style={{
-                                    backgroundColor: '#4F46E5',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    padding: '10px 24px',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    transition: 'all 0.2s',
-                                    marginBottom: '16px'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#4338CA';
-                                    e.currentTarget.style.transform = 'translateY(-1px)';
-                                    e.currentTarget.style.boxShadow = '0 6px 8px -1px rgba(79, 70, 229, 0.3)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#4F46E5';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(79, 70, 229, 0.2)';
-                                }}
-                            >
-                                <span style={{ fontSize: '16px', fontWeight: 'bold' }}>+</span>
-                                Invite User
-                            </button>
-                            <button
-                                onClick={() => setShowBulkInviteModal(true)}
-                                style={{
-                                    backgroundColor: '#10B981',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    padding: '10px 24px',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    transition: 'all 0.2s',
-                                    marginBottom: '16px'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#059669';
-                                    e.currentTarget.style.transform = 'translateY(-1px)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#10B981';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                            >
-                                <span style={{ fontSize: '16px' }}>📋</span>
-                                Bulk Invite
-                            </button>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button
+                                    onClick={() => setShowInviteModal(true)}
+                                    style={{
+                                        backgroundColor: '#4F46E5',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        padding: '10px 20px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#4338CA';
+                                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(79, 70, 229, 0.3)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#4F46E5';
+                                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(79, 70, 229, 0.2)';
+                                    }}
+                                >
+                                    <span style={{ fontSize: '16px', fontWeight: 'bold' }}>+</span>
+                                    Invite User
+                                </button>
+                                <button
+                                    onClick={() => setShowBulkInviteModal(true)}
+                                    style={{
+                                        backgroundColor: '#10B981',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        padding: '10px 20px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#059669';
+                                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(16, 185, 129, 0.3)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#10B981';
+                                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.2)';
+                                    }}
+                                >
+                                    <span style={{ fontSize: '16px' }}>📋</span>
+                                    Bulk Invite
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -1009,8 +1007,6 @@ const InvitationsPage = () => {
                                             boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
                                             transition: 'all 0.2s'
                                         }}
-                                        onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                        onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                                     >
                                         📨 Send Invitation
                                     </button>
@@ -1136,8 +1132,6 @@ const InvitationsPage = () => {
                                         transition: 'all 0.2s',
                                         opacity: loading ? 0.7 : 1
                                     }}
-                                    onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                    onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                                 >
                                     {loading ? 'Saving...' : 'Save Changes'}
                                 </button>

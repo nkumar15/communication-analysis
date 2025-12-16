@@ -8,6 +8,7 @@ import ImpersonationBanner from '../../../../core/components/ImpersonationBanner
 import MyTeamsWidget from '../components/widgets/MyTeamsWidget';
 import MyTasksWidget from '../components/widgets/MyTasksWidget';
 import QuickActionsWidget from '../components/widgets/QuickActionsWidget';
+import { DashboardSkeleton } from '../../../../core/components/LoadingSkeleton';
 
 const DashboardPage = () => {
     const [dashboardData, setDashboardData] = useState(null);
@@ -37,13 +38,10 @@ const DashboardPage = () => {
     };
 
     // Show loading while auth is checking
-    if (authLoading) {
+    if (authLoading || loading) {
         return (
-            <AdminLayout title="Dashboard" subtitle="Loading...">
-                <div style={{ padding: '60px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                    <p style={{ color: '#6B7280' }}>Loading...</p>
-                </div>
+            <AdminLayout title="Dashboard" subtitle="Your workspace overview">
+                <DashboardSkeleton />
             </AdminLayout>
         );
     }

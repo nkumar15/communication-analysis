@@ -55,6 +55,7 @@ class SubscriptionResponse(BaseModel):
     billing_interval: str
     current_period_start: Optional[str]
     current_period_end: Optional[str]
+    payment_method_info: Optional[dict] = None  # {card_brand, card_last4}
 
 
 class InvoiceResponse(BaseModel):
@@ -113,8 +114,26 @@ async def get_subscription(
             currency="USD",
             billing_interval="monthly",
             current_period_start=None,
-            current_period_end=None
+            current_period_end=None,
+            payment_method_info=None
         )
+    
+    # Fetch payment method info from Stripe if card payment
+    payment_method_info = None
+    if subscription.payment_mode == 'card' and subscription.stripe_subscription_id:
+        try:
+            stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+            if stripe_sub.default_payment_method:
+                pm = stripe.PaymentMethod.retrieve(stripe_sub.default_payment_method)
+                if pm.type == 'card':
+                    payment_method_info = {
+                        'card_brand': pm.card.brand,
+                        'card_last4': pm.card.last4,
+                        'exp_month': pm.card.exp_month,
+                        'exp_year': pm.card.exp_year
+                    }
+        except Exception as e:
+            logger.warning(f"Failed to fetch payment method from Stripe: {e}")
     
     return SubscriptionResponse(
         id=str(subscription.id),
@@ -129,7 +148,8 @@ async def get_subscription(
         currency=subscription.currency,
         billing_interval=subscription.billing_interval,
         current_period_start=subscription.current_period_start.isoformat() if subscription.current_period_start else None,
-        current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None
+        current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None,
+        payment_method_info=payment_method_info
     )
 
 
