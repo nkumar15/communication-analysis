@@ -11,11 +11,17 @@ const ActivationPage = () => {
     const { token } = useParams();
     const navigate = useNavigate();
 
-    const [step, setStep] = useState('validating'); // validating, welcome, sso-login, complete, error
+    const [step, setStep] = useState('validating'); // validating, welcome, sso-config, sso-login, complete, error
     const [tenantInfo, setTenantInfo] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [ssoWindow, setSsoWindow] = useState(null);
+    const [ssoConfig, setSsoConfig] = useState({
+        provider_type: 'oidc',
+        oidc_client_id: '',
+        oidc_client_secret: '',
+        oidc_issuer: ''
+    });
 
     useEffect(() => {
         validateToken();
@@ -37,6 +43,54 @@ const ActivationPage = () => {
         } catch (err) {
             console.error('Validation error:', err);
             setError(err.message || 'Invalid or expired activation link');
+            setStep('error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleConfigChange = (e) => {
+        const { name, value } = e.target;
+        setSsoConfig(prev => ({ ...prev, [name]: value }));
+    };
+
+    const submitSSOConfig = async () => {
+        try {
+            setLoading(true);
+
+            const payload = {
+                activation_token: token,
+                provider_type: ssoConfig.provider_type,
+                provider_config: {
+                    client_id: ssoConfig.oidc_client_id,
+                    client_secret: ssoConfig.oidc_client_secret,
+                    issuer: ssoConfig.oidc_issuer
+                },
+                oidc_client_id: ssoConfig.oidc_client_id,
+                oidc_client_secret: ssoConfig.oidc_client_secret,
+                oidc_issuer: ssoConfig.oidc_issuer
+            };
+
+            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/setup-sso`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'SSO configuration failed');
+            }
+
+            const data = await response.json();
+            console.log('✅ SSO configured:', data);
+
+            // Proceed to SSO login
+            await startSSO();
+
+        } catch (err) {
+            console.error('SSO config error:', err);
+            setError(err.message || 'Failed to configure SSO');
             setStep('error');
         } finally {
             setLoading(false);
@@ -178,13 +232,13 @@ const ActivationPage = () => {
                             padding: '24px',
                             marginBottom: '24px'
                         }}>
-                            <h3 style={{ fontWeight: '600', fontSize: '18px', marginBottom: '8px', color: '#1e3a8a' }}>Your SSO Account is Ready</h3>
+                            <h3 style={{ fontWeight: '600', fontSize: '18px', marginBottom: '8px', color: '#1e3a8a' }}>Let's Set Up Your SSO</h3>
                             <p style={{ color: '#374151', marginBottom: '16px' }}>
-                                We've set up enterprise single sign-on for your organization.
-                                Let's activate your account in 2 simple steps:
+                                Configure your organization's single sign-on provider to enable secure access for your team.
                             </p>
                             <ol style={{ listStyleType: 'decimal', listStylePosition: 'inside', color: '#374151', paddingLeft: '8px' }}>
-                                <li style={{ marginBottom: '8px' }}>Test your SSO login</li>
+                                <li style={{ marginBottom: '8px' }}>Configure SSO provider</li>
+                                <li style={{ marginBottom: '8px' }}>Test SSO login</li>
                                 <li>Complete activation</li>
                             </ol>
                         </div>
@@ -199,13 +253,128 @@ const ActivationPage = () => {
                         </div>
 
                         <Button
-                            onClick={startSSO}
+                            onClick={() => setStep('sso-config')}
                             size="lg"
                             disabled={loading}
                             style={{ width: '100%' }}
                         >
                             Get Started →
                         </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (step === 'sso-config') {
+        const inputStyle = {
+            width: '100%',
+            padding: '10px 12px',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '14px',
+            transition: 'border-color 0.2s',
+        };
+
+        const labelStyle = {
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#374151'
+        };
+
+        return (
+            <div style={pageStyle}>
+                <Card style={{ width: '100%', maxWidth: '600px' }}>
+                    <CardHeader>
+                        <CardTitle style={{ fontSize: '24px' }}>
+                            🔐 Configure SSO Provider
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={(e) => { e.preventDefault(); submitSSOConfig(); }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={labelStyle}>
+                                    Provider Type <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <select
+                                    name="provider_type"
+                                    value={ssoConfig.provider_type}
+                                    onChange={handleConfigChange}
+                                    required
+                                    style={inputStyle}
+                                >
+                                    <option value="oidc">OIDC (Generic)</option>
+                                    <option value="google">Google Workspace</option>
+                                    <option value="microsoft">Microsoft Azure AD</option>
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={labelStyle}>
+                                    Client ID <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="oidc_client_id"
+                                    value={ssoConfig.oidc_client_id}
+                                    onChange={handleConfigChange}
+                                    placeholder="Enter your OIDC client ID"
+                                    required
+                                    style={inputStyle}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={labelStyle}>
+                                    Client Secret <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input
+                                    type="password"
+                                    name="oidc_client_secret"
+                                    value={ssoConfig.oidc_client_secret}
+                                    onChange={handleConfigChange}
+                                    placeholder="Enter your OIDC client secret"
+                                    required
+                                    style={inputStyle}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '24px' }}>
+                                <label style={labelStyle}>
+                                    Issuer URL <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input
+                                    type="url"
+                                    name="oidc_issuer"
+                                    value={ssoConfig.oidc_issuer}
+                                    onChange={handleConfigChange}
+                                    placeholder="https://your-provider.com"
+                                    required
+                                    style={inputStyle}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <Button
+                                    type="button"
+                                    onClick={() => setStep('welcome')}
+                                    variant="outline"
+                                    disabled={loading}
+                                    style={{ flex: 1 }}
+                                >
+                                    Back
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{ flex: 2 }}
+                                >
+                                    {loading ? 'Configuring...' : 'Configure & Test SSO →'}
+                                </Button>
+                            </div>
+                        </form>
                     </CardContent>
                 </Card>
             </div>

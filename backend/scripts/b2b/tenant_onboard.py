@@ -25,74 +25,19 @@ def cli():
 @click.option('--company', required=True, help='Company name')
 @click.option('--domain', required=True, help='Email domain (e.g., acme.com)')
 @click.option('--owner-email', required=True, help='Owner email address')
-@click.option('--provider-type', default='oidc',
-              type=click.Choice(['oidc', 'saml', 'google', 'microsoft']),
-              help='Authentication Provider Type')
-# OIDC Options
-@click.option('--oidc-provider', required=False, default='oidc',
-              help='OIDC provider alias (e.g. auth0, okta) - for OIDC type')
-@click.option('--oidc-client-id', required=False, help='OIDC Client ID')
-@click.option('--oidc-client-secret', required=False, help='OIDC Client Secret')
-@click.option('--oidc-issuer', required=False, help='OIDC Issuer URL')
-@click.option('--oidc-mobile-client-id', required=False, help='Mobile OIDC Client ID (optional)')
-# SAML Options (Skeletal)
-@click.option('--saml-entity-id', required=False, help='SAML Identity Provider Entity ID')
-@click.option('--saml-sso-url', required=False, help='SAML SSO URL')
-def create(company, domain, owner_email, provider_type,
-           oidc_provider, oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id,
-           saml_entity_id, saml_sso_url):
-    """Create a new tenant with pre-configured SSO"""
+def create(company, domain, owner_email):
+    """Create a new tenant (SSO configuration will be done by tenant admin)"""
     asyncio.run(create_tenant_async(
-        company, domain, owner_email, provider_type,
-        oidc_provider, oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id,
-        saml_entity_id, saml_sso_url
+        company, domain, owner_email
     ))
 
 
 async def create_tenant_async(
-    company, domain, owner_email, provider_type,
-    oidc_provider, oidc_client_id, oidc_client_secret, oidc_issuer, oidc_mobile_client_id,
-    saml_entity_id, saml_sso_url
+    company, domain, owner_email
 ):
     """Async tenant creation logic"""
     click.echo(f"🚀 Creating tenant for {company}...\n")
-    click.echo(f"   Provider Type: {provider_type}")
     
-    # Validation Logic
-    provider_config = {}
-    
-    if provider_type == 'oidc':
-        if not all([oidc_client_id, oidc_client_secret, oidc_issuer]):
-             click.echo("❌ Error: --oidc-client-id, --oidc-client-secret, and --oidc-issuer are required for OIDC.", err=True)
-             sys.exit(1)
-        provider_config = {
-            "client_id": oidc_client_id,
-            "client_secret": oidc_client_secret,
-            "issuer": oidc_issuer,
-            "provider_id": oidc_provider,
-            "mobile_client_id": oidc_mobile_client_id
-        }
-        
-    elif provider_type == 'saml':
-         if not all([saml_entity_id, saml_sso_url]):
-             click.echo("❌ Error: --saml-entity-id and --saml-sso-url are required for SAML.", err=True)
-             sys.exit(1)
-         provider_config = {
-             "idp_entity_id": saml_entity_id,
-             "sso_url": saml_sso_url
-         }
-         
-    elif provider_type in ['google', 'microsoft']:
-         # For Google/MS, we just need Client ID/Secret. Issuer is auto-handled.
-         if not all([oidc_client_id, oidc_client_secret]):
-              click.echo(f"❌ Error: --oidc-client-id and --oidc-client-secret are required for {provider_type}.", err=True)
-              sys.exit(1)
-         provider_config = {
-             "client_id": oidc_client_id,
-             "client_secret": oidc_client_secret,
-             "issuer": oidc_issuer # Optional, mostly for Microsoft tenant-specific
-         }
-
     async with AsyncSessionLocal() as db:
         try:
             # Explicitly set platform admin context to ensure RLS bypass works
@@ -103,14 +48,7 @@ async def create_tenant_async(
                 db=db,
                 company_name=company,
                 domain=domain,
-                owner_email=owner_email,
-                provider_type=provider_type,
-                provider_config=provider_config,
-                # Legacy params still passed if service needs them (though it shouldn't for non-OIDC path)
-                # oidc_provider removed from signature, handled via provider_config['provider_id']
-                oidc_client_id=oidc_client_id,
-                oidc_client_secret=oidc_client_secret,
-                oidc_issuer=oidc_issuer
+                owner_email=owner_email
             )
             
             await db.commit()
@@ -128,29 +66,19 @@ async def create_tenant_async(
 @click.option('--company', prompt='Company Name', help='Company name')
 @click.option('--domain', prompt='Domain (e.g., test.com)', help='Email domain')
 @click.option('--firebase-tenant-id', prompt='Firebase Tenant ID', help='Existing Firebase tenant ID')
-@click.option('--oidc-web-provider-id', prompt='Web OIDC Provider ID (e.g., oidc.auth0)', help='Existing OIDC provider ID')
-@click.option('--oidc-web-client-id', prompt='OIDC Client ID (for web)', required=False, help='OIDC Client ID')
-@click.option('--oidc-mobile-client-id', prompt='OIDC Client ID (for mobile app)', required=False, help='Mobile Client ID')
-@click.option('--oidc-mobile-provider-id', prompt='Mobile OIDC Provider ID', required=False, default=None, help='Existing Mobile OIDC provider ID')
-@click.option('--oidc-issuer', prompt='OIDC Issuer URL (for mobile app)', required=False, help='OIDC Issuer URL')
 @click.option('--owner-email', prompt='Owner Email', help='Owner email address')
-def create_local(company, domain, firebase_tenant_id, oidc_web_provider_id, oidc_web_client_id, oidc_mobile_client_id, oidc_mobile_provider_id, oidc_issuer, owner_email):
+def create_local(company, domain, firebase_tenant_id, owner_email):
     """Create tenant using existing Firebase tenant (DB only - for testing)"""
     asyncio.run(create_local_async(
-        company, domain, firebase_tenant_id, oidc_web_provider_id, oidc_web_client_id, oidc_mobile_client_id, oidc_mobile_provider_id, oidc_issuer, owner_email
+        company, domain, firebase_tenant_id, owner_email
     ))
 
 
 async def create_local_async(
-    company, domain, firebase_tenant_id, oidc_web_provider_id, oidc_web_client_id, oidc_mobile_client_id, oidc_mobile_provider_id, oidc_issuer, owner_email):
+    company, domain, firebase_tenant_id, owner_email):
     """Create tenant using API service (Local Mode)"""
     click.echo(f"🚀 Creating local tenant for {company}...\n")
     click.echo(f"📍 Using Firebase tenant: {firebase_tenant_id}")
-    click.echo(f"📍 Using Web OIDC provider: {oidc_web_provider_id}\n")
-    click.echo(f"🔍 DEBUG: Web Client ID: {oidc_web_client_id}\n")
-    click.echo(f"🔍 DEBUG: Mobile Client ID: {oidc_mobile_client_id}\n")
-    click.echo(f"🔍 DEBUG: Mobile Provider ID: {oidc_mobile_provider_id}\n")
-    click.echo(f"🔍 DEBUG: Issuer: {oidc_issuer}\n")
 
     async with AsyncSessionLocal() as db:
         try:
@@ -163,14 +91,7 @@ async def create_local_async(
                 company_name=company,
                 domain=domain,
                 owner_email=owner_email,
-                provider_type="oidc", # Default generic type for local
-                oidc_client_id=oidc_web_client_id,
-                oidc_client_secret=None,
-                oidc_issuer=oidc_issuer,
-                firebase_tenant_id=firebase_tenant_id,
-                oidc_provider_id=oidc_web_provider_id,
-                oidc_mobile_client_id=oidc_mobile_client_id,
-                oidc_mobile_provider_id=oidc_mobile_provider_id
+                firebase_tenant_id=firebase_tenant_id
             )
             
             await db.commit()
@@ -192,7 +113,6 @@ def print_summary(result):
     click.echo(f"Domain:           {result['domain']}")
     click.echo(f"Owner Email:      {result['owner_email']}")
     click.echo(f"Firebase Tenant:  {result['firebase_tenant_id']}")
-    click.echo(f"OIDC Provider:    {result['oidc_provider_id']}")
     click.echo(f"Activation URL:   {result['activation_url']}")
     click.echo(f"Expires:          {result['expires_at']}")
     click.echo("=" * 70)
@@ -226,6 +146,87 @@ async def list_tenants_async(domain):
             click.echo(f"Name: {tenant.name}")
             click.echo(f"Status: {tenant.activation_status}")
             click.echo(f"Created: {tenant.created_at}")
+
+
+@cli.command('setup-sso')
+@click.option('--token', required=True, help='Activation Token')
+@click.option('--provider-type', default='oidc', help='Auth provider type (oidc, google, microsoft)')
+@click.option('--client-id', required=True, help='Client ID')
+@click.option('--client-secret', required=True, help='Client Secret')
+@click.option('--issuer', required=True, help='Issuer URL (for OIDC)')
+def setup_sso(token, provider_type, client_id, client_secret, issuer):
+    """(Dev) Setup SSO for a pending tenant using activation token"""
+    asyncio.run(setup_sso_async(
+        token, provider_type, client_id, client_secret, issuer
+    ))
+
+
+async def setup_sso_async(token, provider_type, client_id, client_secret, issuer):
+    """Async SSO setup logic"""
+    from services.b2b.services.tenant_service import tenant_service
+    from services.b2b.services.auth_provider_service import auth_provider_service
+    from services.b2b.models import TenantModel
+    
+    click.echo(f"🔧 Configuring SSO for token: {token[:10]}...")
+    
+    async with AsyncSessionLocal() as db:
+        try:
+            # 1. Validate Token to get Tenant ID
+            # Use platform admin context just in case, though token validation usually doesn't need it
+            # But configuring provider might need permissions?
+            # Actually, this simulates the USER action, who is anonymous until activated.
+            # But the service code runs in backend context.
+           
+            try:
+                validation = await tenant_service.validate_activation_token(db, token)
+            except Exception as e:
+                click.echo(f"❌ Invalid Token: {str(e)}")
+                return
+                
+            tenant_id = validation["tenant_id"]
+            click.echo(f"   Identified Tenant: {validation['tenant_name']} ({validation['tenant_id']})")
+            
+            # Get full tenant for firebase ID
+            tenant = await db.get(TenantModel, tenant_id)
+            
+            if tenant.activation_status != 'pending':
+                click.echo("❌ Tenant is not pending activation.")
+                return
+
+            # 2. Setup Provider
+            # Check if this simulates local or production?
+            # It calls the service which calls firebase CLI.
+            
+            # Construct config dict
+            config = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "issuer": issuer
+            }
+            
+            click.echo(f"   Configuring {provider_type} in Identity Platform...")
+            
+            await auth_provider_service.setup_initial_provider(
+                db=db,
+                tenant_id=tenant_id,
+                firebase_tenant_id=tenant.firebase_tenant_id,
+                provider_type=provider_type,
+                provider_config=config,
+                oidc_client_id=client_id,
+                oidc_client_secret=client_secret,
+                oidc_issuer=issuer
+            )
+            
+            await db.commit()
+            
+            click.echo("\n✅ SSO Configured Successfully!")
+            click.echo("   You can now verify the login flow via the Frontend or API.")
+            
+        except Exception as e:
+            click.echo(f"\n❌ Error: {str(e)}", err=True)
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
 
 
 @cli.command('resend')

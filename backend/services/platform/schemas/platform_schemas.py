@@ -16,16 +16,6 @@ class TenantOnboardRequest(BaseModel):
     company_name: str = Field(..., min_length=1, max_length=255, description="Company/tenant name")
     domain: str = Field(..., min_length=3, max_length=255, description="Email domain (e.g., acme.com)")
     owner_email: EmailStr = Field(..., description="Owner/admin email address")
-    
-    # Generic Provider Config
-    provider_type: str = Field("oidc", description="Auth provider type: oidc, saml, google, microsoft")
-    provider_config: Optional[dict] = Field(None, description="Provider specific configuration (client_id, secrets, etc)")
-
-    # Legacy OIDC fields (Optional now)
-    oidc_provider: Optional[str] = Field(None, description="Legacy: OIDC provider alias (auth0, okta)")
-    oidc_client_id: Optional[str] = Field(None, min_length=1, description="Legacy: OIDC client ID")
-    oidc_client_secret: Optional[str] = Field(None, min_length=1, description="Legacy: OIDC client secret")
-    oidc_issuer: Optional[str] = Field(None, min_length=1, description="Legacy: OIDC issuer URL")
 
 
 class TenantOnboardResponse(BaseModel):
@@ -35,7 +25,6 @@ class TenantOnboardResponse(BaseModel):
     domain: str
     owner_email: str
     firebase_tenant_id: str
-    oidc_provider_id: str
     activation_url: str
     activation_token: str
     expires_at: str

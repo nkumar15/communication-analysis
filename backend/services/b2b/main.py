@@ -31,6 +31,7 @@ from services.b2b.routers import (
     audit_logs,
     dashboard,
     billing,  # Billing router
+    sso_settings,  # SSO Settings
 )
 
 # Setup logging first
@@ -92,6 +93,7 @@ app.include_router(account.router)
 app.include_router(audit_logs.router)  # Audit Logs
 app.include_router(dashboard.router)   # Dashboard Stats
 app.include_router(billing.router)     # Billing & Subscriptions
+app.include_router(sso_settings.router)  # SSO Settings
 
 
 

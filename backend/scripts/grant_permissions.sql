@@ -21,7 +21,7 @@ BEGIN
       
       -- Grant execute on all functions (fixes B2C RLS helpers)
       EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA %I TO %I', _schema, _user);
-      
+
       RAISE NOTICE 'Granted permissions on schema % to %', _schema, _user;
    END LOOP;
 END

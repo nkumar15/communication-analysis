@@ -24,6 +24,3 @@ BEGIN
         (SELECT COUNT(*) FROM b2c.users WHERE deleted_at IS NULL)::BIGINT;
 END;
 $$ LANGUAGE plpgsql;
-
--- Grant execute to saas_user
-GRANT EXECUTE ON FUNCTION b2c.get_platform_stats() TO saas_user;

@@ -187,6 +187,150 @@ class AuthProviderService:
         
         return True
 
+    @staticmethod
+    async def setup_initial_provider(
+        db: AsyncSession,
+        tenant_id: UUID,
+        firebase_tenant_id: str,
+        provider_type: str,
+        provider_config: dict,
+        oidc_client_id: Optional[str] = None,
+        oidc_client_secret: Optional[str] = None,
+        oidc_issuer: Optional[str] = None,
+        saml_entity_id: Optional[str] = None,
+        saml_sso_url: Optional[str] = None
+    ) -> AuthProvider:
+        """
+        Setup the initial Auth Provider during tenant activation.
+        
+        1. Configures the provider in Firebase/GCIP.
+        2. Creates the AuthProvider record in the DB.
+        """
+        from scripts.core.firebase_admin_cli import configure_oidc_provider
+        from services.b2b.schemas.auth_provider import AuthProviderCreate, AuthProviderType
+        
+        # 1. Configure in Firebase (GCIP)
+        # Note: We reuse the existing CLI helper logic for now to keep it DRY.
+        # It handles OIDC logic. For SAML, we might need to extend it later or here.
+        
+        # Construct arguments expected by configure_oidc_provider
+        # It expects specific args or a config dict wrapper? 
+        # Let's check imports. It takes (firebase_tenant_id, provider_type, config)
+        
+        # Mapping frontend 'provider_type' to internal enum/string
+        # 'oidc', 'google', 'microsoft' -> handled by configure_oidc_provider
+        
+        # Prepare standard config dict for the helper
+        config_to_pass = provider_config.copy()
+        if oidc_client_id: config_to_pass['client_id'] = oidc_client_id
+        if oidc_client_secret: config_to_pass['client_secret'] = oidc_client_secret
+        if oidc_issuer: config_to_pass['issuer'] = oidc_issuer
+        if saml_entity_id: config_to_pass['idp_entity_id'] = saml_entity_id
+        if saml_sso_url: config_to_pass['sso_url'] = saml_sso_url
+
+        try:
+            # Extract individual parameters from config
+            client_id = config_to_pass.get('client_id')
+            client_secret = config_to_pass.get('client_secret')
+            issuer = config_to_pass.get('issuer')
+            
+            if not all([client_id, client_secret, issuer]):
+                raise ValueError("Missing required OIDC parameters: client_id, client_secret, and issuer")
+            
+            # Call with individual parameters as expected by function signature
+            provider_id = configure_oidc_provider(
+                firebase_tenant_id,
+                provider_type,
+                client_id,
+                client_secret,
+                issuer
+            )
+        except Exception as e:
+            raise Exception(f"Failed to configure provider in Identity Platform: {str(e)}")
+
+        # 2. Create DB Record
+        # Determine strict enum type
+        mapped_type = AuthProviderType.OIDC
+        if provider_type == 'saml': mapped_type = AuthProviderType.SAML
+        elif provider_type == 'google': mapped_type = AuthProviderType.GOOGLE
+        elif provider_type == 'microsoft': mapped_type = AuthProviderType.MICROSOFT
+        
+        # Store comprehensive config in JSON
+        stored_config = config_to_pass
+        stored_config['issuer'] = stored_config.get('issuer') # Ensure issuer is there for OIDC
+        
+        new_provider_data = AuthProviderCreate(
+            tenant_id=tenant_id,
+            provider_type=mapped_type,
+            provider_id=provider_id,
+            display_name=f"{provider_type.upper()} Login",
+            is_primary=True,
+            is_active=True,
+            config_data=stored_config
+        )
+        
+        return await AuthProviderService.create_provider(db, new_provider_data)
+
+    @staticmethod
+    async def update_provider_credentials(
+        db: AsyncSession,
+        tenant_id: UUID,
+        client_id: str,
+        client_secret: str,
+        issuer: str
+    ) -> AuthProvider:
+        """
+        Update existing provider credentials (post-activation reconfiguration).
+        
+        1. Updates credentials in Firebase/GCIP
+        2. Updates AuthProvider record in DB
+        """
+        from scripts.core.firebase_admin_cli import configure_oidc_provider
+        
+        # Get the primary provider for this tenant
+        provider = await AuthProviderService.get_primary_provider(db, tenant_id)
+        
+        if not provider:
+            raise Exception("No SSO provider configured for this tenant")
+        
+        # Get tenant to retrieve firebase_tenant_id
+        from services.b2b.models import TenantModel
+        tenant = await db.get(TenantModel, tenant_id)
+        
+        if not tenant:
+            raise Exception("Tenant not found")
+        
+        try:
+            # Update in Firebase/GCIP
+            configure_oidc_provider(
+                tenant.firebase_tenant_id,
+                provider.provider_type,
+                client_id,
+                client_secret,
+                issuer,
+                provider_id_override=provider.provider_id  # Keep same provider ID
+            )
+            
+            # Update config_data in DB
+            updated_config = provider.config_data or {}
+            updated_config.update({
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'issuer': issuer
+            })
+            
+            provider.config_data = updated_config
+            await db.flush()
+            
+            # Re-query to get updated record
+            result = await db.execute(
+                select(AuthProvider).where(AuthProvider.id == provider.id)
+            )
+            return result.scalar_one()
+            
+        except Exception as e:
+            raise Exception(f"Failed to update SSO credentials: {str(e)}")
+
 
 # Create singleton instance
 auth_provider_service = AuthProviderService()

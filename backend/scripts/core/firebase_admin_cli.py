@@ -15,6 +15,33 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from core.config import settings
 
 
+def sanitize_display_name(company_name: str) -> str:
+    """
+    Sanitize company name to meet Firebase display name requirements:
+    - 4-20 characters
+    - Start with a letter
+    - Only letters, digits, and hyphens
+    """
+    import re
+    
+    # Remove special characters, keep only alphanumeric and hyphens
+    sanitized = re.sub(r'[^a-zA-Z0-9-]', '', company_name.replace(' ', '-'))
+    
+    # Ensure it starts with a letter
+    if not sanitized or not sanitized[0].isalpha():
+        sanitized = 'T-' + sanitized  # Prefix with 'T-' for Tenant
+    
+    # Truncate to 20 characters max
+    if len(sanitized) > 20:
+        sanitized = sanitized[:20]
+    
+    # Ensure minimum 4 characters
+    if len(sanitized) < 4:
+        sanitized = sanitized + 'Org'
+    
+    return sanitized
+
+
 def create_firebase_tenant(company_name: str) -> str:
     """
     Create a new Firebase tenant
@@ -25,8 +52,10 @@ def create_firebase_tenant(company_name: str) -> str:
     Returns:
         Firebase tenant ID
     """
+    display_name = sanitize_display_name(company_name)
+    
     tenant = tenant_mgt.create_tenant(
-        display_name=company_name,
+        display_name=display_name,
         enable_email_link_sign_in=False,  # Disable email/password - SSO only
         allow_password_sign_up=False
     )

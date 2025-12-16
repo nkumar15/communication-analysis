@@ -339,12 +339,7 @@ async def onboard_tenant(
             db=db,
             company_name=request.company_name,
             domain=request.domain,
-            owner_email=request.owner_email,
-            provider_type=request.provider_type,
-            provider_config=request.provider_config,
-            oidc_client_id=request.oidc_client_id,
-            oidc_client_secret=request.oidc_client_secret,
-            oidc_issuer=request.oidc_issuer
+            owner_email=request.owner_email
         )
         
         await db.commit()
