@@ -19,6 +19,8 @@ function TenantList() {
 
     // UI State
     const [showModal, setShowModal] = useState(false);
+    const [selectedTenants, setSelectedTenants] = useState([]);
+    const [showBulkActions, setShowBulkActions] = useState(false);
 
     // Debounce search input
     useEffect(() => {
@@ -123,6 +125,65 @@ function TenantList() {
         }
     };
 
+    const handleSelectAll = () => {
+        if (selectedTenants.length === tenants.length) {
+            setSelectedTenants([]);
+        } else {
+            setSelectedTenants(tenants.map(t => t.id));
+        }
+    };
+
+    const handleSelectTenant = (tenantId) => {
+        setSelectedTenants(prev =>
+            prev.includes(tenantId)
+                ? prev.filter(id => id !== tenantId)
+                : [...prev, tenantId]
+        );
+    };
+
+    const handleBulkDeactivate = async () => {
+        if (!window.confirm(`Deactivate ${selectedTenants.length} tenant(s)? Users will not be able to login.`)) {
+            return;
+        }
+
+        try {
+            await Promise.all(
+                selectedTenants.map(id => platformApiService.deactivateTenant(id))
+            );
+            setSelectedTenants([]);
+            fetchData();
+            alert('Selected tenants have been deactivated.');
+        } catch (error) {
+            alert('Failed to deactivate some tenants: ' + error.message);
+        }
+    };
+
+    const handleExportCSV = () => {
+        const headers = ['Name', 'Domain', 'Status', 'Users', 'Created At'];
+        const rows = tenants.map(t => [
+            t.name,
+            t.domain,
+            t.status,
+            t.user_count,
+            formatDateTime(t.created_at)
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tenants_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    };
+
     const totalPages = Math.ceil(total / limit);
 
     const getStatusBadge = (status) => {
@@ -159,12 +220,31 @@ function TenantList() {
                         Manage all SaaS tenants, onboarding, and subscriptions.
                     </p>
                 </div>
-                <button
-                    className="platform-btn platform-btn-primary"
-                    onClick={() => setShowModal(true)}
-                >
-                    + Onboard Tenant
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                        onClick={handleExportCSV}
+                        className="platform-button"
+                        style={{
+                            backgroundColor: '#10B981',
+                            color: 'white',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                        }}
+                        disabled={tenants.length === 0}
+                    >
+                        📥 Export CSV
+                    </button>
+                    <button
+                        className="platform-btn platform-btn-primary"
+                        onClick={() => setShowModal(true)}
+                    >
+                        + Onboard Tenant
+                    </button>
+                </div>
             </div>
 
             {stats && (
@@ -180,6 +260,56 @@ function TenantList() {
                     <div className="platform-stat-card">
                         <div className="platform-stat-label">Total Users</div>
                         <div className="platform-stat-value">{stats.total_users}</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Actions Bar */}
+            {selectedTenants.length > 0 && (
+                <div style={{
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: '#EEF2FF',
+                    padding: '1rem',
+                    borderRadius: '0.5rem',
+                    border: '2px solid #6366F1'
+                }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#4F46E5' }}>
+                        {selectedTenants.length} tenant(s) selected
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                            onClick={() => setSelectedTenants([])}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                border: '1px solid #6366F1',
+                                backgroundColor: 'white',
+                                color: '#6366F1',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Clear Selection
+                        </button>
+                        <button
+                            onClick={handleBulkDeactivate}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                backgroundColor: '#EF4444',
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Deactivate Selected
+                        </button>
                     </div>
                 </div>
             )}
@@ -230,6 +360,14 @@ function TenantList() {
                 <table className="platform-table">
                     <thead>
                         <tr>
+                            <th style={{ width: '40px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedTenants.length === tenants.length && tenants.length > 0}
+                                    onChange={handleSelectAll}
+                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                />
+                            </th>
                             <th>Tenant Name</th>
                             <th>Domain</th>
                             <th>Status</th>
@@ -248,6 +386,14 @@ function TenantList() {
                         ) : tenants.length > 0 ? (
                             tenants.map((tenant) => (
                                 <tr key={tenant.id}>
+                                    <td>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedTenants.includes(tenant.id)}
+                                            onChange={() => handleSelectTenant(tenant.id)}
+                                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                        />
+                                    </td>
                                     <td>
                                         <Link
                                             to={`/platform/tenants/${tenant.id}`}

@@ -97,6 +97,9 @@ function SuperAdminLayout() {
                         <Link to="/analytics" className={`platform-nav-item ${isActive('/analytics') ? 'active' : ''}`}>
                             <span>📈 Analytics</span>
                         </Link>
+                        <Link to="/system-health" className={`platform-nav-item ${isActive('/system-health') ? 'active' : ''}`}>
+                            <span>🏥 System Health</span>
+                        </Link>
                         <Link to="/audit-logs" className={`platform-nav-item ${isActive('/audit-logs') ? 'active' : ''}`}>
                             <span>📋 Audit Logs</span>
                         </Link>
