@@ -1,24 +1,91 @@
-
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { auth } from '../../core/firebase/b2c-config';
+
+// Pages
 import LoginPage from './web/pages/LoginPage';
 import SignupPage from './web/pages/SignupPage';
 import DashboardPage from './web/pages/DashboardPage';
+import WorkspacesListPage from './web/pages/WorkspacesListPage';
 import WorkspacePage from './web/pages/WorkspacePage';
-import LandingPage from '../../pages/LandingPage';
-import '../../styles/main.css';
+import UserSettingsPage from './web/pages/UserSettingsPage';
+import NotificationsPage from './web/pages/NotificationsPage';
+import SubscriptionPage from './web/pages/SubscriptionPage';
+import BillingHistoryPage from './web/pages/BillingHistoryPage';
+
+// Protected Route Wrapper
+const ProtectedRoute = ({ children }) => {
+    const [isAuthenticated, setIsAuthenticated] = React.useState(null);
+
+    React.useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            setIsAuthenticated(!!user);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    if (isAuthenticated === null) {
+        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+            <div style={{ fontSize: '48px' }}>⏳</div>
+        </div>;
+    }
+
+    return isAuthenticated ? children : <Navigate to="/login" />;
+};
 
 const B2CApp = () => {
     return (
-        <BrowserRouter>
-            <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/workspace/:workspaceId" element={<WorkspacePage />} />
-            </Routes>
-        </BrowserRouter>
+        <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+
+            {/* Protected Routes */}
+            <Route path="/" element={
+                <ProtectedRoute>
+                    <DashboardPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/workspaces" element={
+                <ProtectedRoute>
+                    <WorkspacesListPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/workspace/:workspaceId" element={
+                <ProtectedRoute>
+                    <WorkspacePage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/settings" element={
+                <ProtectedRoute>
+                    <UserSettingsPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/notifications" element={
+                <ProtectedRoute>
+                    <NotificationsPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/subscription" element={
+                <ProtectedRoute>
+                    <SubscriptionPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/billing" element={
+                <ProtectedRoute>
+                    <BillingHistoryPage />
+                </ProtectedRoute>
+            } />
+
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
     );
 };
 
