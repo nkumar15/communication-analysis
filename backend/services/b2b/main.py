@@ -30,6 +30,7 @@ from services.b2b.routers import (
     account,
     audit_logs,
     dashboard,
+    billing,  # Billing router
 )
 
 # Setup logging first
@@ -90,6 +91,7 @@ app.include_router(team_roles.router)  # NEW: Team Role Definitions
 app.include_router(account.router)
 app.include_router(audit_logs.router)  # Audit Logs
 app.include_router(dashboard.router)   # Dashboard Stats
+app.include_router(billing.router)     # Billing & Subscriptions
 
 
 

@@ -58,11 +58,24 @@ class Settings(BaseSettings):
     stripe_publishable_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
     
-    # Stripe Price IDs (from Stripe Dashboard)
+    # Stripe Price IDs (B2C - from Stripe Dashboard)
     stripe_price_premium_monthly: Optional[str] = None
     stripe_price_premium_yearly: Optional[str] = None
     stripe_price_ultimate_monthly: Optional[str] = None
     stripe_price_ultimate_yearly: Optional[str] = None
+    
+    # B2B Stripe (separate keys for B2B billing)
+    stripe_b2b_secret_key: Optional[str] = None
+    stripe_b2b_publishable_key: Optional[str] = None
+    stripe_b2b_webhook_secret: Optional[str] = None
+    
+    # B2B Stripe Price IDs (per-seat pricing tiers)
+    stripe_b2b_price_starter_monthly: Optional[str] = None
+    stripe_b2b_price_starter_yearly: Optional[str] = None
+    stripe_b2b_price_professional_monthly: Optional[str] = None
+    stripe_b2b_price_professional_yearly: Optional[str] = None
+    stripe_b2b_price_enterprise_monthly: Optional[str] = None
+    stripe_b2b_price_enterprise_yearly: Optional[str] = None
     
     # Future providers (not implemented yet)
     razorpay_key_id: Optional[str] = None

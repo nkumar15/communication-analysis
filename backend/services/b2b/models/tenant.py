@@ -23,3 +23,9 @@ class TenantModel(Base, TimestampMixin, SoftDeleteMixin):
     activation_started_at = Column(DateTime(timezone=True), nullable=True)
     
     is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Relationships (billing-related)
+    subscription = relationship("Subscription", back_populates="tenant", uselist=False)
+    invoices = relationship("Invoice", back_populates="tenant")
+    subscription_events = relationship("SubscriptionEvent", back_populates="tenant")
+    payment_mode_requests = relationship("PaymentModeRequest", back_populates="tenant")

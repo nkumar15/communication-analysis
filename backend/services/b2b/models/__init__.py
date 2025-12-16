@@ -7,6 +7,17 @@ from .team_member import TeamMember
 from .auth_provider import AuthProvider
 from .team_role_definition import TeamRoleDefinition
 from .audit_log import AuditLog
+from .subscription import (
+    Subscription,
+    Invoice,
+    SubscriptionEvent,
+    PaymentModeRequest,
+    SubscriptionTier,
+    PaymentMode,
+    SubscriptionStatus,
+    InvoiceStatus,
+    PaymentModeRequestStatus
+)
 
 __all__ = [
     "TenantModel", 
@@ -20,6 +31,17 @@ __all__ = [
     "TeamMember",
     "AuthProvider",
     "TeamRoleDefinition",
-    "AuditLog"
+    "AuditLog",
+    # Billing Models
+    "Subscription",
+    "Invoice",
+    "SubscriptionEvent",
+    "PaymentModeRequest",
+    # Enums
+    "SubscriptionTier",
+    "PaymentMode",
+    "SubscriptionStatus",
+    "InvoiceStatus",
+    "PaymentModeRequestStatus"
 ]
 

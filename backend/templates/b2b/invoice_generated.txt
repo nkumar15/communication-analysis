@@ -1,0 +1,34 @@
+Subject: New Invoice from {tenant_name}
+
+Hello,
+
+A new invoice has been generated for your {tenant_name} subscription.
+
+Invoice Details:
+- Invoice Number: {invoice_number}
+- Amount Due: ${amount_due}
+- Billing Period: {billing_period_start} - {billing_period_end}
+- Seat Count: {seat_count} users
+- Due Date: {due_date}
+
+Pricing Breakdown:
+- Base Price: ${base_price}
+- Per-Seat Price: ${per_seat_price} × {seat_count} seats = ${seats_total}
+- Total Amount: ${amount_due}
+
+You can view and download your invoice by logging into your account:
+{invoice_url}
+
+Payment Instructions:
+Please make payment via wire transfer to the following account:
+[Bank details will be provided by platform admin]
+
+If you have any questions about this invoice, please contact our billing team.
+
+Thank you for your business!
+
+Best regards,
+The {platform_name} Team
+
+---
+This is an automated message. Please do not reply to this email.
