@@ -11,6 +11,7 @@ import Dashboard from './web/pages/DashboardPage';
 import WorkspacesPage from './web/pages/WorkspacesPage';
 import AnalyticsPage from './web/pages/AnalyticsPage';
 import SettingsPage from './web/pages/SettingsPage';
+import AuditLogsPage from './web/pages/AuditLogsPage';
 import PlatformLogin from './web/pages/LoginPage';
 import PlatformAdminRoute from '../../core/components/PlatformAdminRoute';
 import firebaseAuthService from '../../core/firebase/authService';
@@ -50,6 +51,7 @@ function PlatformApp() {
                         <Route path="/tenants/:tenantId" element={<TenantDetailsPage />} />
                         <Route path="/workspaces" element={<WorkspacesPage />} />
                         <Route path="/analytics" element={<AnalyticsPage />} />
+                        <Route path="/audit-logs" element={<AuditLogsPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
                     </Route>
                 </Route>

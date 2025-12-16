@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import platformApiService from '../../../../core/api/platformClient';
 import { useProduct } from '../layouts/SuperAdminLayout';
+import { DashboardSkeleton } from '../components/LoadingSkeletons';
 
 function Dashboard() {
     const { selectedProduct } = useProduct();
@@ -40,11 +41,7 @@ function Dashboard() {
     }, [selectedProduct]);
 
     if (loading) {
-        return (
-            <div className="loading-container">
-                <div className="spinner large"></div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     return (

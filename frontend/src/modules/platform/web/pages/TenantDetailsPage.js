@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import platformApiService from '../../../../core/api/platformClient';
 import { formatDateTime } from '../../../../utils/dateUtils';
+import { TenantDetailsSkeleton } from '../components/LoadingSkeletons';
 
 function TenantDetailsPage() {
     const { tenantId } = useParams();
@@ -70,11 +71,7 @@ function TenantDetailsPage() {
     };
 
     if (loading) {
-        return (
-            <div className="loading-container">
-                <div className="spinner large"></div>
-            </div>
-        );
+        return <TenantDetailsSkeleton />;
     }
 
     if (error) {
