@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
 
 from core.database import get_db
-from core.middleware import get_current_user
+from services.b2b.middleware import get_current_active_user
 from core.constants import B2BRoleName
 from services.b2b.services.auth_provider_service import auth_provider_service
 from services.b2b.schemas.sso_settings import (
@@ -30,7 +30,7 @@ def mask_client_id(client_id: str) -> str:
 
 @router.get("/sso", response_model=SSOConfigResponse)
 async def get_sso_config(
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -41,11 +41,16 @@ async def get_sso_config(
     tenant_id = current_user.get("tenant_id")
     role = current_user.get("role")
     
-    # Require OWNER or ADMIN role
-    if role not in [B2BRoleName.OWNER, B2BRoleName.ADMIN]:
+    # Debug logging
+    print(f"🔍 SSO Config Access - User role: {repr(role)}, Type: {type(role)}")
+    print(f"🔍 Checking against: OWNER={repr(B2BRoleName.OWNER)}, ADMIN={repr(B2BRoleName.ADMIN)}")
+    
+    # Require OWNER or ADMIN role (handle both string and enum)
+    allowed_roles = [B2BRoleName.OWNER, B2BRoleName.ADMIN, "owner", "admin"]
+    if role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only tenant owners and admins can view SSO configuration"
+            detail=f"Only tenant owners and admins can view SSO configuration. Current role: {role}"
         )
     
     # Get primary auth provider
@@ -60,6 +65,7 @@ async def get_sso_config(
     # Extract config data
     config = provider.config_data or {}
     client_id = config.get('client_id', '')
+    mobile_client_id = config.get('mobile_client_id')
     
     return SSOConfigResponse(
         provider_type=provider.provider_type,
@@ -68,14 +74,16 @@ async def get_sso_config(
         client_id_masked=mask_client_id(client_id),
         issuer=config.get('issuer', ''),
         is_active=provider.is_active,
-        has_mobile=False  # TODO: Implement mobile provider detection
+        has_mobile=bool(mobile_client_id),
+        mobile_client_id=mobile_client_id,
+        mobile_client_id_masked=mask_client_id(mobile_client_id) if mobile_client_id else None
     )
 
 
 @router.put("/sso", response_model=SSOConfigUpdateResponse)
 async def update_sso_config(
     request: SSOConfigUpdateRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -86,11 +94,15 @@ async def update_sso_config(
     tenant_id = current_user.get("tenant_id")
     role = current_user.get("role")
     
-    # Require OWNER or ADMIN role
-    if role not in [B2BRoleName.OWNER, B2BRoleName.ADMIN]:
+    # Debug logging
+    print(f"🔍 SSO Config Update - User role: {repr(role)}, Type: {type(role)}")
+    
+    # Require OWNER or ADMIN role (handle both string and enum)
+    allowed_roles = [B2BRoleName.OWNER, B2BRoleName.ADMIN, "owner", "admin"]
+    if role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only tenant owners and admins can modify SSO configuration"
+            detail=f"Only tenant owners and admins can modify SSO configuration. Current role: {role}"
         )
     
     try:
@@ -99,7 +111,9 @@ async def update_sso_config(
             tenant_id=tenant_id,
             client_id=request.client_id,
             client_secret=request.client_secret,
-            issuer=request.issuer
+            issuer=request.issuer,
+            mobile_client_id=request.mobile_client_id,
+            mobile_client_secret=request.mobile_client_secret
         )
         
         await db.commit()

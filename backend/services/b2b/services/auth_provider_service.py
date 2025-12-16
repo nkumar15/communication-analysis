@@ -277,13 +277,15 @@ class AuthProviderService:
         tenant_id: UUID,
         client_id: str,
         client_secret: str,
-        issuer: str
+        issuer: str,
+        mobile_client_id: str = None,
+        mobile_client_secret: str = None
     ) -> AuthProvider:
         """
         Update existing provider credentials (post-activation reconfiguration).
         
-        1. Updates credentials in Firebase/GCIP
-        2. Updates AuthProvider record in DB
+        1. Updates credentials in Firebase/GCIP (web only)
+        2. Updates AuthProvider record in DB (including mobile if provided)
         """
         from scripts.core.firebase_admin_cli import configure_oidc_provider
         
@@ -301,7 +303,7 @@ class AuthProviderService:
             raise Exception("Tenant not found")
         
         try:
-            # Update in Firebase/GCIP
+            # Update in Firebase/GCIP (web credentials only)
             configure_oidc_provider(
                 tenant.firebase_tenant_id,
                 provider.provider_type,
@@ -311,13 +313,27 @@ class AuthProviderService:
                 provider_id_override=provider.provider_id  # Keep same provider ID
             )
             
-            # Update config_data in DB
+            # Update config_data in DB (both web and mobile)
             updated_config = provider.config_data or {}
             updated_config.update({
                 'client_id': client_id,
                 'client_secret': client_secret,
                 'issuer': issuer
             })
+            
+            # Add mobile credentials if provided
+            # Treat empty strings as None for cleaner logic
+            mobile_id = mobile_client_id if mobile_client_id else None
+            mobile_secret = mobile_client_secret if mobile_client_secret else None
+            
+            if mobile_id and mobile_secret:
+                # Both provided - save mobile credentials
+                updated_config['mobile_client_id'] = mobile_id
+                updated_config['mobile_client_secret'] = mobile_secret
+            else:
+                # Either missing or intentionally cleared - remove mobile credentials
+                updated_config.pop('mobile_client_id', None)
+                updated_config.pop('mobile_client_secret', None)
             
             provider.config_data = updated_config
             await db.flush()

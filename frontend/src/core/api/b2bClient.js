@@ -164,6 +164,21 @@ class ApiService {
         return response.json();
     }
 
+    // Generic PUT request with auth headers
+    async put(path, data) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`PUT ${path} failed: ${response.status} - ${error}`);
+        }
+        return response.json();
+    }
+
     // Convenience methods for roles and projects
     async getRoles() {
         return this.get('/api/b2b/roles');

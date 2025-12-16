@@ -27,7 +27,9 @@ const AccountSettingsPage = () => {
     const [ssoFormData, setSsoFormData] = useState({
         client_id: '',
         client_secret: '',
-        issuer: ''
+        issuer: '',
+        mobile_client_id: '',
+        mobile_client_secret: ''
     });
 
     const canEdit = hasRole(['owner', 'admin']);
@@ -63,23 +65,30 @@ const AccountSettingsPage = () => {
             setSsoLoading(true);
             console.log('🔍 Fetching SSO config from /api/b2b/settings/sso');
             const response = await api.get('/api/b2b/settings/sso');
-            console.log('✅ SSO config response:', response.data);
-            setSsoConfig(response.data);
+            console.log('✅ Full API response:', response);
+
+            // The b2bClient already extracts .data, so response IS the data
+            const data = response.data || response;
+            console.log('✅ SSO config data:', data);
+
+            setSsoConfig(data);
             setSsoFormData({
-                client_id: response.data.client_id,
+                client_id: data.client_id || '',
                 client_secret: '',
-                issuer: response.data.issuer
+                issuer: data.issuer || '',
+                mobile_client_id: data.mobile_client_id || '',
+                mobile_client_secret: ''
             });
+            console.log('✅ SSO config state updated');
         } catch (err) {
             console.error('❌ Failed to load SSO config:', err);
             console.error('Error response:', err.response?.data);
             console.error('Error status:', err.response?.status);
-            // If 404, it means no provider configured yet (expected state)
-            if (err.response?.status !== 404) {
-                setError('Failed to load SSO configuration');
-            }
+            // Don't show error for 404 - it's expected for tenants without SSO configured
+            // Just let the empty state UI show instead
         } finally {
             setSsoLoading(false);
+            console.log('✅ SSO loading complete, ssoLoading = false');
         }
     };
 
@@ -110,13 +119,17 @@ const AccountSettingsPage = () => {
 
     const handleSSOSubmit = async (e) => {
         e.preventDefault();
+        console.log('🚀 SSO Submit triggered');
+        console.log('📦 Form data:', ssoFormData);
 
         try {
             setSaving(true);
             setError('');
             setSuccess('');
 
-            await api.put('/api/b2b/settings/sso', ssoFormData);
+            console.log('📡 Sending PUT request to /api/b2b/settings/sso');
+            const response = await api.put('/api/b2b/settings/sso', ssoFormData);
+            console.log('✅ API response:', response);
 
             setSuccess('SSO configuration updated successfully');
             setEditingSSO(false);
@@ -124,9 +137,13 @@ const AccountSettingsPage = () => {
             // Reload SSO config
             await loadSSOConfig();
         } catch (err) {
-            setError(err.response?.data?.detail || 'Failed to update SSO configuration');
+            console.error('❌ SSO update failed:', err);
+            console.error('Error response:', err.response);
+            console.error('Error data:', err.response?.data);
+            setError(err.response?.data?.detail || err.message || 'Failed to update SSO configuration');
         } finally {
             setSaving(false);
+            console.log('✅ SSO submit complete');
         }
     };
 
@@ -145,7 +162,9 @@ const AccountSettingsPage = () => {
             setSsoFormData({
                 client_id: ssoConfig.client_id,
                 client_secret: '',
-                issuer: ssoConfig.issuer
+                issuer: ssoConfig.issuer,
+                mobile_client_id: ssoConfig.mobile_client_id || '',
+                mobile_client_secret: ''
             });
         }
     };
@@ -399,6 +418,9 @@ const AccountSettingsPage = () => {
                             )}
                         </div>
 
+                        {/* Debug: Log current state at render time */}
+                        {console.log('🎨 Rendering SSO section - ssoLoading:', ssoLoading, 'ssoConfig:', ssoConfig, 'canEdit:', canEdit)}
+
                         {ssoLoading ? (
                             <CardSkeleton />
                         ) : ssoConfig ? (
@@ -506,7 +528,80 @@ const AccountSettingsPage = () => {
                                         />
                                     </div>
 
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                    {/* Mobile SSO Configuration (Optional) */}
+                                    <div style={{
+                                        marginTop: '24px',
+                                        padding: '16px',
+                                        backgroundColor: '#f9fafb',
+                                        borderRadius: '8px',
+                                        border: '1px solid #e5e7eb'
+                                    }}>
+                                        <h4 style={{
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            color: '#374151',
+                                            marginBottom: '8px'
+                                        }}>
+                                            📱 Mobile SSO (Optional)
+                                        </h4>
+                                        <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '16px' }}>
+                                            Configure separate OAuth credentials for mobile apps. Leave blank to use web credentials.
+                                        </p>
+
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <label style={{
+                                                display: 'block',
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                color: '#374151',
+                                                marginBottom: '8px'
+                                            }}>
+                                                Mobile Client ID
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={ssoFormData.mobile_client_id}
+                                                onChange={(e) => setSsoFormData({ ...ssoFormData, mobile_client_id: e.target.value })}
+                                                placeholder="Optional - mobile OAuth client ID"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px 12px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #d1d5db',
+                                                    fontSize: '14px',
+                                                    backgroundColor: 'white'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div style={{ marginBottom: '0' }}>
+                                            <label style={{
+                                                display: 'block',
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                color: '#374151',
+                                                marginBottom: '8px'
+                                            }}>
+                                                Mobile Client Secret
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={ssoFormData.mobile_client_secret}
+                                                onChange={(e) => setSsoFormData({ ...ssoFormData, mobile_client_secret: e.target.value })}
+                                                placeholder="Optional - mobile OAuth client secret"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px 12px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #d1d5db',
+                                                    fontSize: '14px',
+                                                    backgroundColor: 'white'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                                         <button
                                             type="button"
                                             onClick={handleSSOCancel}
@@ -527,6 +622,7 @@ const AccountSettingsPage = () => {
                                         <button
                                             type="submit"
                                             disabled={saving}
+                                            onClick={() => console.log('🖱️ Submit button clicked')}
                                             style={{
                                                 padding: '10px 20px',
                                                 borderRadius: '6px',
@@ -571,6 +667,32 @@ const AccountSettingsPage = () => {
                                             {ssoConfig.issuer}
                                         </div>
                                     </div>
+
+                                    {/* Mobile SSO Indicator */}
+                                    {ssoConfig.has_mobile && (
+                                        <div style={{
+                                            marginTop: '20px',
+                                            padding: '16px',
+                                            backgroundColor: '#f0f9ff',
+                                            borderRadius: '8px',
+                                            border: '1px solid #bae6fd'
+                                        }}>
+                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                                                📱 Mobile SSO Configured
+                                            </div>
+                                            <div style={{ marginBottom: '8px' }}>
+                                                <div style={{ fontSize: '13px', fontWeight: '500', color: '#6B7280', marginBottom: '4px' }}>
+                                                    Mobile Client ID
+                                                </div>
+                                                <div style={{ fontSize: '14px', color: '#374151', fontFamily: 'monospace' }}>
+                                                    {ssoConfig.mobile_client_id_masked}
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '12px', color: '#0369a1', margin: 0 }}>
+                                                Separate OAuth credentials configured for mobile applications
+                                            </p>
+                                        </div>
+                                    )}
 
                                     <div style={{
                                         marginTop: '20px',

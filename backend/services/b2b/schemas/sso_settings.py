@@ -16,6 +16,8 @@ class SSOConfigResponse(BaseModel):
     issuer: str
     is_active: bool
     has_mobile: bool = False
+    mobile_client_id: Optional[str] = None
+    mobile_client_id_masked: Optional[str] = None
 
 
 class SSOConfigUpdateRequest(BaseModel):
@@ -23,9 +25,12 @@ class SSOConfigUpdateRequest(BaseModel):
     client_id: str = Field(..., min_length=1, description="OIDC Client ID")
     client_secret: str = Field(..., min_length=1, description="OIDC Client Secret")
     issuer: str = Field(..., min_length=1, description="OIDC Issuer URL")
+    mobile_client_id: Optional[str] = Field(None, description="Mobile OIDC Client ID (optional)")
+    mobile_client_secret: Optional[str] = Field(None, description="Mobile OIDC Client Secret (optional)")
 
 
 class SSOConfigUpdateResponse(BaseModel):
     """Response after updating SSO config"""
     success: bool
     message: str = "SSO configuration updated successfully"
+
