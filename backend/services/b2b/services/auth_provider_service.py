@@ -202,25 +202,18 @@ class AuthProviderService:
     ) -> AuthProvider:
         """
         Setup the initial Auth Provider during tenant activation.
-        
-        1. Configures the provider in Firebase/GCIP.
-        2. Creates the AuthProvider record in the DB.
+        Now uses domain-specific ID: oidc.{firebase_tenant_id}-web
         """
         from scripts.core.firebase_admin_cli import configure_oidc_provider
         from services.b2b.schemas.auth_provider import AuthProviderCreate, AuthProviderType
-        
+        from services.b2b.models import TenantModel
+
+        # Fetch tenant to get name for display_name
+        tenant = await db.get(TenantModel, tenant_id)
+        if not tenant:
+             raise ValueError(f"Tenant {tenant_id} not found")
+
         # 1. Configure in Firebase (GCIP)
-        # Note: We reuse the existing CLI helper logic for now to keep it DRY.
-        # It handles OIDC logic. For SAML, we might need to extend it later or here.
-        
-        # Construct arguments expected by configure_oidc_provider
-        # It expects specific args or a config dict wrapper? 
-        # Let's check imports. It takes (firebase_tenant_id, provider_type, config)
-        
-        # Mapping frontend 'provider_type' to internal enum/string
-        # 'oidc', 'google', 'microsoft' -> handled by configure_oidc_provider
-        
-        # Prepare standard config dict for the helper
         config_to_pass = provider_config.copy()
         if oidc_client_id: config_to_pass['client_id'] = oidc_client_id
         if oidc_client_secret: config_to_pass['client_secret'] = oidc_client_secret
@@ -229,41 +222,47 @@ class AuthProviderService:
         if saml_sso_url: config_to_pass['sso_url'] = saml_sso_url
 
         try:
-            # Extract individual parameters from config
             client_id = config_to_pass.get('client_id')
             client_secret = config_to_pass.get('client_secret')
             issuer = config_to_pass.get('issuer')
             
             if not all([client_id, client_secret, issuer]):
-                raise ValueError("Missing required OIDC parameters: client_id, client_secret, and issuer")
+                raise ValueError("Missing required OIDC parameters")
             
-            # Call with individual parameters as expected by function signature
-            provider_id = configure_oidc_provider(
+            # Use specific ID for Web, ensuring sanitized lowercase
+            # firebase_tenant_id usually contains the sanitized domain already
+            provider_id = f"oidc.{firebase_tenant_id}-web".lower()
+            display_name = f"{tenant.name}-web"
+
+            # Call with individual parameters
+            # Use the new ID and Name
+            actual_provider_id = configure_oidc_provider(
                 firebase_tenant_id,
                 provider_type,
                 client_id,
                 client_secret,
-                issuer
+                issuer,
+                provider_id_override=provider_id,
+                display_name=display_name
             )
         except Exception as e:
             raise Exception(f"Failed to configure provider in Identity Platform: {str(e)}")
 
         # 2. Create DB Record
-        # Determine strict enum type
         mapped_type = AuthProviderType.OIDC
         if provider_type == 'saml': mapped_type = AuthProviderType.SAML
         elif provider_type == 'google': mapped_type = AuthProviderType.GOOGLE
         elif provider_type == 'microsoft': mapped_type = AuthProviderType.MICROSOFT
         
-        # Store comprehensive config in JSON
         stored_config = config_to_pass
-        stored_config['issuer'] = stored_config.get('issuer') # Ensure issuer is there for OIDC
-        
+        stored_config['issuer'] = stored_config.get('issuer') 
+        stored_config['web_provider_id'] = actual_provider_id # Explicitly store web ID
+
         new_provider_data = AuthProviderCreate(
             tenant_id=tenant_id,
             provider_type=mapped_type,
-            provider_id=provider_id,
-            display_name=f"{provider_type.upper()} Login",
+            provider_id=actual_provider_id,
+            display_name=display_name,
             is_primary=True,
             is_active=True,
             config_data=stored_config
@@ -282,12 +281,10 @@ class AuthProviderService:
         mobile_client_secret: str = None
     ) -> AuthProvider:
         """
-        Update existing provider credentials (post-activation reconfiguration).
-        
-        1. Updates credentials in Firebase/GCIP (web only)
-        2. Updates AuthProvider record in DB (including mobile if provided)
+        Update existing provider credentials.
         """
         from scripts.core.firebase_admin_cli import configure_oidc_provider
+        from sqlalchemy.orm.attributes import flag_modified
         
         # Get the primary provider for this tenant
         provider = await AuthProviderService.get_primary_provider(db, tenant_id)
@@ -295,7 +292,7 @@ class AuthProviderService:
         if not provider:
             raise Exception("No SSO provider configured for this tenant")
         
-        # Get tenant to retrieve firebase_tenant_id
+        # Get tenant information
         from services.b2b.models import TenantModel
         tenant = await db.get(TenantModel, tenant_id)
         
@@ -303,48 +300,89 @@ class AuthProviderService:
             raise Exception("Tenant not found")
         
         try:
-            # Update in Firebase/GCIP (web credentials only)
+            # 1. Configure WEB Provider
+            # Always enforce naming convention for consistency
+            web_provider_id = f"oidc.{tenant.firebase_tenant_id}-web".lower()
+            
+            # Display Name: "{Tenant Name} - Web"
+            web_display_name = f"{tenant.name}-web"
+            
+            print(f"🔧 Configuring Web Provider: {web_provider_id} (Name: {web_display_name})")
+            
             configure_oidc_provider(
-                tenant.firebase_tenant_id,
-                provider.provider_type,
-                client_id,
-                client_secret,
-                issuer,
-                provider_id_override=provider.provider_id  # Keep same provider ID
+                firebase_tenant_id=tenant.firebase_tenant_id,
+                provider_type=provider.provider_type, 
+                client_id=client_id,
+                client_secret=client_secret,
+                issuer_url=issuer,
+                provider_id_override=web_provider_id,
+                display_name=web_display_name
             )
             
-            # Update config_data in DB (both web and mobile)
-            updated_config = provider.config_data or {}
-            updated_config.update({
-                'client_id': client_id,
-                'client_secret': client_secret,
-                'issuer': issuer
-            })
-            
-            # Add mobile credentials if provided
-            # Treat empty strings as None for cleaner logic
+            # 2. Configure MOBILE Provider (Optional)
+            mobile_provider_id = None
             mobile_id = mobile_client_id if mobile_client_id else None
             mobile_secret = mobile_client_secret if mobile_client_secret else None
             
+            print(f"🔍 Checking Mobile Config - ClientID: {'***' if mobile_id else 'None'}")
+            
             if mobile_id and mobile_secret:
-                # Both provided - save mobile credentials
+                mobile_provider_id = f"oidc.{tenant.firebase_tenant_id}-mobile".lower()
+                mobile_display_name = f"{tenant.name}-mobile"
+                
+                print(f"🔧 Configuring Mobile Provider: {mobile_provider_id}")
+                
+                configure_oidc_provider(
+                    firebase_tenant_id=tenant.firebase_tenant_id,
+                    provider_type=provider.provider_type,
+                    client_id=mobile_id,
+                    client_secret=mobile_secret,
+                    issuer_url=issuer,
+                    provider_id_override=mobile_provider_id,
+                    display_name=mobile_display_name
+                )
+            
+            # 3. Update DB Record
+            provider.provider_id = web_provider_id
+            provider.display_name = web_display_name # Update DB display name too
+            
+            # Ensure config_data is treated as mutable
+            if provider.config_data is None:
+                provider.config_data = {}
+            
+            # Use dict copy to ensure mutation is tracked
+            updated_config = dict(provider.config_data)
+            updated_config.update({
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'issuer': issuer,
+                'web_provider_id': web_provider_id 
+            })
+            
+            if mobile_provider_id:
                 updated_config['mobile_client_id'] = mobile_id
                 updated_config['mobile_client_secret'] = mobile_secret
+                updated_config['mobile_provider_id'] = mobile_provider_id
             else:
-                # Either missing or intentionally cleared - remove mobile credentials
                 updated_config.pop('mobile_client_id', None)
                 updated_config.pop('mobile_client_secret', None)
+                updated_config.pop('mobile_provider_id', None)
             
             provider.config_data = updated_config
+            # FORCE flag_modified for JSONB field
+            flag_modified(provider, "config_data")
+            
             await db.flush()
             
-            # Re-query to get updated record
+            # Re-query
             result = await db.execute(
                 select(AuthProvider).where(AuthProvider.id == provider.id)
             )
             return result.scalar_one()
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise Exception(f"Failed to update SSO credentials: {str(e)}")
 
 

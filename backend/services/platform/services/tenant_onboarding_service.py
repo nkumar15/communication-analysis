@@ -51,9 +51,75 @@ class TenantOnboardingService:
             # Initialize Firebase if not already done
             firebase_auth_service.initialize()
             
+            # Check for existing tenant in DB first to handle idempotency
+            stmt = select(TenantModel).where(TenantModel.domain == domain.lower())
+            result = await db.execute(stmt)
+            existing_tenant = result.scalar_one_or_none()
+            
+            if existing_tenant:
+                if existing_tenant.activation_status == 'active':
+                    raise Exception(f"Tenant for domain {domain} is already active.")
+                
+                # If pending/inactive, we treat this as a resend/repair
+                print(f"♻️  Tenant exists (pending), resending activation for {domain}")
+                # Use existing logic to resend
+                # We return the existing tenant details to the caller
+                
+                # Ensure we have an owner invitation to update
+                from services.b2b.models import InvitationModel
+                inv_stmt = select(InvitationModel).where(
+                    InvitationModel.tenant_id == existing_tenant.id,
+                    InvitationModel.role == B2BRoleName.OWNER
+                )
+                inv_result = await db.execute(inv_stmt)
+                invitation = inv_result.scalar_one_or_none()
+                
+                # Regenerate token if needed or just resend current
+                # Let's verify if we need to call resend_activation logic
+                # For simplicity, we can just call self.resend_activation logic here or reuse code
+                
+                # Update expiration
+                new_token = secrets.token_urlsafe(32)
+                expires_at = get_utc_now() + timedelta(hours=48)
+                
+                existing_tenant.activation_token = new_token
+                existing_tenant.activation_expires_at = expires_at
+                
+                if invitation:
+                    invitation.invitation_token = new_token
+                    invitation.expires_at = expires_at
+                else:
+                     # Create missing invitation if it got lost?
+                     pass 
+
+                await db.flush()
+                
+                # Send email
+                frontend_url = settings.frontend_url or "http://localhost:3000"
+                activation_url = f"{frontend_url}/activate/{new_token}"
+                
+                email_service.send_activation_email(
+                    owner_email,
+                    company_name,
+                    activation_url,
+                    expires_at
+                )
+
+                return {
+                    "tenant_id": str(existing_tenant.id),
+                    "tenant_name": existing_tenant.name,
+                    "domain": existing_tenant.domain,
+                    "owner_email": owner_email,
+                    "firebase_tenant_id": existing_tenant.firebase_tenant_id,
+                    "activation_url": activation_url,
+                    "activation_token": new_token,
+                    "expires_at": expires_at.isoformat()
+                }
+
             # 1. Create OR Use Firebase tenant
             if not firebase_tenant_id:
-                firebase_tenant_id = create_firebase_tenant(company_name)
+                # Use domain for uniqueness as requested
+                firebase_tenant_id = create_firebase_tenant(company_name, domain)
             
             # 2. Generate activation token
             activation_token = secrets.token_urlsafe(32)
