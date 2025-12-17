@@ -78,3 +78,78 @@ async def update_user_role(
     )
     await db.commit()
     return result
+
+
+@router.post("/{user_id}/deactivate", status_code=status.HTTP_200_OK)
+async def deactivate_user(
+    user_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Deactivate a user.
+    
+    - Admin/Owner only.
+    - Cannot deactivate self.
+    - Cannot deactivate Owner.
+    - Admin cannot deactivate another Admin.
+    """
+    # 1. Deactivate
+    result = await user_service.deactivate_user(
+        db=db,
+        user_id=user_id,
+        current_user_id=current_user['id'],
+        current_user_role=current_user['role'],
+        tenant_id=current_user['tenant_id']
+    )
+    
+    # 2. Audit Log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'user.deactivated',
+        'resource_type': 'user',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(user_id),
+        'details': {'reason': 'manual_deactivation'},
+        'ip_address': None,  # Could capture from request if available
+        'user_agent': None
+    })
+    
+    await db.commit()
+    return result
+
+
+@router.post("/{user_id}/reactivate", status_code=status.HTTP_200_OK)
+async def reactivate_user(
+    user_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reactivate a user.
+    """
+    # 1. Reactivate
+    result = await user_service.reactivate_user(
+        db=db,
+        user_id=user_id,
+        current_user_id=current_user['id'],
+        current_user_role=current_user['role'],
+        tenant_id=current_user['tenant_id']
+    )
+    
+    # 2. Audit Log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'user.reactivated',
+        'resource_type': 'user',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(user_id),
+        'details': {'reason': 'manual_reactivation'},
+        'ip_address': None,
+        'user_agent': None
+    })
+    
+    await db.commit()
+    return result

@@ -133,15 +133,18 @@ class ApiService {
      */
     async updateUserStatus(userId, isActive) {
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/users/${userId}/status`, {
-            method: 'PUT',
+        const action = isActive ? 'reactivate' : 'deactivate';
+
+        // Use the new dedicated endpoints
+        const response = await fetch(`${API_BASE_URL}/api/b2b/users/${userId}/${action}`, {
+            method: 'POST',
             headers,
-            body: JSON.stringify({ is_active: isActive }),
+            body: JSON.stringify({}), // Empty body
         });
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Failed to update status: ${response.status} - ${error}`);
+            throw new Error(`Failed to ${action} user: ${response.status} - ${error}`);
         }
 
         return response.json();

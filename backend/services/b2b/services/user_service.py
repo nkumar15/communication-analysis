@@ -430,6 +430,132 @@ class UserService:
         await db.flush()
         
         return {"message": "User role updated successfully"}
+
+    async def deactivate_user(
+        self,
+        db: AsyncSession,
+        user_id: UUID,
+        current_user_id: UUID,
+        current_user_role: str,
+        tenant_id: UUID
+    ) -> dict:
+        """
+        Deactivate a user with strict safety checks.
+        
+        Rules:
+        1. Cannot deactivate self.
+        2. Cannot deactivate Tenant Owner.
+        3. Admins cannot deactivate other Admins (only Owner can).
+        """
+        from services.b2b.models import Role
+        from services.b2b.rbac.permission_checker import has_permission
+        from fastapi import HTTPException, status
+
+        # 1. Permission check (Owner/Admin)
+        if not await has_permission(current_user_id, 'users', 'invite', db) and current_user_role != 'owner':
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied. Only admins can deactivate users."
+            )
+
+        # 2. Prevent self-deactivation
+        if user_id == current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot deactivate yourself."
+            )
+
+        # 3. Get target user with role name
+        result = await db.execute(
+            select(UserModel, Role.name.label("role_name"))
+            .outerjoin(Role, UserModel.role_id == Role.id)
+            .where(
+                UserModel.id == user_id,
+                UserModel.tenant_id == tenant_id,
+                UserModel.deleted_at.is_(None)
+            )
+        )
+        row = result.first()
+        
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found."
+            )
+            
+        target_user = row[0]
+        target_role_name = row.role_name
+
+        # 4. Owner Protection
+        if target_role_name == 'owner':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="The Tenant Owner cannot be deactivated."
+            )
+
+        # 5. Admin vs Admin Protection
+        if current_user_role == 'admin' and target_role_name == 'admin':
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admins cannot deactivate other Admins. Only the Owner can do that."
+            )
+
+        # 6. Apply Deactivation
+        target_user.is_active = False
+        target_user.updated_at = get_utc_now()
+        await db.flush()
+        
+        return {"message": "User deactivated successfully"}
+
+    async def reactivate_user(
+        self,
+        db: AsyncSession,
+        user_id: UUID,
+        current_user_id: UUID,
+        current_user_role: str,
+        tenant_id: UUID
+    ) -> dict:
+        """
+        Reactivate a user. 
+        Same permission rules apply as deactivation to prevent privilege escalation.
+        """
+        from services.b2b.models import Role
+        from services.b2b.rbac.permission_checker import has_permission
+        from fastapi import HTTPException, status
+
+        # 1. Permission check
+        if not await has_permission(current_user_id, 'users', 'invite', db) and current_user_role != 'owner':
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied."
+            )
+
+        # 2. Get target user
+        result = await db.execute(
+            select(UserModel, Role.name.label("role_name"))
+            .outerjoin(Role, UserModel.role_id == Role.id)
+            .where(
+                UserModel.id == user_id,
+                UserModel.tenant_id == tenant_id,
+                UserModel.deleted_at.is_(None)
+            )
+        )
+        row = result.first()
+        
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found."
+            )
+            
+        target_user = row[0]
+        
+        # 3. Apply Reactivation
+        target_user.is_active = True
+        target_user.updated_at = get_utc_now()
+        await db.flush()
+        
+        return {"message": "User reactivated successfully"}
     
     async def _model_to_pydantic(self, model: UserModel, db: AsyncSession = None) -> User:
         """Convert SQLAlchemy model to Pydantic model"""

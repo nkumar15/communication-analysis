@@ -313,6 +313,13 @@ class AuthService:
             role=user_role
         )
         
+        # SECURITY: Check if user is active
+        if not user.is_active:
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account has been deactivated. Please contact your administrator."
+            )
+        
         # Fetch permissions
         permissions = await get_user_permissions(user.id, db)
         
