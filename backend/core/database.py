@@ -36,6 +36,29 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
+# Create sync engine for Celery workers
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+sync_database_url = settings.database_url
+if sync_database_url.startswith("postgres://"):
+    sync_database_url = sync_database_url.replace("postgres://", "postgresql://", 1)
+# Already postgresql:// or similar, no need to add +asyncpg
+
+sync_engine = create_engine(
+    sync_database_url,
+    echo=False,
+    pool_size=20,
+    max_overflow=10,
+    pool_pre_ping=True,
+)
+
+SessionLocal = sessionmaker(
+    bind=sync_engine,
+    autocommit=False,
+    autoflush=False,
+)
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """

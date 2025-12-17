@@ -10,7 +10,7 @@ import logging
 
 from workers.b2c_worker.celery_app import app
 from core.database import SessionLocal
-from core.utils.email import send_email
+
 from core.config import settings
 from services.b2c.models.user import B2CUser
 from services.b2c.models.subscription import Subscription
@@ -43,13 +43,10 @@ class DatabaseTask(Task):
 def send_payment_failure_email(self, user_id: str, workspace_id: str, grace_period_days: int = 7):
     """
     Send email notification when payment fails.
-    
-    Args:
-        user_id: User ID
-        workspace_id: Workspace ID
-        grace_period_days: Number of days in grace period
     """
     try:
+        from core.email.service import email_service
+        
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
         
@@ -61,21 +58,28 @@ def send_payment_failure_email(self, user_id: str, workspace_id: str, grace_peri
             Subscription.workspace_id == workspace_id
         ).first()
         
-        # Send email
-        send_email(
-            to_email=user.email,
-            subject="Payment Failed - Action Required",
-            template="b2c/payment_failed",
-            context={
-                "user_name": user.display_name or user.email,
-                "workspace_name": workspace.name,
-                "tier": subscription.tier if subscription else "unknown",
-                "grace_period_days": grace_period_days,
-                "update_payment_url": f"{settings.frontend_url}/billing",
-                "support_email": "support@example.com"
-            }
-        )
+        subject = "Payment Failed - Action Required"
         
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #ef4444;">Payment Failed</h2>
+                    <p>Hi {user.display_name or user.email},</p>
+                    <p>We were unable to process the payment for your workspace <strong>{workspace.name}</strong>.</p>
+                    <p>To avoid service interruption, please update your payment method within <strong>{grace_period_days} days</strong>.</p>
+                    <p>
+                        <a href="{settings.frontend_url}/billing" 
+                           style="background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                           Update Payment Method
+                        </a>
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+        
+        email_service.provider.send(user.email, subject, html_content)
         logger.info(f"Payment failure email sent to {user.email}")
         
     except Exception as e:
@@ -87,13 +91,10 @@ def send_payment_failure_email(self, user_id: str, workspace_id: str, grace_peri
 def send_subscription_canceled_email(self, user_id: str, workspace_id: str, reason: str = "user_request"):
     """
     Send email when subscription is canceled.
-    
-    Args:
-        user_id: User ID
-        workspace_id: Workspace ID
-        reason: Cancellation reason ('user_request', 'payment_failed', 'admin')
     """
     try:
+        from core.email.service import email_service
+
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
         
@@ -104,20 +105,29 @@ def send_subscription_canceled_email(self, user_id: str, workspace_id: str, reas
             Subscription.workspace_id == workspace_id
         ).first()
         
-        send_email(
-            to_email=user.email,
-            subject="Subscription Canceled",
-            template="b2c/subscription_canceled",
-            context={
-                "user_name": user.display_name or user.email,
-                "workspace_name": workspace.name,
-                "tier": subscription.tier if subscription else "free",
-                "reason": reason,
-                "period_end": subscription.current_period_end.isoformat() if subscription and subscription.current_period_end else None,
-                "reactivate_url": f"{settings.frontend_url}/pricing"
-            }
-        )
+        subject = "Subscription Canceled"
         
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2>Subscription Canceled</h2>
+                    <p>Hi {user.display_name or user.email},</p>
+                    <p>Your subscription for workspace <strong>{workspace.name}</strong> has been canceled.</p>
+                    <p>Reason: {reason}</p>
+                    <p>You can reactivate your subscription at any time.</p>
+                    <p>
+                        <a href="{settings.frontend_url}/pricing" 
+                           style="background: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                           View Plans
+                        </a>
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+        
+        email_service.provider.send(user.email, subject, html_content)
         logger.info(f"Subscription canceled email sent to {user.email}")
         
     except Exception as e:
@@ -129,12 +139,10 @@ def send_subscription_canceled_email(self, user_id: str, workspace_id: str, reas
 def send_subscription_activated_email(self, user_id: str, workspace_id: str):
     """
     Send welcome email when subscription is activated.
-    
-    Args:
-        user_id: User ID
-        workspace_id: Workspace ID
     """
     try:
+        from core.email.service import email_service
+
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
         
@@ -144,23 +152,30 @@ def send_subscription_activated_email(self, user_id: str, workspace_id: str):
         subscription = self.db.query(Subscription).filter(
             Subscription.workspace_id == workspace_id
         ).first()
+
+        tier = subscription.tier.capitalize()
+        subject = f"Welcome to {tier}!"
         
-        send_email(
-            to_email=user.email,
-            subject=f"Welcome to {subscription.tier.capitalize()}!",
-            template="b2c/subscription_activated",
-            context={
-                "user_name": user.display_name or user.email,
-                "workspace_name": workspace.name,
-                "tier": subscription.tier,
-                "billing_interval": subscription.billing_interval,
-                "amount": f"${subscription.amount_cents / 100:.2f}",
-                "currency": subscription.currency,
-                "dashboard_url": f"{settings.frontend_url}/dashboard",
-                "billing_url": f"{settings.frontend_url}/billing"
-            }
-        )
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #4F46E5;">Welcome to {tier}!</h2>
+                    <p>Hi {user.display_name or user.email},</p>
+                    <p>Thank you for subscribing to the <strong>{workspace.name}</strong> workspace.</p>
+                    <p>You now have access to all {tier} features.</p>
+                    <p>
+                        <a href="{settings.frontend_url}/dashboard" 
+                           style="background: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                           Go to Dashboard
+                        </a>
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
         
+        email_service.provider.send(user.email, subject, html_content)
         logger.info(f"Subscription activated email sent to {user.email}")
         
     except Exception as e:
@@ -172,34 +187,40 @@ def send_subscription_activated_email(self, user_id: str, workspace_id: str):
 def send_invoice_payment_succeeded_email(self, user_id: str, invoice_id: str):
     """
     Send receipt email when invoice is paid.
-    
-    Args:
-        user_id: User ID
-        invoice_id: Invoice ID
     """
     try:
         from services.b2c.models.subscription import Invoice
+        from core.email.service import email_service
         
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         invoice = self.db.query(Invoice).filter(Invoice.id == invoice_id).first()
         
         if not user or not invoice:
             return
+            
+        subject = "Payment Receipt"
+        amount = f"${invoice.amount_paid / 100:.2f}"
         
-        send_email(
-            to_email=user.email,
-            subject="Payment Receipt",
-            template="b2c/invoice_paid",
-            context={
-                "user_name": user.display_name or user.email,
-                "amount": f"${invoice.amount_paid / 100:.2f}",
-                "currency": invoice.currency,
-                "invoice_date": invoice.invoice_date.strftime("%B %d, %Y") if invoice.invoice_date else None,
-                "invoice_pdf_url": invoice.invoice_pdf_url,
-                "billing_url": f"{settings.frontend_url}/billing"
-            }
-        )
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2>Payment Receipt</h2>
+                    <p>Hi {user.display_name or user.email},</p>
+                    <p>We received your payment of <strong>{amount}</strong>.</p>
+                    <p>Date: {invoice.invoice_date.strftime("%B %d, %Y") if invoice.invoice_date else 'N/A'}</p>
+                    <p>
+                        <a href="{invoice.invoice_pdf_url}" 
+                           style="background: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                           Download Invoice
+                        </a>
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
         
+        email_service.provider.send(user.email, subject, html_content)
         logger.info(f"Invoice receipt sent to {user.email}")
         
     except Exception as e:
@@ -211,42 +232,44 @@ def send_invoice_payment_succeeded_email(self, user_id: str, invoice_id: str):
 def send_grace_period_expiring_email(self, user_id: str, workspace_id: str, days_remaining: int):
     """
     Send reminder email when grace period is expiring.
-    
-    Args:
-        user_id: User ID
-        workspace_id: Workspace ID
-        days_remaining: Days remaining in grace period
     """
     try:
+        from core.email.service import email_service
+        
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
         
         if not user or not workspace:
             return
+            
+        subject = f"Payment Required - {days_remaining} Days Remaining"
         
-        send_email(
-            to_email=user.email,
-            subject=f"Payment Required - {days_remaining} Days Remaining",
-            template="b2c/grace_period_expiring",
-            context={
-                "user_name": user.display_name or user.email,
-                "workspace_name": workspace.name,
-                "days_remaining": days_remaining,
-                "update_payment_url": f"{settings.frontend_url}/billing",
-                "support_email": "support@example.com"
-            }
-        )
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #ef4444;">Action Required</h2>
+                    <p>Hi {user.display_name or user.email},</p>
+                    <p>This is a reminder that your payment for <strong>{workspace.name}</strong> is overdue.</p>
+                    <p>Your subscription will be downgraded in <strong>{days_remaining} days</strong>.</p>
+                    <p>
+                        <a href="{settings.frontend_url}/billing" 
+                           style="background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                           Update Payment Method
+                        </a>
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
         
+        email_service.provider.send(user.email, subject, html_content)
         logger.info(f"Grace period reminder sent to {user.email}")
         
     except Exception as e:
         logger.error(f"Error sending grace period email: {str(e)}")
         raise self.retry(exc=e, countdown=60)
 
-
-# ============================================================================
-# Workspace Invitation Email Tasks
-# ============================================================================
 
 @app.task(base=DatabaseTask, bind=True, max_retries=3)
 def send_workspace_invitation_email(
@@ -259,35 +282,35 @@ def send_workspace_invitation_email(
     role: str
 ):
     """
-    Send workspace invitation email with acceptance link.
-    
-    Args:
-        invitation_id: Invitation ID
-        invitation_token: Unique invitation token
-        workspace_name: Name of workspace
-        inviter_name: Name of person who invited
-        invitee_email: Email of invitee
-        role: Role being offered (member, admin, viewer)
+    Send workspace invitation email.
     """
     try:
-        # Build invitation URL
+        from core.email.service import email_service
+        
         invitation_url = f"{settings.frontend_url}/invite/{invitation_token}"
+        subject = f"You've been invited to join {workspace_name}"
         
-        send_email(
-            to_email=invitee_email,
-            subject=f"You've been invited to join {workspace_name}",
-            template="b2c/workspace_invitation",
-            context={
-                "workspace_name": workspace_name,
-                "inviter_name": inviter_name,
-                "role": role,
-                "invitation_url": invitation_url,
-                "expires_days": 7,
-                "support_email": "support@example.com"
-            }
-        )
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #4F46E5;">You've been invited!</h2>
+                    <p>Hi,</p>
+                    <p><strong>{inviter_name}</strong> has invited you to join <strong>{workspace_name}</strong> as a {role}.</p>
+                    <p>
+                        <a href="{invitation_url}" 
+                           style="background: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                           Accept Invitation
+                        </a>
+                    </p>
+                    <p><small>Link: {invitation_url}</small></p>
+                </div>
+            </body>
+        </html>
+        """
         
-        logger.info(f"Workspace invitation email sent to {invitee_email} for workspace {workspace_name}")
+        email_service.provider.send(invitee_email, subject, html_content)
+        logger.info(f"Workspace invitation email sent to {invitee_email}")
         
     except Exception as e:
         logger.error(f"Error sending workspace invitation email: {str(e)}")
@@ -302,10 +325,6 @@ def send_workspace_invitation_email(
 def downgrade_workspace_to_free(self, workspace_id: str, reason: str):
     """
     Downgrade workspace to free tier (background cleanup).
-    
-    Args:
-        workspace_id: Workspace ID
-        reason: Downgrade reason
     """
     try:
         from services.b2c.middleware.subscription_guard import downgrade_to_free_tier
@@ -338,8 +357,6 @@ def downgrade_workspace_to_free(self, workspace_id: str, reason: str):
 def check_grace_period_expirations(self):
     """
     Periodic task to check for expired grace periods and downgrade workspaces.
-    
-    Should be run daily via celery beat.
     """
     try:
         from datetime import datetime, timedelta

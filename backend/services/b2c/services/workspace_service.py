@@ -37,13 +37,6 @@ class WorkspaceService:
         - Workspace record
         - Owner membership
         """
-        # Check subscription tier - team workspaces require Premium+
-        if subscription_tier == 'free':
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Team workspaces require Premium or Ultimate subscription"
-            )
-        
         # Check workspace quota
         can_create, limit_info = await quota_service.check_team_workspace_limit(
             db, str(owner_id), subscription_tier

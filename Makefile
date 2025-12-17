@@ -45,7 +45,7 @@ status: ## Show status of all services and configuration
 
 up: ## Start all backend services (frontend runs locally)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate celery-worker nginx mailhog
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate celery-worker b2c-worker nginx mailhog
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
 	@echo "Email UI:     http://localhost:8025 (Mailhog)"
@@ -67,7 +67,7 @@ logs: ## View logs (usage: make logs [s=service])
 ifdef s
 	docker-compose logs -f $(s)
 else
-	docker-compose logs -f b2b-api platform-api b2c-api domain-api nginx
+	docker-compose logs -f b2b-api platform-api b2c-api domain-api b2c-worker nginx
 endif
 
 ps: ## List running services
@@ -114,7 +114,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	case "$$REPLY" in \
 		[Yy]*) \
 			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate celery-worker nginx mailhog; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate celery-worker b2c-worker nginx mailhog; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			docker-compose restart postgres; \
