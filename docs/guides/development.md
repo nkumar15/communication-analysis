@@ -616,7 +616,7 @@ Messages are processed asynchronously by Celery workers backed by Redis.
 *   **Docker**: `celery-worker` runs automatically with `make up`.
 *   **Local**:
     ```bash
-    celery -A core.tasks.celery_app worker --loglevel=info
+    celery -A workers.b2b_worker.celery_app worker --loglevel=info
     ```
 
 ### Debugging Tasks

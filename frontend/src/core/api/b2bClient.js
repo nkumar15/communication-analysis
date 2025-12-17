@@ -129,6 +129,25 @@ class ApiService {
     }
 
     /**
+     * Update user status (activate/deactivate)
+     */
+    async updateUserStatus(userId, isActive) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/users/${userId}/status`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ is_active: isActive }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Failed to update status: ${response.status} - ${error}`);
+        }
+
+        return response.json();
+    }
+
+    /**
      * Logout (just clear Firebase auth, backend is stateless now)
      */
     async logout() {

@@ -40,7 +40,7 @@ celery_app.conf.update(
 
 ```python
 # core/tasks/email_tasks.py
-from core.tasks.celery_app import celery_app
+from workers.b2b_worker.celery_app import celery_app
 from core.database import AsyncSessionLocal
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -103,7 +103,7 @@ async def _send_bulk_invitation_emails_async(invitation_ids: list, tenant_id: st
 
 ```python
 # core/tasks/audit_tasks.py
-from core.tasks.celery_app import celery_app
+from workers.b2b_worker.celery_app import celery_app
 from core.database import AsyncSessionLocal
 import asyncio
 
@@ -159,7 +159,7 @@ async def _persist_audit_log_async(
 
 ```python
 # services/b2b/routers/invitations.py
-from core.tasks.email_tasks import send_invitation_email, send_bulk_invitation_emails
+from workers.b2b_worker.email_tasks import send_invitation_email, send_bulk_invitation_emails
 
 @router.post("/invitations/bulk")
 async def bulk_invite_users(...):
@@ -175,7 +175,7 @@ async def bulk_invite_users(...):
 
 
 # services/b2b/services/audit_service.py
-from core.tasks.audit_tasks import persist_audit_log
+from workers.b2b_worker.audit_tasks import persist_audit_log
 
 async def log_action(tenant_id, user_id, action, resource_type, resource_id, metadata):
     """Log action asynchronously"""
@@ -193,10 +193,10 @@ async def log_action(tenant_id, user_id, action, resource_type, resource_id, met
 
 ```bash
 # Development
-celery -A core.tasks.celery_app worker --loglevel=info
+celery -A workers.b2b_worker.celery_app worker --loglevel=info
 
 # Production (with autoscaling)
-celery -A core.tasks.celery_app worker \
+celery -A workers.b2b_worker.celery_app worker \
   --loglevel=info \
   --concurrency=4 \
   --autoscale=10,3 \
@@ -213,7 +213,7 @@ docker-compose up celery-worker
 pip install flower
 
 # Run dashboard
-celery -A core.tasks.celery_app flower --port=5555
+celery -A workers.b2b_worker.celery_app flower --port=5555
 
 # Access at http://localhost:5555
 ```
@@ -226,7 +226,7 @@ async def send_email(ctx, email_id):
     # task code
 
 # Run worker
-arq core.tasks.worker.WorkerSettings
+arq workers.b2b_worker.celery_app.WorkerSettings
 ```
 
 ### Celery (new):
@@ -239,7 +239,7 @@ async def _send_email_async(email_id):
     # async task code
 
 # Run worker
-celery -A core.tasks.celery_app worker
+celery -A workers.b2b_worker.celery_app worker
 ```
 
 ## Benefits

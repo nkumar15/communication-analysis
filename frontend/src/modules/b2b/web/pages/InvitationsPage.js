@@ -210,6 +210,26 @@ const InvitationsPage = () => {
         }
     };
 
+    const handleUpdateUserStatus = async (user, newStatus) => {
+        const action = newStatus ? 'activate' : 'deactivate';
+        if (!window.confirm(`Are you sure you want to ${action} ${user.email}?`)) {
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            await b2bClient.updateUserStatus(user.id, newStatus);
+            setSuccess(`User ${action}d successfully`);
+            await loadData();
+        } catch (err) {
+            setError(err.message || `Failed to ${action} user`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getInitials = (name, email) => {
         if (name) {
             return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -530,7 +550,10 @@ const InvitationsPage = () => {
                                             <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                                 <ActionMenu
                                                     actions={[
-                                                        { label: 'Edit Role', icon: '✏️', onClick: () => handleEditUser(user) }
+                                                        { label: 'Edit Role', icon: '✏️', onClick: () => handleEditUser(user) },
+                                                        user.is_active
+                                                            ? { label: 'Deactivate User', icon: '🚫', onClick: () => handleUpdateUserStatus(user, false), danger: true }
+                                                            : { label: 'Activate User', icon: '✅', onClick: () => handleUpdateUserStatus(user, true) }
                                                     ]}
                                                 />
                                             </td>
