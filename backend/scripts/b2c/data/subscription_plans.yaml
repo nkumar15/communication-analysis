@@ -1,0 +1,45 @@
+plans:
+  - tier: free
+    limits:
+      projects: 5
+      team_workspaces: 1
+      storage_gb: 1
+      team_members: 2
+    features:
+      team_workspaces: true
+      priority_support: false
+      custom_branding: false
+      export_data: false
+      sso: false
+      api_access: false
+      audit_logs: false
+
+  - tier: premium
+    limits:
+      projects: null
+      team_workspaces: 3
+      storage_gb: 10
+      team_members: 10
+    features:
+      team_workspaces: true
+      priority_support: true
+      custom_branding: true
+      export_data: true
+      sso: false
+      api_access: false
+      audit_logs: false
+
+  - tier: ultimate
+    limits:
+      projects: null
+      team_workspaces: null
+      storage_gb: 100
+      team_members: null
+    features:
+      team_workspaces: true
+      priority_support: true
+      custom_branding: true
+      export_data: true
+      sso: true
+      api_access: true
+      audit_logs: true

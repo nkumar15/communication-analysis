@@ -20,85 +20,7 @@ logger = logging.getLogger(__name__)
 # Tier Limits Configuration
 # ============================================================================
 
-TIER_LIMITS = {
-    'free': {
-        'max_projects': 5,
-        'max_team_workspaces': 1,
-        'max_storage_gb': 1,
-        'max_team_members': 2,  # Shareable links only, viewer access
-        'features': {
-            'team_workspaces': True,
-            'priority_support': False,
-            'custom_branding': False,
-            'export_data': False,
-            'sso': False,
-            'api_access': False,
-            'audit_logs': False
-        }
-    },
-    'premium': {
-        'max_projects': None,  # Unlimited
-        'max_team_workspaces': 3,
-        'max_storage_gb': 10,
-        'max_team_members': 10,
-        'features': {
-            'team_workspaces': True,
-            'priority_support': True,
-            'custom_branding': True,
-            'export_data': True,
-            'sso': False,
-            'api_access': False,
-            'audit_logs': False
-        }
-    },
-    'ultimate': {
-        'max_projects': None,  # Unlimited
-        'max_team_workspaces': None,  # Unlimited
-        'max_storage_gb': 100,
-        'max_team_members': None,  # Unlimited
-        'features': {
-            'team_workspaces': True,
-            'priority_support': True,
-            'custom_branding': True,
-            'export_data': True,
-            'sso': True,
-            'api_access': True,
-            'audit_logs': True
-        }
-    }
-}
-
-
-# ============================================================================
-# Exceptions
-# ============================================================================
-
-class QuotaExceededError(Exception):
-    """Raised when a quota limit is exceeded."""
-    
-    def __init__(self, message: str, tier: str, limit_type: str, current: int, max_allowed: Optional[int]):
-        self.message = message
-        self.tier = tier
-        self.limit_type = limit_type
-        self.current = current
-        self.max_allowed = max_allowed
-        super().__init__(self.message)
-
-
-class FeatureNotAvailableError(Exception):
-    """Raised when a feature is not available for the current tier."""
-    
-    def __init__(self, message: str, tier: str, feature: str, required_tier: str):
-        self.message = message
-        self.tier = tier
-        self.feature = feature
-        self.required_tier = required_tier
-        super().__init__(self.message)
-
-
-# ============================================================================
-# Quota Service
-# ============================================================================
+from services.b2c.models.subscription_plan import SubscriptionPlan
 
 class QuotaService:
     """
@@ -119,24 +41,44 @@ class QuotaService:
         
         return subscription.tier
     
-    def get_tier_limits(self, tier: str) -> dict:
-        """Get limits for a specific tier."""
-        return TIER_LIMITS.get(tier, TIER_LIMITS['free'])
+    def get_tier_plan(self, tier: str) -> SubscriptionPlan:
+        """Get plan configuration for a specific tier."""
+        plan = self.db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.tier == tier
+        ).first()
+        
+        if not plan:
+            # Fallback to free plan if tier not found
+            # This handles cases where a legacy tier might be removed
+            logger.warning(f"Plan for tier '{tier}' not found, falling back to free")
+            plan = self.db.query(SubscriptionPlan).filter(
+                SubscriptionPlan.tier == 'free'
+            ).first()
+            
+        if not plan:
+             # Extreme fallback if even free plan is missing (should not happen after seed)
+             # Return a minimal default object to prevent crash
+            logger.error("Critial: Free plan not found in database")
+            return SubscriptionPlan(
+                tier='free',
+                limits={
+                    'projects': 5,
+                    'team_workspaces': 1,
+                    'storage_gb': 1,
+                    'team_members': 2
+                },
+                features={} 
+            )
+            
+        return plan
     
     def check_project_limit(self, workspace: Workspace, current_count: Optional[int] = None) -> None:
         """
         Check if workspace can create more projects.
-        
-        Args:
-            workspace: Workspace to check
-            current_count: Current project count (optional, will query if not provided)
-            
-        Raises:
-            QuotaExceededError: If project limit exceeded
         """
         tier = self.get_workspace_tier(workspace)
-        limits = self.get_tier_limits(tier)
-        max_projects = limits['max_projects']
+        plan = self.get_tier_plan(tier)
+        max_projects = plan.limits.get('projects')
         
         # Unlimited projects
         if max_projects is None:
@@ -144,13 +86,8 @@ class QuotaService:
         
         # Get current count if not provided
         if current_count is None:
-            # This would require importing project model - placeholder for now
-            # from backend.services.b2c.models.project import Project
-            # current_count = self.db.query(Project).filter(
-            #     Project.workspace_id == workspace.id,
-            #     Project.deleted_at.is_(None)
-            # ).count()
-            current_count = 0  # Placeholder
+            # Placeholder for actual project count logic
+            current_count = 0 
         
         if current_count >= max_projects:
             raise QuotaExceededError(
@@ -164,14 +101,6 @@ class QuotaService:
     def check_team_workspace_limit(self, user: B2CUser, current_count: Optional[int] = None) -> None:
         """
         Check if user can create more team workspaces.
-        
-        Args:
-            user: User to check
-            current_count: Current team workspace count (optional)
-            
-        Raises:
-            QuotaExceededError: If team workspace limit exceeded
-            FeatureNotAvailableError: If team workspaces not available for tier
         """
         # Get user's subscription from their personal workspace
         personal_workspace = self.db.query(Workspace).filter(
@@ -183,18 +112,18 @@ class QuotaService:
             raise ValueError("User has no personal workspace")
         
         tier = self.get_workspace_tier(personal_workspace)
-        limits = self.get_tier_limits(tier)
+        plan = self.get_tier_plan(tier)
         
         # Check if feature is available
-        if not limits['features']['team_workspaces']:
-            raise FeatureNotAvailableError(
-                message=f"Team workspaces are not available on the {tier} plan. Upgrade to Premium or Ultimate.",
+        if not plan.features.get('team_workspaces', False):
+             raise FeatureNotAvailableError(
+                message=f"Team workspaces are not available on the {tier} plan.",
                 tier=tier,
                 feature='team_workspaces',
-                required_tier='premium'
+                required_tier='premium' # simplified
             )
         
-        max_team_workspaces = limits['max_team_workspaces']
+        max_team_workspaces = plan.limits.get('team_workspaces')
         
         # Unlimited team workspaces
         if max_team_workspaces is None:
@@ -219,17 +148,10 @@ class QuotaService:
     def check_team_member_limit(self, workspace: Workspace, current_count: Optional[int] = None) -> None:
         """
         Check if workspace can add more team members.
-        
-        Args:
-            workspace: Workspace to check
-            current_count: Current member count (optional)
-            
-        Raises:
-            QuotaExceededError: If member limit exceeded
         """
         tier = self.get_workspace_tier(workspace)
-        limits = self.get_tier_limits(tier)
-        max_members = limits['max_team_members']
+        plan = self.get_tier_plan(tier)
+        max_members = plan.limits.get('team_members')
         
         # Unlimited members
         if max_members is None:
@@ -237,7 +159,7 @@ class QuotaService:
         
         # Get current count if not provided
         if current_count is None:
-            # Placeholder - would need WorkspaceMember model
+            # Placeholder
             current_count = 0
         
         if current_count >= max_members:
@@ -252,30 +174,16 @@ class QuotaService:
     def check_feature_access(self, workspace: Workspace, feature: str) -> None:
         """
         Check if a feature is available for the workspace's tier.
-        
-        Args:
-            workspace: Workspace to check
-            feature: Feature name (e.g., 'custom_branding', 'sso', 'api_access')
-            
-        Raises:
-            FeatureNotAvailableError: If feature not available
         """
         tier = self.get_workspace_tier(workspace)
-        limits = self.get_tier_limits(tier)
+        plan = self.get_tier_plan(tier)
         
-        if not limits['features'].get(feature, False):
-            # Determine required tier
-            required_tier = 'premium'
-            for t in ['premium', 'ultimate']:
-                if TIER_LIMITS[t]['features'].get(feature):
-                    required_tier = t
-                    break
-            
+        if not plan.features.get(feature, False):
             raise FeatureNotAvailableError(
-                message=f"Feature '{feature}' is not available on the {tier} plan. Upgrade to {required_tier.capitalize()}.",
+                message=f"Feature '{feature}' is not available on the {tier} plan.",
                 tier=tier,
                 feature=feature,
-                required_tier=required_tier
+                required_tier='premium' # Simplified logic
             )
 
 
@@ -286,14 +194,6 @@ class QuotaService:
 def enforce_quota(limit_type: str):
     """
     Decorator to enforce quota limits on endpoint handlers.
-    
-    Usage:
-        @enforce_quota('projects')
-        async def create_project(...):
-            ...
-    
-    Args:
-        limit_type: Type of quota to check ('projects', 'team_workspaces', 'team_members')
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -364,14 +264,6 @@ def enforce_quota(limit_type: str):
 def require_feature(feature: str):
     """
     Decorator to check if a feature is available for the workspace.
-    
-    Usage:
-        @require_feature('custom_branding')
-        async def update_branding(...):
-            ...
-    
-    Args:
-        feature: Feature name to check
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -412,6 +304,30 @@ def require_feature(feature: str):
 class AsyncQuotaService:
     """Async version of QuotaService for use with AsyncSession"""
     
+    async def get_tier_plan(self, db, tier: str) -> SubscriptionPlan:
+        """Get plan configuration for a specific tier (async)."""
+        from sqlalchemy import select
+        
+        result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.tier == tier))
+        plan = result.scalar_one_or_none()
+        
+        if not plan:
+            result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.tier == 'free'))
+            plan = result.scalar_one_or_none()
+            
+        if not plan:
+            return SubscriptionPlan(
+                tier='free',
+                limits={
+                    'projects': 5,
+                    'team_workspaces': 1,
+                    'storage_gb': 1,
+                    'team_members': 2
+                },
+                features={}
+            )
+        return plan
+
     async def check_team_workspace_limit(
         self,
         db,
@@ -420,24 +336,16 @@ class AsyncQuotaService:
     ) -> tuple[bool, str]:
         """
         Check if user can create more team workspaces (async)
-        
-        Args:
-            db: AsyncSession
-            user_id: User ID
-            subscription_tier: Current subscription tier
-            
-        Returns:
-            (can_create, limit_info_message)
         """
         from sqlalchemy import select, func
         
-        limits = TIER_LIMITS.get(subscription_tier, TIER_LIMITS['free'])
+        plan = await self.get_tier_plan(db, subscription_tier)
         
         # Check if feature is available
-        if not limits['features']['team_workspaces']:
+        if not plan.features.get('team_workspaces', False):
             return False, f"Team workspaces require Premium or Ultimate subscription"
         
-        max_team_workspaces = limits['max_team_workspaces']
+        max_team_workspaces = plan.limits.get('team_workspaces')
         
         # Unlimited team workspaces
         if max_team_workspaces is None:

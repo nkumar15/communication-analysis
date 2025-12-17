@@ -117,6 +117,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate celery-worker b2c-worker nginx mailhog; \
 			sleep 5; \
 			$(MAKE) migrate; \
+			$(MAKE) b2c-seed-plans; \
 			docker-compose restart postgres; \
 			sleep 5; \
 			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
@@ -137,6 +138,11 @@ b2b-seed-roles-templates: ## Seed domain-specific roles-templates
 	@echo "$(BLUE)Seeding domain data...$(NC)"
 	@docker-compose run --rm dbmigrate python /app/scripts/b2b/seed_domain_data.py
 	@echo "$(GREEN)✓ Domain data seeded$(NC)"
+
+b2c-seed-plans: ## Seed B2C subscription plans
+	@echo "$(BLUE)Seeding B2C subscription plans...$(NC)"
+	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
+	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
 b2b-invite: ## Invite B2B Tenant (interactive)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
