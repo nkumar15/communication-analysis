@@ -245,6 +245,56 @@ def send_grace_period_expiring_email(self, user_id: str, workspace_id: str, days
 
 
 # ============================================================================
+# Workspace Invitation Email Tasks
+# ============================================================================
+
+@app.task(base=DatabaseTask, bind=True, max_retries=3)
+def send_workspace_invitation_email(
+    self, 
+    invitation_id: str, 
+    invitation_token: str,
+    workspace_name: str,
+    inviter_name: str,
+    invitee_email: str,
+    role: str
+):
+    """
+    Send workspace invitation email with acceptance link.
+    
+    Args:
+        invitation_id: Invitation ID
+        invitation_token: Unique invitation token
+        workspace_name: Name of workspace
+        inviter_name: Name of person who invited
+        invitee_email: Email of invitee
+        role: Role being offered (member, admin, viewer)
+    """
+    try:
+        # Build invitation URL
+        invitation_url = f"{settings.frontend_url}/invite/{invitation_token}"
+        
+        send_email(
+            to_email=invitee_email,
+            subject=f"You've been invited to join {workspace_name}",
+            template="b2c/workspace_invitation",
+            context={
+                "workspace_name": workspace_name,
+                "inviter_name": inviter_name,
+                "role": role,
+                "invitation_url": invitation_url,
+                "expires_days": 7,
+                "support_email": "support@example.com"
+            }
+        )
+        
+        logger.info(f"Workspace invitation email sent to {invitee_email} for workspace {workspace_name}")
+        
+    except Exception as e:
+        logger.error(f"Error sending workspace invitation email: {str(e)}")
+        raise self.retry(exc=e, countdown=60)
+
+
+# ============================================================================
 # Subscription Management Tasks
 # ============================================================================
 

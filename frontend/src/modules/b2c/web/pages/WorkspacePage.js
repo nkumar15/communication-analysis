@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import B2CLayout from '../layouts/B2CLayout';
-import ProjectCard from '../components/ProjectCard';
+import TodoItem from '../components/TodoItem';
 import EmptyState from '../components/EmptyState';
-import CreateProjectModal from '../components/CreateProjectModal';
+import CreateTodoModal from '../components/CreateTodoModal';
+import WorkspaceMembersTab from '../components/WorkspaceMembersTab';
 import { WorkspaceCardSkeleton } from '../components/LoadingSkeletons';
-import { mockApi } from '../services/mockData';
+import b2cWorkspaceClient from '../../../../core/api/b2cWorkspaceClient';
 
 const WorkspacePage = () => {
     const { workspaceId } = useParams();
     const navigate = useNavigate();
     const [workspace, setWorkspace] = useState(null);
-    const [projects, setProjects] = useState([]);
+    const [todos, setTodos] = useState([]);
+    const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
-    const [activeTab, setActiveTab] = useState('projects');
+    const [showCreateTodoModal, setShowCreateTodoModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('tasks');
 
     useEffect(() => {
         loadWorkspace();
@@ -23,9 +25,17 @@ const WorkspacePage = () => {
     const loadWorkspace = async () => {
         setLoading(true);
         try {
-            const data = await mockApi.getWorkspace(workspaceId);
+            const data = await b2cWorkspaceClient.getWorkspaceDetails(workspaceId);
             setWorkspace(data);
-            setProjects(data.projects || []);
+            setMembers(data.members || []);
+
+            // Fetch todos
+            try {
+                const todosData = await b2cWorkspaceClient.getTodos(workspaceId);
+                setTodos(todosData || []);
+            } catch (err) {
+                console.error('Failed to load tasks:', err);
+            }
         } catch (error) {
             console.error('Failed to load workspace:', error);
         } finally {
@@ -33,8 +43,38 @@ const WorkspacePage = () => {
         }
     };
 
-    const handleProjectCreated = (newProject) => {
-        setProjects([...projects, newProject]);
+    const handleTodoCreated = (newTodo) => {
+        setTodos([newTodo, ...todos]);
+    };
+
+    const handleToggleTodo = async (todo) => {
+        // Optimistic update
+        const updatedTodos = todos.map(t =>
+            t.id === todo.id ? { ...t, is_completed: !t.is_completed } : t
+        );
+        setTodos(updatedTodos);
+
+        try {
+            await b2cWorkspaceClient.toggleTodo(workspaceId, todo.id, !todo.is_completed);
+        } catch (error) {
+            console.error('Failed to update task:', error);
+            // Revert on error
+            loadWorkspace();
+        }
+    };
+
+    const handleDeleteTodo = async (todoId) => {
+        if (!window.confirm('Are you sure you want to delete this task?')) return;
+
+        // Optimistic update
+        setTodos(todos.filter(t => t.id !== todoId));
+
+        try {
+            await b2cWorkspaceClient.deleteTodo(workspaceId, todoId);
+        } catch (error) {
+            console.error('Failed to delete task:', error);
+            loadWorkspace();
+        }
     };
 
     if (loading) {
@@ -120,19 +160,19 @@ const WorkspacePage = () => {
                                 <span>{workspace.member_count} {workspace.member_count === 1 ? 'member' : 'members'}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>📁</span>
-                                <span>{projects.length} {projects.length === 1 ? 'project' : 'projects'}</span>
+                                <span>✅</span>
+                                <span>{todos.length} {todos.length === 1 ? 'task' : 'tasks'}</span>
                             </div>
                         </div>
                     </div>
 
                     <button
-                        onClick={() => setShowCreateProjectModal(true)}
+                        onClick={() => setShowCreateTodoModal(true)}
                         style={{
                             padding: '12px 24px',
                             borderRadius: '10px',
                             border: 'none',
-                            background: 'linear-gradient(135deg, #10B981 0%, #059 669 100%)',
+                            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
                             color: 'white',
                             fontSize: '14px',
                             fontWeight: '600',
@@ -144,7 +184,7 @@ const WorkspacePage = () => {
                         }}
                     >
                         <span>➕</span>
-                        <span>New Project</span>
+                        <span>New Task</span>
                     </button>
                 </div>
             </div>
@@ -155,7 +195,7 @@ const WorkspacePage = () => {
                 marginBottom: '28px'
             }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    {['projects', 'tasks', 'members', 'settings'].map((tab) => (
+                    {['tasks', 'members', 'settings'].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -179,45 +219,34 @@ const WorkspacePage = () => {
             </div>
 
             {/* Tab Content */}
-            {activeTab === 'projects' && (
-                projects.length > 0 ? (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                        gap: '20px'
-                    }}>
-                        {projects.map((project) => (
-                            <ProjectCard
-                                key={project.id}
-                                project={project}
-                                workspaceId={workspaceId}
+            {activeTab === 'tasks' && (
+                todos.length > 0 ? (
+                    <div>
+                        {todos.map((todo) => (
+                            <TodoItem
+                                key={todo.id}
+                                todo={todo}
+                                onToggle={handleToggleTodo}
+                                onDelete={handleDeleteTodo}
                             />
                         ))}
                     </div>
                 ) : (
                     <EmptyState
-                        icon="📁"
-                        title="No projects yet"
-                        description="Create your first project to start organizing your work"
-                        actionLabel="Create Project"
-                        onAction={() => setShowCreateProjectModal(true)}
+                        icon="✓"
+                        title="No tasks yet"
+                        description="Add your first task to get started"
+                        actionLabel="Create Task"
+                        onAction={() => setShowCreateTodoModal(true)}
                     />
                 )
             )}
 
-            {activeTab === 'tasks' && (
-                <EmptyState
-                    icon="✓"
-                    title="Tasks view"
-                    description="Task management coming soon"
-                />
-            )}
-
-            {activeTab === 'members' && (
-                <EmptyState
-                    icon="👥"
-                    title="Members"
-                    description="Member management coming soon"
+            {activeTab === 'members' && workspace && (
+                <WorkspaceMembersTab
+                    workspace={workspace}
+                    members={members}
+                    onMembersUpdated={loadWorkspace}
                 />
             )}
 
@@ -237,12 +266,12 @@ const WorkspacePage = () => {
                 </div>
             )}
 
-            {/* Create Project Modal */}
-            <CreateProjectModal
-                isOpen={showCreateProjectModal}
-                onClose={() => setShowCreateProjectModal(false)}
+            {/* Create Todo Modal */}
+            <CreateTodoModal
+                isOpen={showCreateTodoModal}
+                onClose={() => setShowCreateTodoModal(false)}
                 workspaceId={workspaceId}
-                onSuccess={handleProjectCreated}
+                onSuccess={handleTodoCreated}
             />
         </B2CLayout>
     );

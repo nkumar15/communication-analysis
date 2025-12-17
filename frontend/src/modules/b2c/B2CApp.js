@@ -13,6 +13,8 @@ import NotificationsPage from './web/pages/NotificationsPage';
 import SubscriptionPage from './web/pages/SubscriptionPage';
 import BillingHistoryPage from './web/pages/BillingHistoryPage';
 
+import InvitationAcceptPage from './web/pages/InvitationAcceptPage';
+
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = React.useState(null);
@@ -39,6 +41,7 @@ const B2CApp = () => {
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/invite/:token" element={<InvitationAcceptPage />} />
 
             {/* Protected Routes */}
             <Route path="/" element={

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { auth } from '../../../../core/firebase/b2c-config';
 import B2CLayout from '../layouts/B2CLayout';
+import b2cWorkspaceClient from '../../../../core/api/b2cWorkspaceClient';
 
 const PLANS = [
     {
@@ -67,28 +68,29 @@ const SubscriptionPage = () => {
     const loadSubscription = async () => {
         setLoading(true);
         try {
-            const user = auth.currentUser;
-            if (!user) {
-                navigate('/login');
+            // Get workspace ID from params or find personal workspace
+            let wsId = searchParams.get('workspace_id');
+
+            if (!wsId) {
+                const workspacesData = await b2cWorkspaceClient.getWorkspaces();
+                const personalWs = workspacesData.workspaces.find(w => w.type === 'personal');
+
+                if (personalWs) {
+                    wsId = personalWs.id;
+                } else if (workspacesData.workspaces.length > 0) {
+                    wsId = workspacesData.workspaces[0].id;
+                }
+            }
+
+            if (!wsId) {
+                console.error('No workspace found');
                 return;
             }
 
-            const token = await user.getIdToken();
-
-            // For now, get first workspace ID (in production, user would select)
-            const wsId = searchParams.get('workspace_id') || 'default-workspace';
             setWorkspaceId(wsId);
 
-            const response = await fetch(`/api/b2c/billing/subscription?workspace_id=${wsId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setCurrentSubscription(data);
-            }
+            const data = await b2cWorkspaceClient.getSubscription(wsId);
+            setCurrentSubscription(data);
         } catch (error) {
             console.error('Failed to load subscription:', error);
         } finally {
@@ -101,31 +103,16 @@ const SubscriptionPage = () => {
 
         setUpgrading(true);
         try {
-            const user = auth.currentUser;
-            const token = await user.getIdToken();
-
-            const response = await fetch('/api/b2c/billing/checkout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    workspace_id: workspaceId,
-                    tier: tier,
-                    billing_interval: billingInterval,
-                    success_url: `${window.location.origin}/subscription?success=true`,
-                    cancel_url: `${window.location.origin}/subscription?canceled=true`
-                })
+            const data = await b2cWorkspaceClient.createCheckoutSession({
+                workspace_id: workspaceId,
+                tier: tier,
+                billing_interval: billingInterval,
+                success_url: `${window.location.origin}/subscription?success=true`,
+                cancel_url: `${window.location.origin}/subscription?canceled=true`
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                // Redirect to Stripe Checkout
-                window.location.href = data.checkout_url;
-            } else {
-                alert('Failed to start checkout');
-            }
+            // Redirect to Stripe Checkout
+            window.location.href = data.checkout_url;
         } catch (error) {
             console.error('Checkout error:', error);
             alert('Failed to start checkout');
@@ -136,24 +123,8 @@ const SubscriptionPage = () => {
 
     const handleManageBilling = async () => {
         try {
-            const user = auth.currentUser;
-            const token = await user.getIdToken();
-
-            const response = await fetch('/api/b2c/billing/portal', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    return_url: window.location.href
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                window.location.href = data.portal_url;
-            }
+            const data = await b2cWorkspaceClient.createPortalSession(window.location.href);
+            window.location.href = data.portal_url;
         } catch (error) {
             console.error('Portal error:', error);
         }

@@ -40,8 +40,9 @@ const CreateProjectModal = ({ isOpen, onClose, workspaceId, onSuccess }) => {
         setCreating(true);
 
         try {
-            const { mockApi } = await import('../services/mockData');
-            const newProject = await mockApi.createProject(workspaceId, formData);
+            // Real API call
+            const b2cWorkspaceClient = (await import('../../../../core/api/b2cWorkspaceClient')).default;
+            const newProject = await b2cWorkspaceClient.createProject(workspaceId, formData);
 
             setFormData({ name: '', description: '', due_date: '' });
 

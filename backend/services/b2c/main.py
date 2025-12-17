@@ -25,7 +25,8 @@ from core.logging.middleware import LoggingMiddleware
 logger = get_logger(__name__)
 
 # Import B2C routers (placeholder for future workspace management)
-# from services.b2c.routers import workspaces
+from services.b2c.routers import workspaces
+from services.b2c.services.todos import router as todos_router
 
 
 @asynccontextmanager
@@ -79,11 +80,12 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 
 # Include B2C routers
-from services.b2c.routers import auth, workspaces, billing
+from services.b2c.routers import auth, workspaces, billing, invitations
 app.include_router(auth.router)
 app.include_router(workspaces.router)
+app.include_router(todos_router.router, prefix="/api/b2c/workspaces", tags=["B2C Todos"])
 app.include_router(billing.router)
-
+app.include_router(invitations.router)
 
 
 @app.get("/")

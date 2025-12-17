@@ -6,7 +6,7 @@ import WorkspaceCard from '../components/WorkspaceCard';
 import EmptyState from '../components/EmptyState';
 import CreateWorkspaceModal from '../components/CreateWorkspaceModal';
 import { B2CDashboardSkeleton } from '../components/LoadingSkeletons';
-import { mockApi } from '../services/mockData';
+import b2cWorkspaceClient from '../../../../core/api/b2cWorkspaceClient';
 
 const DashboardPage = () => {
     const navigate = useNavigate();
@@ -23,8 +23,8 @@ const DashboardPage = () => {
 
             // Fetch workspaces
             try {
-                const data = await mockApi.getWorkspaces();
-                setWorkspaces(data);
+                const data = await b2cWorkspaceClient.getWorkspaces();
+                setWorkspaces(data.workspaces || []);
             } catch (error) {
                 console.error('Failed to fetch workspaces:', error);
             } finally {
@@ -73,7 +73,7 @@ const DashboardPage = () => {
                             color: '#6B7280',
                             margin: 0
                         }}>
-                            Manage your workspaces and projects all in one place
+                            Manage all your workspaces in one place
                         </p>
                     </div>
 
@@ -191,27 +191,7 @@ const DashboardPage = () => {
                                     Total Workspaces
                                 </div>
                             </div>
-                            <div style={{
-                                padding: '16px',
-                                backgroundColor: '#F9FAFB',
-                                borderRadius: '8px'
-                            }}>
-                                <div style={{
-                                    fontSize: '28px',
-                                    fontWeight: '700',
-                                    color: '#10B981',
-                                    marginBottom: '4px'
-                                }}>
-                                    {workspaces.reduce((sum, w) => sum + (w.project_count || 0), 0)}
-                                </div>
-                                <div style={{
-                                    fontSize: '14px',
-                                    color: '#6B7280',
-                                    fontWeight: '500'
-                                }}>
-                                    Total Projects
-                                </div>
-                            </div>
+
                             <div style={{
                                 padding: '16px',
                                 backgroundColor: '#F9FAFB',
@@ -240,7 +220,7 @@ const DashboardPage = () => {
                 <EmptyState
                     icon="🚀"
                     title="No workspaces yet"
-                    description="Create your first workspace to start organizing your projects and tasks"
+                    description="Create your first workspace to start organizing your work"
                     actionLabel="Create Your First Workspace"
                     onAction={() => setShowCreateModal(true)}
                 />

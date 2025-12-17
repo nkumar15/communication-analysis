@@ -4,7 +4,7 @@ import B2CLayout from '../layouts/B2CLayout';
 import WorkspaceCard from '../components/WorkspaceCard';
 import CreateWorkspaceModal from '../components/CreateWorkspaceModal';
 import { B2CDashboardSkeleton } from '../components/LoadingSkeletons';
-import { mockApi } from '../services/mockData';
+import b2cWorkspaceClient from '../../../../core/api/b2cWorkspaceClient';
 
 const WorkspacesListPage = () => {
     const navigate = useNavigate();
@@ -20,8 +20,8 @@ const WorkspacesListPage = () => {
     const loadWorkspaces = async () => {
         setLoading(true);
         try {
-            const data = await mockApi.getWorkspaces();
-            setWorkspaces(data);
+            const data = await b2cWorkspaceClient.getWorkspaces();
+            setWorkspaces(data.workspaces || []);
         } catch (error) {
             console.error('Failed to load workspaces:', error);
         } finally {

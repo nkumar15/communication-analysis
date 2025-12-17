@@ -137,11 +137,29 @@ async def api_client(db_session):
     # Override database dependency to use test session
     async def override_get_db():
         # CRITICAL FIX for Test Gaps:
-        # We MUST reset the RLS context before giving the session to the API endpoint.
+        # For B2B: We MUST reset the RLS context before giving the session to the API endpoint.
         # Otherwise, the API inherits the context set during test setup (seed data),
         # masking bugs where the API forgets to set its own context.
+        #
+        # For B2C: The auth middleware SETS the context, and we need to PRESERVE it.
+        # Check if context is already set (B2C case) and don't clear it.
         from core.rls import rls_service
-        await rls_service.clear_context(db_session)
+        from sqlalchemy import text
+        
+        # Check if RLS context is already set (B2C auth middleware sets it)
+        try:
+            result = await db_session.execute(
+                text("SELECT current_setting('app.current_user_id', true)")
+            )
+            current_context = result.scalar()
+            context_was_set = bool(current_context and current_context != '')
+        except:
+            context_was_set = False
+        
+        # Only clear if context was NOT already set (B2B case)
+        if not context_was_set:
+            await rls_service.clear_context(db_session)
+        
         yield db_session
         await db_session.flush()
     
@@ -183,8 +201,81 @@ async def api_client(db_session):
                 detail="Invalid token"
             )
     
+    
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
+    
+    # Override B2C auth dependency for B2C endpoints
+    from services.b2c.middleware.b2c_auth import get_current_b2c_user
+    
+    async def override_get_current_b2c_user(
+        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
+        # NOTE: We use db_session directly here, NOT override_get_db
+        # because override_get_db clears RLS context for B2B testing,
+        # but B2C needs to SET context in the auth middleware
+    ):
+        if not credentials:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated"
+            )
+        
+        token = credentials.credentials
+        try:
+            # Decode mock JWT token
+            parts = token.split(".")
+            if len(parts) != 3:
+                raise ValueError("Invalid token format")
+            
+            payload_str = parts[1]
+            payload_str += "=" * ((4 - len(payload_str) % 4) % 4)
+            payload_json = base64.urlsafe_b64decode(payload_str).decode()
+            payload = json.loads(payload_json)
+            
+            firebase_uid = payload.get("uid")
+            
+            # Look up actual B2C user by firebase_uid to get UUID and set RLS
+            from services.b2c.models.user import B2CUser
+            from sqlalchemy import text
+            
+            # Use SECURITY DEFINER function to lookup user (bypasses RLS)
+            result = await db_session.execute(
+                text("SELECT b2c.lookup_user_by_firebase_uid(:uid)"),
+                {"uid": firebase_uid}
+            )
+            user_id = result.scalar_one_or_none()
+            
+            if not user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found"
+                )
+            
+            # Set RLS context - this is critical for B2C queries
+            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
+            
+            # Fetch full user
+            result = await db_session.execute(
+                select(B2CUser).where(B2CUser.id == user_id)
+            )
+            user = result.scalar_one()
+            
+            # Return user data matching what the real middleware returns
+            return {
+                "id": str(user.id),
+                "email": user.email,
+                "display_name": user.display_name,
+                "email_verified": payload.get("email_verified", True)
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token: {str(e)}"
+            )
+    
+    app.dependency_overrides[get_current_b2c_user] = override_get_current_b2c_user
     # Removed override_get_current_active_user to verify real middleware logic
     
     async with AsyncClient(app=app, base_url="http://test") as client:
@@ -624,7 +715,8 @@ async def create_b2c_workspace(
     db_session: AsyncSession,
     owner_id: UUID,
     name: str,
-    workspace_type: str = 'personal'
+    workspace_type: str = 'personal',
+    subscription_tier: str = 'free'
 ):
     """Create a B2C workspace for testing"""
     from services.b2c.models.workspace import Workspace, WorkspaceType
@@ -638,7 +730,7 @@ async def create_b2c_workspace(
         name=name,
         type=WorkspaceType(workspace_type),
         owner_id=owner_id,
-        subscription_tier='free'
+        subscription_tier=subscription_tier
     )
     db_session.add(workspace)
     await db_session.flush()

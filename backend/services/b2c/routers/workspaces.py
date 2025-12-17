@@ -1,55 +1,351 @@
 """
-B2C Workspace Router (STUB)
+B2C Workspace Router
 
-All endpoints intentionally return 501 Not Implemented.
-This demonstrates the API structure for B2C workspaces.
+Endpoints for team workspace management and member administration.
 """
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
+from typing import Optional
+from uuid import UUID
+
+from core.database import get_db
+from services.b2c.middleware.b2c_auth import get_current_b2c_user
+from services.b2c.services.workspace_service import workspace_service
+from services.b2c.services.auth_service import auth_service
+from services.b2c.models.user import B2CUser
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/b2c/workspaces", tags=["B2C Workspaces"])
 
-@router.get("/")
-async def list_workspaces():
-    """
-    List user's workspaces (STUB)
-    
-    Future implementation should:
-    - Get current user from auth
-    - Query workspaces where user is owner or member
-    - Return list of workspaces
-    """
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="B2C workspace listing not yet implemented. Extend services/b2c/routers/workspaces.py"
-    )
 
-@router.post("/")
-async def create_workspace():
+# ============================================================================
+# Request/Response Schemas
+# ============================================================================
+
+class CreateWorkspaceRequest(BaseModel):
+    name: str
+    subscription_tier: str = 'free'  # Will be validated based on actual subscription
+
+
+class UpdateWorkspaceRequest(BaseModel):
+    name: Optional[str] = None
+    settings: Optional[dict] = None
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    role: str  # admin, member, viewer
+
+
+# ============================================================================
+# Workspace Endpoints
+# ============================================================================
+
+@router.get("/")
+async def list_workspaces(
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Create new workspace (STUB)
+    List user's workspaces (personal + team workspaces)
     
-    Future implementation should:
-    - Validate workspace data
-    - Create workspace in database
-    - Return created workspace
+    Returns all workspaces the user is a member of
     """
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="B2C workspace creation not yet implemented. Extend services/b2c/routers/workspaces.py"
-    )
+    try:
+        workspaces = await auth_service.get_user_workspaces(db, str(current_user['id']))
+        return {"workspaces": workspaces}
+        
+    except Exception as e:
+        logger.error(f"Error listing workspaces: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list workspaces"
+        )
+
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def create_workspace(
+    request: CreateWorkspaceRequest,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create new team workspace
+    
+    Requires:
+    - Premium or Ultimate subscription
+    - Workspace quota not exceeded
+    
+    Auto-adds creator as owner
+    """
+    try:
+        # Get user to determine subscription tier
+        from sqlalchemy import select
+        from services.b2c.models.user import B2CUser
+        from services.b2c.models.workspace import Workspace
+        from core.rls import rls_service
+        
+        # Set RLS context
+        await rls_service.set_user_context(db, str(current_user['id']))
+        
+        # Get user's personal workspace to check subscription
+        result = await db.execute(
+            select(Workspace).where(
+                Workspace.owner_id == current_user['id'],
+                Workspace.type == 'personal'
+            )
+        )
+        personal_workspace = result.scalar_one_or_none()
+        
+        if not personal_workspace:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Personal workspace not found"
+            )
+        
+        # Use the personal workspace's subscription tier
+        subscription_tier = personal_workspace.subscription_tier
+        
+        # Create team workspace
+        workspace = await workspace_service.create_team_workspace(
+            db=db,
+            name=request.name,
+            owner_id=UUID(str(current_user['id'])),
+            subscription_tier=subscription_tier
+        )
+        
+        await db.commit()
+        
+        return {
+            "id": str(workspace.id),
+            "name": workspace.name,
+            "type": workspace.type.value,
+            "owner_id": str(workspace.owner_id),
+            "subscription_tier": workspace.subscription_tier,
+            "member_count": 1
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating workspace: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create workspace: {str(e)}"
+        )
+
 
 @router.get("/{workspace_id}")
-async def get_workspace(workspace_id: str):
-    """Get workspace details (STUB)"""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="B2C workspace retrieval not yet implemented"
-    )
+async def get_workspace(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get workspace details including members
+    
+    Returns workspace metadata and member list with roles
+    """
+    try:
+        workspace_details = await workspace_service.get_workspace_details(
+            db=db,
+            workspace_id=UUID(workspace_id),
+            user_id=UUID(str(current_user['id']))
+        )
+        
+        return workspace_details
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting workspace: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get workspace details"
+        )
 
-@router.delete("/{workspace_id}")
-async def delete_workspace(workspace_id: str):
-    """Delete workspace (STUB)"""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="B2C workspace deletion not yet implemented"
-    )
+
+@router.patch("/{workspace_id}")
+async def update_workspace(
+    workspace_id: str,
+    request: UpdateWorkspaceRequest,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update workspace settings
+    
+    Requires owner or admin role
+    """
+    try:
+        workspace = await workspace_service.update_workspace_settings(
+            db=db,
+            workspace_id=UUID(workspace_id),
+            user_id=UUID(str(current_user['id'])),
+            name=request.name,
+            settings=request.settings
+        )
+        
+        await db.commit()
+        
+        return {
+            "id": str(workspace.id),
+            "name": workspace.name,
+            "settings": workspace.settings
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating workspace: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update workspace"
+        )
+
+
+@router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_workspace(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete workspace
+    
+    Requires owner role
+    Cascades to all members and workspace data
+    Cannot delete personal workspace
+    """
+    try:
+        await workspace_service.delete_workspace(
+            db=db,
+            workspace_id=UUID(workspace_id),
+            user_id=UUID(str(current_user['id']))
+        )
+        
+        await db.commit()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting workspace: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete workspace"
+        )
+
+
+# ============================================================================
+# Member Management Endpoints
+# ============================================================================
+
+@router.get("/{workspace_id}/members")
+async def list_members(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List workspace members
+    
+    Returns member list for workspace
+    """
+    try:
+        workspace_details = await workspace_service.get_workspace_details(
+            db=db,
+            workspace_id=UUID(workspace_id),
+            user_id=UUID(str(current_user['id']))
+        )
+        
+        return {"members": workspace_details['members']}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing members: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list members"
+        )
+
+
+@router.patch("/{workspace_id}/members/{user_id}")
+async def update_member_role(
+    workspace_id: str,
+    user_id: str,
+    request: UpdateMemberRoleRequest,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update member role
+    
+    Requires owner or admin role
+    Cannot change owner role
+    """
+    try:
+        await workspace_service.update_member_role(
+            db=db,
+            workspace_id=UUID(workspace_id),
+            target_user_id=UUID(user_id),
+            new_role=request.role,
+            requester_id=UUID(str(current_user['id']))
+        )
+        
+        await db.commit()
+        
+        return {
+            "workspace_id": workspace_id,
+            "user_id": user_id,
+            "role": request.role
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating member role: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update member role"
+        )
+
+
+@router.delete("/{workspace_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_member(
+    workspace_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Remove member from workspace
+    
+    Requires owner or admin role
+    Cannot remove owner
+    """
+    try:
+        await workspace_service.remove_member(
+            db=db,
+            workspace_id=UUID(workspace_id),
+            target_user_id=UUID(user_id),
+            requester_id=UUID(str(current_user['id']))
+        )
+        
+        await db.commit()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing member: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to remove member"
+        )

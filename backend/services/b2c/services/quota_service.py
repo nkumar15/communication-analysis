@@ -23,11 +23,11 @@ logger = logging.getLogger(__name__)
 TIER_LIMITS = {
     'free': {
         'max_projects': 5,
-        'max_team_workspaces': 0,
+        'max_team_workspaces': 1,
         'max_storage_gb': 1,
         'max_team_members': 2,  # Shareable links only, viewer access
         'features': {
-            'team_workspaces': False,
+            'team_workspaces': True,
             'priority_support': False,
             'custom_branding': False,
             'export_data': False,
@@ -403,3 +403,60 @@ def require_feature(feature: str):
         
         return wrapper
     return decorator
+
+
+# ============================================================================
+# Async Quota Service (for use with AsyncSession)
+# ============================================================================
+
+class AsyncQuotaService:
+    """Async version of QuotaService for use with AsyncSession"""
+    
+    async def check_team_workspace_limit(
+        self,
+        db,
+        user_id: str,
+        subscription_tier: str
+    ) -> tuple[bool, str]:
+        """
+        Check if user can create more team workspaces (async)
+        
+        Args:
+            db: AsyncSession
+            user_id: User ID
+            subscription_tier: Current subscription tier
+            
+        Returns:
+            (can_create, limit_info_message)
+        """
+        from sqlalchemy import select, func
+        
+        limits = TIER_LIMITS.get(subscription_tier, TIER_LIMITS['free'])
+        
+        # Check if feature is available
+        if not limits['features']['team_workspaces']:
+            return False, f"Team workspaces require Premium or Ultimate subscription"
+        
+        max_team_workspaces = limits['max_team_workspaces']
+        
+        # Unlimited team workspaces
+        if max_team_workspaces is None:
+            return True, "Unlimited workspaces"
+        
+        # Count current team workspaces
+        result = await db.execute(
+            select(func.count()).select_from(Workspace).where(
+                Workspace.owner_id == user_id,
+                Workspace.type == 'team'
+            )
+        )
+        current_count = result.scalar() or 0
+        
+        if current_count >= max_team_workspaces:
+            return False, f"Limit reached: {current_count}/{max_team_workspaces} team workspaces"
+        
+        return True, f"Can create {max_team_workspaces - current_count} more team workspaces"
+
+
+# Singleton
+quota_service = AsyncQuotaService()

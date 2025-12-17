@@ -107,12 +107,7 @@ const WorkspaceCard = ({ workspace, onClick }) => {
                         <span>{workspace.member_count} {workspace.member_count === 1 ? 'member' : 'members'}</span>
                     </div>
                 )}
-                {workspace.project_count !== undefined && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>📁</span>
-                        <span>{workspace.project_count} {workspace.project_count === 1 ? 'project' : 'projects'}</span>
-                    </div>
-                )}
+
             </div>
 
             {/* Action Indicator */}

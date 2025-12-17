@@ -40,9 +40,9 @@ const CreateWorkspaceModal = ({ isOpen, onClose, onSuccess }) => {
         setCreating(true);
 
         try {
-            // Mock API call - will be replaced with real API
-            const { mockApi } = await import('../services/mockData');
-            const newWorkspace = await mockApi.createWorkspace(formData);
+            // Real API call
+            const b2cWorkspaceClient = (await import('../../../../core/api/b2cWorkspaceClient')).default;
+            const newWorkspace = await b2cWorkspaceClient.createWorkspace(formData);
 
             // Reset form
             setFormData({ name: '', description: '', type: 'personal' });
@@ -230,16 +230,18 @@ const CreateWorkspaceModal = ({ isOpen, onClose, onSuccess }) => {
                                 backgroundColor: formData.type === 'personal' ? '#EEF2FF' : '#FFFFFF',
                                 transition: 'all 0.2s'
                             }}>
-                                <input
-                                    type="radio"
-                                    name="type"
-                                    value="personal"
-                                    checked={formData.type === 'personal'}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                    style={{ marginRight: '8px' }}
-                                />
-                                <span style={{ fontWeight: '500' }}>Personal</span>
-                                <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px', marginLeft: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                                    <input
+                                        type="radio"
+                                        name="type"
+                                        value="personal"
+                                        checked={formData.type === 'personal'}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                        style={{ marginRight: '8px', accentColor: '#6366F1' }}
+                                    />
+                                    <span style={{ fontWeight: '600', color: '#111827', fontSize: '15px' }}>Personal</span>
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#4B5563', paddingLeft: '24px' }}>
                                     For individual use
                                 </div>
                             </label>
@@ -252,16 +254,18 @@ const CreateWorkspaceModal = ({ isOpen, onClose, onSuccess }) => {
                                 backgroundColor: formData.type === 'team' ? '#EEF2FF' : '#FFFFFF',
                                 transition: 'all 0.2s'
                             }}>
-                                <input
-                                    type="radio"
-                                    name="type"
-                                    value="team"
-                                    checked={formData.type === 'team'}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                    style={{ marginRight: '8px' }}
-                                />
-                                <span style={{ fontWeight: '500' }}>Team</span>
-                                <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px', marginLeft: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                                    <input
+                                        type="radio"
+                                        name="type"
+                                        value="team"
+                                        checked={formData.type === 'team'}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                        style={{ marginRight: '8px', accentColor: '#6366F1' }}
+                                    />
+                                    <span style={{ fontWeight: '600', color: '#111827', fontSize: '15px' }}>Team</span>
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#4B5563', paddingLeft: '24px' }}>
                                     Collaborate with others
                                 </div>
                             </label>

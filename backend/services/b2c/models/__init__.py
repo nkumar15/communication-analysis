@@ -3,8 +3,18 @@ B2C Models Package
 
 Models for B2C workspace functionality (personal and team workspaces).
 """
-from .workspace import Workspace, WorkspaceType
 from .user import B2CUser
+from .workspace import Workspace, WorkspaceType
 from .workspace_member import WorkspaceMember
+from .workspace_invitation import WorkspaceInvitation
+from .subscription import Subscription, Invoice
 
-__all__ = ['Workspace', 'WorkspaceType', 'B2CUser', 'WorkspaceMember']
+__all__ = [
+    'B2CUser',
+    'Workspace',
+    'WorkspaceType',
+    'WorkspaceMember',
+    'WorkspaceInvitation',
+    'Subscription',
+    'Invoice'
+]
