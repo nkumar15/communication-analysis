@@ -6,7 +6,7 @@ Each task creates its own database session to avoid lock issues.
 """
 
 import os
-from core.tasks.celery_app import celery_app
+from workers.b2b_worker.celery_app import celery_app
 from core.database import AsyncSessionLocal
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload

@@ -5,7 +5,7 @@ Background tasks for persisting audit logs.
 Uses ThreadPoolExecutor to run async code in a separate thread.
 """
 
-from core.tasks.celery_app import celery_app
+from workers.b2b_worker.celery_app import celery_app
 from core.database import AsyncSessionLocal
 import asyncio
 import logging

@@ -50,17 +50,19 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - EMAIL_PROVIDER=mailhog
       - MAILHOG_HOST=mailhog
+      - PYTHONPATH=/app
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - redis
       - postgres
-    command: celery -A workers.b2b_worker.celery_app worker --loglevel=info
+    command: celery -A workers.b2b_worker.celery_app worker --loglevel=info --concurrency=4 -Q celery,emails,audit
 
   # B2C Worker - Celery Background Tasks for B2C
   b2c-worker:
@@ -245,34 +247,6 @@ services:
     ports:
       - "1025:1025" # SMTP
       - "8025:8025" # Web UI
-    restart: unless-stopped
-
-  # Celery Worker - Background Task Processor
-  # Processes: emails, audit logs, bulk operations
-  celery-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: b2b
-    container_name: sso_celery_worker
-    env_file:
-      - ./backend/.env
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - EMAIL_PROVIDER=mailhog
-      - MAILHOG_HOST=mailhog
-      - PYTHONPATH=/app
-    volumes:
-      - ./backend:/app
-      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: celery -A core.tasks.celery_app worker --loglevel=info --concurrency=4 -Q celery,emails,audit
     restart: unless-stopped
 
   # API Gateway - Routes requests to all microservices

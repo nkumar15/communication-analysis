@@ -180,7 +180,7 @@ async def sync_user(
     await db.commit()
     
     # Log audit event via Celery (async in production, sync in tests via eager mode)
-    from core.tasks.audit_tasks import persist_audit_log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
     persist_audit_log.delay({
         'tenant_id': str(res_tenant_id),
         'event_type': 'auth.login',

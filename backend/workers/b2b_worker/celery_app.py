@@ -18,8 +18,8 @@ celery_app = Celery(
     broker=settings.celery_broker_url_resolved,
     backend=settings.celery_result_backend_resolved,
     include=[
-        'core.tasks.email_tasks',
-        'core.tasks.audit_tasks',
+        'workers.b2b_worker.email_tasks',
+        'workers.b2b_worker.audit_tasks',
     ]
 )
 
@@ -48,8 +48,8 @@ celery_app.conf.update(
     
     # Task routing (optional - for future use)
     task_routes={
-        'core.tasks.email_tasks.*': {'queue': 'emails'},
-        'core.tasks.audit_tasks.*': {'queue': 'audit'},
+        'workers.b2b_worker.email_tasks.*': {'queue': 'emails'},
+        'workers.b2b_worker.audit_tasks.*': {'queue': 'audit'},
     },
     
     # Retry configuration

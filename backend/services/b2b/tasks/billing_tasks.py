@@ -4,7 +4,7 @@ B2B Billing Celery Tasks
 Background tasks for automated invoice generation, seat count updates, and email notifications.
 """
 from celery import shared_task
-from core.tasks.celery_app import celery_app
+from workers.b2b_worker.celery_app import celery_app
 from core.database import AsyncSessionLocal
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone

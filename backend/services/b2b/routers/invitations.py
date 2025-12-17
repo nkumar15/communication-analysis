@@ -28,7 +28,7 @@ from core.email import email_service
 from core.config import settings
 from core.rls import rls_service
 from services.b2b.utils.csv_parser import BulkInviteCSVParser
-from core.tasks.email_tasks import send_bulk_invitation_emails, send_invitation_email
+from workers.b2b_worker.email_tasks import send_bulk_invitation_emails, send_invitation_email
 from services.b2b.models import UserModel
 
 
@@ -90,7 +90,7 @@ async def invite_user(
     )
     
     # Log audit event via Celery (async in production, sync in tests via eager mode)
-    from core.tasks.audit_tasks import persist_audit_log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
     persist_audit_log.delay({
         'tenant_id': str(current_user['tenant_id']),
         'event_type': 'user.invited',
@@ -301,7 +301,7 @@ async def join_tenant(
     await db.commit()
     
     # Log audit event via Celery (async in production, sync in tests via eager mode)
-    from core.tasks.audit_tasks import persist_audit_log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
     persist_audit_log.delay({
         'tenant_id': str(res_tenant_id),
         'event_type': 'user.accepted_invite',
