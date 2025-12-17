@@ -45,7 +45,7 @@ status: ## Show status of all services and configuration
 
 up: ## Start all backend services (frontend runs locally)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate celery-worker b2c-worker nginx mailhog
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker nginx mailhog
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
 	@echo "Email UI:     http://localhost:8025 (Mailhog)"
@@ -89,21 +89,21 @@ db-setup-auth: ## Setup app user and permissions
 
 migrate: ## Run migrations for all products (platform + b2b + b2c)
 	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
-	@docker-compose exec -T dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
+	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) b2b-seed-roles-templates
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
 migrate-b2b: ## Run migrations for B2B only (platform + b2b)
 	@echo "$(BLUE)Running B2B migrations...$(NC)"
-	@docker-compose exec -T dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
+	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
 	@$(MAKE) b2b-seed-roles-templates
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ B2B migrations complete$(NC)"
 
 migrate-b2c: ## Run migrations for B2C only (platform + b2c)
 	@echo "$(BLUE)Running B2C migrations...$(NC)"
-	@docker-compose exec -T dbmigrate env ENABLED_PRODUCTS=platform,b2c python /app/migrations/run_migrations.py
+	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ B2C migrations complete$(NC)"
 
@@ -114,7 +114,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	case "$$REPLY" in \
 		[Yy]*) \
 			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate celery-worker b2c-worker nginx mailhog; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker nginx mailhog; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			$(MAKE) b2c-seed-plans; \
