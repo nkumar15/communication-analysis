@@ -19,29 +19,12 @@ from services.b2b.models import (
     SubscriptionTier,
     PaymentMode,
     SubscriptionStatus,
-    TenantModel
+    TenantModel,
+    B2BSubscriptionPlan
 )
 from services.b2b.models.user import UserModel
 
 logger = logging.getLogger(__name__)
-
-
-# Pricing Matrix (in cents)
-# TODO: Move to database or config file for production
-PRICING_MATRIX = {
-    SubscriptionTier.STARTER: {
-        'monthly': {'base': 0, 'per_seat': 1000},  # $0 base + $10/seat
-        'yearly': {'base': 0, 'per_seat': 10000}   # $0 base + $100/seat
-    },
-    SubscriptionTier.PROFESSIONAL: {
-        'monthly': {'base': 5000, 'per_seat': 2000},  # $50 base + $20/seat
-        'yearly': {'base': 50000, 'per_seat': 20000}  # $500 base + $200/seat
-    },
-    SubscriptionTier.ENTERPRISE: {
-        'monthly': {'base': 20000, 'per_seat': 5000},  # $200 base + $50/seat
-        'yearly': {'base': 200000, 'per_seat': 50000}  # $2000 base + $500/seat
-    }
-}
 
 
 class SubscriptionService:
@@ -68,45 +51,26 @@ class SubscriptionService:
             select(Subscription).where(Subscription.tenant_id == tenant_id)
         )
         return result.scalar_one_or_none()
-    
-    async def get_active_seat_count(self, tenant_id: UUID) -> int:
-        """
-        Count active user seats for a tenant.
-        Seats = COUNT(active users with is_active=TRUE and deleted_at=NULL)
-        """
-        result = await self.db.execute(
-            select(func.count(UserModel.id))
-            .where(
-                UserModel.tenant_id == tenant_id,
-                UserModel.is_active == True,
-                UserModel.deleted_at == None
-            )
-        )
-        count = result.scalar()
-        return max(count or 0, 1)  # Minimum 1 seat
-    
-    def calculate_seat_based_pricing(
+
+
+    async def calculate_seat_based_pricing(
         self, 
-        tier: SubscriptionTier, 
+        plan: Any,
         seat_count: int, 
         billing_interval: str
     ) -> Dict[str, int]:
         """
-        Calculate pricing based on base + per-seat model.
-        
-        Returns:
-            {
-                'base_price_cents': int,
-                'per_seat_price_cents': int,
-                'total_amount_cents': int
-            }
+        Calculate pricing based on base + per-seat model from Plan object.
         """
-        pricing = PRICING_MATRIX.get(tier, {}).get(billing_interval)
-        if not pricing:
-            raise ValueError(f"Invalid tier or billing interval: {tier}, {billing_interval}")
-        
-        base_price = pricing['base']
-        per_seat_price = pricing['per_seat']
+        if billing_interval == 'monthly':
+            base_price = plan.base_price_monthly
+            per_seat_price = plan.per_seat_price_monthly
+        elif billing_interval == 'yearly':
+            base_price = plan.base_price_yearly
+            per_seat_price = plan.per_seat_price_yearly
+        else:
+            raise ValueError(f"Invalid billing interval: {billing_interval}")
+            
         total_amount = base_price + (seat_count * per_seat_price)
         
         return {
@@ -132,6 +96,9 @@ class SubscriptionService:
         
         if billing_interval not in ['monthly', 'yearly']:
             raise ValueError(f"Invalid billing interval: {billing_interval}")
+
+        # Fetch plan configuration
+        plan = await self.get_plan_by_tier_key(tier.value)
         
         # Get or create Stripe customer
         subscription = await self.get_tenant_subscription(tenant_id)
@@ -157,16 +124,15 @@ class SubscriptionService:
         
         # Calculate pricing
         seat_count = await self.get_active_seat_count(tenant_id)
-        pricing = self.calculate_seat_based_pricing(tier, seat_count, billing_interval)
+        pricing = await self.calculate_seat_based_pricing(plan, seat_count, billing_interval)
         
-        # Get Stripe price ID from settings
-        price_id = getattr(
-            settings,
-            f'stripe_b2b_price_{tier.value}_{billing_interval}',
-            None
-        )
+        # Get Stripe price ID from plan config
+        stripe_config = plan.provider_config.get('stripe', {})
+        price_key = f'{billing_interval}_price_id'
+        price_id = stripe_config.get(price_key)
+        
         if not price_id:
-            raise ValueError(f"Stripe price ID not configured for {tier.value} {billing_interval}")
+            raise ValueError(f"Stripe price ID not configured for plan {tier.value} ({billing_interval})")
         
         # Default URLs
         if not success_url:
@@ -180,6 +146,7 @@ class SubscriptionService:
         metadata = {
             'tenant_id': str(tenant_id),
             'tier': tier.value,
+            'plan_id': str(plan.id),
             'billing_interval': billing_interval,
             'seat_count': seat_count,
             'pricing_snapshot': str(pricing)
@@ -219,7 +186,8 @@ class SubscriptionService:
         subscription_data = await self.provider.get_subscription(provider_subscription_id)
         
         # Calculate pricing
-        pricing = self.calculate_seat_based_pricing(tier, seat_count, billing_interval)
+        plan = await self.get_plan_by_tier_key(tier.value)
+        pricing = await self.calculate_seat_based_pricing(plan, seat_count, billing_interval)
         
         # Update or create subscription
         subscription = await self.get_tenant_subscription(tenant_id)
@@ -229,6 +197,7 @@ class SubscriptionService:
             self.db.add(subscription)
         
         # Update subscription fields
+        subscription.plan_id = plan.id
         subscription.tier = tier.value
         subscription.payment_mode = PaymentMode.CARD.value
         subscription.status = SubscriptionStatus.ACTIVE.value
@@ -273,6 +242,32 @@ class SubscriptionService:
         
         return subscription
     
+    async def get_active_seat_count(self, tenant_id: UUID) -> int:
+        """
+        Count active user seats for a tenant.
+        Seats = COUNT(active users with is_active=TRUE and deleted_at=NULL)
+        """
+        result = await self.db.execute(
+            select(func.count(UserModel.id))
+            .where(
+                UserModel.tenant_id == tenant_id,
+                UserModel.is_active == True,
+                UserModel.deleted_at == None
+            )
+        )
+        count = result.scalar()
+        return max(count or 0, 1)  # Minimum 1 seat
+
+    async def get_plan_by_tier_key(self, tier_key: str) -> B2BSubscriptionPlan:
+        """Fetch plan configuration from database"""
+        result = await self.db.execute(
+            select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == tier_key)
+        )
+        plan = result.scalar_one_or_none()
+        if not plan:
+            raise ValueError(f"Subscription plan not found: {tier_key}")
+        return plan
+        
     async def update_seat_count(self, subscription_id: UUID) -> Subscription:
         """
         Recalculate and update seat count based on active users.
@@ -290,8 +285,9 @@ class SubscriptionService:
             subscription.seat_count = new_seat_count
             
             # Recalculate pricing
-            pricing = self.calculate_seat_based_pricing(
-                SubscriptionTier(subscription.tier),
+            plan = await self.get_plan_by_tier_key(subscription.tier)
+            pricing = await self.calculate_seat_based_pricing(
+                plan,
                 new_seat_count,
                 subscription.billing_interval
             )

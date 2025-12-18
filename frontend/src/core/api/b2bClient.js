@@ -201,24 +201,6 @@ class ApiService {
         return response.json();
     }
 
-    // Generic DELETE request with auth headers
-    async delete(path) {
-        const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}${path}`, {
-            method: 'DELETE',
-            headers,
-        });
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`DELETE ${path} failed: ${response.status} - ${error}`);
-        }
-        // 204 No Content handling
-        if (response.status === 204) {
-            return null;
-        }
-        return response.json();
-    }
-
     // Convenience methods for roles and projects
     async getRoles() {
         return this.get('/api/b2b/roles');

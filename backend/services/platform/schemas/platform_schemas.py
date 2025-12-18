@@ -79,3 +79,49 @@ class DeactivateTenantResponse(BaseModel):
     """Response for tenant deactivation"""
     tenant_id: str
     message: str = "Tenant deactivated successfully"
+
+
+# --- B2B Plans ---
+
+class B2BPlanCreate(BaseModel):
+    """Schema for creating a new B2B plan version"""
+    tier_key: str = Field(..., description="Logical tier key (e.g. starter, professional)")
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    
+    # Pricing
+    base_price_monthly: int = Field(0, ge=0, description="Base price in cents/month")
+    base_price_yearly: int = Field(0, ge=0, description="Base price in cents/year")
+    per_seat_price_monthly: int = Field(0, ge=0, description="Per-seat price in cents/month")
+    per_seat_price_yearly: int = Field(0, ge=0, description="Per-seat price in cents/year")
+    
+    # Configuration
+    limits: dict = Field(default_factory=dict, description="Resource limits (e.g. projects, storage)")
+    features: dict = Field(default_factory=dict, description="Feature flags")
+    provider_config: dict = Field(default_factory=dict, description="Provider mapping (e.g. Stripe IDs)")
+    
+    effective_from: Optional[datetime] = None
+
+
+class B2BPlanResponse(BaseModel):
+    """Response schema for B2B plan details"""
+    id: UUID
+    tier_key: str
+    name: str
+    description: Optional[str]
+    
+    base_price_monthly: int
+    base_price_yearly: int
+    per_seat_price_monthly: int
+    per_seat_price_yearly: int
+    
+    limits: dict
+    features: dict
+    provider_config: dict
+    
+    effective_from: datetime
+    archived_at: Optional[datetime]
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

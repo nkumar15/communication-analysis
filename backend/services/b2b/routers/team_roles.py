@@ -145,11 +145,5 @@ async def delete_team_role(
             detail="Cannot delete system roles"
         )
     
-    try:
-        await team_role_service.delete_role(db, role)
-        await db.commit()
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
-        )
+    await team_role_service.delete_role(db, role)
+    await db.commit()

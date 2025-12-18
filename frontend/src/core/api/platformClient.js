@@ -203,6 +203,31 @@ class PlatformApiService {
         return this.post(`/api/platform/b2c/plans/${planId}/archive`);
     }
 
+    // ============================================================================
+    // B2B Plan Management
+    // ============================================================================
+
+    /**
+     * List all subscription plans (B2B)
+     */
+    async getB2BPlans() {
+        return this.get('/api/platform/b2b/plans');
+    }
+
+    /**
+     * Create a new B2B plan version
+     */
+    async createB2BPlan(planData) {
+        return this.post('/api/platform/b2b/plans', planData);
+    }
+
+    /**
+     * Archive a B2B plan version
+     */
+    async archiveB2BPlan(planId) {
+        return this.post(`/api/platform/b2b/plans/${planId}/archive`);
+    }
+
     /**
      * Generic PATCH request with auth headers
      */

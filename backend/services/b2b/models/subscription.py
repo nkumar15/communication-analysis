@@ -71,6 +71,10 @@ class B2BSubscription(Base):
     
     # Subscription Details
     tier = Column(String(50), nullable=False, default="starter")
+    
+    # Link to Plan (Database Driven)
+    plan_id = Column(UUID(as_uuid=True), ForeignKey('b2b.subscription_plans.id'), nullable=True)
+    
     payment_mode = Column(String(20), nullable=False, default="card")
     status = Column(String(50), default="active")
     
@@ -219,8 +223,12 @@ class PaymentModeRequest(Base):
     status = Column(String(50), default="pending")
     
     # Requester
-    requested_by = Column(UUID(as_uuid=True), ForeignKey("b2b.users.id"))
-    request_reason = Column(Text)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id'))
+    
+    # Link to Plan (Database Driven)
+    plan_id = Column(UUID(as_uuid=True), ForeignKey('b2b.subscription_plans.id'), nullable=True)
+    
+    # Status & Billing(Text)
     
     # Reviewer
     reviewed_by = Column(UUID(as_uuid=True))  # Platform admin user ID

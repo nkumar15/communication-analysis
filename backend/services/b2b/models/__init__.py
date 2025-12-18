@@ -18,6 +18,7 @@ from .subscription import (
     InvoiceStatus,
     PaymentModeRequestStatus
 )
+from .subscription_plan import B2BSubscriptionPlan
 
 # Backwards compatibility aliases
 Subscription = B2BSubscription
@@ -50,4 +51,5 @@ __all__ = [
     "SubscriptionStatus",
     "InvoiceStatus",
     "PaymentModeRequestStatus",
+    "B2BSubscriptionPlan",
 ]

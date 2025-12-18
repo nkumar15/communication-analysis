@@ -85,9 +85,14 @@ function SuperAdminLayout() {
                             <span>📊 Dashboard</span>
                         </Link>
                         {selectedProduct === 'b2b' && (
-                            <Link to="/tenants" className={`platform-nav-item ${isActive('/tenants') ? 'active' : ''}`}>
-                                <span>🏢 Tenants</span>
-                            </Link>
+                            <>
+                                <Link to="/tenants" className={`platform-nav-item ${isActive('/tenants') ? 'active' : ''}`}>
+                                    <span>🏢 Tenants</span>
+                                </Link>
+                                <Link to="/b2b-plans" className={`platform-nav-item ${isActive('/b2b-plans') ? 'active' : ''}`}>
+                                    <span>💰 Plans</span>
+                                </Link>
+                            </>
                         )}
                         {selectedProduct === 'b2c' && (
                             <>

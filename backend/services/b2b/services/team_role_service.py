@@ -174,14 +174,6 @@ class TeamRoleService:
         if role.is_system:
             raise ValueError("Cannot delete system roles")
         
-        # Check if role is in use
-        from services.b2b.models.team_member import TeamMember
-        result = await db.execute(
-            select(TeamMember).where(TeamMember.team_role_id == role.id).limit(1)
-        )
-        if result.scalar_one_or_none():
-            raise ValueError("Cannot delete role that is assigned to team members")
-        
         await db.delete(role)
         return True
 

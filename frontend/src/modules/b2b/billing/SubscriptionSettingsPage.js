@@ -38,7 +38,8 @@ const TIER_FEATURES = {
             'Advanced security features',
             'On-premise deployment option'
         ],
-        color: '#FF9800'
+        color: '#FF9800',
+        contactRequired: true
     }
 };
 
@@ -336,24 +337,49 @@ const SubscriptionSettingsPage = () => {
                                 </div>
 
                                 {canUpgrade && (
-                                    <button
-                                        onClick={() => handleUpgradeClick(tier)}
-                                        style={{
-                                            padding: '12px 20px',
-                                            borderRadius: '8px',
-                                            border: 'none',
-                                            backgroundColor: details.color,
-                                            color: 'white',
-                                            fontSize: '14px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => e.target.style.opacity = '0.9'}
-                                        onMouseLeave={(e) => e.target.style.opacity = '1'}
-                                    >
-                                        🚀 Upgrade to {details.name}
-                                    </button>
+                                    details.contactRequired ? (
+                                        <button
+                                            onClick={() => window.location.href = 'mailto:sales@enterprisesso.com'}
+                                            style={{
+                                                padding: '12px 20px',
+                                                borderRadius: '8px',
+                                                border: '1px solid ' + details.color,
+                                                backgroundColor: 'white',
+                                                color: details.color,
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.backgroundColor = details.color + '10'}
+                                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                                        >
+                                            <span style={{ fontSize: '16px' }}>📞</span> Contact Sales
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleUpgradeClick(tier)}
+                                            style={{
+                                                padding: '12px 20px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                backgroundColor: details.color,
+                                                color: 'white',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.opacity = '0.9'}
+                                            onMouseLeave={(e) => e.target.style.opacity = '1'}
+                                        >
+                                            🚀 Upgrade to {details.name}
+                                        </button>
+                                    )
                                 )}
 
                                 {isCurrent && (

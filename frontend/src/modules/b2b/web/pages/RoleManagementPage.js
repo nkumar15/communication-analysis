@@ -28,10 +28,10 @@ const RoleManagementPage = () => {
                 apiService.getResources(),
                 apiService.getActions()
             ]);
-            setRoles(Array.isArray(rolesData) ? rolesData : []);
-            setTemplates(Array.isArray(templatesData) ? templatesData : []);
-            setResources(Array.isArray(resourcesData) ? resourcesData : []);
-            setActions(Array.isArray(actionsData) ? actionsData : []);
+            setRoles(rolesData);
+            setTemplates(templatesData);
+            setResources(resourcesData);
+            setActions(actionsData);
         } catch (e) {
             console.error('Failed to fetch data', e);
             setError('Unable to load roles');

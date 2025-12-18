@@ -95,8 +95,10 @@ async def get_subscription(
     if not subscription:
         # Return default starter tier info
         seat_count = await service.get_active_seat_count(tenant_id)
-        pricing = service.calculate_seat_based_pricing(
-            SubscriptionTier.STARTER,
+        # Fetch starter plan for default pricing
+        plan = await service.get_plan_by_tier_key(SubscriptionTier.STARTER.value)
+        pricing = await service.calculate_seat_based_pricing(
+            plan,
             seat_count,
             'monthly'
         )

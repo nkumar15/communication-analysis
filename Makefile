@@ -90,9 +90,10 @@ db-setup-auth: ## Setup app user and permissions
 migrate: ## Run migrations for all products (platform + b2b + b2c)
 	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
-	@$(MAKE) db-setup-auth
 	@$(MAKE) b2b-seed-roles-templates
+	@$(MAKE) b2b-seed-plans
 	@$(MAKE) b2c-seed-plans
+	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
 migrate-b2b: ## Run migrations for B2B only (platform + b2b)
@@ -143,6 +144,11 @@ b2c-seed-plans: ## Seed B2C subscription plans
 	@echo "$(BLUE)Seeding B2C subscription plans...$(NC)"
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
+
+b2b-seed-plans: ## Seed B2B subscription plans
+	@echo "$(BLUE)Seeding B2B subscription plans...$(NC)"
+	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_b2b_plans.py
+	@echo "$(GREEN)✓ B2B plans seeded$(NC)"
 
 b2b-invite: ## Invite B2B Tenant (interactive)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"

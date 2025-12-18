@@ -31,7 +31,7 @@ const TeamRoleManagementPage = () => {
         try {
             setLoading(true);
             const data = await apiService.get('/api/b2b/team-roles');
-            setTeamRoles(Array.isArray(data) ? data : []);
+            setTeamRoles(data);
         } catch (e) {
             console.error('Failed to fetch team roles', e);
             setError('Unable to load team roles');

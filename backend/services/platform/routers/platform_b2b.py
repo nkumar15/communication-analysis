@@ -1,14 +1,15 @@
+
 """
 Platform B2B API Router - Enterprise Tenant Management
 All B2B-related endpoints under /api/platform/b2b/*
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from typing import List, Optional
-from pydantic import BaseModel
 from datetime import datetime, timedelta
 from uuid import UUID
+from typing import List, Optional
+from sqlalchemy import select, func, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from core.database import get_db
 from core.config import settings
@@ -23,8 +24,11 @@ from services.platform.schemas.platform_schemas import (
     TenantDetailResponse,
     ResendActivationResponse,
     DeactivateTenantResponse,
-    AuthProviderInfo
+    AuthProviderInfo,
+    B2BPlanCreate,
+    B2BPlanResponse
 )
+from services.b2b.models.subscription_plan import B2BSubscriptionPlan
 
 router = APIRouter(
     prefix="/api/platform/b2b",
@@ -529,3 +533,77 @@ async def reactivate_tenant(
     )
     
     return ReactivateTenantResponse(tenant_id=str(tenant_id))
+
+
+# --- Plan Management Endpoints ---
+
+@router.get("/plans", response_model=List[B2BPlanResponse])
+async def list_plans(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(verify_platform_admin)
+):
+    """List all B2B subscription plans"""
+    stmt = select(B2BSubscriptionPlan).order_by(
+        B2BSubscriptionPlan.tier_key, 
+        desc(B2BSubscriptionPlan.effective_from)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+@router.post("/plans", response_model=B2BPlanResponse)
+async def create_plan_version(
+    plan: B2BPlanCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(verify_platform_admin)
+):
+    """Create a new version of a B2B plan"""
+    new_plan = B2BSubscriptionPlan(
+        tier_key=plan.tier_key,
+        name=plan.name,
+        description=plan.description,
+        base_price_monthly=plan.base_price_monthly,
+        base_price_yearly=plan.base_price_yearly,
+        per_seat_price_monthly=plan.per_seat_price_monthly,
+        per_seat_price_yearly=plan.per_seat_price_yearly,
+        limits=plan.limits,
+        features=plan.features,
+        provider_config=plan.provider_config,
+        effective_from=plan.effective_from or datetime.now()
+    )
+    db.add(new_plan)
+    await db.commit()
+    await db.refresh(new_plan)
+    
+    log_platform_action(
+        db, admin['uid'], 'create_plan', 
+        {"tier": plan.tier_key, "name": plan.name}
+    )
+    
+    return new_plan
+
+
+@router.post("/plans/{plan_id}/archive", response_model=B2BPlanResponse)
+async def archive_plan(
+    plan_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(verify_platform_admin)
+):
+    """Archive a plan version"""
+    stmt = select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.id == plan_id)
+    result = await db.execute(stmt)
+    plan = result.scalar_one_or_none()
+    
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+        
+    plan.archived_at = datetime.now()
+    await db.commit()
+    await db.refresh(plan)
+    
+    log_platform_action(
+        db, admin['uid'], 'archive_plan', 
+        {"plan_id": str(plan_id)}
+    )
+    
+    return plan

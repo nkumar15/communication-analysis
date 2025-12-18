@@ -590,29 +590,24 @@ async def get_available_users_for_team(
     Returns list of users available to be added to the team.
     Requires: teams:write permission OR team_manager of this team
     """
-    # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
-    if not team:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Team not found"
+    all_users_result = await db.execute(
+        select(UserModel).where(
+            UserModel.tenant_id == current_user['tenant_id'],
+            UserModel.is_active == True,
+            UserModel.deleted_at.is_(None)
         )
-    
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
-    
-    # Check if user can manage this team
-    if not await can_manage_team(current_user['id'], team_id, db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to manage this team"
-        )
-    
-    return await team_service.get_available_users_for_team(
-        db,
-        current_user['tenant_id'],
-        team_id
     )
+    all_users = all_users_result.scalars().all()
+    
+    # Filter out existing members
+    available_users = [
+        {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email
+        }
+        for user in all_users
+        if user.id not in existing_member_ids
+    ]
+    
+    return available_users

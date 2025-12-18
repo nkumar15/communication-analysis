@@ -1,0 +1,45 @@
+plans:
+  - tier_key: starter
+    name: Starter
+    description: Essential features for small teams
+    base_price_monthly: 0
+    base_price_yearly: 0
+    per_seat_price_monthly: 1000
+    per_seat_price_yearly: 10000
+    limits:
+      projects: 5
+      storage_gb: 10
+    features:
+      sso: false
+      audit_logs: false
+
+  - tier_key: professional
+    name: Professional
+    description: Advanced collaboration and security
+    base_price_monthly: 4900
+    base_price_yearly: 49000
+    per_seat_price_monthly: 1500
+    per_seat_price_yearly: 15000
+    limits:
+      projects: -1
+      storage_gb: 100
+    features:
+      sso: true
+      audit_logs: true
+
+  - tier_key: enterprise
+    name: Enterprise
+    description: Custom solutions for large organizations
+    base_price_monthly: 0
+    base_price_yearly: 0
+    per_seat_price_monthly: 0
+    per_seat_price_yearly: 0
+    limits:
+      projects: -1
+      storage_gb: -1
+    features:
+      sso: true
+      audit_logs: true
+      dedicated_support: true
+      custom_branding: true
+    contact_required: true
