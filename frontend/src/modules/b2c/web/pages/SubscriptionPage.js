@@ -21,7 +21,7 @@ const PLANS = [
     {
         tier: 'premium',
         name: 'Premium',
-        price: { monthly: 15, yearly: 144 }, // $12/mo when paid yearly
+        price: { monthly: 29, yearly: 290 }, // SGD
         features: [
             'Unlimited workspaces',
             'Unlimited projects',
@@ -37,7 +37,7 @@ const PLANS = [
     {
         tier: 'ultimate',
         name: 'Ultimate',
-        price: { monthly: 30, yearly: 288 }, // $24/mo when paid yearly
+        price: { monthly: 99, yearly: 990 }, // SGD
         features: [
             'Everything in Premium',
             'Unlimited storage',
@@ -59,7 +59,7 @@ const SubscriptionPage = () => {
     const [loading, setLoading] = useState(true);
     const [billingInterval, setBillingInterval] = useState('monthly');
     const [workspaceId, setWorkspaceId] = useState(null);
-    const [upgrading, setUpgrading] = useState(false);
+    const [upgradingTier, setUpgradingTier] = useState(null);
 
     useEffect(() => {
         loadSubscription();
@@ -101,7 +101,7 @@ const SubscriptionPage = () => {
     const handleUpgrade = async (tier) => {
         if (tier === 'free' || tier === currentSubscription?.tier) return;
 
-        setUpgrading(true);
+        setUpgradingTier(tier);
         try {
             const data = await b2cWorkspaceClient.createCheckoutSession({
                 workspace_id: workspaceId,
@@ -116,8 +116,7 @@ const SubscriptionPage = () => {
         } catch (error) {
             console.error('Checkout error:', error);
             alert('Failed to start checkout');
-        } finally {
-            setUpgrading(false);
+            setUpgradingTier(null);
         }
     };
 
@@ -229,7 +228,7 @@ const SubscriptionPage = () => {
                     {PLANS.map((plan) => {
                         const isActive = activeTier === plan.tier;
                         const price = plan.price[billingInterval];
-                        const monthlyPrice = billingInterval === 'yearly' ? price / 12 : price;
+                        // const monthlyPrice = billingInterval === 'yearly' ? price / 12 : price; // Removed calculation
 
                         return (
                             <div
@@ -282,17 +281,13 @@ const SubscriptionPage = () => {
                                             fontWeight: '700',
                                             color: '#111827'
                                         }}>
-                                            ${Math.round(monthlyPrice)}
+                                            S${price}
                                         </span>
                                         <span style={{ fontSize: '16px', color: '#6B7280' }}>
-                                            /month
+                                            /{billingInterval === 'yearly' ? 'year' : 'month'}
                                         </span>
                                     </div>
-                                    {billingInterval === 'yearly' && plan.tier !== 'free' && (
-                                        <div style={{ fontSize: '14px', color: '#10B981', marginTop: '4px' }}>
-                                            Billed ${price} annually
-                                        </div>
-                                    )}
+                                    {/* Removed redundant subtext */}
                                 </div>
 
                                 {/* Features */}
@@ -319,7 +314,7 @@ const SubscriptionPage = () => {
                                 {/* CTA Button */}
                                 <button
                                     onClick={() => handleUpgrade(plan.tier)}
-                                    disabled={isActive || upgrading || plan.tier === 'free'}
+                                    disabled={isActive || upgradingTier !== null || plan.tier === 'free'}
                                     style={{
                                         width: '100%',
                                         padding: '16px',
@@ -335,11 +330,11 @@ const SubscriptionPage = () => {
                                         color: isActive || plan.tier === 'free' ? '#6B7280' : 'white',
                                         fontSize: '16px',
                                         fontWeight: '600',
-                                        cursor: isActive || plan.tier === 'free' || upgrading ? 'not-allowed' : 'pointer',
+                                        cursor: isActive || plan.tier === 'free' || upgradingTier !== null ? 'not-allowed' : 'pointer',
                                         boxShadow: isActive || plan.tier === 'free' ? 'none' : '0 4px 12px rgba(99, 102, 241, 0.3)'
                                     }}
                                 >
-                                    {isActive ? '✓ Current Plan' : plan.tier === 'free' ? 'Free Forever' : upgrading ? 'Processing...' : `Upgrade to ${plan.name}`}
+                                    {isActive ? '✓ Current Plan' : plan.tier === 'free' ? 'Free Forever' : upgradingTier === plan.tier ? 'Processing...' : `Upgrade to ${plan.name}`}
                                 </button>
                             </div>
                         );

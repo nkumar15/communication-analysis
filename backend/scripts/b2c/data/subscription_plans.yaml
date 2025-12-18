@@ -17,7 +17,7 @@ plans:
   - tier: premium
     limits:
       projects: null
-      team_workspaces: 3
+      team_workspaces: null
       storage_gb: 10
       team_members: 10
     features:
@@ -33,7 +33,7 @@ plans:
     limits:
       projects: null
       team_workspaces: null
-      storage_gb: 100
+      storage_gb: null
       team_members: null
     features:
       team_workspaces: true

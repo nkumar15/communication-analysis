@@ -371,6 +371,10 @@ async def stripe_webhook(
     """
     import stripe
     from core.config import settings
+    from core.rls import rls_service
+    
+    # Set platform admin context to bypass RLS for system operations
+    await rls_service.set_platform_admin_context(db)
     
     payload = await request.body()
     

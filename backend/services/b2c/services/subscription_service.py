@@ -139,6 +139,15 @@ class SubscriptionService:
         user_id = get_user_id(user)
         logger.info(f"Creating checkout session for user {user_id}, tier {tier}")
         
+        # DEBUG: Print exact values being used
+        print(f"DEBUG: Checkout Request - Tier: {tier}, Interval: {billing_interval}")
+        print(f"DEBUG: Mapped Price ID: {price_id}")
+        print(f"DEBUG: Configured keys:")
+        print(f"  PREMIUM_MONTHLY: {settings.stripe_price_premium_monthly}")
+        print(f"  PREMIUM_YEARLY: {settings.stripe_price_premium_yearly}")
+        print(f"  ULTIMATE_MONTHLY: {settings.stripe_price_ultimate_monthly}")
+        print(f"  ULTIMATE_YEARLY: {settings.stripe_price_ultimate_yearly}")
+        
         metadata = {
             'user_id': str(user_id),
             'workspace_id': str(workspace.id),
@@ -210,12 +219,38 @@ class SubscriptionService:
         subscription.tier = tier
         subscription.billing_interval = billing_interval
         subscription.status = subscription_data.get('status', 'active')
-        subscription.current_period_start = datetime.fromtimestamp(subscription_data['current_period_start'])
-        subscription.current_period_end = datetime.fromtimestamp(subscription_data['current_period_end'])
+        
+        # Handle start date
+        start_ts = subscription_data.get('current_period_start') or subscription_data.get('start_date') or subscription_data.get('created')
+        subscription.current_period_start = datetime.fromtimestamp(start_ts) if start_ts else datetime.now()
+        
+        # Handle end date
+        end_ts = subscription_data.get('current_period_end')
+        if end_ts:
+            subscription.current_period_end = datetime.fromtimestamp(end_ts)
+        else:
+            # Fallback: calculate based on billing interval or default to 30 days
+            import time
+            subscription.current_period_end = datetime.fromtimestamp(time.time() + 30*24*60*60)
+         
+        # Make sure cancel_at_period_end is boolean
+        subscription.cancel_at_period_end = bool(subscription_data.get('cancel_at_period_end'))
         
         # Calculate amount in cents
-        subscription.amount_cents = subscription_data['items']['data'][0]['price']['unit_amount']
-        subscription.currency = subscription_data['items']['data'][0]['price']['currency'].upper()
+        # Handle cases where items might be empty or structured differently
+        try:
+            items_data = subscription_data.get('items', {}).get('data', [])
+            if items_data:
+                price_obj = items_data[0].get('price', {})
+                subscription.amount_cents = price_obj.get('unit_amount', 0)
+                subscription.currency = price_obj.get('currency', 'usd').upper()
+            else:
+                subscription.amount_cents = 0
+                subscription.currency = 'USD'
+        except Exception as e:
+            logger.warning(f"Could not extract price from subscription items: {e}")
+            subscription.amount_cents = 0
+            subscription.currency = 'USD'
         
         await self.db.flush()
         
