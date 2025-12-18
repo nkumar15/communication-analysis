@@ -1,105 +1,94 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { auth } from '../../../../core/firebase/b2c-config';
 import B2CLayout from '../layouts/B2CLayout';
 import b2cWorkspaceClient from '../../../../core/api/b2cWorkspaceClient';
-
-const PLANS = [
-    {
-        tier: 'free',
-        name: 'Free',
-        price: { monthly: 0, yearly: 0 },
-        features: [
-            '1 workspace',
-            '5 projects',
-            '100 MB storage',
-            'Basic support',
-            'Community access'
-        ],
-        highlight: false
-    },
-    {
-        tier: 'premium',
-        name: 'Premium',
-        price: { monthly: 29, yearly: 290 }, // SGD
-        features: [
-            'Unlimited workspaces',
-            'Unlimited projects',
-            '10 GB storage',
-            'Priority support',
-            'Advanced analytics',
-            'Custom branding',
-            'API access'
-        ],
-        highlight: true,
-        badge: 'Most Popular'
-    },
-    {
-        tier: 'ultimate',
-        name: 'Ultimate',
-        price: { monthly: 99, yearly: 990 }, // SGD
-        features: [
-            'Everything in Premium',
-            'Unlimited storage',
-            '24/7 phone support',
-            'Dedicated account manager',
-            'Custom integrations',
-            'SSO & advanced security',
-            'SLA guarantee'
-        ],
-        highlight: false,
-        badge: 'Enterprise'
-    }
-];
 
 const SubscriptionPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [currentSubscription, setCurrentSubscription] = useState(null);
+    const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [billingInterval, setBillingInterval] = useState('monthly');
     const [workspaceId, setWorkspaceId] = useState(null);
     const [upgradingTier, setUpgradingTier] = useState(null);
 
     useEffect(() => {
-        loadSubscription();
+        loadData();
     }, []);
 
-    const loadSubscription = async () => {
+    const loadData = async () => {
         setLoading(true);
         try {
-            // Get workspace ID from params or find personal workspace
+            // Load Workspace & Subscription
             let wsId = searchParams.get('workspace_id');
-
             if (!wsId) {
                 const workspacesData = await b2cWorkspaceClient.getWorkspaces();
                 const personalWs = workspacesData.workspaces.find(w => w.type === 'personal');
-
-                if (personalWs) {
-                    wsId = personalWs.id;
-                } else if (workspacesData.workspaces.length > 0) {
-                    wsId = workspacesData.workspaces[0].id;
-                }
+                if (personalWs) wsId = personalWs.id;
+                else if (workspacesData.workspaces.length > 0) wsId = workspacesData.workspaces[0].id;
             }
 
-            if (!wsId) {
-                console.error('No workspace found');
-                return;
+            if (wsId) {
+                setWorkspaceId(wsId);
+                const subData = await b2cWorkspaceClient.getSubscription(wsId);
+                setCurrentSubscription(subData);
             }
 
-            setWorkspaceId(wsId);
+            // Load Plans
+            const plansData = await b2cWorkspaceClient.getPlans();
+            setPlans(plansData);
 
-            const data = await b2cWorkspaceClient.getSubscription(wsId);
-            setCurrentSubscription(data);
         } catch (error) {
-            console.error('Failed to load subscription:', error);
+            console.error('Failed to load data:', error);
         } finally {
             setLoading(false);
         }
     };
 
+    const formatFeatures = (plan) => {
+        const featuresList = [];
+
+        // Limits
+        if (plan.limits) {
+            if (plan.limits.projects === null) featuresList.push('Unlimited projects');
+            else featuresList.push(`${plan.limits.projects} projects`);
+
+            if (plan.limits.team_members) featuresList.push(`${plan.limits.team_members} team members`);
+            if (plan.limits.storage_gb) featuresList.push(`${plan.limits.storage_gb} GB storage`);
+        }
+
+        // Feature flags
+        if (plan.features) {
+            if (plan.features.priority_support) featuresList.push('Priority support');
+            if (plan.features.custom_branding) featuresList.push('Custom branding');
+            if (plan.features.sso) featuresList.push('SSO & advanced security');
+            if (plan.features.api_access) featuresList.push('API access');
+            if (plan.features.audit_logs) featuresList.push('Audit logs');
+        }
+
+        // Add default/basic features for look and feel if list is short
+        if (plan.tier_key === 'free') {
+            featuresList.push('Basic support');
+            featuresList.push('Community access');
+        }
+
+        return featuresList;
+    };
+
     const handleUpgrade = async (tier) => {
-        if (tier === 'free' || tier === currentSubscription?.tier) return;
+        // If current plan, do nothing
+        if (tier === currentSubscription?.tier) return;
+        // If free, strictly speaking we should "downgrade" via portal or api, but for now 
+        // the checkout flow mostly handles upgrades. 
+        // If downgrading to free, usually we send them to portal or handle cancel.
+        // For this UI, let's assume we use portal for downgrades if active is not free.
+
+        if (tier === 'free') {
+            // Redirect to portal to cancel/downgrade?
+            handleManageBilling();
+            return;
+        }
 
         setUpgradingTier(tier);
         try {
@@ -111,7 +100,6 @@ const SubscriptionPage = () => {
                 cancel_url: `${window.location.origin}/subscription?canceled=true`
             });
 
-            // Redirect to Stripe Checkout
             window.location.href = data.checkout_url;
         } catch (error) {
             console.error('Checkout error:', error);
@@ -134,57 +122,35 @@ const SubscriptionPage = () => {
             <B2CLayout>
                 <div style={{ textAlign: 'center', padding: '60px' }}>
                     <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                    <p>Loading subscription...</p>
+                    <p>Loading plans...</p>
                 </div>
             </B2CLayout>
         );
     }
 
     const activeTier = currentSubscription?.tier || 'free';
-    const isYearlySavings = billingInterval === 'yearly';
 
     return (
         <B2CLayout>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-                    <h1 style={{
-                        fontSize: '40px',
-                        fontWeight: '700',
-                        color: '#111827',
-                        marginBottom: '16px'
-                    }}>
+                    <h1 style={{ fontSize: '40px', fontWeight: '700', color: '#111827', marginBottom: '16px' }}>
                         Choose Your Plan
                     </h1>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#6B7280',
-                        marginBottom: '32px'
-                    }}>
+                    <p style={{ fontSize: '18px', color: '#6B7280', marginBottom: '32px' }}>
                         Select the perfect plan for your needs
                     </p>
 
                     {/* Success Message */}
                     {searchParams.get('success') && (
-                        <div style={{
-                            padding: '16px 24px',
-                            backgroundColor: '#D1FAE5',
-                            color: '#065F46',
-                            borderRadius: '8px',
-                            marginBottom: '32px',
-                            border: '1px solid #A7F3D0'
-                        }}>
+                        <div style={{ padding: '16px 24px', backgroundColor: '#D1FAE5', color: '#065F46', borderRadius: '8px', marginBottom: '32px', border: '1px solid #A7F3D0' }}>
                             ✅ Subscription activated successfully!
                         </div>
                     )}
 
                     {/* Billing Interval Toggle */}
-                    <div style={{
-                        display: 'inline-flex',
-                        backgroundColor: '#F3F4F6',
-                        borderRadius: '10px',
-                        padding: '4px'
-                    }}>
+                    <div style={{ display: 'inline-flex', backgroundColor: '#F3F4F6', borderRadius: '10px', padding: '4px' }}>
                         <button
                             onClick={() => setBillingInterval('monthly')}
                             style={{
@@ -198,7 +164,7 @@ const SubscriptionPage = () => {
                                 boxShadow: billingInterval === 'monthly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
                             }}
                         >
-                            Month monthly
+                            Monthly
                         </button>
                         <button
                             onClick={() => setBillingInterval('yearly')}
@@ -225,149 +191,114 @@ const SubscriptionPage = () => {
                     gap: '24px',
                     marginBottom: '48px'
                 }}>
-                    {PLANS.map((plan) => {
-                        const isActive = activeTier === plan.tier;
-                        const price = plan.price[billingInterval];
-                        // const monthlyPrice = billingInterval === 'yearly' ? price / 12 : price; // Removed calculation
+                    {plans.map((plan) => {
+                        const isActive = activeTier === plan.tier_key;
+                        const isFree = plan.tier_key === 'free';
+                        // Prices are in cents
+                        const monthlyPriceCents = plan.price_monthly || 0;
+                        const yearlyPriceCents = plan.price_yearly || 0;
+
+                        const displayPrice = billingInterval === 'monthly'
+                            ? (monthlyPriceCents / 100)
+                            : (yearlyPriceCents / 100 / 12).toFixed(0); // Show monthly equivalent for yearly
+
+                        const yearlyTotal = (yearlyPriceCents / 100);
+
+                        const highlight = plan.tier_key === 'premium'; // Hardcoded highlights for now
+                        const badge = plan.tier_key === 'premium' ? 'Most Popular' : (plan.tier_key === 'ultimate' ? 'Enterprise' : null);
+
+                        const featuresList = formatFeatures(plan);
 
                         return (
                             <div
-                                key={plan.tier}
+                                key={plan.id}
                                 style={{
                                     backgroundColor: 'white',
                                     borderRadius: '16px',
                                     padding: '32px',
-                                    border: plan.highlight ? '3px solid #6366F1' : '2px solid #E5E7EB',
+                                    border: highlight ? '3px solid #6366F1' : '2px solid #E5E7EB',
                                     position: 'relative',
-                                    boxShadow: plan.highlight ? '0 10px 40px rgba(99, 102, 241, 0.2)' : 'none',
-                                    transform: plan.highlight ? 'scale(1.05)' : 'scale(1)',
-                                    transition: 'transform 0.2s'
+                                    boxShadow: highlight ? '0 10px 40px rgba(99, 102, 241, 0.2)' : 'none',
+                                    transform: highlight ? 'scale(1.05)' : 'scale(1)',
+                                    transition: 'transform 0.2s',
+                                    zIndex: highlight ? 10 : 1
                                 }}
                             >
-                                {/* Badge */}
-                                {plan.badge && (
+                                {badge && (
                                     <div style={{
                                         position: 'absolute',
                                         top: '-12px',
                                         left: '50%',
                                         transform: 'translateX(-50%)',
-                                        backgroundColor: plan.highlight ? '#6366F1' : '#10B981',
+                                        backgroundColor: highlight ? '#6366F1' : '#10B981',
                                         color: 'white',
                                         padding: '6px 20px',
                                         borderRadius: '9999px',
                                         fontSize: '13px',
                                         fontWeight: '600'
                                     }}>
-                                        {plan.badge}
+                                        {badge}
                                     </div>
                                 )}
 
-                                {/* Plan Name */}
-                                <h3 style={{
-                                    fontSize: '24px',
-                                    fontWeight: '700',
-                                    color: '#111827',
-                                    marginBottom: '8px',
-                                    marginTop: plan.badge ? '8px' : '0'
-                                }}>
+                                <h3 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', marginBottom: '8px', marginTop: badge ? '8px' : '0' }}>
                                     {plan.name}
                                 </h3>
 
-                                {/* Price */}
                                 <div style={{ marginBottom: '24px' }}>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                        <span style={{
-                                            fontSize: '48px',
-                                            fontWeight: '700',
-                                            color: '#111827'
-                                        }}>
-                                            S${price}
+                                        <span style={{ fontSize: '48px', fontWeight: '700', color: '#111827' }}>
+                                            ${displayPrice}
                                         </span>
                                         <span style={{ fontSize: '16px', color: '#6B7280' }}>
-                                            /{billingInterval === 'yearly' ? 'year' : 'month'}
+                                            /mo
                                         </span>
                                     </div>
-                                    {/* Removed redundant subtext */}
+                                    {billingInterval === 'yearly' && !isFree && (
+                                        <div style={{ fontSize: '14px', color: '#10B981', marginTop: '4px' }}>
+                                            Billed ${yearlyTotal} yearly
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Features */}
-                                <ul style={{
-                                    listStyle: 'none',
-                                    padding: 0,
-                                    margin: '0 0 32px 0'
-                                }}>
-                                    {plan.features.map((feature, idx) => (
-                                        <li key={idx} style={{
-                                            display: 'flex',
-                                            alignItems: 'flex-start',
-                                            gap: '12px',
-                                            marginBottom: '12px',
-                                            fontSize: '15px',
-                                            color: '#374151'
-                                        }}>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px 0' }}>
+                                    {featuresList.map((feature, idx) => (
+                                        <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', fontSize: '15px', color: '#374151' }}>
                                             <span style={{ color: '#10B981', fontSize: '18px' }}>✓</span>
                                             <span>{feature}</span>
                                         </li>
                                     ))}
                                 </ul>
 
-                                {/* CTA Button */}
                                 <button
-                                    onClick={() => handleUpgrade(plan.tier)}
-                                    disabled={isActive || upgradingTier !== null || plan.tier === 'free'}
+                                    onClick={() => handleUpgrade(plan.tier_key)}
+                                    disabled={isActive || upgradingTier !== null}
                                     style={{
                                         width: '100%',
                                         padding: '16px',
                                         borderRadius: '10px',
                                         border: 'none',
-                                        background: isActive
-                                            ? '#9CA3AF'
-                                            : plan.highlight
-                                                ? 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)'
-                                                : plan.tier === 'free'
-                                                    ? '#E5E7EB'
-                                                    : '#6366F1',
-                                        color: isActive || plan.tier === 'free' ? '#6B7280' : 'white',
+                                        background: isActive ? '#9CA3AF' : (highlight ? 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' : '#E5E7EB'),
+                                        color: isActive || !highlight ? (isActive ? 'white' : '#111827') : 'white',
                                         fontSize: '16px',
                                         fontWeight: '600',
-                                        cursor: isActive || plan.tier === 'free' || upgradingTier !== null ? 'not-allowed' : 'pointer',
-                                        boxShadow: isActive || plan.tier === 'free' ? 'none' : '0 4px 12px rgba(99, 102, 241, 0.3)'
+                                        cursor: isActive || upgradingTier !== null ? 'not-allowed' : 'pointer',
                                     }}
                                 >
-                                    {isActive ? '✓ Current Plan' : plan.tier === 'free' ? 'Free Forever' : upgradingTier === plan.tier ? 'Processing...' : `Upgrade to ${plan.name}`}
+                                    {isActive ? 'Current Plan' : (isFree ? 'Downgrade via Portal' : (upgradingTier === plan.tier_key ? 'Processing...' : `Upgrade to ${plan.name}`))}
                                 </button>
                             </div>
                         );
                     })}
                 </div>
 
-                {/* Manage Billing */}
                 {activeTier !== 'free' && (
-                    <div style={{
-                        backgroundColor: 'white',
-                        borderRadius: '12px',
-                        padding: '28px',
-                        border: '1px solid #E5E7EB',
-                        textAlign: 'center'
-                    }}>
-                        <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>
-                            Manage Your Subscription
-                        </h3>
-                        <p style={{ color: '#6B7280', marginBottom: '20px' }}>
-                            Update payment method, view invoices, or cancel subscription
-                        </p>
+                    <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '28px', border: '1px solid #E5E7EB', textAlign: 'center' }}>
+                        <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Manage Your Subscription</h3>
+                        <p style={{ color: '#6B7280', marginBottom: '20px' }}>Update payment method, view invoices, or cancel subscription</p>
                         <button
                             onClick={handleManageBilling}
-                            style={{
-                                padding: '12px 32px',
-                                borderRadius: '8px',
-                                border: '2px solid #6366F1',
-                                backgroundColor: 'white',
-                                color: '#6366F1',
-                                fontSize: '15px',
-                                fontWeight: '600',
-                                cursor: 'pointer'
-                            }}
+                            style={{ padding: '12px 32px', borderRadius: '8px', border: '2px solid #6366F1', backgroundColor: 'white', color: '#6366F1', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
                         >
                             Open Billing Portal
                         </button>

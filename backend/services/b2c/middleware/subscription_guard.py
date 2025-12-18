@@ -169,12 +169,6 @@ class SubscriptionStatusChecker:
     def get_subscription_status_message(self, workspace: Workspace) -> dict:
         """
         Get human-readable subscription status message.
-        
-        Args:
-            workspace: Workspace to check
-            
-        Returns:
-            Status message dict
         """
         allowed, reason, details = self.check_workspace_access(workspace, require_paid=False)
         
@@ -189,11 +183,13 @@ class SubscriptionStatusChecker:
                 "upgrade_recommended": True
             }
         
+        tier_key = subscription.plan.tier_key if subscription.plan else 'free'
+        
         if reason in ALLOWED_STATUSES:
             return {
                 "status": subscription.status,
-                "tier": subscription.tier,
-                "message": f"Active {subscription.tier} subscription",
+                "tier": tier_key,
+                "message": f"Active {tier_key} subscription",
                 "period_end": subscription.current_period_end.isoformat() if subscription.current_period_end else None
             }
         
@@ -289,22 +285,22 @@ def require_paid_subscription():
 def downgrade_to_free_tier(db: Session, workspace: Workspace) -> None:
     """
     Downgrade workspace to free tier after subscription cancellation.
-    
-    This should be called when:
-    - Subscription is canceled
-    - Payment fails and grace period expires
-    - Subscription is manually downgraded
-    
-    Args:
-        db: Database session
-        workspace: Workspace to downgrade
     """
     subscription = db.query(Subscription).filter(
         Subscription.workspace_id == workspace.id
     ).first()
     
     if subscription:
-        subscription.tier = 'free'
+        from services.b2c.models.subscription_plan import SubscriptionPlan
+        # Find active free plan
+        free_plan = db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.tier_key == 'free',
+            SubscriptionPlan.archived_at.is_(None)
+        ).order_by(SubscriptionPlan.effective_from.desc()).first()
+        
+        if free_plan:
+             subscription.plan_id = free_plan.id
+        
         subscription.status = 'canceled'
         db.commit()
         

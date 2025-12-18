@@ -90,8 +90,9 @@ db-setup-auth: ## Setup app user and permissions
 migrate: ## Run migrations for all products (platform + b2b + b2c)
 	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
-	@$(MAKE) b2b-seed-roles-templates
 	@$(MAKE) db-setup-auth
+	@$(MAKE) b2b-seed-roles-templates
+	@$(MAKE) b2c-seed-plans
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
 migrate-b2b: ## Run migrations for B2B only (platform + b2b)
@@ -117,7 +118,6 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker nginx mailhog; \
 			sleep 5; \
 			$(MAKE) migrate; \
-			$(MAKE) b2c-seed-plans; \
 			docker-compose restart postgres; \
 			sleep 5; \
 			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
@@ -136,7 +136,7 @@ platform-create-admin: ## Create Platform Admin User
 
 b2b-seed-roles-templates: ## Seed domain-specific roles-templates
 	@echo "$(BLUE)Seeding domain data...$(NC)"
-	@docker-compose run --rm dbmigrate python /app/scripts/b2b/seed_domain_data.py
+	@docker-compose run --rm b2b-api python /app/scripts/b2b/seed_domain_data.py
 	@echo "$(GREEN)✓ Domain data seeded$(NC)"
 
 b2c-seed-plans: ## Seed B2C subscription plans

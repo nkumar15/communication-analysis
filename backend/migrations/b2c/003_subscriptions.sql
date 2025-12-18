@@ -11,13 +11,15 @@ CREATE TABLE IF NOT EXISTS b2c.subscriptions (
     workspace_id UUID UNIQUE REFERENCES b2c.workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES b2c.users(id) ON DELETE CASCADE,
     
+    -- Plan Link (Grandfathering support)
+    plan_id UUID REFERENCES b2c.subscription_plans(id),
+    
     -- Provider Info (for multi-provider support)
     provider VARCHAR(50) NOT NULL DEFAULT 'stripe', -- 'stripe' | 'razorpay' | 'xendit'
     provider_customer_id VARCHAR(255),
     provider_subscription_id VARCHAR(255) UNIQUE,
     
-    -- Plan Details
-    tier VARCHAR(50) NOT NULL DEFAULT 'free', -- 'free' | 'premium' | 'ultimate'
+    -- Plan Details (Derived from plan_id usually, but kept for historical/custom overrides if needed)
     billing_interval VARCHAR(20) DEFAULT 'monthly', -- 'monthly' | 'yearly'
     
     -- Status
@@ -37,7 +39,6 @@ CREATE TABLE IF NOT EXISTS b2c.subscriptions (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     
     -- Constraints
-    CONSTRAINT valid_tier CHECK (tier IN ('free', 'premium', 'ultimate')),
     CONSTRAINT valid_status CHECK (status IN ('active', 'canceled', 'past_due', 'trialing', 'incomplete')),
     CONSTRAINT valid_interval CHECK (billing_interval IN ('monthly', 'yearly'))
 );
@@ -302,11 +303,13 @@ CREATE TRIGGER update_coupons_updated_at
 -- ============================================================================
 
 -- Create free tier subscriptions for all existing workspaces without a subscription
-INSERT INTO b2c.subscriptions (workspace_id, user_id, tier, status, amount_cents)
+-- Create free tier subscriptions for all existing workspaces without a subscription
+-- NOTE: We insert with NULL plan_id initially. The application assumes NULL plan_id + status 'active' = Legacy Free or Default Free.
+-- Ideally proper seeding happens via scripts.
+INSERT INTO b2c.subscriptions (workspace_id, user_id, status, amount_cents)
 SELECT 
     w.id,
     w.owner_id,
-    'free',
     'active',
     0
 FROM b2c.workspaces w

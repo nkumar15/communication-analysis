@@ -75,6 +75,19 @@ class B2CWorkspaceClient {
         return response.json();
     }
 
+    /**
+     * Get available public plans
+     */
+    async getPlans() {
+        const response = await fetch(`${API_BASE_URL}/api/b2c/plans`, {
+            method: 'GET',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch plans');
+        }
+        return response.json();
+    }
+
     // ============================================================================
     // Workspace Management
     // ============================================================================

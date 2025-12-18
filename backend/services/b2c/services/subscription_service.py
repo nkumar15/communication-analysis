@@ -6,6 +6,7 @@ Uses async SQLAlchemy patterns for compatibility with AsyncSession.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import Optional, Dict, Any, Union
 from datetime import datetime
 import logging
@@ -13,6 +14,7 @@ import logging
 from core.payment import PaymentProviderFactory
 from core.config import settings
 from services.b2c.models.subscription import Subscription, Invoice, PaymentMethod
+from services.b2c.models.subscription_plan import SubscriptionPlan
 from services.b2c.models.user import B2CUser
 from services.b2c.models.workspace import Workspace
 
@@ -58,13 +60,9 @@ class SubscriptionService:
             }
         )
         
-        # Price mapping
-        self.price_map = {
-            ('premium', 'monthly'): settings.stripe_price_premium_monthly,
-            ('premium', 'yearly'): settings.stripe_price_premium_yearly,
-            ('ultimate', 'monthly'): settings.stripe_price_ultimate_monthly,
-            ('ultimate', 'yearly'): settings.stripe_price_ultimate_yearly,
-        }
+        
+        # Price mapping (deprecated in favor of database-driven plans)
+        # self.price_map = {}
     
     async def get_or_create_customer(self, user) -> str:
         """
@@ -115,19 +113,34 @@ class SubscriptionService:
         """
         Create a Stripe Checkout session for subscription purchase.
         """
-        if tier not in ['premium', 'ultimate']:
-            raise ValueError(f"Invalid tier: {tier}")
-        
         if billing_interval not in ['monthly', 'yearly']:
             raise ValueError(f"Invalid billing interval: {billing_interval}")
         
+        # 1. Fetch Active Subscription Plan from DB
+        # Look for a plan with matching tier_key that is currently effective
+        stmt = select(SubscriptionPlan).where(
+            SubscriptionPlan.tier_key == tier,
+            SubscriptionPlan.effective_from <= datetime.now(),
+            SubscriptionPlan.archived_at.is_(None)
+        ).order_by(SubscriptionPlan.effective_from.desc()).limit(1)
+        
+        result = await self.db.execute(stmt)
+        plan = result.scalar_one_or_none()
+        
+        if not plan:
+            raise ValueError(f"Plan not found or not active: {tier}")
+            
+        provider_config = plan.provider_config or {}
+        stripe_config = provider_config.get('stripe', {})
+        
+        price_key = f"{billing_interval}_price_id"
+        price_id = stripe_config.get(price_key)
+        
+        if not price_id:
+            raise ValueError(f"Price not configured for {tier} {billing_interval} (Plan ID: {plan.id})")
+        
         # Get or create customer
         customer_id = await self.get_or_create_customer(user)
-        
-        # Get price ID
-        price_id = self.price_map.get((tier, billing_interval))
-        if not price_id:
-            raise ValueError(f"Price not configured for {tier} {billing_interval}")
         
         # Default URLs
         if not success_url:
@@ -137,21 +150,13 @@ class SubscriptionService:
         
         # Create checkout session
         user_id = get_user_id(user)
-        logger.info(f"Creating checkout session for user {user_id}, tier {tier}")
-        
-        # DEBUG: Print exact values being used
-        print(f"DEBUG: Checkout Request - Tier: {tier}, Interval: {billing_interval}")
-        print(f"DEBUG: Mapped Price ID: {price_id}")
-        print(f"DEBUG: Configured keys:")
-        print(f"  PREMIUM_MONTHLY: {settings.stripe_price_premium_monthly}")
-        print(f"  PREMIUM_YEARLY: {settings.stripe_price_premium_yearly}")
-        print(f"  ULTIMATE_MONTHLY: {settings.stripe_price_ultimate_monthly}")
-        print(f"  ULTIMATE_YEARLY: {settings.stripe_price_ultimate_yearly}")
+        logger.info(f"Creating checkout session for user {user_id}, plan {plan.name} ({plan.id})")
         
         metadata = {
             'user_id': str(user_id),
             'workspace_id': str(workspace.id),
-            'tier': tier,
+            'plan_id': str(plan.id), # Store Plan ID for linkage
+            'tier': tier, # Legacy support
             'billing_interval': billing_interval
         }
         
@@ -191,8 +196,9 @@ class SubscriptionService:
         metadata = session_data.get('metadata', {})
         user_id = metadata.get('user_id')
         workspace_id = metadata.get('workspace_id')
-        tier = metadata.get('tier')
+        plan_id = metadata.get('plan_id')
         billing_interval = metadata.get('billing_interval')
+        tier = metadata.get('tier') # Kept for display/email logic if needed
         
         logger.info(f"Processing checkout completion for workspace {workspace_id}")
         
@@ -216,7 +222,8 @@ class SubscriptionService:
         # Update subscription fields
         subscription.provider_customer_id = session_data.get('customer')
         subscription.provider_subscription_id = provider_subscription_id
-        subscription.tier = tier
+        if plan_id:
+            subscription.plan_id = plan_id
         subscription.billing_interval = billing_interval
         subscription.status = subscription_data.get('status', 'active')
         
@@ -255,7 +262,7 @@ class SubscriptionService:
         
         await self.db.flush()
         
-        logger.info(f"Subscription activated: {subscription.id} (tier: {tier})")
+        logger.info(f"Subscription activated: {subscription.id} (plan: {plan_id})")
         
         # Send confirmation email
         try:
@@ -276,7 +283,7 @@ class SubscriptionService:
                     to_email = user_obj.email
 
             if to_email:
-                plan_display = f"{tier.title()} {billing_interval.title()}"
+                plan_display = f"{tier.title()} {billing_interval.title()}" if tier else "Subscription"
                 
                 # Format amount
                 currency_symbol = "$" if subscription.currency in ['USD', 'SGD', 'AUD', 'CAD'] else subscription.currency + " "
@@ -344,6 +351,54 @@ class SubscriptionService:
         
         if subscription_data.get('canceled_at'):
             subscription.canceled_at = datetime.fromtimestamp(subscription_data['canceled_at'])
+
+        # Fix: Sync Plan/Tier from Price ID
+        # When user upgrades/downgrades via Portal, `items` array has the new Price ID.
+        try:
+            items_data = subscription_data.get('items', {}).get('data', [])
+            if items_data:
+                price_obj = items_data[0].get('price', {})
+                price_id = price_obj.get('id')
+                
+                if price_id:
+                    # Find plan with this price_id in provider_config
+                    # Note: We need to search inside the JSONB. 
+                    # Assuming Stripe structure: provider_config = {"stripe": {"monthly_price_id": "...", "yearly_price_id": "..."}}
+                    # We can use SQL JSON operators or just filtered search.
+                    # Since plans table is small, searching is cheap.
+                    # OR match explicitly.
+                    from sqlalchemy import or_
+                    
+                    # Safer to scan all active plans and match python side if JSON usage is complex for cross-db compat or just complex query
+                    # But proper way is JSON path.
+                    # For now let's query all active plans and find match.
+                    plans_result = await self.db.execute(select(SubscriptionPlan))
+                    all_plans = plans_result.scalars().all()
+                    
+                    found_plan = None
+                    new_billing_interval = 'monthly'
+                    
+                    for plan in all_plans:
+                         config = plan.provider_config or {}
+                         stripe = config.get('stripe', {})
+                         if stripe.get('monthly_price_id') == price_id:
+                             found_plan = plan
+                             new_billing_interval = 'monthly'
+                             break
+                         if stripe.get('yearly_price_id') == price_id:
+                             found_plan = plan
+                             new_billing_interval = 'yearly'
+                             break
+                    
+                    if found_plan:
+                        subscription.plan_id = found_plan.id
+                        subscription.billing_interval = new_billing_interval
+                        logger.info(f"Syncing subscription plan to {found_plan.tier_key} ({found_plan.id}) from price {price_id}")
+                    else:
+                        logger.warning(f"No plan found for price ID {price_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to sync plan from price ID: {e}")
         
         await self.db.flush()
         
@@ -390,7 +445,9 @@ class SubscriptionService:
         Get subscription for a workspace.
         """
         result = await self.db.execute(
-            select(Subscription).where(Subscription.workspace_id == workspace.id)
+            select(Subscription)
+            .where(Subscription.workspace_id == workspace.id)
+            .options(selectinload(Subscription.plan))
         )
         return result.scalar_one_or_none()
     

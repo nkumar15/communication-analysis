@@ -36,24 +36,32 @@ class QuotaService:
             Subscription.workspace_id == workspace.id
         ).first()
         
+        # Check if active and has a plan
         if not subscription or subscription.status not in ['active', 'trialing']:
             return 'free'
+            
+        if not subscription.plan:
+             # Should not happen in new schema if migration worked, but safe fallback
+             return 'free'
         
-        return subscription.tier
+        return subscription.plan.tier_key
     
     def get_tier_plan(self, tier: str) -> SubscriptionPlan:
         """Get plan configuration for a specific tier."""
+        # Find the active version of the plan
         plan = self.db.query(SubscriptionPlan).filter(
-            SubscriptionPlan.tier == tier
-        ).first()
+            SubscriptionPlan.tier_key == tier,
+            SubscriptionPlan.archived_at.is_(None)
+        ).order_by(SubscriptionPlan.effective_from.desc()).first()
         
         if not plan:
             # Fallback to free plan if tier not found
             # This handles cases where a legacy tier might be removed
             logger.warning(f"Plan for tier '{tier}' not found, falling back to free")
             plan = self.db.query(SubscriptionPlan).filter(
-                SubscriptionPlan.tier == 'free'
-            ).first()
+                SubscriptionPlan.tier_key == 'free',
+                SubscriptionPlan.archived_at.is_(None)
+            ).order_by(SubscriptionPlan.effective_from.desc()).first()
             
         if not plan:
              # Extreme fallback if even free plan is missing (should not happen after seed)
@@ -308,16 +316,27 @@ class AsyncQuotaService:
         """Get plan configuration for a specific tier (async)."""
         from sqlalchemy import select
         
-        result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.tier == tier))
+        # Find active plan for tier
+        stmt = select(SubscriptionPlan).where(
+            SubscriptionPlan.tier_key == tier,
+            SubscriptionPlan.archived_at.is_(None)
+        ).order_by(SubscriptionPlan.effective_from.desc())
+        
+        result = await db.execute(stmt)
         plan = result.scalar_one_or_none()
         
         if not plan:
-            result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.tier == 'free'))
+            # Fallback to free
+            stmt = select(SubscriptionPlan).where(
+                SubscriptionPlan.tier_key == 'free',
+                SubscriptionPlan.archived_at.is_(None)
+            ).order_by(SubscriptionPlan.effective_from.desc())
+            result = await db.execute(stmt)
             plan = result.scalar_one_or_none()
             
         if not plan:
             return SubscriptionPlan(
-                tier='free',
+                tier_key='free',
                 limits={
                     'projects': 5,
                     'team_workspaces': 1,

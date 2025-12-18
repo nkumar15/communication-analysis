@@ -178,6 +178,31 @@ class PlatformApiService {
         return this.patch(`/api/platform/b2b/tenants/${tenantId}/reactivate`);
     }
 
+    // ============================================================================
+    // B2C Plan Management
+    // ============================================================================
+
+    /**
+     * List all subscription plans (B2C)
+     */
+    async getPlans() {
+        return this.get('/api/platform/b2c/plans');
+    }
+
+    /**
+     * Create a new plan version
+     */
+    async createPlan(planData) {
+        return this.post('/api/platform/b2c/plans', planData);
+    }
+
+    /**
+     * Archive a plan version
+     */
+    async archivePlan(planId) {
+        return this.post(`/api/platform/b2c/plans/${planId}/archive`);
+    }
+
     /**
      * Generic PATCH request with auth headers
      */

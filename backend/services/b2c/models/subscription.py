@@ -12,17 +12,21 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
     __table_args__ = {"schema": "b2c"}
 
+    from services.b2c.models.subscription_plan import SubscriptionPlan
+
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     workspace_id = Column(UUID(as_uuid=True), ForeignKey("b2c.workspaces.id", ondelete="CASCADE"), unique=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("b2c.users.id", ondelete="CASCADE"))
+    
+    # Plan Link
+    plan_id = Column(UUID(as_uuid=True), ForeignKey("b2c.subscription_plans.id"))
     
     # Provider Info
     provider = Column(String(50), nullable=False, default="stripe")
     provider_customer_id = Column(String(255))
     provider_subscription_id = Column(String(255), unique=True)
     
-    # Plan Details
-    tier = Column(String(50), nullable=False, default="free")
+    # Plan Details (Derived/Override)
     billing_interval = Column(String(20), default="monthly")
     
     # Status
@@ -46,6 +50,7 @@ class Subscription(Base):
     user = relationship("B2CUser", back_populates="subscriptions")
     invoices = relationship("Invoice", back_populates="subscription")
     events = relationship("SubscriptionEvent", back_populates="subscription")
+    plan = relationship("SubscriptionPlan")
 
 
 class PaymentMethod(Base):

@@ -85,6 +85,8 @@ app.include_router(auth.router)
 app.include_router(workspaces.router)
 app.include_router(todos_router.router, prefix="/api/b2c/workspaces", tags=["B2C Todos"])
 app.include_router(billing.router)
+from services.b2c.routers import plans
+app.include_router(plans.router)
 app.include_router(invitations.router)
 
 

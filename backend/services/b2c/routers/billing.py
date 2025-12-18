@@ -179,7 +179,7 @@ async def get_subscription(
     return SubscriptionResponse(
         id=str(subscription.id),
         workspace_id=str(subscription.workspace_id),
-        tier=subscription.tier,
+        tier=subscription.plan.tier_key if subscription.plan else "free",
         billing_interval=subscription.billing_interval or "monthly",
         status=subscription.status,
         current_period_start=subscription.current_period_start.isoformat() if subscription.current_period_start else None,

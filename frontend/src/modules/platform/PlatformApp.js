@@ -13,6 +13,7 @@ import AnalyticsPage from './web/pages/AnalyticsPage';
 import SettingsPage from './web/pages/SettingsPage';
 import AuditLogsPage from './web/pages/AuditLogsPage';
 import SystemHealthPage from './web/pages/SystemHealthPage';
+import PlanManagementPage from './web/pages/PlanManagementPage';
 import PlatformLogin from './web/pages/LoginPage';
 import PlatformAdminRoute from '../../core/components/PlatformAdminRoute';
 import firebaseAuthService from '../../core/firebase/authService';
@@ -55,6 +56,7 @@ function PlatformApp() {
                         <Route path="/audit-logs" element={<AuditLogsPage />} />
                         <Route path="/system-health" element={<SystemHealthPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/plans" element={<PlanManagementPage />} />
                     </Route>
                 </Route>
 

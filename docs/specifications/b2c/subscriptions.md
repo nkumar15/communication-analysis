@@ -1,4 +1,4 @@
-# SPEC-B2C-03: Subscriptions & Billing
+ loo# SPEC-B2C-03: Subscriptions & Billing
 
 **Status**: Active  
 **Last Updated**: 2025-12-15
@@ -158,3 +158,25 @@ Subscription data is sensitive.
 - **Proration**: Currently handled by Stripe/Provider default logic.
 - **Multi-Currency**: Schema supports it (`currency` column), but currently defaults to USD.
 - **Usage-Based Billing**: Foundations exist (events table), but metered billing is not yet implemented.
+
+## 8. Configuration & Lifecycle Operations
+
+### 8.1 Adding New Plans
+Currently, subscription plans are statically configured in the codebase. To introduce a new plan (e.g., "Enterprise"), the following steps are required:
+
+1.  **Stripe**: Create the Product and Pricing Plans (Monthly/Yearly) in Stripe Dashboard.
+2.  **Environment**: Add the new Price IDs to `backend/.env` and `backend/core/config.py`.
+3.  **Service Logic**: Update `SubscriptionService.price_map` and validation logic in `backend/services/b2c/services/subscription_service.py`.
+4.  **Frontend**: Update `PLANS` constant in `SubscriptionPage.js` to display the new tier.
+
+### 8.2 Upgrade & Downgrade Behavior
+All subscription modifications for existing subscribers are handled via the **Stripe Customer Portal**.
+
+| Action | Effective Date | Proration | Notes |
+|--------|----------------|-----------|-------|
+| **Upgrade (Same Interval)** | **Immediate** | **Yes** | User is charged the difference immediately. |
+| **Upgrade (Cross Interval)** | **Immediate** | **Yes** | User is charged immediately for the new interval, minus unused time on old plan. |
+| **Downgrade** | **End of Period** | **No** | User retains access to higher tier until current period ends. |
+| **Cancellation** | **End of Period** | **No** | Subscription remains active until the paid period expires. |
+
+*Note: The application currently allows creating *new* subscriptions via Checkout even if one exists. Users should be directed to the Portal for upgrades to avoid duplicate billing.*
