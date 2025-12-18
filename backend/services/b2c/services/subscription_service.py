@@ -51,28 +51,51 @@ class SubscriptionService:
     def __init__(self, db: AsyncSession):
         self.db = db
         
-        # Initialize payment provider
-        self.provider = PaymentProviderFactory.create(
-            settings.payment_provider,
-            config={
+        # self.provider removed in favor of dynamic instantiation
+        
+    def _get_provider_instance(self, provider_name: str):
+        """Helper to create provider instance with correct config"""
+        config = {}
+        if provider_name == 'stripe':
+            config = {
                 'secret_key': settings.stripe_secret_key,
                 'webhook_secret': settings.stripe_webhook_secret,
             }
-        )
+        elif provider_name == 'razorpay':
+            config = {
+                'key_id': settings.razorpay_key_id,
+                'key_secret': settings.razorpay_key_secret,
+            }
+        elif provider_name == 'xendit':
+            config = {
+                'secret_key': settings.xendit_secret_key,
+            }
+            
+        return PaymentProviderFactory.create(provider_name, config)
         
         
         # Price mapping (deprecated in favor of database-driven plans)
         # self.price_map = {}
     
-    async def get_or_create_customer(self, user) -> str:
+    async def get_or_create_customer(self, user, provider_name: str = 'stripe') -> str:
         """
-        Get existing Stripe customer ID or create a new customer.
+        Get existing customer ID or create a new customer for the specific provider.
         """
         user_id = get_user_id(user)
         
-        # Check if user already has a subscription with customer ID
+        # Check if user already has a subscription with customer ID for this provider
+        # Note: We might want to store customer IDs in a separate table or JSONB if a user uses multiple providers
+        # For now, we check the subscription table. 
+        # CAUTION: If user switches providers, this logic relies on them having an active subscription 
+        # OR we need to accept that one user might have different customer IDs for different providers.
+        # But `Subscription` is unique per workspace. 
+        
+        # Helper: Try to find a subscription with matching provider
         result = await self.db.execute(
-            select(Subscription).where(Subscription.user_id == user_id)
+            select(Subscription).where(
+                Subscription.user_id == user_id, 
+                Subscription.provider == provider_name
+            )
         )
         subscription = result.scalar_one_or_none()
         
@@ -83,8 +106,10 @@ class SubscriptionService:
         user_email = get_user_email(user)
         user_display_name = get_user_display_name(user)
         
-        logger.info(f"Creating new Stripe customer for user {user_id}")
-        result = await self.provider.create_customer(
+        logger.info(f"Creating new {provider_name} customer for user {user_id}")
+        provider = self._get_provider_instance(provider_name)
+        
+        result = await provider.create_customer(
             user_id=str(user_id),
             email=user_email,
             name=user_display_name,
@@ -93,10 +118,8 @@ class SubscriptionService:
         
         provider_customer_id = result['provider_customer_id']
         
-        # Update subscription with customer ID if exists
-        if subscription:
-            subscription.provider_customer_id = provider_customer_id
-            await self.db.flush()
+        # We don't necessarily have a subscription to update yet. 
+        # Typically this is called before checkout.
         
         return provider_customer_id
     
@@ -131,16 +154,32 @@ class SubscriptionService:
             raise ValueError(f"Plan not found or not active: {tier}")
             
         provider_config = plan.provider_config or {}
-        stripe_config = provider_config.get('stripe', {})
         
-        price_key = f"{billing_interval}_price_id"
-        price_id = stripe_config.get(price_key)
+        # Determine Provider
+        provider_name = 'stripe' # default
+        if 'razorpay' in provider_config:
+            provider_name = 'razorpay'
+        elif 'xendit' in provider_config:
+            provider_name = 'xendit'
+        elif 'stripe' in provider_config:
+            provider_name = 'stripe'
+            
+        provider_data = provider_config.get(provider_name, {})
         
+        # Extract Price/Plan ID
+        price_id = None
+        if provider_name == 'stripe':
+            price_key = f"{billing_interval}_price_id"
+            price_id = provider_data.get(price_key)
+        elif provider_name in ['razorpay', 'xendit']:
+            # Assuming flat structure or similar for others for now
+            price_id = provider_data.get('plan_id') or provider_data.get(f"{provider_name}_plan_id")
+
         if not price_id:
-            raise ValueError(f"Price not configured for {tier} {billing_interval} (Plan ID: {plan.id})")
+            raise ValueError(f"Price/Plan ID not configured for {tier} ({provider_name})")
         
-        # Get or create customer
-        customer_id = await self.get_or_create_customer(user)
+        # Get or create customer for this provider
+        customer_id = await self.get_or_create_customer(user, provider_name)
         
         # Default URLs
         if not success_url:
@@ -150,21 +189,21 @@ class SubscriptionService:
         
         # Create checkout session
         user_id = get_user_id(user)
-        logger.info(f"Creating checkout session for user {user_id}, plan {plan.name} ({plan.id})")
+        logger.info(f"Creating {provider_name} checkout session for user {user_id}, plan {plan.name}")
         
         metadata = {
             'user_id': str(user_id),
             'workspace_id': str(workspace.id),
-            'plan_id': str(plan.id), # Store Plan ID for linkage
-            'tier': tier, # Legacy support
-            'billing_interval': billing_interval
+            'plan_id': str(plan.id), 
+            'tier': tier,
+            'billing_interval': billing_interval,
+            'provider': provider_name 
         }
         
         # Validate and apply coupon if provided
         if coupon_code:
             from services.b2c.services.coupon_service import CouponService
             coupon_service = CouponService(self.db)
-            
             try:
                 coupon = await coupon_service.validate_coupon(
                     code=coupon_code,
@@ -176,7 +215,10 @@ class SubscriptionService:
             except Exception as e:
                 logger.warning(f"Coupon validation failed: {str(e)}")
         
-        result = await self.provider.create_checkout_session(
+        # Instantiate Provider
+        provider = self._get_provider_instance(provider_name)
+
+        result = await provider.create_checkout_session(
             customer_id=customer_id,
             price_id=price_id,
             success_url=success_url,
@@ -189,7 +231,7 @@ class SubscriptionService:
             'checkout_url': result['checkout_url']
         }
     
-    async def handle_checkout_completed(self, session_data: Dict[str, Any]) -> Subscription:
+    async def handle_checkout_completed(self, session_data: Dict[str, Any], provider_name: str = 'stripe') -> Subscription:
         """
         Process successful checkout (called from webhook).
         """
@@ -198,13 +240,14 @@ class SubscriptionService:
         workspace_id = metadata.get('workspace_id')
         plan_id = metadata.get('plan_id')
         billing_interval = metadata.get('billing_interval')
-        tier = metadata.get('tier') # Kept for display/email logic if needed
+        tier = metadata.get('tier') 
         
-        logger.info(f"Processing checkout completion for workspace {workspace_id}")
+        logger.info(f"Processing {provider_name} checkout completion for workspace {workspace_id}")
         
-        # Get subscription info from Stripe
+        # Get subscription info from Provider
+        provider = self._get_provider_instance(provider_name)
         provider_subscription_id = session_data.get('subscription')
-        subscription_data = await self.provider.get_subscription(provider_subscription_id)
+        subscription_data = await provider.get_subscription(provider_subscription_id)
         
         # Update or create subscription
         result = await self.db.execute(
@@ -215,9 +258,13 @@ class SubscriptionService:
         if not subscription:
             subscription = Subscription(
                 workspace_id=workspace_id,
-                user_id=user_id
+                user_id=user_id,
+                provider=provider_name
             )
             self.db.add(subscription)
+        
+        # Update provider if needed (e.g. reactivation with different provider)
+        subscription.provider = provider_name
         
         # Update subscription fields
         subscription.provider_customer_id = session_data.get('customer')
@@ -299,7 +346,7 @@ class SubscriptionService:
                     if latest_invoice_id:
                         # If it's a string, fetch it. If it's an object (dict), use it.
                         if isinstance(latest_invoice_id, str):
-                            invoice = await self.provider.get_invoice(latest_invoice_id)
+                            invoice = await provider.get_invoice(latest_invoice_id)
                         else:
                             invoice = latest_invoice_id
                             
@@ -424,8 +471,11 @@ class SubscriptionService:
         
         logger.info(f"Canceling subscription {subscription.id} (immediate: {immediate})")
         
+        # Instantiate provider
+        provider = self._get_provider_instance(subscription.provider)
+        
         # Cancel with provider
-        result = await self.provider.cancel_subscription(
+        result = await provider.cancel_subscription(
             provider_subscription_id=subscription.provider_subscription_id,
             at_period_end=not immediate
         )
@@ -457,11 +507,31 @@ class SubscriptionService:
         return_url: str
     ) -> str:
         """
-        Create Stripe Customer Portal session for self-service.
+        Create Customer Portal session for self-service.
         """
-        customer_id = await self.get_or_create_customer(user)
+        # Determine provider: Check if user has an active subscription
+        user_id = get_user_id(user)
+        provider_name = 'stripe' # default
         
-        result = await self.provider.create_customer_portal_session(
+        # We need to find if there is an active subscription for this user to know the provider
+        # Assuming user has only one active subscription for now (B2C model)
+        # Or we check the B2CUser if we store provider there.
+        # Let's check matching subscription.
+        stmt = select(Subscription).where(
+            Subscription.user_id == user_id,
+            Subscription.status.in_(['active', 'trialing', 'past_due'])
+        ).limit(1)
+        result = await self.db.execute(stmt)
+        sub = result.scalar_one_or_none()
+        
+        if sub:
+            provider_name = sub.provider
+        
+        customer_id = await self.get_or_create_customer(user, provider_name)
+        
+        provider = self._get_provider_instance(provider_name)
+        
+        result = await provider.create_customer_portal_session(
             customer_id=customer_id,
             return_url=return_url
         )

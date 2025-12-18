@@ -64,40 +64,79 @@ async def seed_plans(db: AsyncSession) -> None:
     
     print(f"Seeding {len(plans_data)} subscription plans...")
     
-    from core.config import settings
-
     for plan_data in plans_data:
-        tier_key = plan_data['tier']
-        name = tier_key.title()
+        tier = plan_data['tier']
+        name = tier.title()
         
-        # Build provider config from ENV
-        stripe_config = {}
+        # Determine provider
+        provider = plan_data.get('provider', 'stripe')
+        print(f"Processing plan: {tier} (Provider: {provider})")
+        
+        provider_config = {}
         price_monthly = 0
         price_yearly = 0
         
-        if tier_key == 'premium':
-            stripe_config = {
-                'monthly_price_id': settings.stripe_price_premium_monthly,
-                'yearly_price_id': settings.stripe_price_premium_yearly
-            }
-            price_monthly = await fetch_stripe_price(settings.stripe_price_premium_monthly, 1500)
-            price_yearly = await fetch_stripe_price(settings.stripe_price_premium_yearly, 15000)
+        if provider == 'stripe':
+            # Fetch Stripe prices
+            from core.config import settings
             
-        elif tier_key == 'ultimate':
-            stripe_config = {
-                'monthly_price_id': settings.stripe_price_ultimate_monthly,
-                'yearly_price_id': settings.stripe_price_ultimate_yearly
-            }
-            price_monthly = await fetch_stripe_price(settings.stripe_price_ultimate_monthly, 3000)
-            price_yearly = await fetch_stripe_price(settings.stripe_price_ultimate_yearly, 30000)
+            # We need to map tier to config keys
+            # premium -> stripe_price_premium_...
+            # ultimate -> stripe_price_ultimate_...
             
-        provider_config = {
-            'stripe': stripe_config
-        }
+            # Monthly
+            monthly_attr = f"stripe_price_{tier}_monthly"
+            monthly_price_id = getattr(settings, monthly_attr, None)
+            
+            if not monthly_price_id:
+                 print(f"Warning: No monthly price configured for {tier}")
+                 
+            # Yearly
+            yearly_attr = f"stripe_price_{tier}_yearly"
+            yearly_price_id = getattr(settings, yearly_attr, None)
+
+            # Fetch amounts
+            # Note: We fetch amount from monthly usually
+            
+            if monthly_price_id:
+                price_monthly = await fetch_stripe_price(monthly_price_id, default=1500 if tier=='premium' else 5000)
+            if yearly_price_id:
+                price_yearly = await fetch_stripe_price(yearly_price_id, default=15000 if tier=='premium' else 50000)
+                
+            provider_config = {
+                'stripe': {
+                    'monthly_price_id': monthly_price_id,
+                    'yearly_price_id': yearly_price_id
+                }
+            }
+        
+        elif provider == 'razorpay':
+            # Placeholder logic for Razorpay
+            # We would fetch from settings e.g. razorpay_plan_id_premium
+            # For now just set placeholder
+            provider_config = {
+                'razorpay': {
+                    'plan_id': f"plan_{tier}_placeholder"
+                }
+            }
+            price_monthly = 9999
+            price_yearly = 99999
+        
+        else:
+             print(f"Unknown provider: {provider}")
+             continue
+
+        # Check if plan exists (by tier AND provider?)
+        # Usually tier is unique? 
+        # If we want same tier on multiple providers, we need composite key or different tier names?
+        # Current schema has unique tier_key. 
+        # So 'premium' can only be on one provider?
+        # Or we change schema to allow multiple providers for same tier?
+        # For now, let's assume one active provider per tier for the seed.
         
         # Check active plan version
         stmt = select(SubscriptionPlan).where(
-            SubscriptionPlan.tier_key == tier_key,
+            SubscriptionPlan.tier_key == tier,
             SubscriptionPlan.archived_at.is_(None)
         ).order_by(SubscriptionPlan.effective_from.desc())
         
@@ -124,13 +163,13 @@ async def seed_plans(db: AsyncSession) -> None:
                 flag_modified(existing, 'limits')
                 flag_modified(existing, 'features')
                 flag_modified(existing, 'provider_config')
-                print(f"  ✓ Updated plan: {tier_key}")
+                print(f"  ✓ Updated plan: {tier}")
             else:
-                print(f"  - No changes for: {tier_key}")
+                print(f"  - No changes for: {tier}")
         else:
             # Create new plan
             plan = SubscriptionPlan(
-                tier_key=tier_key,
+                tier_key=tier,
                 name=name,
                 description=f"{name} Tier Subscription",
                 price_monthly=price_monthly,
@@ -140,7 +179,7 @@ async def seed_plans(db: AsyncSession) -> None:
                 provider_config=provider_config
             )
             db.add(plan)
-            print(f"  ✓ Created plan: {tier_key}")
+            print(f"  ✓ Created plan: {tier}")
             
     await db.flush()
 

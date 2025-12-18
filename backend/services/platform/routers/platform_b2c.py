@@ -106,7 +106,7 @@ async def create_plan_version(
         provider_config=plan.provider_config,
         limits=plan.limits,
         features=plan.features,
-        effective_from=datetime.now(), # Effective immediately
+        effective_from=plan.effective_from or datetime.now(), # Effective from provided date or immediately
         created_by=UUID(admin['uid']) if 'uid' in admin else None
     )
     db.add(new_plan)

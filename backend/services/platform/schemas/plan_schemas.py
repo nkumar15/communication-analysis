@@ -17,7 +17,7 @@ class PlanBase(BaseModel):
     features: Dict[str, Any] = Field(default_factory=dict, description="Feature flags")
 
 class PlanCreate(PlanBase):
-    pass
+    effective_from: Optional[datetime] = None
 
 class PlanUpdate(BaseModel):
     name: Optional[str] = None

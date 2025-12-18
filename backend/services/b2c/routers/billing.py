@@ -26,6 +26,8 @@ from services.b2c.services.coupon_service import (
     CouponMaxRedemptionsError,
     CouponNotApplicableError
 )
+from core.payment import PaymentProviderFactory
+from core.config import settings
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -414,6 +416,78 @@ async def stripe_webhook(
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
         raise HTTPException(status_code=500, detail="Webhook processing failed")
+
+
+@router.post("/webhooks/razorpay")
+async def razorpay_webhook(
+    request: Request,
+    x_razorpay_signature: str = Header(None, alias="X-Razorpay-Signature"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Handle Razorpay webhook events.
+    """
+    # 1. Verify Signature
+    # Note: Requires RazorpayProvider implementation in PaymentProviderFactory
+    try:
+        # Config would ideally come from settings
+        config = {'key_id': settings.razorpay_key_id, 'key_secret': settings.razorpay_key_secret}
+        provider = PaymentProviderFactory.create('razorpay', config)
+        
+        payload = await request.body()
+        event = await provider.verify_webhook(payload, x_razorpay_signature)
+        # event should be normalized: {'event_type': ..., 'data': ...}
+        
+    except ValueError as e: # Provider not supported yet
+        logger.warning(f"Razorpay provider not implemented: {e}")
+        raise HTTPException(status_code=501, detail="Razorpay support not fully implemented")
+    except Exception as e:
+        logger.error(f"Invalid Razorpay webhook: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request")
+
+    # 2. Process Event
+    service = SubscriptionService(db)
+    
+    try:
+        # Map Razorpay events to service calls
+        # Assumption: event['data'] is normalized or Service can handle it
+        if event['event_type'] == 'subscription.charged': 
+            await service.handle_checkout_completed(event['data'], provider_name='razorpay')
+            
+        elif event['event_type'] in ['subscription.cancelled', 'subscription.paused']:
+            await service.handle_subscription_updated(event['data']) # Pass provider?
+            
+        return JSONResponse(content={"status": "ok"})
+        
+    except Exception as e:
+        logger.error(f"Error processing Razorpay webhook: {e}")
+        raise HTTPException(status_code=500, detail="Processing failed")
+
+
+@router.post("/webhooks/xendit")
+async def xendit_webhook(
+    request: Request,
+    x_callback_token: str = Header(None, alias="x-callback-token"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Handle Xendit webhook events.
+    """
+    try:
+        config = {'secret_key': settings.xendit_secret_key}
+        provider = PaymentProviderFactory.create('xendit', config)
+        
+        payload = await request.body()
+        event = await provider.verify_webhook(payload, x_callback_token)
+        
+    except ValueError:
+        raise HTTPException(status_code=501, detail="Xendit support not implemented")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid request")
+
+    service = SubscriptionService(db)
+    # Process event...
+    return JSONResponse(content={"status": "ok"})
 
 
 # ============================================================================
