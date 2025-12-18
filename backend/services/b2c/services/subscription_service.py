@@ -236,6 +236,7 @@ class SubscriptionService:
         # Make sure cancel_at_period_end is boolean
         subscription.cancel_at_period_end = bool(subscription_data.get('cancel_at_period_end'))
         
+        
         # Calculate amount in cents
         # Handle cases where items might be empty or structured differently
         try:
@@ -255,6 +256,66 @@ class SubscriptionService:
         await self.db.flush()
         
         logger.info(f"Subscription activated: {subscription.id} (tier: {tier})")
+        
+        # Send confirmation email
+        try:
+            from workers.b2b_worker.email_tasks import send_subscription_confirmation_email
+            
+            # Get user email from session customer details or fallback
+            customer_details = session_data.get('customer_details') or {}
+            to_email = customer_details.get('email')
+            
+            if not to_email and user_id:
+                # Fallback to DB query if Stripe didn't provide email
+                # We can reuse the helper but we need the object. 
+                # Let's just query B2CUser.
+                from services.b2c.models.user import B2CUser
+                result = await self.db.execute(select(B2CUser).where(B2CUser.id == user_id))
+                user_obj = result.scalar_one_or_none()
+                if user_obj:
+                    to_email = user_obj.email
+
+            if to_email:
+                plan_display = f"{tier.title()} {billing_interval.title()}"
+                
+                # Format amount
+                currency_symbol = "$" if subscription.currency in ['USD', 'SGD', 'AUD', 'CAD'] else subscription.currency + " "
+                amount_formatted = f"{currency_symbol}{subscription.amount_cents / 100:.2f}"
+                
+                next_date = subscription.current_period_end.strftime('%B %d, %Y')
+                dashboard_url = f"{settings.frontend_url}/dashboard"
+                
+                # Fetch invoice PDF URL
+                invoice_pdf_url = None
+                try:
+                    latest_invoice_id = subscription_data.get('latest_invoice')
+                    if latest_invoice_id:
+                        # If it's a string, fetch it. If it's an object (dict), use it.
+                        if isinstance(latest_invoice_id, str):
+                            invoice = await self.provider.get_invoice(latest_invoice_id)
+                        else:
+                            invoice = latest_invoice_id
+                            
+                        invoice_pdf_url = invoice.get('invoice_pdf')
+                        logger.info(f"Found invoice PDF URL: {invoice_pdf_url}")
+                except Exception as e:
+                    logger.warning(f"Could not fetch invoice PDF: {e}")
+                
+                send_subscription_confirmation_email.delay(
+                    to_email=to_email,
+                    plan_name=plan_display,
+                    amount=amount_formatted,
+                    interval=billing_interval,
+                    next_billing_date=next_date,
+                    dashboard_url=dashboard_url,
+                    invoice_pdf_url=invoice_pdf_url
+                )
+                logger.info(f"Triggered confirmation email to {to_email}")
+            else:
+                logger.warning("Could not determine email for subscription confirmation")
+                
+        except Exception as e:
+            logger.error(f"Failed to trigger subscription email: {e}")
         
         return subscription
     

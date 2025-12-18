@@ -26,7 +26,8 @@ class EmailProvider(ABC):
         to_email: str,
         subject: str,
         html_content: str,
-        from_email: Optional[str] = None
+        from_email: Optional[str] = None,
+        attachments: Optional[list] = None
     ) -> bool:
         """
         Send an email.
@@ -71,7 +72,8 @@ class MailhogProvider(EmailProvider):
         to_email: str,
         subject: str,
         html_content: str,
-        from_email: Optional[str] = None
+        from_email: Optional[str] = None,
+        attachments: Optional[list] = None
     ) -> bool:
         try:
             msg = MIMEMultipart("alternative")
@@ -81,6 +83,21 @@ class MailhogProvider(EmailProvider):
             
             html_part = MIMEText(html_content, "html")
             msg.attach(html_part)
+            
+            # Handle attachments
+            if attachments:
+                from email.mime.application import MIMEApplication
+                for attachment in attachments:
+                    try:
+                        part = MIMEApplication(
+                            attachment['content'],
+                            Name=attachment['filename']
+                        )
+                        part['Content-Disposition'] = f'attachment; filename="{attachment["filename"]}"'
+                        msg.attach(part)
+                    except Exception as e:
+                        print(f"⚠️ [{self.name}] Failed to attach file {attachment.get('filename')}: {e}")
+            
             
             with smtplib.SMTP(self.host, self.port) as server:
                 server.sendmail(msg["From"], [to_email], msg.as_string())
@@ -117,7 +134,8 @@ class ResendProvider(EmailProvider):
         to_email: str,
         subject: str,
         html_content: str,
-        from_email: Optional[str] = None
+        from_email: Optional[str] = None,
+        attachments: Optional[list] = None
     ) -> bool:
         if not self.api_key:
             print(f"⚠️ [{self.name}] API key not configured, falling back to console")
@@ -126,12 +144,18 @@ class ResendProvider(EmailProvider):
         
         try:
             import resend
-            params = {
-                "from": from_email or self.default_from,
-                "to": [to_email],
-                "subject": subject,
-                "html": html_content
-            }
+            
+            resend_attachments = []
+            if attachments:
+                # Resend format: [{"filename": "invoice.pdf", "content": [bytes list/buffer]}]
+                # We expect attachments to be list of dicts with 'filename' and 'content' (bytes)
+                for att in attachments:
+                    resend_attachments.append({
+                        "filename": att['filename'],
+                        "content": list(att['content']) if isinstance(att['content'], bytes) else att['content']
+                    })
+                params["attachments"] = resend_attachments
+            
             resend.Emails.send(params)
             print(f"📧 [{self.name}] Email sent to {to_email}")
             return True
@@ -180,7 +204,8 @@ class SESProvider(EmailProvider):
         to_email: str,
         subject: str,
         html_content: str,
-        from_email: Optional[str] = None
+        from_email: Optional[str] = None,
+        attachments: Optional[list] = None
     ) -> bool:
         if not self.client:
             print(f"⚠️ [{self.name}] Client not available")
@@ -220,7 +245,8 @@ class ConsoleProvider(EmailProvider):
         to_email: str,
         subject: str,
         html_content: str,
-        from_email: Optional[str] = None
+        from_email: Optional[str] = None,
+        attachments: Optional[list] = None
     ) -> bool:
         print("\n" + "=" * 80)
         print("📧 EMAIL (Console Provider)")
@@ -233,7 +259,14 @@ class ConsoleProvider(EmailProvider):
         import re
         text = re.sub('<[^<]+?>', '', html_content)
         text = re.sub(r'\s+', ' ', text).strip()[:500]
+        text = re.sub(r'\s+', ' ', text).strip()[:500]
         print(f"Body (preview): {text}...")
+        
+        if attachments:
+             print(f"Attachments: {len(attachments)} files")
+             for att in attachments:
+                 print(f" - {att.get('filename')} ({len(att.get('content', ''))} bytes)")
+        
         print("=" * 80 + "\n")
         return True
 

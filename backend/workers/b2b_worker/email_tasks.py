@@ -201,3 +201,63 @@ async def _send_bulk_invitation_emails_async(invitation_ids: List[str], tenant_i
         logger.error(f"❌ Bulk email task failed: {e}")
         await db.rollback()
         raise
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+def send_subscription_confirmation_email(
+    self,
+    to_email: str,
+    plan_name: str,
+    amount: str,
+    interval: str,
+    next_billing_date: str,
+    dashboard_url: str,
+    invoice_pdf_url: str = None
+):
+    """
+    Send subscription confirmation email.
+    Does not require DB access as all data is passed as arguments.
+    """
+    try:
+        # Import here to avoid circular imports
+        from core.email import email_service
+        import httpx
+        
+        logger.info(f"📧 Sending subscription confirmation to {to_email}")
+        
+        # Verify arguments aren't None (Celery serializer safety)
+        if not to_email:
+            logger.error("Missing to_email for subscription confirmation")
+            return
+            
+        invoice_content = None
+        if invoice_pdf_url:
+            try:
+                logger.info(f"Downloading invoice from {invoice_pdf_url}")
+                # Use a timeout to avoid hanging
+                with httpx.Client(timeout=10.0) as client:
+                    response = client.get(invoice_pdf_url)
+                    if response.status_code == 200:
+                        invoice_content = response.content
+                        logger.info(f"Downloaded invoice PDF ({len(invoice_content)} bytes)")
+                    else:
+                        logger.warning(f"Failed to download invoice PDF: {response.status_code}")
+            except Exception as e:
+                logger.warning(f"Error downloading invoice PDF: {e}")
+            
+        email_service.send_subscription_confirmation_email(
+            to_email=to_email,
+            plan_name=plan_name,
+            amount=amount,
+            interval=interval,
+            next_billing_date=next_billing_date,
+            dashboard_url=dashboard_url,
+            invoice_pdf_url=invoice_pdf_url,
+            invoice_pdf_content=invoice_content
+        )
+        
+        logger.info(f"✅ Subscription confirmation sent to {to_email}")
+        
+    except Exception as exc:
+        logger.error(f"❌ Failed to send subscription confirmation: {exc}")
+        raise self.retry(exc=exc)

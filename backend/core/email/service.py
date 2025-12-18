@@ -188,5 +188,104 @@ class EmailService:
         )
 
 
+    def send_subscription_confirmation_email(
+        self,
+        to_email: str,
+        plan_name: str,
+        amount: str,
+        interval: str,
+        next_billing_date: str,
+        dashboard_url: str,
+        invoice_pdf_url: Optional[str] = None,
+        invoice_pdf_content: Optional[bytes] = None
+    ) -> bool:
+        """
+        Send subscription confirmation email.
+        
+        Args:
+            to_email: User email address
+            plan_name: Name of the plan (e.g. "Premium Monthly")
+            amount: Amount paid (e.g. "$29.00")
+            interval: Billing interval (e.g. "month")
+            next_billing_date: Date of next billing
+            dashboard_url: URL to user dashboard
+            invoice_pdf_url: Optional URL to invoice PDF
+            invoice_pdf_content: Optional PDF content bytes
+        """
+        subject = f"Welcome to {plan_name}!"
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: #4F46E5; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }}
+        .content {{ background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px; }}
+        .footer {{ padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }}
+        .detail-row {{ display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e5e7eb; }}
+        .detail-label {{ color: #6b7280; }}
+        .detail-value {{ font-weight: bold; color: #111827; }}
+        .button {{ display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 24px; width: fit-content; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Subscription Confirmed!</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hi there,</p>
+            <p>Thank you for upgrading to the <strong>{plan_name}</strong> plan!</p>
+            <p>Your subscription is now active and you have immediate access to all premium features.</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <div class="detail-row">
+                    <span class="detail-label">Plan</span>
+                    <span class="detail-value">{plan_name}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value">{amount}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Billing Interval</span>
+                    <span class="detail-value">{interval}</span>
+                </div>
+                <div class="detail-row" style="border-bottom: none;">
+                    <span class="detail-label">Next Billing Date</span>
+                    <span class="detail-value">{next_billing_date}</span>
+                </div>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{dashboard_url}" class="button">Go to Dashboard</a>
+            </div>
+            
+            {f'<p style="margin-top: 20px; text-align: center;"><a href="{invoice_pdf_url}">Download Invoice</a></p>' if invoice_pdf_url else ''}
+        </div>
+        
+        <div class="footer">
+            <p>Enterprise SaaS App</p>
+            <p>Need help? Contact support@yourapp.com</p>
+            <p style="font-size: 12px; margin-top: 10px;">This is an automated message, please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        attachments = []
+        if invoice_pdf_content:
+            attachments.append({
+                "filename": "invoice.pdf",
+                "content": invoice_pdf_content,
+                "content_type": "application/pdf"
+            })
+            
+        return self.provider.send(to_email, subject, html_content, attachments=attachments)
+
+
 # Global email service instance
 email_service = EmailService()
