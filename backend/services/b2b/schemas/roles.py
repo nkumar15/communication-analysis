@@ -30,6 +30,7 @@ class ActionResponse(BaseModel):
 
 class PermissionResponse(BaseModel):
     """Permission details"""
+    id: UUID
     resource: ResourceResponse
     action: ActionResponse
     

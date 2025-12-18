@@ -90,7 +90,7 @@ const Sidebar = () => {
                     </div>
                     {!isCollapsed && (
                         <div>
-                            <div style={{ fontWeight: '700', fontSize: '16px' }}>SSO Portal</div>
+                            <div style={{ fontWeight: '700', fontSize: '16px' }}>Business Application</div>
                             <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
                                 {user?.role === 'admin' ? 'Admin Panel' :
                                     user?.role === 'field_manager' ? 'Manager Panel' :

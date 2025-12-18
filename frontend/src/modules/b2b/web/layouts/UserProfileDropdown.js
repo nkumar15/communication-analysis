@@ -47,9 +47,31 @@ const UserProfileDropdown = () => {
         }
     };
 
+    const getDisplayName = () => {
+        if (!user) return 'User';
+
+        // If name exists and is different from email, use it
+        if (user.name && user.name.toLowerCase() !== user.email?.toLowerCase()) {
+            return user.name;
+        }
+
+        // Fallback: Format the email prefix
+        if (user.email) {
+            const prefix = user.email.split('@')[0];
+            // Convert 'john.doe' to 'John Doe'
+            return prefix
+                .split(/[._]/)
+                .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(' ');
+        }
+
+        return 'User';
+    };
+
     const getInitials = () => {
-        if (user?.name) {
-            return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        const displayName = getDisplayName();
+        if (displayName && displayName !== 'User') {
+            return displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
         }
         return user?.email?.[0]?.toUpperCase() || 'U';
     };
@@ -90,7 +112,7 @@ const UserProfileDropdown = () => {
                 </div>
                 <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
-                        {user.name || 'User'}
+                        {getDisplayName()}
                     </div>
                     <div style={{ fontSize: '12px', color: '#6B7280' }}>
                         {user.role}
@@ -118,7 +140,7 @@ const UserProfileDropdown = () => {
                     {/* User Info */}
                     <div style={{ padding: '16px', borderBottom: '1px solid #F3F4F6' }}>
                         <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>
-                            {user.name || 'User'}
+                            {getDisplayName()}
                         </div>
                         <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: '8px' }}>
                             {user.email}

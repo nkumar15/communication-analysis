@@ -88,7 +88,7 @@ function LoginPage() {
                     <div className="logo-container">
                         <div className="logo-icon">🔐</div>
                     </div>
-                    <h1>Enterprise SSO Portal</h1>
+                    <span>Enterprise SaaS App</span>
                     <p className="subtitle">Sign in to your organization</p>
                 </div>
 
