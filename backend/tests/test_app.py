@@ -14,7 +14,7 @@ from core.utils.firebase import firebase_auth_service
 # Import ALL routers for testing
 from services.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing
 from services.domains.projects.routers import projects, tasks, comments
-from services.platform.routers import platform, platform_b2b, platform_b2c
+from services.platform.routers import platform, platform_b2b, platform_b2c, roles, invitations
 from services.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
 
 # B2C billing router requires stripe - import conditionally
@@ -73,6 +73,8 @@ app.include_router(comments.router)
 app.include_router(platform.router)
 app.include_router(platform_b2b.router)
 app.include_router(platform_b2c.router)
+app.include_router(roles.router)  # Platform roles management  
+app.include_router(invitations.router)  # Platform invitations
 app.include_router(b2c_auth.router)
 app.include_router(b2c_workspaces.router)
 app.include_router(b2c_invitations.router)

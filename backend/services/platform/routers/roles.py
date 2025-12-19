@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 from uuid import UUID
 
 from core.database import get_db
@@ -32,6 +33,8 @@ class RoleResponse(BaseModel):
     description: Optional[str]
     is_system_role: bool
     permissions: List[PermissionSchema]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
