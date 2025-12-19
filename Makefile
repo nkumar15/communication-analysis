@@ -244,33 +244,43 @@ test-api: ## Run all API integration tests
 	@echo "$(GREEN)✓ API tests complete$(NC)"
 
 
-test-browser: ## Run E2E browser tests
+# Test Runner Config
+# Test Runner Config
+ifdef LOCAL
+TEST_CMD := cd backend && pytest
+PROVISION_BACKEND := docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
+else
+TEST_CMD := docker-compose run --rm e2e-tests pytest
+PROVISION_BACKEND := docker-compose up -d
+endif
+
+test-browser: ## Run E2E browser tests (Use LOCAL=1 to run locally)
 	@echo "$(BLUE)Running E2E browser tests...$(NC)"
-	@if [ "$(HEADED)" = "1" ]; then \
+	@if [ "$(HEADED)" = "1" ] && [ -z "$(LOCAL)" ]; then \
 		echo "$(YELLOW)Note: Running in HEADED mode requires X11 forwarding for Docker.$(NC)"; \
 	fi
-	docker-compose up -d
-	@sleep 10
-	docker-compose run --rm e2e-tests pytest tests/e2e_browser/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
+	$(PROVISION_BACKEND)
+	@if [ -z "$(LOCAL)" ]; then sleep 10; else sleep 3; fi
+	$(TEST_CMD) tests/e2e_browser/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
 
 test-browser-b2c: ## Run B2C E2E browser tests
 	@echo "$(BLUE)Running B2C E2E tests...$(NC)"
-	docker-compose up -d
-	@sleep 5
-	docker-compose run --rm e2e-tests pytest tests/e2e_browser/b2c/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
+	$(PROVISION_BACKEND)
+	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
+	$(TEST_CMD) tests/e2e_browser/b2c/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 
 test-browser-b2b: ## Run B2B E2E browser tests
 	@echo "$(BLUE)Running B2B E2E tests...$(NC)"
-	docker-compose up -d
-	@sleep 5
-	docker-compose run --rm e2e-tests pytest tests/e2e_browser/b2b/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
+	$(PROVISION_BACKEND)
+	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
+	$(TEST_CMD) tests/e2e_browser/b2b/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 
 test-browser-platform: ## Run Platform E2E browser tests
 	@echo "$(BLUE)Running Platform E2E tests...$(NC)"
-	docker-compose up -d
-	@sleep 5
-	docker-compose run --rm e2e-tests pytest tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
+	$(PROVISION_BACKEND)
+	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
+	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 
 test: ## Run all tests
 	@$(MAKE) test-api
