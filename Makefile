@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs ps migrate migrate-b2b migrate-b2c db-shell reset-db platform-seed platform-create-admin b2b-seed web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui
+.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c
 
 # Default target
 .DEFAULT_GOAL := help
@@ -76,6 +76,7 @@ ps: ## List running services
 email-ui: ## Open Mailhog email UI in browser
 	@echo "$(BLUE)Opening Mailhog at http://localhost:8025$(NC)"
 	@xdg-open http://localhost:8025 2>/dev/null || open http://localhost:8025 2>/dev/null || echo "Open http://localhost:8025 in your browser"
+
 ##@ Database
 
 db-shell: ## Open PostgreSQL shell
@@ -91,19 +92,20 @@ migrate: ## Run migrations for all products (platform + b2b + b2c)
 	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
-	@$(MAKE) b2b-seed-roles-templates
+	@$(MAKE) platform-seed-permissions
+	@$(MAKE) b2b-seed-roles
 	@$(MAKE) b2b-seed-plans
 	@$(MAKE) b2c-seed-plans
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
-migrate-b2b: ## Run migrations for B2B only (platform + b2b)
+b2b-migrate: ## Run migrations for B2B only (platform + b2b)
 	@echo "$(BLUE)Running B2B migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
-	@$(MAKE) b2b-seed-roles-templates
+	@$(MAKE) b2b-seed-roles
 	@echo "$(GREEN)✓ B2B migrations complete$(NC)"
 
-migrate-b2c: ## Run migrations for B2C only (platform + b2c)
+b2c-migrate: ## Run migrations for B2C only (platform + b2c)
 	@echo "$(BLUE)Running B2C migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
@@ -128,31 +130,31 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 		*) echo "Cancelled."; ;; \
 	esac
 
-seed-platform-system: ## Seed System Tenant (Platform)
+platform-seed-system: ## Seed System Tenant (Platform)
 	@echo "$(BLUE)Seeding System Tenant...$(NC)"
 	@docker-compose exec -T platform-api python /app/scripts/platform/seed_system_tenant.py
 
-seed-platform-permissions: ## Seed platform permissions
+platform-seed-permissions: ## Seed platform permissions
 	docker-compose exec -T platform-api python /app/scripts/platform/seed_platform_permissions.py
 
 platform-create-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
 	@docker-compose exec -T platform-api python /app/scripts/platform/create_platform_admin.py
 
-b2b-seed-roles-templates: ## Seed domain-specific roles-templates
+b2b-seed-roles: ## Seed domain-specific roles and templates
 	@echo "$(BLUE)Seeding domain data...$(NC)"
 	@docker-compose run --rm b2b-api python /app/scripts/b2b/seed_domain_data.py
 	@echo "$(GREEN)✓ Domain data seeded$(NC)"
-
-b2c-seed-plans: ## Seed B2C subscription plans
-	@echo "$(BLUE)Seeding B2C subscription plans...$(NC)"
-	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
-	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
 b2b-seed-plans: ## Seed B2B subscription plans
 	@echo "$(BLUE)Seeding B2B subscription plans...$(NC)"
 	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_b2b_plans.py
 	@echo "$(GREEN)✓ B2B plans seeded$(NC)"
+
+b2c-seed-plans: ## Seed B2C subscription plans
+	@echo "$(BLUE)Seeding B2C subscription plans...$(NC)"
+	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
+	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
 b2b-invite: ## Invite B2B Tenant (interactive)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
