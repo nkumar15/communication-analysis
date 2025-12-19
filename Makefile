@@ -128,9 +128,12 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 		*) echo "Cancelled."; ;; \
 	esac
 
-platform-seed: ## Seed System Tenant (Platform)
+seed-platform-system: ## Seed System Tenant (Platform)
 	@echo "$(BLUE)Seeding System Tenant...$(NC)"
 	@docker-compose exec -T platform-api python /app/scripts/platform/seed_system_tenant.py
+
+seed-platform-permissions: ## Seed platform permissions
+	docker-compose exec -T platform-api python /app/scripts/platform/seed_platform_permissions.py
 
 platform-create-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"

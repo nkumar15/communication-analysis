@@ -1,0 +1,24 @@
+roles:
+  platform_admin:
+    - resource: "*"
+      action: "*"
+  support_staff:
+    - resource: "tenants"
+      action: "read"
+    - resource: "tenants"
+      action: "impersonate"
+    - resource: "users"
+      action: "read"
+    - resource: "audit_logs"
+      action: "read"
+    - resource: "invitations"
+      action: "read"
+  billing_manager:
+    - resource: "tenants"
+      action: "read"
+    - resource: "billing"
+      action: "*"
+    - resource: "subscriptions"
+      action: "*"
+    - resource: "invoices"
+      action: "*"

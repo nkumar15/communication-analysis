@@ -1,6 +1,7 @@
 from core.models.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 class PlatformRole(Base, TimestampMixin):
     """
@@ -20,6 +21,9 @@ class PlatformRole(Base, TimestampMixin):
     description = Column(String, nullable=True)
     
     is_system_role = Column(Boolean, default=False, nullable=False)  # Cannot delete if true
+    
+    # Relationships
+    permissions = relationship("PlatformPermission", backref="role", cascade="all, delete-orphan", lazy="selectin")
 
 
 class PlatformUser(Base, TimestampMixin, SoftDeleteMixin):
