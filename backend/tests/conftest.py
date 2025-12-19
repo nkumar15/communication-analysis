@@ -311,14 +311,12 @@ async def platform_admin_setup(db_session: AsyncSession):
     # 2. Check/Create Platform Admin Role
     result = await db_session.execute(
         select(PlatformRole)
-        .where(PlatformRole.platform_tenant_id == system_tenant.id)
         .where(PlatformRole.name == PlatformRoleName.PLATFORM_ADMIN)
     )
     role = result.scalar_one_or_none()
     
     if not role:
         role = PlatformRole(
-            platform_tenant_id=system_tenant.id,
             name=PlatformRoleName.PLATFORM_ADMIN,
             display_name="Platform Admin",
             is_system_role=True
@@ -539,14 +537,13 @@ async def create_platform_tenant(
     
     # Get existing roles
     existing_roles_result = await db_session.execute(
-        select(PlatformRole.name).where(PlatformRole.platform_tenant_id == tenant.id)
+        select(PlatformRole.name)
     )
     existing_role_names = existing_roles_result.scalars().all()
     
     for role_name in roles:
         if role_name not in existing_role_names:
             role = PlatformRole(
-                platform_tenant_id=tenant.id,
                 name=role_name,
                 display_name=role_name.replace("_", " ").title(),
                 is_system_role=True
@@ -560,15 +557,24 @@ async def create_platform_tenant(
 
 async def create_platform_user(
     db_session: AsyncSession,
-    platform_tenant_id: UUID,
     email: str,
     firebase_uid: str = None,
     role_name: str = "platform_admin",
-    name: str = None
+    name: str = None,
+    platform_tenant_id: UUID = None  # Optional for backward compatibility
 ):
     """Create a platform user - Idempotent"""
-    from services.platform.models import PlatformUser, PlatformRole
+    from services.platform.models import PlatformUser, PlatformRole, PlatformTenant
     from sqlalchemy import select
+    
+    # Get or create platform tenant if not provided
+    if not platform_tenant_id:
+        result = await db_session.execute(select(PlatformTenant))
+        tenant = result.scalar_one_or_none()
+        if not tenant:
+            # Create minimal tenant for testing
+            tenant = await create_platform_tenant(db_session)
+        platform_tenant_id = tenant.id
     
     # Check if exists
     result = await db_session.execute(
@@ -581,7 +587,6 @@ async def create_platform_user(
     # Get role
     result = await db_session.execute(
         select(PlatformRole)
-        .where(PlatformRole.platform_tenant_id == platform_tenant_id)
         .where(PlatformRole.name == role_name)
     )
     role = result.scalar_one_or_none()

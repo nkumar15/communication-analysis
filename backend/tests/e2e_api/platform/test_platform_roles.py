@@ -47,7 +47,7 @@ class TestPlatformRoles:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=unique_email,
             role_name="platform_admin"
         )
@@ -96,7 +96,7 @@ class TestPlatformRoles:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=unique_email,
             role_name="platform_admin"
         )
@@ -171,7 +171,7 @@ class TestPlatformRoles:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=unique_email,
             role_name="platform_admin"
         )

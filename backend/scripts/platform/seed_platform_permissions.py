@@ -2,6 +2,7 @@
 Seed Platform Permissions
 
 Populates platform_permissions table with granular permissions for system roles.
+Creates roles if they don't exist (self-contained).
 Usage: python scripts/platform/seed_platform_permissions.py
 """
 import asyncio
@@ -34,6 +35,31 @@ def load_role_permissions():
         print(f"❌ Error parsing YAML: {exc}")
         sys.exit(1)
 
+async def ensure_role_exists(db: AsyncSession, role_name: str, role_config: dict):
+    """Ensure role exists, create if not (system-level, no tenant)"""
+    result = await db.execute(
+        select(PlatformRole).where(PlatformRole.name == role_name)
+    )
+    role = result.scalar_one_or_none()
+    
+    if not role:
+        # Get role metadata from YAML or use defaults
+        display_name = role_config.get('display_name', role_name.replace('_', ' ').title())
+        description = role_config.get('description', f"{display_name} role")
+        
+        role = PlatformRole(
+            name=role_name,
+            display_name=display_name,
+            description=description,
+            is_system_role=True
+        )
+        db.add(role)
+        await db.flush()
+        await db.refresh(role)
+        print(f"   ✅ Created role: {display_name}")
+    
+    return role
+
 async def seed_permissions():
     print("🌱 Seeding Platform Permissions...")
     
@@ -44,24 +70,16 @@ async def seed_permissions():
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as db:
-        # Get system roles
-        result = await db.execute(select(PlatformRole))
-        roles = result.scalars().all()
-        
-        role_map = {r.name: r for r in roles}
-        
-        for role_name, perms in role_permissions.items():
-            role = role_map.get(role_name)
-            if not role:
-                print(f"⚠️ Role {role_name} not found, ask to run seed_system_tenant.py first")
-                continue
-                
-            print(f"\n🔐 Processing {role_name} (ID: {role.id})...")
+        # Process each role and its permissions
+        for role_name, role_config in role_permissions.items():
+            print(f"\n🔐 Processing {role_name}...")
             
+            # Ensure role exists (system-level, no tenant)
+            role = await ensure_role_exists(db, role_name, role_config)
+            
+            # Add permissions
+            perms = role_config.get('permissions', [])
             current_count = 0
-            # Delete existing to reset/update
-            # In a real prod migration we might valid difference, but for seed it's safer to clear & re-add
-            # Or check existence. Let's check existence to be safe.
             
             for perm in perms:
                 # Check if exists
@@ -95,3 +113,4 @@ async def seed_permissions():
 
 if __name__ == "__main__":
     asyncio.run(seed_permissions())
+

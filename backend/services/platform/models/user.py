@@ -5,16 +5,15 @@ from sqlalchemy.orm import relationship
 
 class PlatformRole(Base, TimestampMixin):
     """
-    Platform Role model - Roles specific to platform users.
+    Platform Role model - System-level roles for platform users.
     
     Examples: platform_admin, support_staff, billing_manager
-    Completely separate from customer tenant roles.
+    These are system-level and independent of any platform tenant.
     """
     __tablename__ = "platform_roles"
     __table_args__ = {'schema': 'platform'}
     
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
-    platform_tenant_id = Column(UUID(as_uuid=True), ForeignKey('platform.platform_tenant.id', ondelete='CASCADE'), nullable=False, index=True)
     
     name = Column(String(50), unique=True, nullable=False, index=True)
     display_name = Column(String(100), nullable=False)

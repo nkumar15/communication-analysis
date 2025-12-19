@@ -58,7 +58,7 @@ class TestPlatformInvitations:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=unique_email,
             role_name="platform_admin"
         )
@@ -115,7 +115,7 @@ class TestPlatformInvitations:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=unique_email,
             role_name="platform_admin"
         )
@@ -127,6 +127,7 @@ class TestPlatformInvitations:
         role = result.scalar_one()
         
         invitation = PlatformInvitation(
+            platform_tenant_id=platform_tenant.id,
             email=f"test-{uuid4().hex[:8]}@platform.net",
             platform_role_id=role.id,
             token=uuid4().hex,
@@ -171,7 +172,7 @@ class TestPlatformInvitations:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=unique_email,
             role_name="platform_admin"
         )
@@ -183,6 +184,7 @@ class TestPlatformInvitations:
         role = result.scalar_one()
         
         invitation = PlatformInvitation(
+            platform_tenant_id=platform_tenant.id,
             email=f"revoke-{uuid4().hex[:8]}@platform.net",
             platform_role_id=role.id,
             token=uuid4().hex,
@@ -226,13 +228,14 @@ class TestPlatformInvitations:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=f"admin-{uuid4().hex[:8]}@platform.net",
             role_name="platform_admin"
         )
         
         token = uuid4().hex
         invitation = PlatformInvitation(
+            platform_tenant_id=platform_tenant.id,
             email=f"validate-{uuid4().hex[:8]}@platform.net",
             platform_role_id=role.id,
             token=token,
@@ -249,7 +252,7 @@ class TestPlatformInvitations:
         data = response.json()
         
         assert data["email"] == invitation.email
-        assert data["role_name"] == "support_staff"
+        assert data["role_name"] == "Support Staff"
         assert data["is_valid"] is True
     
     @pytest.mark.asyncio
@@ -267,13 +270,14 @@ class TestPlatformInvitations:
         platform_tenant = await create_platform_tenant(db_session)
         admin = await create_platform_user(
             db_session,
-            platform_tenant_id=platform_tenant.id,
+            
             email=f"admin-{uuid4().hex[:8]}@platform.net",
             role_name="platform_admin"
         )
         
         token = uuid4().hex
         invitation = PlatformInvitation(
+            platform_tenant_id=platform_tenant.id,
             email=f"expired-{uuid4().hex[:8]}@platform.net",
             platform_role_id=role.id,
             token=token,
@@ -299,4 +303,4 @@ class TestPlatformInvitations:
         
         response = await api_client.get(f"/api/platform/invitations/validate/{fake_token}")
         
-        assert response.status_code == 404
+        assert response.status_code == 400

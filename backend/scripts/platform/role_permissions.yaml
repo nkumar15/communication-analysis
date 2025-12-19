@@ -1,24 +1,36 @@
 roles:
   platform_admin:
-    - resource: "*"
-      action: "*"
+    display_name: "Platform Administrator"
+    description: "Full access to platform management and configuration"
+    permissions:
+      - resource: "*"
+        action: "*"
+  
   support_staff:
-    - resource: "tenants"
-      action: "read"
-    - resource: "tenants"
-      action: "impersonate"
-    - resource: "users"
-      action: "read"
-    - resource: "audit_logs"
-      action: "read"
-    - resource: "invitations"
-      action: "read"
+    display_name: "Support Staff"
+    description: "Customer support and troubleshooting access"
+    permissions:
+      - resource: "tenants"
+        action: "read"
+      - resource: "tenants"
+        action: "impersonate"
+      - resource: "users"
+        action: "read"
+      - resource: "audit_logs"
+        action: "read"
+      - resource: "invitations"
+        action: "read"
+  
   billing_manager:
-    - resource: "tenants"
-      action: "read"
-    - resource: "billing"
-      action: "*"
-    - resource: "subscriptions"
-      action: "*"
-    - resource: "invoices"
-      action: "*"
+    display_name: "Billing Manager"
+    description: "Billing, subscriptions, and payment management"
+    permissions:
+      - resource: "tenants"
+        action: "read"
+      - resource: "billing"
+        action: "*"
+      - resource: "subscriptions"
+        action: "*"
+      - resource: "invoices"
+        action: "*"
+

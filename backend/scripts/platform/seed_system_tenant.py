@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.platform.models import PlatformTenant, PlatformRole
+from services.platform.models.auth_provider import PlatformAuthProvider
 from core.config import settings
 
 async def seed_platform_system(
@@ -40,7 +41,7 @@ async def seed_platform_system(
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as db:
-        # 1. Check/Create Platform Tenant (singleton)
+        # 1. Get or Create Platform Tenant (singleton)
         result = await db.execute(select(PlatformTenant))
         platform_tenant = result.scalar_one_or_none()
         
@@ -49,46 +50,45 @@ async def seed_platform_system(
             platform_tenant = PlatformTenant(
                 name=platform_name,
                 firebase_tenant_id=firebase_tenant_id,
-                email_domain=email_domain
+                email_domain=email_domain,
+                is_active=True
             )
             db.add(platform_tenant)
             await db.flush()
             await db.refresh(platform_tenant)
-            
             print(f"   ✅ Platform Tenant: {platform_tenant.id}")
-            
-            # 2. Create auth provider record for platform
-            print(f"\n2️⃣ Creating Platform Auth Provider...")
-            from services.platform.models.auth_provider import PlatformAuthProvider
-            
-            # Check if auth provider already exists
-            result = await db.execute(
-                select(PlatformAuthProvider).where(
-                    PlatformAuthProvider.platform_tenant_id == platform_tenant.id
-                )
-            )
-            existing_provider = result.scalar_one_or_none()
-            
-            if not existing_provider:
-                auth_provider = PlatformAuthProvider(
-                    platform_tenant_id=platform_tenant.id,
-                    provider_type='oidc',  # Default to OIDC
-                    provider_id=oidc_provider_id,
-                    display_name='Platform SSO',
-                    is_primary=True,
-                    is_active=True
-                )
-                db.add(auth_provider)
-                await db.flush()
-                print(f"   ✅ Auth Provider: {oidc_provider_id}")
-            else:
-                print(f"   ℹ️  Auth Provider already exists")
-            
-            # 3. Seed Platform Roles
         else:
+            # Update existing tenant with Firebase configuration
             print(f"   ℹ️  Platform Tenant already exists: {platform_tenant.name}")
+            print(f"   🔄 Updating Firebase configuration...")
+            platform_tenant.firebase_tenant_id = firebase_tenant_id
+            platform_tenant.email_domain = email_domain
+            platform_tenant.name = platform_name
+            platform_tenant.is_active = True  # Activate now that it's configured
+            await db.flush()
+            print(f"   ✅ Firebase Tenant ID: {firebase_tenant_id}")
         
-        # 2. Create Platform Roles
+        # 2. Create auth provider record for platform (if not exists)
+        if not await db.scalar(select(PlatformAuthProvider).where(
+            PlatformAuthProvider.platform_tenant_id == platform_tenant.id
+        )):
+            print(f"\n2️⃣ Creating Platform Auth Provider...")
+            
+            auth_provider = PlatformAuthProvider(
+                platform_tenant_id=platform_tenant.id,
+                provider_type='oidc',  # Default to OIDC
+                provider_id=oidc_provider_id,
+                display_name='Platform SSO',
+                is_primary=True,
+                is_active=True
+            )
+            db.add(auth_provider)
+            await db.flush()
+            print(f"   ✅ Auth Provider: {oidc_provider_id}")
+        else:
+            print(f"   ℹ️  Auth Provider already exists")
+        
+        # 3. Seed Platform Roles (if not already created by seed_platform_permissions.py)
         role_definitions = [
             {
                 "name": "platform_admin",
@@ -121,7 +121,6 @@ async def seed_platform_system(
             
             if not existing_role:
                 new_role = PlatformRole(
-                    platform_tenant_id=platform_tenant.id,
                     **role_def
                 )
                 db.add(new_role)

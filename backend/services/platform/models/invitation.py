@@ -28,4 +28,8 @@ class PlatformInvitation(Base, TimestampMixin):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     
     invited_by = Column(UUID(as_uuid=True), ForeignKey('platform.platform_users.id'), nullable=False)
-    status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING, nullable=False)
+    status = Column(
+        Enum(InvitationStatus, name='invitation_status', schema='platform', values_callable=lambda x: [e.value for e in x]),
+        default=InvitationStatus.PENDING,
+        nullable=False
+    )

@@ -64,7 +64,6 @@ async def create_role(
         raise HTTPException(status_code=400, detail=f"Role {role_in.name} already exists")
 
     new_role = PlatformRole(
-        platform_tenant_id=UUID(current_user["tenant_id"]),
         name=role_in.name,
         display_name=role_in.display_name,
         description=role_in.description,
