@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import csv
 import io
 
@@ -113,7 +113,7 @@ async def export_audit_logs(
             output.seek(0)
             output.truncate(0)
 
-    filename = f"audit_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"audit_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
     return StreamingResponse(
         iter_csv(),
         media_type="text/csv",

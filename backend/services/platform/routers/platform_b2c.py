@@ -13,7 +13,7 @@ from services.platform.middleware.platform_auth import verify_platform_admin
 from services.b2c.models.subscription_plan import SubscriptionPlan
 from services.platform.schemas.plan_schemas import PlanCreate, PlanResponse, PlanUpdate
 from sqlalchemy import select, desc
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from typing import List
 
@@ -106,7 +106,7 @@ async def create_plan_version(
         provider_config=plan.provider_config,
         limits=plan.limits,
         features=plan.features,
-        effective_from=plan.effective_from or datetime.now(), # Effective from provided date or immediately
+        effective_from=plan.effective_from or datetime.now(timezone.utc), # Effective from provided date or immediately
         created_by=UUID(admin['uid']) if 'uid' in admin else None
     )
     db.add(new_plan)
@@ -129,7 +129,7 @@ async def archive_plan(
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
         
-    plan.archived_at = datetime.now()
+    plan.archived_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(plan)
     return plan

@@ -3,7 +3,7 @@
 Platform B2B API Router - Enterprise Tenant Management
 All B2B-related endpoints under /api/platform/b2b/*
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from typing import List, Optional
 from sqlalchemy import select, func, desc
@@ -294,7 +294,7 @@ async def impersonate_tenant_admin(
         "role": B2BRoleName.OWNER if (owner_role and target_user.role_id == owner_role.id) else B2BRoleName.ADMIN,
         "type": "impersonation",
         "impersonator": current_user["email"],
-        "exp": datetime.utcnow() + timedelta(minutes=60)
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=60)
     }
     
     token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
@@ -548,7 +548,7 @@ async def create_plan_version(
         limits=plan.limits,
         features=plan.features,
         provider_config=plan.provider_config,
-        effective_from=plan.effective_from or datetime.now()
+        effective_from=plan.effective_from or datetime.now(timezone.utc)
     )
     db.add(new_plan)
     await db.commit()
@@ -576,7 +576,7 @@ async def archive_plan(
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
         
-    plan.archived_at = datetime.now()
+    plan.archived_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(plan)
     

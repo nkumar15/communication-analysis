@@ -11,7 +11,7 @@ from typing import List
 from uuid import UUID
 from io import StringIO
 import csv
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.database import get_db
 from core.middleware import get_current_user
@@ -548,7 +548,7 @@ async def download_bulk_results(
         })
     
     output.seek(0)
-    filename = f"bulk_invite_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"bulk_invite_results_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
     
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -597,7 +597,7 @@ async def download_failures(
         })
     
     output.seek(0)
-    filename = f"bulk_invite_failures_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"bulk_invite_failures_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
     
     return StreamingResponse(
         iter([output.getvalue()]),

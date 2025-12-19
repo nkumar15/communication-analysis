@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -190,7 +190,7 @@ class InvitationService:
         """
         result = await db.execute(
             select(InvitationModel)
-            .where(InvitationModel.expires_at < datetime.utcnow())
+            .where(InvitationModel.expires_at < datetime.now(timezone.utc))
             .where(InvitationModel.accepted_at.is_(None))
         )
         expired_invitations = result.scalars().all()

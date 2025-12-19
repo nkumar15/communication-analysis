@@ -108,12 +108,12 @@ class SubscriptionStatusChecker:
         if status in GRACE_PERIOD_STATUSES:
             grace_period_ends = subscription.current_period_end + timedelta(days=GRACE_PERIOD_DAYS)
             
-            if datetime.now() < grace_period_ends:
+            if datetime.now(timezone.utc) < grace_period_ends:
                 # Still in grace period - allow access with warning
                 return True, "grace_period", {
                     "message": "Your payment failed. Please update your payment method to continue service.",
                     "grace_period_ends": grace_period_ends.isoformat(),
-                    "days_remaining": (grace_period_ends - datetime.now()).days
+                    "days_remaining": (grace_period_ends - datetime.now(timezone.utc)).days
                 }
             else:
                 # Grace period expired - block access

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
 from typing import List
 from uuid import UUID, uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 
 from core.database import get_db
@@ -63,7 +63,7 @@ async def invite_user(
         email=req.email,
         platform_role_id=req.role_id,
         token=token,
-        expires_at=datetime.utcnow() + timedelta(days=7),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
         invited_by=UUID(current_user["id"]),
         status=InvitationStatus.PENDING
     )
@@ -124,7 +124,7 @@ async def validate_token(token: str, db: AsyncSession = Depends(get_db)):
     stmt = select(PlatformInvitation, PlatformRole).join(PlatformRole).where(
         PlatformInvitation.token == token,
         PlatformInvitation.status == InvitationStatus.PENDING,
-        PlatformInvitation.expires_at > datetime.utcnow()
+        PlatformInvitation.expires_at > datetime.now(timezone.utc)
     )
     res = await db.execute(stmt)
     row = res.first()

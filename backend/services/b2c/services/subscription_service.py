@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import Optional, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from core.payment import PaymentProviderFactory
@@ -143,7 +143,7 @@ class SubscriptionService:
         # Look for a plan with matching tier_key that is currently effective
         stmt = select(SubscriptionPlan).where(
             SubscriptionPlan.tier_key == tier,
-            SubscriptionPlan.effective_from <= datetime.now(),
+            SubscriptionPlan.effective_from <= datetime.now(timezone.utc),
             SubscriptionPlan.archived_at.is_(None)
         ).order_by(SubscriptionPlan.effective_from.desc()).limit(1)
         
@@ -276,16 +276,16 @@ class SubscriptionService:
         
         # Handle start date
         start_ts = subscription_data.get('current_period_start') or subscription_data.get('start_date') or subscription_data.get('created')
-        subscription.current_period_start = datetime.fromtimestamp(start_ts) if start_ts else datetime.now()
+        subscription.current_period_start = datetime.fromtimestamp(start_ts, tz=timezone.utc) if start_ts else datetime.now(timezone.utc)
         
         # Handle end date
         end_ts = subscription_data.get('current_period_end')
         if end_ts:
-            subscription.current_period_end = datetime.fromtimestamp(end_ts)
+            subscription.current_period_end = datetime.fromtimestamp(end_ts, tz=timezone.utc)
         else:
             # Fallback: calculate based on billing interval or default to 30 days
             import time
-            subscription.current_period_end = datetime.fromtimestamp(time.time() + 30*24*60*60)
+            subscription.current_period_end = datetime.fromtimestamp(time.time() + 30*24*60*60, tz=timezone.utc)
          
         # Make sure cancel_at_period_end is boolean
         subscription.cancel_at_period_end = bool(subscription_data.get('cancel_at_period_end'))
@@ -400,12 +400,12 @@ class SubscriptionService:
         
         # Update status and period
         subscription.status = subscription_data.get('status')
-        subscription.current_period_start = datetime.fromtimestamp(subscription_data['current_period_start'])
-        subscription.current_period_end = datetime.fromtimestamp(subscription_data['current_period_end'])
+        subscription.current_period_start = datetime.fromtimestamp(subscription_data['current_period_start'], tz=timezone.utc)
+        subscription.current_period_end = datetime.fromtimestamp(subscription_data['current_period_end'], tz=timezone.utc)
         subscription.cancel_at_period_end = subscription_data.get('cancel_at_period_end', False)
         
         if subscription_data.get('canceled_at'):
-            subscription.canceled_at = datetime.fromtimestamp(subscription_data['canceled_at'])
+            subscription.canceled_at = datetime.fromtimestamp(subscription_data['canceled_at'], tz=timezone.utc)
 
         # Fix: Sync Plan/Tier from Price ID
         # When user upgrades/downgrades via Portal, `items` array has the new Price ID.
@@ -591,9 +591,9 @@ class SubscriptionService:
         invoice.hosted_invoice_url = invoice_data.get('hosted_invoice_url')
         
         if invoice_data.get('created'):
-            invoice.invoice_date = datetime.fromtimestamp(invoice_data['created'])
+            invoice.invoice_date = datetime.fromtimestamp(invoice_data['created'], tz=timezone.utc)
         if invoice_data.get('status_transitions', {}).get('paid_at'):
-            invoice.paid_at = datetime.fromtimestamp(invoice_data['status_transitions']['paid_at'])
+            invoice.paid_at = datetime.fromtimestamp(invoice_data['status_transitions']['paid_at'], tz=timezone.utc)
         
         await self.db.flush()
         

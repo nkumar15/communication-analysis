@@ -155,8 +155,8 @@ class AuthService:
             )
             
             # Update last login
-            from datetime import datetime
-            user.last_login_at = datetime.utcnow()
+            from datetime import datetime, timezone
+            user.last_login_at = datetime.now(timezone.utc)
             await db.flush()
             return user
         

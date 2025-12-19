@@ -11,7 +11,7 @@ from typing import List
 from core.database import get_db
 from services.b2c.models.subscription_plan import SubscriptionPlan
 from services.platform.schemas.plan_schemas import PlanResponse
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/b2c/plans", tags=["B2C Plans"])
 
@@ -29,7 +29,7 @@ async def list_public_plans(
     # For now, simplistic approach: Get all active versions.
     
     stmt = select(SubscriptionPlan).where(
-        SubscriptionPlan.effective_from <= datetime.now(),
+        SubscriptionPlan.effective_from <= datetime.now(timezone.utc),
         SubscriptionPlan.archived_at.is_(None)
     ).order_by(SubscriptionPlan.price_monthly.asc())
     
