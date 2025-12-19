@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import secrets
 
 from core.database import get_db
-from services.platform.middleware.platform_auth import verify_platform_admin, RequirePlatformRole
+from services.platform.middleware.platform_auth import verify_platform_admin, RequirePlatformPermission
 from services.platform.models import PlatformInvitation, InvitationStatus, PlatformRole
 
 router = APIRouter(
@@ -39,7 +39,7 @@ class PublicInviteInfo(BaseModel):
 async def invite_user(
     req: InviteRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(RequirePlatformRole(["platform_admin"]))
+    current_user: dict = Depends(RequirePlatformPermission("invitations", "write"))
 ):
     """Invite a new user to the platform"""
     # Verify role exists
@@ -86,7 +86,7 @@ async def invite_user(
 @router.get("/", response_model=List[InviteResponse])
 async def list_invitations(
     db: AsyncSession = Depends(get_db),
-    _: dict = Depends(verify_platform_admin)
+    _: dict = Depends(RequirePlatformPermission("invitations", "read"))
 ):
     stmt = select(PlatformInvitation, PlatformRole).join(PlatformRole)
     result = await db.execute(stmt)
@@ -108,7 +108,7 @@ async def list_invitations(
 async def revoke_invitation(
     invite_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: dict = Depends(RequirePlatformRole(["platform_admin"]))
+    _: dict = Depends(RequirePlatformPermission("invitations", "write"))
 ):
     invite = await db.get(PlatformInvitation, invite_id)
     if not invite:

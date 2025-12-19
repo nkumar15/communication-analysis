@@ -72,25 +72,11 @@ async def get_platform_admin_info(
     
     Separate endpoint for platform admins to avoid mixing with tenant user logic
     """
-    result = await db.execute(
-        select(PlatformUser, PlatformRole, PlatformTenant)
-        .join(PlatformRole, PlatformUser.platform_role_id == PlatformRole.id)
-        .join(PlatformTenant, PlatformUser.platform_tenant_id == PlatformTenant.id)
-        .where(PlatformUser.id == current_user["id"])
-    )
-    row = result.first()
-    
-    if not row:
-        raise HTTPException(status_code=404, detail="Platform admin user not found")
-        
-    user, role, tenant = row
-    
     return {
-        "id": str(user.id),
-        "email": user.email,
-        "name": user.display_name,
-        "role": role.name,
-        "role_display_name": role.display_name,
-        "tenant_id": str(tenant.id),
-        "tenant_name": tenant.name
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "name": current_user["display_name"],
+        "role": current_user["role"],
+        "permissions": current_user.get("permissions", []),
+        "tenant_id": current_user["tenant_id"]
     }

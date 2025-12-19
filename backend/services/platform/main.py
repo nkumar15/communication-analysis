@@ -23,7 +23,7 @@ from core.logging.middleware import LoggingMiddleware
 logger = get_logger(__name__)
 
 # Import Platform routers
-from services.platform.routers import platform, platform_b2b, platform_b2c
+from services.platform.routers import platform, platform_b2b, platform_b2c, roles, invitations
 
 
 @asynccontextmanager
@@ -81,6 +81,8 @@ app.add_middleware(LoggingMiddleware)
 app.include_router(platform.router)      # Core platform endpoints (/api/platform/config, /api/platform/auth/me)
 app.include_router(platform_b2b.router)  # B2B endpoints (/api/platform/b2b/*)
 app.include_router(platform_b2c.router)  # B2C endpoints (/api/platform/b2c/*)
+app.include_router(roles.router)         # Platform roles management (/api/platform/roles)
+app.include_router(invitations.router)   # Platform user invitations (/api/platform/invitations)
 
 
 @app.get("/")

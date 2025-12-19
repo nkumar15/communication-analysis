@@ -113,6 +113,21 @@ function SuperAdminLayout() {
                         <Link to="/audit-logs" className={`platform-nav-item ${isActive('/audit-logs') ? 'active' : ''}`}>
                             <span>📋 Audit Logs</span>
                         </Link>
+
+                        <div className="my-2 border-t border-gray-700"></div>
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            Management
+                        </div>
+
+                        <Link to="/roles" className={`platform-nav-item ${isActive('/roles') ? 'active' : ''}`}>
+                            <span>🛡️ Roles</span>
+                        </Link>
+                        <Link to="/users" className={`platform-nav-item ${isActive('/users') ? 'active' : ''}`}>
+                            <span>👥 Users</span>
+                        </Link>
+
+                        <div className="my-2 border-t border-gray-700"></div>
+
                         <Link to="/settings" className={`platform-nav-item ${isActive('/settings') ? 'active' : ''}`}>
                             <span>⚙️ Settings</span>
                         </Link>

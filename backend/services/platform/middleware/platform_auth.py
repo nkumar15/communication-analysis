@@ -83,13 +83,17 @@ async def verify_platform_admin(
     # For now, explicit setting in router is safer.
     await db.commit()
     
+    # Serialize permissions for easy access
+    permissions = [{"resource": p.resource, "action": p.action} for p in platform_role.permissions]
+    
     return {
         "id": str(platform_user.id),
         "email": platform_user.email,
         "role": platform_role.name,
         "display_name": platform_user.display_name,
         "firebase_uid": platform_user.firebase_uid,
-        "tenant_id": str(platform_user.platform_tenant_id)
+        "tenant_id": str(platform_user.platform_tenant_id),
+        "permissions": permissions
     }
 
 
@@ -118,8 +122,6 @@ async def log_platform_action(
     """
     if not db:
         return  # Can't log without DB session
-    
-
     
     audit_entry = PlatformAuditLog(
         platform_tenant_id=admin["tenant_id"],
@@ -158,12 +160,7 @@ class RequirePlatformRole:
     """
     Dependency factory for checking platform user roles.
     
-    Usage:
-        @router.get(...)
-        async def endpoint(
-            user: dict = Depends(RequirePlatformRole([PlatformRoleName.PLATFORM_ADMIN]))
-        ):
-            ...
+    DEPRECATED: Use RequirePlatformPermission instead for granular control.
     """
     def __init__(self, allowed_roles: list[str]):
         self.allowed_roles = allowed_roles
@@ -175,3 +172,40 @@ class RequirePlatformRole:
                 detail=f"Insufficient permissions. Required one of: {self.allowed_roles}"
             )
         return current_user
+
+
+class RequirePlatformPermission:
+    """
+    Dependency factory for checking platform user permissions.
+    Supports wildcard '*' for resource or action.
+    
+    Usage:
+        @router.get(...)
+        async def endpoint(
+            user: dict = Depends(RequirePlatformPermission("tenants", "read"))
+        ):
+    """
+    def __init__(self, resource: str, action: str):
+        self.resource = resource
+        self.action = action
+        
+    async def __call__(self, current_user: dict = Depends(verify_platform_admin)):
+        if self._has_permission(current_user["permissions"]):
+            return current_user
+            
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Insufficient permissions. Required: {self.resource}:{self.action}"
+        )
+
+    def _has_permission(self, user_permissions: list[dict]) -> bool:
+        for p in user_permissions:
+            # Check Resource (Partial or exact match)
+            # Wildcard '*' matches ANY resource
+            if p["resource"] == "*" or p["resource"] == self.resource:
+                
+                # Check Action
+                # Wildcard '*' matches ANY action
+                if p["action"] == "*" or p["action"] == self.action:
+                    return True
+        return False

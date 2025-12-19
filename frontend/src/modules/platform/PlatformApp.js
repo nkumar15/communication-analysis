@@ -15,6 +15,8 @@ import AuditLogsPage from './web/pages/AuditLogsPage';
 import SystemHealthPage from './web/pages/SystemHealthPage';
 import PlanManagementPage from './web/pages/PlanManagementPage';
 import B2BPlanManagementPage from './web/pages/B2BPlanManagementPage';
+import RolesPage from './pages/RolesPage';
+import UsersPage from './pages/UsersPage';
 import PlatformLogin from './web/pages/LoginPage';
 import PlatformAdminRoute from '../../core/components/PlatformAdminRoute';
 import firebaseAuthService from '../../core/firebase/authService';
@@ -52,6 +54,8 @@ function PlatformApp() {
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/tenants" element={<TenantList />} />
                         <Route path="/tenants/:tenantId" element={<TenantDetailsPage />} />
+                        <Route path="/roles" element={<RolesPage />} />
+                        <Route path="/users" element={<UsersPage />} />
                         <Route path="/workspaces" element={<WorkspacesPage />} />
                         <Route path="/analytics" element={<AnalyticsPage />} />
                         <Route path="/audit-logs" element={<AuditLogsPage />} />

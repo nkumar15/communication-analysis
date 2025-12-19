@@ -6,7 +6,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from core.database import get_db
-from services.platform.middleware.platform_auth import verify_platform_admin, RequirePlatformRole
+from services.platform.middleware.platform_auth import verify_platform_admin, RequirePlatformPermission
 from services.platform.models import PlatformRole, PlatformPermission
 
 router = APIRouter(
@@ -40,7 +40,7 @@ class RoleResponse(BaseModel):
 @router.get("/", response_model=List[RoleResponse])
 async def list_roles(
     db: AsyncSession = Depends(get_db),
-    _: dict = Depends(verify_platform_admin)
+    _: dict = Depends(RequirePlatformPermission("users", "read"))
 ):
     """List all platform roles with permissions"""
     result = await db.execute(select(PlatformRole).order_by(PlatformRole.name))
@@ -52,7 +52,7 @@ async def list_roles(
 async def create_role(
     role_in: RoleCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(RequirePlatformRole(["platform_admin"]))
+    current_user: dict = Depends(RequirePlatformPermission("users", "write"))
 ):
     """Create a new custom platform role"""
     # Check duplicate
