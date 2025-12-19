@@ -156,23 +156,6 @@ def get_client_ip(request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-class RequirePlatformRole:
-    """
-    Dependency factory for checking platform user roles.
-    
-    DEPRECATED: Use RequirePlatformPermission instead for granular control.
-    """
-    def __init__(self, allowed_roles: list[str]):
-        self.allowed_roles = allowed_roles
-        
-    async def __call__(self, current_user: dict = Depends(verify_platform_admin)):
-        if current_user["role"] not in self.allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Insufficient permissions. Required one of: {self.allowed_roles}"
-            )
-        return current_user
-
 
 class RequirePlatformPermission:
     """
