@@ -3,7 +3,7 @@ Activation Schemas
 
 Schemas for tenant activation workflow.
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from uuid import UUID
 
@@ -13,7 +13,7 @@ class ActivationValidationResponse(BaseModel):
     tenant_id: UUID
     tenant_name: str
     domain: str
-    admin_email: str
+    admin_email: EmailStr
     expires_at: datetime
 
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, List
 
 class TeamBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Team name")
-    description: Optional[str] = Field(None, description="Team description")
+    description: Optional[str] = Field(None, max_length=1000, description="Team description")
     config_data: Dict[str, Any] = Field(default_factory=dict, description="Additional team configuration")
 
 class TeamCreate(TeamBase):
@@ -74,7 +74,7 @@ class TeamMemberResponse(BaseModel):
     team_id: UUID
     user_id: UUID
     team_role: str
-    user_email: str
+    user_email: EmailStr
     user_name: Optional[str]
     joined_at: datetime
     

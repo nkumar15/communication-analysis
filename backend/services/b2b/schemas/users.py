@@ -3,7 +3,7 @@ User Management Schemas
 """
 from uuid import UUID
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
 
@@ -11,7 +11,7 @@ class UserResponse(BaseModel):
     """User information response"""
     id: UUID
     name: Optional[str] = None
-    email: str
+    email: EmailStr
     role: str
     is_active: bool
     last_login: Optional[datetime] = None

@@ -18,7 +18,7 @@ class AuthProviderType(str, Enum):
 class AuthProviderBase(BaseModel):
     """Base schema for auth provider"""
     provider_type: AuthProviderType
-    provider_id: str = Field(..., description="Firebase provider identifier (e.g., 'oidc.auth0')")
+    provider_id: str = Field(..., max_length=255, description="Firebase provider identifier (e.g., 'oidc.auth0')")
     display_name: Optional[str] = Field(None, description="Human-readable name")
     is_primary: bool = Field(False, description="Primary authentication provider for this tenant")
     is_active: bool = Field(True, description="Whether this provider is active")
