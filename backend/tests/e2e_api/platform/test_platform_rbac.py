@@ -18,19 +18,19 @@ async def platform_rbac_setup(db_session: AsyncSession):
     
     # Create Admin
     admin_user = await create_platform_user(
-        db_session, tenant.id, f"admin-{uuid4().hex[:8]}@platform.local", role_name="platform_admin"
+        db_session, email=f"admin-{uuid4().hex[:8]}@platform.local", role_name="platform_admin"
     )
     admin_token = encode_mock_jwt(create_mock_firebase_token(admin_user.firebase_uid, admin_user.email, firebase_tenant_id=tenant.firebase_tenant_id))
 
     # Create Support
     support_user = await create_platform_user(
-        db_session, tenant.id, f"support-{uuid4().hex[:8]}@platform.local", role_name="support_staff"
+        db_session, email=f"support-{uuid4().hex[:8]}@platform.local", role_name="support_staff"
     )
     support_token = encode_mock_jwt(create_mock_firebase_token(support_user.firebase_uid, support_user.email, firebase_tenant_id=tenant.firebase_tenant_id))
 
     # Create Billing
     billing_user = await create_platform_user(
-        db_session, tenant.id, f"billing-{uuid4().hex[:8]}@platform.local", role_name="billing_manager"
+        db_session, email=f"billing-{uuid4().hex[:8]}@platform.local", role_name="billing_manager"
     )
     billing_token = encode_mock_jwt(create_mock_firebase_token(billing_user.firebase_uid, billing_user.email, firebase_tenant_id=tenant.firebase_tenant_id))
 
@@ -131,13 +131,13 @@ async def test_billing_manager_access(api_client: AsyncClient, platform_rbac_set
     resp = await api_client.get("/api/platform/b2b/tenants", headers=headers)
     assert resp.status_code == 200
     
-    # 2. Deactivate (Allow)
+    # 2. Deactivate (Deny - NO tenants:write permission)
     resp = await api_client.patch(f"/api/platform/b2b/tenants/{tenant_id}/deactivate", headers=headers)
-    assert resp.status_code == 200
+    assert resp.status_code == 403
     
-    # 3. Reactivate (Allow)
+    # 3. Reactivate (Deny - NO tenants:write permission)
     resp = await api_client.patch(f"/api/platform/b2b/tenants/{tenant_id}/reactivate", headers=headers)
-    assert resp.status_code == 200
+    assert resp.status_code == 403
     
     # 4. Create Tenant (Deny)
     resp = await api_client.post("/api/platform/b2b/tenants", headers=headers, json={
