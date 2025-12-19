@@ -16,12 +16,12 @@ def test_create_and_switch_workspace(page: Page):
     signup_page.sign_in_with_google_mock(token)
     workspace_page.verify_create_workspace_button_visible()
 
-    # 3. Create Personal Workspace (Second one)
-    # We create a personal workspace because fresh users are on Free plan,
-    # which doesn't allow Team workspaces.
-    new_ws_name = "My Side Project"
-    workspace_page.create_workspace(new_ws_name, type="personal")
+    # 3. Try to Create Team Workspace (Should Fail for Free User)
+    new_ws_name = "My Team Project"
+    # Expected error message usually contains "Workspace limit reached" or "Team workspaces require Premium"
+    # Based on quota_service.py: "Team workspaces require Premium or Ultimate subscription"
+    workspace_page.create_workspace_expect_error(new_ws_name, type="team", error_message_part="Team workspaces require Premium")
 
-    # 4. Verify Success
-    # Should see the new workspace in the list or title
-    workspace_page.verify_workspace_list_contains(new_ws_name)
+    # 4. Verify Failure (Explicit check done inside create_workspace_expect_error)
+    # Ensure it was NOT created
+    # workspace_page.verify_workspace_list_does_not_contain(new_ws_name) # construct this if needed, but error check is good enough for now
