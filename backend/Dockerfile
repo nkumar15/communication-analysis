@@ -66,7 +66,12 @@ RUN uv pip install --system --no-cache -r requirements.txt && \
     uv pip install --system --no-cache -r requirements-test.txt
 
 # Install Playwright browsers (Heavy, cached)
-RUN playwright install chromium
+# Set fixed path for browsers so both root and appuser can find them
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN mkdir -p /ms-playwright && chmod 777 /ms-playwright
+
+# Install Playwright browsers (Heavy, cached)
+RUN playwright install chromium && chmod -R 777 /ms-playwright
 
 # ==========================================
 # 4. Production Stages (Microservices)

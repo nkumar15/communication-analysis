@@ -109,10 +109,15 @@ class Settings(BaseSettings):
         if docker_path.exists():
             return str(docker_path)
         
-        # Try local path (relative to backend directory)
-        local_path = Path(__file__).parent.parent / "secrets" / "firebase-credentials.json"
-        if local_path.exists():
-            return str(local_path)
+        # Try local path (relative to backend directory - e.g. backend/secrets)
+        local_backend_secrets = Path(__file__).parent.parent / "secrets" / "firebase-credentials.json"
+        if local_backend_secrets.exists():
+            return str(local_backend_secrets)
+
+        # Try project root (up one more level - e.g. enterprisesso/secrets)
+        project_root_secrets = Path(__file__).parent.parent.parent / "secrets" / "firebase-credentials.json"
+        if project_root_secrets.exists():
+            return str(project_root_secrets)
         
         # Fallback to default Docker path (will fail if not exists, but that's okay)
         return "/app/firebase-credentials.json"

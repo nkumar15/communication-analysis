@@ -246,10 +246,31 @@ test-api: ## Run all API integration tests
 
 test-browser: ## Run E2E browser tests
 	@echo "$(BLUE)Running E2E browser tests...$(NC)"
+	@if [ "$(HEADED)" = "1" ]; then \
+		echo "$(YELLOW)Note: Running in HEADED mode requires X11 forwarding for Docker.$(NC)"; \
+	fi
 	docker-compose up -d
 	@sleep 10
-	docker-compose run --rm e2e-tests pytest tests/e2e_browser/ -v
+	docker-compose run --rm e2e-tests pytest tests/e2e_browser/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
 	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
+
+test-browser-b2c: ## Run B2C E2E browser tests
+	@echo "$(BLUE)Running B2C E2E tests...$(NC)"
+	docker-compose up -d
+	@sleep 5
+	docker-compose run --rm e2e-tests pytest tests/e2e_browser/b2c/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
+
+test-browser-b2b: ## Run B2B E2E browser tests
+	@echo "$(BLUE)Running B2B E2E tests...$(NC)"
+	docker-compose up -d
+	@sleep 5
+	docker-compose run --rm e2e-tests pytest tests/e2e_browser/b2b/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
+
+test-browser-platform: ## Run Platform E2E browser tests
+	@echo "$(BLUE)Running Platform E2E tests...$(NC)"
+	docker-compose up -d
+	@sleep 5
+	docker-compose run --rm e2e-tests pytest tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(ARGS) -v
 
 test: ## Run all tests
 	@$(MAKE) test-api

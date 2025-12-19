@@ -292,6 +292,9 @@ services:
     environment:
       - TEST_DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - FRONTEND_URL=http://frontend:3000
+      - FRONTEND_URL_B2B=http://frontend:3000
+      - FRONTEND_URL_B2C=http://frontend:3001
+      - FRONTEND_URL_PLATFORM=http://frontend:3002
       - API_URL=http://b2b-api:8000
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0

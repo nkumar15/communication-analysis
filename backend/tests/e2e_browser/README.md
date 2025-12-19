@@ -27,10 +27,16 @@ export E2E_PLATFORM_ADMIN_EMAIL="admin@platform.test"
 
 ```bash
 # Run all E2E browser tests
-make e2e-browser
+make test-browser
 
-# Run specific test file
-docker-compose run --rm e2e-tests python -m pytest tests/e2e_browser/test_platform_admin.py -v
+# Run specific suites (Recommended)
+make test-browser-b2c       # B2C Signup & Workspace
+make test-browser-b2b       # B2B Invites & Roles
+make test-browser-platform  # Admin & Tenant Mgmt
+
+# Run with visual browser (Local Only)
+# Note: Requires running pytest locally, or X11 forwarding for Docker
+make test-browser-b2c HEADED=1
 ```
 
 ## How It Works
@@ -42,32 +48,51 @@ docker-compose run --rm e2e-tests python -m pytest tests/e2e_browser/test_platfo
 
 ## Test Structure
 
+We follow a Domain-Driven structure with Page Object Models (POM).
+
 ```
 tests/e2e_browser/
-├── e2e_config.py       # Configuration (tenant IDs, URLs)
-├── e2e_helpers.py      # Token generation utilities
-├── conftest.py         # Playwright fixtures
-├── test_platform_admin.py
-├── test_tenant_onboarding.py
-└── test_invitation_flow.py
+├── conftest.py                 # Global fixtures (browser, context)
+├── e2e_config.py               # Shared config
+├── e2e_helpers.py              # Auth helpers
+│
+├── pages/                      # Page Object Models
+│   ├── base_page.py            # Base interactions
+│   ├── b2c/
+│   │   ├── signup_page.py
+│   │   └── workspace_page.py
+│   └── platform/
+│       └── login_page.py
+│
+├── platform/                   # Platform Admin Tests
+│   └── test_platform_admin.py
+│
+├── b2b/                        # B2B Tenant Tests
+│   └── test_invitation_flow.py
+│
+└── b2c/                        # B2C Tests
+    ├── conftest.py             # B2C specific fixtures
+    └── test_signup_flow.py
 ```
 
 ## Writing New Tests
 
-```python
-from e2e_helpers import create_platform_admin_token
-from e2e_config import PLATFORM_ADMIN_EMAIL
+### Using Page Objects (Recommended)
 
-def test_example(page: Page):
-    # Get custom token
-    token = await create_platform_admin_token(PLATFORM_ADMIN_EMAIL)
+```python
+from ..e2e_helpers import create_custom_token
+from ..pages.b2c.signup_page import SignupPage
+
+async def test_new_feature(page: Page):
+    # Setup
+    token = await create_custom_token(...)
+    signup_page = SignupPage(page)
     
-    # Navigate and inject token
-    page.goto("/platform-login")
-    page.evaluate(f"localStorage.setItem('custom_token', '{token}')")
+    # Act
+    signup_page.sign_in_with_google_mock(token)
     
-    # Frontend code should check for custom_token and use signInWithCustomToken()
-    # ... rest of test
+    # Assert
+    signup_page.is_dashboard_visible()
 ```
 
 ## Troubleshooting

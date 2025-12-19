@@ -68,27 +68,38 @@ We are following a phased approach to testing.
     - Tenant management (Create/List)
     - Cross-tenant impersonation security
 
-### ✅ Phase 4: Browser E2E Infrastructure (Completed)
-**Status**: Infrastructure complete, basic tests passing (3/3 ✅)
+### ✅ Phase 4: Browser E2E Infrastructure (Completed & Enhanced)
+**Status**: Infrastructure complete, Domain-Driven Structure Implemented
 
 **Implemented**:
 - ✅ Playwright installed in Docker with system dependencies
 - ✅ `frontend` and `e2e-tests` services in docker-compose
 - ✅ Sync Playwright API (no async conflicts)
 - ✅ Firebase custom token authentication support (real Firebase, no mocks)
+- ✅ **Domain-Driven Directory Structure**: `platform/`, `b2b/`, `b2c/`
+- ✅ **Page Object Model (POM)**: `pages/` directory for reusable UI components
 - ✅ Test configuration via environment variables
-- ✅ Basic page load tests passing
 
 **Scope**:
-- `make e2e-browser` - Run browser tests in Docker
+- `make test-browser` - Run all browser tests
+- `make test-browser-b2c` - Run B2C suite
+- `make test-browser-b2b` - Run B2B suite
+- `make test-browser-platform` - Run Platform suite
+- `make test-browser-b2c HEADED=1` - Run with visible browser
 - Tests in `backend/tests/e2e_browser/`
 - Uses real Firebase GCIP authentication with custom tokens
-- Custom token helpers in `e2e_helpers.py`
 
-**Pending** (requires frontend integration + test data setup):
-- Platform Admin full workflow (login → create tenant)
-- Tenant Activation flow (activation page → SSO → dashboard)
-- Invitation flow (join link → accept → login)
+**Structure**:
+```
+tests/e2e_browser/
+├── pages/                  # Page Object Models
+│   ├── base_page.py        # Shared logic
+│   ├── b2c/                # B2C Pages (Signup, Workspace)
+│   └── platform/           # Platform Pages (Login, Tenants)
+├── platform/               # Platform Admin Tests
+├── b2b/                    # B2B Tenant Tests
+└── b2c/                    # B2C Consumer Tests
+```
 
 **Documentation**: See `backend/tests/e2e_browser/README.md`
 

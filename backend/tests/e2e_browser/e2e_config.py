@@ -15,5 +15,12 @@ PLATFORM_ADMIN_EMAIL = os.getenv("E2E_PLATFORM_ADMIN_EMAIL", "admin@platform.tes
 TEST_USER_EMAIL = os.getenv("E2E_TEST_USER_EMAIL", "test-user@example.com")
 
 # Frontend/Backend URLs
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://frontend:3000")
-API_URL = os.getenv("API_URL", "http://backend:8000")
+# Frontend/Backend URLs
+# Defaults are set to localhost for convenient local development (running pytest directly)
+# For Docker execution, these must be overridden in docker-compose.yml
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+# Support separate frontend URLs for micro-frontends
+FRONTEND_URL_B2B = os.getenv("FRONTEND_URL_B2B", os.getenv("FRONTEND_URL", "http://localhost:3000"))
+FRONTEND_URL_B2C = os.getenv("FRONTEND_URL_B2C", "http://localhost:3001")
+FRONTEND_URL_PLATFORM = os.getenv("FRONTEND_URL_PLATFORM", "http://localhost:3002")

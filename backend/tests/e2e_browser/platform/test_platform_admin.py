@@ -8,7 +8,7 @@ import pytest
 import secrets
 import time
 from playwright.sync_api import Page, expect
-from .e2e_helpers import create_platform_admin_token
+from ..e2e_helpers import create_platform_admin_token
 
 # Helper to generate unique tenant data
 def generate_tenant_data():
@@ -19,8 +19,7 @@ def generate_tenant_data():
         "email": f"owner-{suffix}@example.com"
     }
 
-@pytest.mark.asyncio
-async def test_platform_admin_create_tenant_flow(page: Page):
+def test_platform_admin_create_tenant_flow(page: Page):
     """
     Test ONB-01: Platform Admin can invite/create a new tenant.
     
@@ -32,7 +31,7 @@ async def test_platform_admin_create_tenant_flow(page: Page):
     """
     # 1. Prepare Data & Token
     admin_email = "admin@platform.com"
-    token = await create_platform_admin_token(admin_email)
+    token = create_platform_admin_token(admin_email)
     tenant_data = generate_tenant_data()
     
     # 2. Inject Token & Login

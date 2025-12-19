@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithCustomToken } from 'firebase/auth';
 import { auth } from '../../../../core/firebase/b2c-config';
 import AuthButtons from '../components/AuthButtons';
 
@@ -11,6 +11,23 @@ const LoginPage = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // E2E Test Backdoor
+    React.useEffect(() => {
+        const customToken = localStorage.getItem('custom_token');
+        if (customToken) {
+            console.log('🧪 E2E Backdoor: Found custom token, logging in...');
+            localStorage.removeItem('custom_token');
+            setLoading(true);
+            signInWithCustomToken(auth, customToken)
+                .then((userCredential) => handleAuthSuccess(userCredential.user))
+                .catch((e) => {
+                    console.error('E2E Backdoor failed', e);
+                    setError(e.message);
+                    setLoading(false);
+                });
+        }
+    }, []);
 
     const handleAuthSuccess = async (user) => {
         try {
