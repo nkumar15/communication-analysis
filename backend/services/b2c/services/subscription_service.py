@@ -301,12 +301,20 @@ class SubscriptionService:
                 subscription.currency = price_obj.get('currency', 'usd').upper()
             else:
                 subscription.amount_cents = 0
+                subscription.amount_cents = 0
                 subscription.currency = 'USD'
         except Exception as e:
             logger.warning(f"Could not extract price from subscription items: {e}")
             subscription.amount_cents = 0
             subscription.currency = 'USD'
         
+        # Sync Workspace subscription tier
+        if tier:
+            result = await self.db.execute(select(Workspace).where(Workspace.id == workspace_id))
+            workspace_obj = result.scalar_one_or_none()
+            if workspace_obj:
+                workspace_obj.subscription_tier = tier
+                
         await self.db.flush()
         
         logger.info(f"Subscription activated: {subscription.id} (plan: {plan_id})")
@@ -440,6 +448,14 @@ class SubscriptionService:
                     if found_plan:
                         subscription.plan_id = found_plan.id
                         subscription.billing_interval = new_billing_interval
+                        
+                        # Sync Workspace Priority
+                        if subscription.workspace_id:
+                            ws_result = await self.db.execute(select(Workspace).where(Workspace.id == subscription.workspace_id))
+                            workspace_obj = ws_result.scalar_one_or_none()
+                            if workspace_obj:
+                                workspace_obj.subscription_tier = found_plan.tier_key
+                                
                         logger.info(f"Syncing subscription plan to {found_plan.tier_key} ({found_plan.id}) from price {price_id}")
                     else:
                         logger.warning(f"No plan found for price ID {price_id}")

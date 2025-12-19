@@ -91,8 +91,14 @@ async def create_workspace(
         await rls_service.set_user_context(db, str(current_user['id']))
         
         # Get user's personal workspace to check subscription
+        # Get user's personal workspace with subscription info
+        from sqlalchemy.orm import selectinload
+        from services.b2c.models.subscription import Subscription
+        
         result = await db.execute(
-            select(Workspace).where(
+            select(Workspace)
+            .options(selectinload(Workspace.subscription).selectinload(Subscription.plan))
+            .where(
                 Workspace.owner_id == current_user['id'],
                 Workspace.type == 'personal'
             )
@@ -105,8 +111,18 @@ async def create_workspace(
                 detail="Personal workspace not found"
             )
         
-        # Use the personal workspace's subscription tier
-        subscription_tier = personal_workspace.subscription_tier
+        # Determine subscription tier dynamically
+        subscription_tier = 'free'
+        if personal_workspace.subscription and personal_workspace.subscription.status in ['active', 'trialing']:
+            if personal_workspace.subscription.plan:
+                subscription_tier = personal_workspace.subscription.plan.tier_key
+        
+        # Fallback to column if relation is missing but column is set (sanity check)
+        if subscription_tier == 'free' and personal_workspace.subscription_tier != 'free':
+             # Note: This technically trusts the column if sub is missing/inactive, 
+             # but we strictly want active subscription for features.
+             # So we actually prefer the relation.
+             pass
         
         # Create team workspace
         workspace = await workspace_service.create_team_workspace(
