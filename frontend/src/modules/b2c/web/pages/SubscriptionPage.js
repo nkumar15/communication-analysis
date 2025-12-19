@@ -292,6 +292,84 @@ const SubscriptionPage = () => {
                     })}
                 </div>
 
+                {/* Payment Method Card */}
+                {currentSubscription?.payment_method_info ? (
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        border: '1px solid #E5E7EB',
+                        marginBottom: '24px',
+                        maxWidth: '600px', // Constrain width
+                        margin: '0 auto 24px auto', // Center
+                        textAlign: 'left' // Reset text align (parent is centered?)
+                    }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>Payment Method</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{
+                                width: '50px',
+                                height: '32px',
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#F9FAFB',
+                                flexShrink: 0
+                            }}>
+                                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>
+                                    {currentSubscription.payment_method_info.card_brand}
+                                </span>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '16px', color: '#111827', fontWeight: '500' }}>
+                                    •••• •••• •••• {currentSubscription.payment_method_info.card_last4}
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#6B7280' }}>
+                                    Expires {currentSubscription.payment_method_info.exp_month}/{currentSubscription.payment_method_info.exp_year}
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#EFF6FF', borderLeft: '4px solid #3B82F6', borderRadius: '6px' }}>
+                            <span style={{ fontSize: '13px', color: '#1E40AF' }}>
+                                ℹ️ Payment method is managed securely via Stripe.
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        border: '1px solid #E5E7EB',
+                        marginBottom: '24px',
+                        maxWidth: '600px', // Constrain width
+                        margin: '0 auto 24px auto', // Center
+                        textAlign: 'left'
+                    }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>Payment Method</h3>
+                        <div style={{
+                            padding: '24px',
+                            backgroundColor: '#F9FAFB',
+                            borderRadius: '8px',
+                            border: '1px dashed #D1D5DB',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '32px', marginBottom: '12px' }}>💳</div>
+                            <div style={{ fontSize: '16px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                                No Payment Method Required
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#6B7280', lineHeight: '1.5' }}>
+                                {activeTier === 'free' ? (
+                                    <>You're on the free plan. Upgrade to Premium or Ultimate to add a payment method.</>
+                                ) : (
+                                    <>Payment method information will appear here after you complete the checkout process.</>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {activeTier !== 'free' && (
                     <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '28px', border: '1px solid #E5E7EB', textAlign: 'center' }}>
                         <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Manage Your Subscription</h3>

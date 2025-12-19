@@ -302,3 +302,13 @@ test-env: ## Validate environment configuration
 		if [ -f $$file ]; then echo "$(GREEN)✓ $$file exists$(NC)"; \
 		else echo "$(YELLOW)✗ $$file missing$(NC)"; fi \
 	done
+
+##@ Stripe
+
+stripe-listen-b2b: ## Forward Stripe webhooks to B2B service (Port 8000)
+	@echo "$(BLUE)Forwarding Stripe events to B2B Service...$(NC)"
+	stripe listen --forward-to localhost:8000/api/b2b/billing/webhooks/stripe
+
+stripe-listen-b2c: ## Forward Stripe webhooks to B2C service (Port 8002)
+	@echo "$(BLUE)Forwarding Stripe events to B2C Service...$(NC)"
+	stripe listen --forward-to localhost:8002/api/b2c/billing/webhooks/stripe

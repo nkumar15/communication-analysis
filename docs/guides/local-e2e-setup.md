@@ -50,3 +50,54 @@ pytest backend/tests/e2e_browser/b2c/ --headed
 
 ### B. Why did it fail before?
 The validation error happened because your local Python environment tried to load `backend/core/config.py`, which validates that `DATABASE_URL` and `SECRET_KEY` exist. Since you weren't running inside Docker (where these are set automatically), Pydantic raised an error.
+
+---
+
+# Windows (Native PowerShell)
+
+If you are running on Windows directly (not WSL), you cannot use `make`. Use these commands in **PowerShell**.
+
+## 1. Setup Environment
+Open PowerShell in the `enterprisesso` root folder.
+
+```powershell
+# 1. Start Docker Services (Backend)
+docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
+
+# 2. Enter Backend Directory
+cd backend
+
+# 3. Create Virtual Env (If not exists)
+# Standard Python
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# OR if using uv
+uv venv
+
+# 4. Install Dependencies
+# Standard
+pip install -r requirements-test.txt
+playwright install
+
+# OR using uv (Ensure you are in 'backend' folder)
+uv pip install -r requirements-test.txt
+uv run playwright install
+
+```
+
+## 2. Run Tests
+Run the tests using `pytest`. The configuration already defaults to `localhost`.
+
+### A. Using Active Venv
+```powershell
+pytest tests/e2e_browser/b2c/ --headed --slowmo 2000
+```
+
+### B. Using uv run (No activation needed)
+```powershell
+uv run pytest tests/e2e_browser/b2c/ --headed --slowmo 2000
+```
+
+> **Note:** If you see "Execution of scripts is disabled", run this as Admin:
+> `Set-ExecutionPolicy RemoteSigned`

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 import logging
+import stripe
 
 from core.database import get_db
 from services.b2c.middleware.b2c_auth import get_current_b2c_user
@@ -72,6 +73,7 @@ class SubscriptionResponse(BaseModel):
     cancel_at_period_end: bool
     amount_cents: int
     currency: str
+    payment_method_info: Optional[dict] = None  # {card_brand, card_last4, exp_month, exp_year}
 
 
 class PortalRequest(BaseModel):
@@ -178,6 +180,25 @@ async def get_subscription(
             currency="USD"
         )
     
+    # Fetch payment method info from Stripe if card payment
+    payment_method_info = None
+    if subscription.status == 'active' and subscription.provider == 'stripe' and subscription.provider_subscription_id:
+        try:
+            if settings.stripe_secret_key:
+                stripe.api_key = settings.stripe_secret_key
+                stripe_sub = stripe.Subscription.retrieve(subscription.provider_subscription_id)
+                if stripe_sub.default_payment_method:
+                    pm = stripe.PaymentMethod.retrieve(stripe_sub.default_payment_method)
+                    if pm.type == 'card':
+                        payment_method_info = {
+                            'card_brand': pm.card.brand,
+                            'card_last4': pm.card.last4,
+                            'exp_month': pm.card.exp_month,
+                            'exp_year': pm.card.exp_year
+                        }
+        except Exception as e:
+            logger.warning(f"Failed to fetch payment method from Stripe: {e}")
+
     return SubscriptionResponse(
         id=str(subscription.id),
         workspace_id=str(subscription.workspace_id),
@@ -188,7 +209,8 @@ async def get_subscription(
         current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None,
         cancel_at_period_end=subscription.cancel_at_period_end or False,
         amount_cents=subscription.amount_cents or 0,
-        currency=subscription.currency or "USD"
+        currency=subscription.currency or "USD",
+        payment_method_info=payment_method_info
     )
 
 
@@ -401,12 +423,15 @@ async def stripe_webhook(
     try:
         if event_type == 'checkout.session.completed':
             await service.handle_checkout_completed(event_data)
+            await db.commit()
             
         elif event_type in ['customer.subscription.updated', 'customer.subscription.deleted']:
             await service.handle_subscription_updated(event_data)
+            await db.commit()
             
         elif event_type in ['invoice.paid', 'invoice.payment_failed']:
             await service.sync_invoice(event_data)
+            await db.commit()
             
         else:
             logger.debug(f"Unhandled webhook event: {event_type}")
