@@ -77,6 +77,20 @@ const WorkspacePage = () => {
         }
     };
 
+    const handleDeleteWorkspace = async () => {
+        if (!window.confirm('Are you sure you want to delete this workspace? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            await b2cWorkspaceClient.deleteWorkspace(workspaceId);
+            navigate('/b2c/workspaces');
+        } catch (error) {
+            console.error('Failed to delete workspace:', error);
+            alert(error.message || 'Failed to delete workspace');
+        }
+    };
+
     if (loading) {
         return (
             <B2CLayout>
@@ -252,17 +266,88 @@ const WorkspacePage = () => {
 
             {activeTab === 'settings' && (
                 <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    border: '1px solid #E5E7EB'
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '24px'
                 }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>
-                        Workspace Settings
-                    </h3>
-                    <p style={{ color: '#6B7280' }}>
-                        Settings page coming soon
-                    </p>
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        border: '1px solid #E5E7EB'
+                    }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>
+                            General Settings
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                                    Workspace Name
+                                </label>
+                                <input
+                                    type="text"
+                                    defaultValue={workspace.name}
+                                    style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #D1D5DB',
+                                        fontSize: '14px'
+                                    }}
+                                    disabled
+                                />
+                                <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>
+                                    Workspace name changes are coming soon.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Danger Zone */}
+                    <div style={{
+                        backgroundColor: '#FEF2F2',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        border: '1px solid #FECACA'
+                    }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#991B1B', marginBottom: '8px' }}>
+                            Danger Zone
+                        </h3>
+                        <p style={{ fontSize: '14px', color: '#7F1D1D', marginBottom: '16px' }}>
+                            Once you delete a workspace, there is no going back. Please be certain.
+                        </p>
+
+                        {workspace.type === 'personal' ? (
+                            <div style={{
+                                padding: '12px',
+                                backgroundColor: '#FFF5F5',
+                                borderRadius: '6px',
+                                border: '1px solid #FED7D7',
+                                color: '#C53030',
+                                fontSize: '14px'
+                            }}>
+                                Personal workspaces cannot be deleted.
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleDeleteWorkspace}
+                                style={{
+                                    padding: '10px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #DC2626',
+                                    backgroundColor: '#DC2626',
+                                    color: 'white',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Delete Workspace
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 
