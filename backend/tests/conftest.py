@@ -448,12 +448,45 @@ def create_mock_firebase_token(
 
 def encode_mock_jwt(payload: Dict[str, Any]) -> str:
     """Create a fake JWT string for testing"""
-    import base64
-    import json
+    import json, base64
+    header = base64.b64encode(json.dumps({"alg": "mock", "typ": "JWT"}).encode()).decode()
+    payload_encoded = base64.b64encode(json.dumps(payload).encode()).decode()
+    signature = "mock_signature"
+    return f"{header}.{payload_encoded}.{signature}"
+
+
+def create_auth_headers(user, tenant=None):
+    """
+    Create authentication headers for API requests.
     
-    header = base64.urlsafe_b64encode(json.dumps({"alg": "none"}).encode()).decode()
-    payload_str = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
-    return f"{header}.{payload_str}.test-signature"
+    Simplifies test authentication by automatically creating proper JWT headers
+    from user and tenant objects.
+    
+    Args:
+        user: User object with firebase_uid and email attributes
+        tenant: Tenant object with firebase_tenant_id attribute (optional)
+                If not provided, uses "test-tenant" as default
+    
+    Returns:
+        dict: Headers dictionary with Authorization bearer token
+        
+    Example:
+        headers = create_auth_headers(owner, tenant)
+        response = await api_client.get("/api/endpoint", headers=headers)
+    """
+    # Auto-detect tenant from user if not provided
+    if tenant is None and hasattr(user, 'tenant'):
+        tenant = user.tenant
+    
+    firebase_tenant_id = tenant.firebase_tenant_id if tenant else "test-tenant"
+    
+    token = encode_mock_jwt(create_mock_firebase_token(
+        uid=user.firebase_uid,
+        email=user.email,
+        firebase_tenant_id=firebase_tenant_id
+    ))
+    
+    return {"Authorization": f"Bearer {token}"}
 
 
 # Direct async helper functions (not fixtures)
@@ -775,3 +808,55 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: mark test as slow running"
     )
+
+
+async def create_auth_provider(
+    db_session: AsyncSession,
+    tenant_id: UUID,
+    provider_type: str = "oidc",
+    provider_id: str = None,
+    is_primary: bool = True,
+    config_data: dict = None
+):
+    """Create an auth provider for testing SSO"""
+    from services.b2b.models.auth_provider import AuthProvider
+    from sqlalchemy import select
+    
+    # Default provider_id if not provided
+    if provider_id is None:
+        provider_id = f"{provider_type}.test-provider"
+    
+    # Default config with OIDC settings
+    if config_data is None:
+        config_data = {
+            "issuer": "https://test-issuer.example.com",
+            "client_id": "test-client-id-12345",
+            "client_secret": "test-client-secret",
+        }
+    
+    # Check if provider already exists
+    result = await db_session.execute(
+        select(AuthProvider).where(
+            AuthProvider.tenant_id == tenant_id,
+            AuthProvider.provider_id == provider_id
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+    
+    provider = AuthProvider(
+        tenant_id=tenant_id,
+        provider_type=provider_type,
+        provider_id=provider_id,
+        display_name=f"Test {provider_type.upper()} Provider",
+        is_primary=is_primary,
+        is_active=True,
+        config_data=config_data
+    )
+    
+    db_session.add(provider)
+    await db_session.flush()
+    await db_session.refresh(provider)
+    
+    return provider
