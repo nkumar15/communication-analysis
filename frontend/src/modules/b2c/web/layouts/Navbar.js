@@ -99,6 +99,7 @@ const Navbar = () => {
                 {/* User Menu */}
                 <div style={{ position: 'relative' }}>
                     <button
+                        data-testid="user-menu-trigger"
                         onClick={() => setShowUserMenu(!showUserMenu)}
                         style={{
                             display: 'flex',
