@@ -98,7 +98,10 @@ class UserService:
             # 2a. User exists - update standard metadata
             existing_user.last_login = now
             existing_user.updated_at = now
-            if name and not existing_user.name:
+            
+            # Always update name if provided from SSO token (e.g., from Auth0)
+            # This ensures names from SSO providers are always synced
+            if name:
                 existing_user.name = name
             
             # Note: We do NOT overwrite firebase_uid anymore.

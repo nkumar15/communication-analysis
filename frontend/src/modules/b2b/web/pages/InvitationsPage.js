@@ -9,6 +9,7 @@ import StatusBadge from '../../../../core/components/StatusBadge';
 import ActionMenu from '../components/ActionMenu';
 import AdminLayout from '../layouts/AdminLayout';
 import { useAuth } from '../../../../core/hooks/useAuth';
+import { TENANT_ROLES } from '../../constants/roles';
 import { formatDateTime } from '../../../../utils/dateUtils';
 import TeamSelector from '../components/TeamSelector';
 import BulkInviteModal from '../components/BulkInviteModal';
@@ -25,13 +26,13 @@ const InvitationsPage = () => {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [email, setEmail] = useState('');
     const [availableRoles, setAvailableRoles] = useState([
-        { value: 'admin', label: 'Admin', disabled: false },
-        { value: 'viewer', label: 'Viewer', disabled: false }
+        { value: TENANT_ROLES.ADMIN, label: 'Admin', disabled: false },
+        { value: TENANT_ROLES.VIEWER, label: 'Viewer', disabled: false }
     ]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [selectedRole, setSelectedRole] = useState('member');
+    const [selectedRole, setSelectedRole] = useState(TENANT_ROLES.MEMBER);
     const [selectedTeam, setSelectedTeam] = useState('');
     const [selectedTeamRole, setSelectedTeamRole] = useState('team_contributor');
 
@@ -76,7 +77,7 @@ const InvitationsPage = () => {
                     const roles = rolesData.map(r => ({
                         value: r.name,
                         label: r.display_name || r.name.charAt(0).toUpperCase() + r.name.slice(1),
-                        disabled: r.name === 'owner' // Disable owner role
+                        disabled: r.name === TENANT_ROLES.OWNER // Disable owner role
                     }));
 
                     console.log('📋 Formatted roles for dropdown:', roles);
@@ -85,8 +86,8 @@ const InvitationsPage = () => {
                     if (roles.length === 0) {
                         console.warn('⚠️ No roles returned from API, using fallback');
                         roles.push(
-                            { value: 'admin', label: 'Admin', disabled: false },
-                            { value: 'viewer', label: 'Viewer', disabled: false }
+                            { value: TENANT_ROLES.ADMIN, label: 'Admin', disabled: false },
+                            { value: TENANT_ROLES.VIEWER, label: 'Viewer', disabled: false }
                         );
                     }
 
@@ -95,7 +96,7 @@ const InvitationsPage = () => {
 
                     // Set default role to 'member' if available, otherwise first non-disabled
                     if (roles.length > 0) {
-                        const memberRole = roles.find(r => r.value === 'member' && !r.disabled);
+                        const memberRole = roles.find(r => r.value === TENANT_ROLES.MEMBER && !r.disabled);
                         const defaultRole = memberRole || roles.find(r => !r.disabled) || roles[0];
                         setSelectedRole(defaultRole.value);
                         console.log('✅ Default role set to:', defaultRole.value);

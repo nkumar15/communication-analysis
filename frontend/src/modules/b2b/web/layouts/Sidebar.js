@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../../../../core/hooks/useAuth';
+import { TENANT_ROLES, getTenantRoleLabel } from '../../constants/roles';
 
 const Sidebar = () => {
     const navigate = useNavigate();
@@ -90,11 +91,9 @@ const Sidebar = () => {
                     </div>
                     {!isCollapsed && (
                         <div>
-                            <div style={{ fontWeight: '700', fontSize: '16px' }}>SSO Portal</div>
+                            <div style={{ fontWeight: '700', fontSize: '16px' }}>B2B SaaS App</div>
                             <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
-                                {user?.role === 'admin' ? 'Admin Panel' :
-                                    user?.role === 'field_manager' ? 'Manager Panel' :
-                                        'Agent Panel'}
+                                {getTenantRoleLabel(user?.role)}
                             </div>
                         </div>
                     )}

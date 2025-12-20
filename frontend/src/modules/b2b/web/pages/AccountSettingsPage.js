@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import useAuth from '../../../../core/hooks/useAuth';
+import { TENANT_ROLES } from '../../constants/roles';
 import { accountApi } from '../../../../core/api/accountClient';
 import api from '../../../../core/api/b2bClient';
 import AdminLayout from '../layouts/AdminLayout';
@@ -32,7 +33,7 @@ const AccountSettingsPage = () => {
         mobile_client_secret: ''
     });
 
-    const canEdit = hasRole(['owner', 'admin']);
+    const canEdit = hasRole([TENANT_ROLES.OWNER, TENANT_ROLES.ADMIN]);
 
     useEffect(() => {
         loadSettings();

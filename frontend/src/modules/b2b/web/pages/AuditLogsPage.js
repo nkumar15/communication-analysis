@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { TENANT_ROLES } from '../../constants/roles';
 import AdminLayout from '../layouts/AdminLayout';
 import apiService from '../../../../core/api/b2bClient';
 import useAuth from '../../../../core/hooks/useAuth';
@@ -24,7 +25,7 @@ const AuditLogsPage = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!authLoading && !hasRole(['owner', 'admin'])) {
+        if (!authLoading && !hasRole([TENANT_ROLES.OWNER, TENANT_ROLES.ADMIN])) {
             navigate('/dashboard');
         }
     }, [authLoading, hasRole, navigate]);

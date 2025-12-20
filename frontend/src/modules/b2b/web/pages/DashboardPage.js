@@ -4,6 +4,7 @@ import b2bClient from '../../../../core/api/b2bClient';
 import StatCard from '../../../../core/components/StatCard';
 import AdminLayout from '../layouts/AdminLayout';
 import useAuth from '../../../../core/hooks/useAuth';
+import { TENANT_ROLES } from '../../constants/roles';
 import ImpersonationBanner from '../../../../core/components/ImpersonationBanner';
 import MyTeamsWidget from '../components/widgets/MyTeamsWidget';
 import MyTasksWidget from '../components/widgets/MyTasksWidget';
@@ -46,15 +47,15 @@ const DashboardPage = () => {
         );
     }
 
-    const role = user?.role || 'viewer';
-    const isAdminScope = ['owner', 'admin'].includes(role);
+    const role = user?.role || TENANT_ROLES.VIEWER;
+    const isAdminScope = [TENANT_ROLES.OWNER, TENANT_ROLES.ADMIN].includes(role);
 
     // Get greeting based on role
     const getRoleGreeting = () => {
         switch (role) {
-            case 'owner': return '👑 Organization Owner';
-            case 'admin': return '🛡️ Administrator';
-            case 'member': return '👤 Team Member';
+            case TENANT_ROLES.OWNER: return '👑 Organization Owner';
+            case TENANT_ROLES.ADMIN: return '🛡️ Administrator';
+            case TENANT_ROLES.MEMBER: return '👤 Team Member';
             default: return '👁️ Viewer';
         }
     };
