@@ -224,7 +224,7 @@ class SubscriptionService:
         subscription.currency = 'USD'
         
         subscription.provider_customer_id = session_data.get('customer')
-        subscription.stripe_subscription_id = provider_subscription_id
+        subscription.provider_subscription_id = provider_subscription_id
         
         # Handle timestamps with fallbacks like B2C does
         start_ts = subscription_data.get('current_period_start') or subscription_data.get('start_date') or subscription_data.get('created')

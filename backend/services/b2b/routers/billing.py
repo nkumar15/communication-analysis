@@ -123,18 +123,33 @@ async def get_subscription(
             payment_method_info=None
         )
     
+
     # Fetch payment method info from Stripe if card payment
     payment_method_info = None
     if subscription.payment_mode == 'card' and subscription.provider_subscription_id:
         try:
             stripe_sub = stripe.Subscription.retrieve(subscription.provider_subscription_id)
-            if stripe_sub.default_payment_method:
-                pm = stripe.PaymentMethod.retrieve(stripe_sub.default_payment_method)
+            
+            # 1. Check Subscription default payment method
+            pm_id = stripe_sub.default_payment_method
+            
+            # 2. If not on subscription, check Customer default payment method
+            if not pm_id and stripe_sub.customer:
+                customer = stripe.Customer.retrieve(stripe_sub.customer)
+                if customer.invoice_settings and customer.invoice_settings.default_payment_method:
+                    pm_id = customer.invoice_settings.default_payment_method
+            
+            if pm_id:
+                # Handle case where pm_id might be an object if expanded (unlikely here but safe)
+                if isinstance(pm_id, str):
+                    pm = stripe.PaymentMethod.retrieve(pm_id)
+                else:
+                    pm = pm_id
+                    
                 if pm.type == 'card':
                     payment_method_info = {
                         'card_brand': pm.card.brand,
                         'card_last4': pm.card.last4,
-                        'exp_month': pm.card.exp_month,
                         'exp_year': pm.card.exp_year
                     }
         except Exception as e:
