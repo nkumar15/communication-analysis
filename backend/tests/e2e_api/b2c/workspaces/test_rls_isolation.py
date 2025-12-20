@@ -62,7 +62,7 @@ class TestWorkspaceRLSIsolation:
         """List endpoint only returns workspaces user has access to"""
         # Owner sees their workspaces
         response = await api_client.get(
-            f"{"http://test"}/api/b2c/workspaces/",
+            f"{"http://test"}/api/b2c/workspaces",
             headers={"Authorization": f"Bearer {workspace_with_members['owner']['auth_token']}"}
         )
         assert response.status_code == 200
@@ -70,7 +70,7 @@ class TestWorkspaceRLSIsolation:
         
         # Member sees their workspaces (should include workspace_with_members)
         response = await api_client.get(
-            f"{"http://test"}/api/b2c/workspaces/",
+            f"{"http://test"}/api/b2c/workspaces",
             headers={"Authorization": f"Bearer {workspace_with_members['member']['auth_token']}"}
         )
         assert response.status_code == 200

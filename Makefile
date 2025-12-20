@@ -1,4 +1,6 @@
-.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c
+.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c sast-scan sast-scan-python sast-scan-react sast-scan-containers security-update-npm dast-scan dast-scan-b2b dast-scan-platform dast-scan-b2c dast-scan-domain dast-scan-full
+
+
 
 # Default target
 .DEFAULT_GOAL := help
@@ -309,7 +311,78 @@ test-env: ## Validate environment configuration
 		else echo "$(YELLOW)✗ $$file missing$(NC)"; fi \
 	done
 
+##@ SAST (Static Application Security Testing)
+
+sast-scan: ## Run all SAST scans (Python + React + Containers)
+	@$(MAKE) sast-scan-python
+	@$(MAKE) sast-scan-react
+	@$(MAKE) sast-scan-containers
+
+sast-scan-python: ## Run Bandit SAST scan on Python code
+	@echo "$(BLUE)Running Bandit SAST scan on Python code...$(NC)"
+	@docker-compose run --rm e2e-tests bandit -r . -ll -f screen --exclude './tests,./tests_e2e,./.pytest_cache,./venv,./env,./.venv' | tee backend/bandit-report.txt || true
+	@echo "$(GREEN)✓ Python SAST scan complete - Report saved to backend/bandit-report.txt$(NC)"
+
+sast-scan-react: ## Run Semgrep SAST scan on React code
+	@echo "$(BLUE)Running Semgrep SAST scan on React code...$(NC)"
+	@docker-compose run --rm e2e-tests semgrep --config=auto frontend/src/ --exclude='*.test.js' --exclude='*.spec.js' --verbose || true
+	@echo "$(GREEN)✓ React SAST scan complete$(NC)"
+
+sast-scan-containers: ## Run Trivy vulnerability scan on Docker images
+	@echo "$(BLUE)Running Trivy container security scans...$(NC)"
+	@echo "$(YELLOW)Scanning backend images...$(NC)"
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2b-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-platform-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2c-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@echo "$(YELLOW)Scanning frontend image...$(NC)"
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-frontend:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@echo "$(GREEN)✓ Container security scan complete - Report saved to backend/trivy-report.txt$(NC)"
+
+security-update-npm: ## Fix npm vulnerabilities identified by Trivy scan
+	@echo "$(BLUE)Applying security updates to npm packages...$(NC)"
+	@./scripts/security-update-npm.sh
+	@echo "$(GREEN)✓ Security updates applied. Rebuild frontend with: docker-compose build frontend$(NC)"
+
+##@ DAST (Dynamic Application Security Testing)
+
+dast-scan: ## Run OWASP ZAP baseline scan on all APIs
+	@echo "$(BLUE)Running OWASP ZAP baseline scans on all APIs...$(NC)"
+	@echo "$(YELLOW)Ensure services are running: make up$(NC)"
+	@$(MAKE) dast-scan-b2b
+	@$(MAKE) dast-scan-platform
+	@$(MAKE) dast-scan-b2c
+	@$(MAKE) dast-scan-domain
+
+dast-scan-b2b: ## Run OWASP ZAP scan on B2B API
+	@echo "$(BLUE)Scanning B2B API...$(NC)"
+	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/b2b/openapi.json -f openapi -r zap-b2b-report.html -w zap-b2b-report.md -J zap-b2b-report.json 2>&1 | tee backend/zap-b2b-output.log || true
+	@echo "$(GREEN)✓ B2B API scan complete - Reports: backend/zap-b2b-report.*$(NC)"
+
+dast-scan-platform: ## Run OWASP ZAP scan on Platform API
+	@echo "$(BLUE)Scanning Platform API...$(NC)"
+	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/platform/openapi.json -f openapi -r zap-platform-report.html -w zap-platform-report.md -J zap-platform-report.json 2>&1 | tee backend/zap-platform-output.log || true
+	@echo "$(GREEN)✓ Platform API scan complete - Reports: backend/zap-platform-report.*$(NC)"
+
+dast-scan-b2c: ## Run OWASP ZAP scan on B2C API
+	@echo "$(BLUE)Scanning B2C API...$(NC)"
+	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/b2c/openapi.json -f openapi -r zap-b2c-report.html -w zap-b2c-report.md -J zap-b2c-report.json 2>&1 | tee backend/zap-b2c-output.log || true
+	@echo "$(GREEN)✓ B2C API scan complete - Reports: backend/zap-b2c-report.*$(NC)"
+
+dast-scan-domain: ## Run OWASP ZAP scan on Domain API
+	@echo "$(BLUE)Scanning Domain API...$(NC)"
+	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/domain/openapi.json -f openapi -r zap-domain-report.html -w zap-domain-report.md -J zap-domain-report.json 2>&1 | tee backend/zap-domain-output.log || true
+	@echo "$(GREEN)✓ Domain API scan complete - Reports: backend/zap-domain-report.*$(NC)"
+
+dast-scan-full: ## Run OWASP ZAP full active scan (comprehensive but slow)
+	@echo "$(BLUE)Running OWASP ZAP full active scan...$(NC)"
+	@echo "$(YELLOW)⚠ This may take 30+ minutes. Ensure services are running: make up$(NC)"
+	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py -t http://localhost:8080 -r zap-full-report.html -w zap-full-report.md -J zap-full-report.json 2>&1 | tee backend/zap-full-output.log || true
+	@echo "$(GREEN)✓ DAST full scan complete - Reports: backend/zap-full-report.*$(NC)"
+
+
 ##@ Stripe
+
 
 stripe-listen-b2b: ## Forward Stripe webhooks to B2B service (Port 8000)
 	@echo "$(BLUE)Forwarding Stripe events to B2B Service...$(NC)"

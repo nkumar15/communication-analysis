@@ -172,7 +172,7 @@ def configure_oidc_provider(
     try:
         # 1. Try to CREATE (POST)
         print(f"🔄 Configuring OIDC provider: {provider_id} ({final_display_name})")
-        response = requests.post(create_url, headers=headers, json=data)
+        response = requests.post(create_url, headers=headers, json=data, timeout=30)
         
         if response.status_code in [200, 201]:
             print(f"✅ OIDC provider created successfully")
@@ -193,7 +193,7 @@ def configure_oidc_provider(
                 'updateMask': 'displayName,enabled,clientId,issuer,clientSecret,responseType'
             }
             
-            response = requests.patch(update_url, headers=headers, json=data, params=update_params)
+            response = requests.patch(update_url, headers=headers, json=data, params=update_params, timeout=30)
             
             if response.status_code in [200, 201]:
                 print(f"✅ OIDC provider updated successfully")

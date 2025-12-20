@@ -17,7 +17,7 @@ class TestWorkspaceCRUD:
     ):
         """User should see their personal workspace in the list"""
         response = await api_client.get(
-            f"{"http://test"}/api/b2c/workspaces/",
+            f"{"http://test"}/api/b2c/workspaces",
             headers={"Authorization": f"Bearer {workspace_owner['auth_token']}"}
         )
         
@@ -36,7 +36,7 @@ class TestWorkspaceCRUD:
     ):
         """Free tier users cannot create team workspaces"""
         response = await api_client.post(
-            f"{"http://test"}/api/b2c/workspaces/",
+            f"{"http://test"}/api/b2c/workspaces",
             headers={"Authorization": f"Bearer {workspace_owner['auth_token']}"},
             json={"name": "Team Workspace Attempt"}
         )
@@ -51,7 +51,7 @@ class TestWorkspaceCRUD:
     ):
         """Premium users can create team workspaces"""
         response = await api_client.post(
-            f"{"http://test"}/api/b2c/workspaces/",
+            f"{"http://test"}/api/b2c/workspaces",
             headers={"Authorization": f"Bearer {premium_workspace_owner['auth_token']}"},
             json={"name": "My Team Workspace"}
         )
@@ -188,7 +188,7 @@ class TestWorkspaceCRUD:
         # Create 10 team workspaces (limit is 10)
         for i in range(10):
             response = await api_client.post(
-                f"{"http://test"}/api/b2c/workspaces/",
+                f"{"http://test"}/api/b2c/workspaces",
                 headers={"Authorization": f"Bearer {premium_workspace_owner['auth_token']}"},
                 json={"name": f"Team Workspace {i+1}"}
             )
@@ -196,7 +196,7 @@ class TestWorkspaceCRUD:
         
         # 4th should fail
         response = await api_client.post(
-            f"{"http://test"}/api/b2c/workspaces/",
+            f"{"http://test"}/api/b2c/workspaces",
             headers={"Authorization": f"Bearer {premium_workspace_owner['auth_token']}"},
             json={"name": "4th Workspace - Should Fail"}
         )
