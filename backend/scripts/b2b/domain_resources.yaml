@@ -1,0 +1,19 @@
+# Domain-Specific Resources (Task Management)
+# For different domains (e.g., ecommerce), replace with domain-appropriate resources
+# like 'products', 'orders', 'inventory', etc.
+
+resources:
+  - name: projects
+    display_name: Projects
+    category: Domain
+    description: Project management and team collaboration
+  
+  - name: tasks
+    display_name: Tasks
+    category: Domain
+    description: Task tracking and assignment
+  
+  - name: comments
+    display_name: Comments
+    category: Domain
+    description: Task comments and discussions

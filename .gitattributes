@@ -1,0 +1,37 @@
+# Handle line endings automatically for files detected as text
+# and leave binary files untouched.
+* text=auto
+
+# Consistent line endings for source code
+*.js text
+*.jsx text
+*.ts text
+*.tsx text
+*.json text
+*.css text
+*.html text
+*.md text
+*.sql text
+*.py text
+
+# Windows scripts (force CRLF)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Linux/Unix scripts (force LF - Critical for WSL/Docker)
+*.sh text eol=lf
+gradlew text eol=lf
+Makefile text eol=lf
+.dockerignore text eol=lf
+Dockerfile text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.jar binary
+*.keystore binary

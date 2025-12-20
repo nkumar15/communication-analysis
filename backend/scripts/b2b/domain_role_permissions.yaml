@@ -1,0 +1,36 @@
+# Domain-Specific Role Template Permissions (Task Management)
+# These permissions are added to existing role templates
+# For different domains, modify these permissions accordingly
+
+domain_permissions:
+  owner:
+    - resource: projects
+      actions: [read, write, delete]
+    - resource: tasks
+      actions: [read, write, delete]
+    - resource: comments
+      actions: [read, write, delete]
+
+  admin:
+    - resource: projects
+      actions: [read, write, delete]
+    - resource: tasks
+      actions: [read, write, delete]
+    - resource: comments
+      actions: [read, write, delete]
+
+  member:
+    - resource: projects
+      actions: [read]
+    - resource: tasks
+      actions: [read, write]
+    - resource: comments
+      actions: [read, write, delete]  # delete for own comments
+
+  viewer:
+    - resource: projects
+      actions: [read]
+    - resource: tasks
+      actions: [read]
+    - resource: comments
+      actions: [read]

@@ -1,0 +1,146 @@
+ Container sso_jaeger  Running
+ Container sso_redis  Running
+ Container sso_postgres  Running
+ Container sso_b2b_api  Running
+ Container sso_frontend  Running
+ Container sso_redis  Waiting
+ Container sso_postgres  Waiting
+ Container sso_redis  Healthy
+ Container sso_postgres  Healthy
+============================= test session starts ==============================
+platform linux -- Python 3.12.12, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /app
+configfile: pytest.ini
+plugins: Faker-20.1.0, anyio-4.12.0, playwright-0.4.3, cov-4.1.0, asyncio-0.21.1, xdist-3.2.1, base-url-2.1.0
+asyncio: mode=Mode.STRICT
+collecting ... collected 1 item
+
+tests/e2e_api/b2c/workspaces/test_invitations.py::TestWorkspaceInvitations::test_prevent_duplicate_invitation DEBUG RESPONSE: 422 {'detail': [{'type': 'value_error', 'loc': ['body', 'email'], 'msg': 'value is not a valid email address: The part after the @-sign is a special-use or reserved name that cannot be used with email.', 'input': 'invitee-f84c3463@b2c.test', 'ctx': {'reason': 'The part after the @-sign is a special-use or reserved name that cannot be used with email.'}}]}
+FAILED
+
+=================================== FAILURES ===================================
+__________ TestWorkspaceInvitations.test_prevent_duplicate_invitation __________
+
+self = <workspaces.test_invitations.TestWorkspaceInvitations object at 0x7f1ec4229100>
+api_client = <httpx.AsyncClient object at 0x7f1ec4275550>
+workspace_invitation = {'invitation': <services.b2c.models.workspace_invitation.WorkspaceInvitation object at 0x7f1ec3e4cb00>, 'invitee_email...CUser object at 0x7f1ec427d970>, ...}, 'workspace': <services.b2c.models.workspace.Workspace object at 0x7f1ec404bda0>}
+
+    async def test_prevent_duplicate_invitation(
+        self, api_client: AsyncClient, workspace_invitation
+    ):
+        """Cannot invite same email twice"""
+        response = await api_client.post(
+            f"{"http://test"}/api/b2c/workspaces/{workspace_invitation['workspace'].id}/invite",
+            headers={"Authorization": f"Bearer {workspace_invitation['inviter']['auth_token']}"},
+            json={"email": workspace_invitation['invitee_email'], "role": "member"}
+        )
+    
+        print(f"DEBUG RESPONSE: {response.status_code} {response.json()}")
+>       assert response.status_code == 400
+E       assert 422 == 400
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests/e2e_api/b2c/workspaces/test_invitations.py:60: AssertionError
+=============================== warnings summary ===============================
+core/config.py:6
+  /app/core/config.py:6: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class Settings(BaseSettings):
+
+core/models/base.py:5
+  /app/core/models/base.py:5: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+services/b2b/schemas/users.py:10
+  /app/services/b2b/schemas/users.py:10: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class UserResponse(BaseModel):
+
+services/b2b/schemas/roles.py:9
+  /app/services/b2b/schemas/roles.py:9: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ResourceResponse(BaseModel):
+
+services/b2b/schemas/roles.py:21
+  /app/services/b2b/schemas/roles.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ActionResponse(BaseModel):
+
+services/b2b/schemas/roles.py:31
+  /app/services/b2b/schemas/roles.py:31: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class PermissionResponse(BaseModel):
+
+services/b2b/schemas/roles.py:56
+  /app/services/b2b/schemas/roles.py:56: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RoleResponse(BaseModel):
+
+services/b2b/schemas/roles.py:70
+  /app/services/b2b/schemas/roles.py:70: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RoleTemplateResponse(BaseModel):
+
+services/b2b/schemas/roles.py:83
+  /app/services/b2b/schemas/roles.py:83: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RoleDetailResponse(BaseModel):
+
+services/b2b/schemas/roles.py:97
+  /app/services/b2b/schemas/roles.py:97: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class UpdateRolePermissionsRequest(BaseModel):
+
+services/b2b/schemas/team.py:25
+  /app/services/b2b/schemas/team.py:25: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamResponse(TeamBase):
+
+services/b2b/schemas/team.py:38
+  /app/services/b2b/schemas/team.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamListResponse(BaseModel):
+
+services/b2b/schemas/team.py:71
+  /app/services/b2b/schemas/team.py:71: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamMemberResponse(BaseModel):
+
+services/b2b/schemas/team.py:97
+  /app/services/b2b/schemas/team.py:97: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamStatsResponse(BaseModel):
+
+services/b2b/schemas/account.py:9
+  /app/services/b2b/schemas/account.py:9: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class AccountSettingsResponse(BaseModel):
+
+services/b2b/schemas/auth_provider.py:38
+  /app/services/b2b/schemas/auth_provider.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class AuthProviderResponse(AuthProviderBase):
+
+services/b2b/schemas/team_roles.py:23
+  /app/services/b2b/schemas/team_roles.py:23: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamRoleResponse(BaseModel):
+
+services/domains/projects/schemas/projects.py:26
+  /app/services/domains/projects/schemas/projects.py:26: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ProjectResponse(ProjectBase):
+
+services/domains/projects/schemas/tasks.py:30
+  /app/services/domains/projects/schemas/tasks.py:30: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TaskResponse(TaskBase):
+
+services/domains/projects/schemas/comments.py:24
+  /app/services/domains/projects/schemas/comments.py:24: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CommentResponse(CommentBase):
+
+services/domains/projects/schemas/comments.py:38
+  /app/services/domains/projects/schemas/comments.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CommentResponseWithReplies(CommentResponse):
+
+services/platform/schemas/platform_schemas.py:106
+  /app/services/platform/schemas/platform_schemas.py:106: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class B2BPlanResponse(BaseModel):
+
+services/platform/schemas/plan_schemas.py:33
+  /app/services/platform/schemas/plan_schemas.py:33: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class PlanResponse(PlanBase):
+
+services/platform/routers/roles.py:29
+  /app/services/platform/routers/roles.py:29: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RoleResponse(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/e2e_api/b2c/workspaces/test_invitations.py::TestWorkspaceInvitations::test_prevent_duplicate_invitation
+======================== 1 failed, 24 warnings in 1.08s ========================
+

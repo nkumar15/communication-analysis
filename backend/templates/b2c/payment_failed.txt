@@ -1,0 +1,22 @@
+Subject: Payment Failed - Action Required
+
+Hi {{ user_name }},
+
+We were unable to process your payment for {{ workspace_name }}.
+
+Your subscription tier: {{ tier }}
+
+To avoid service interruption, please update your payment method within {{ grace_period_days }} days.
+
+[Update Payment Method]({{ update_payment_url }})
+
+What happens if I don't update my payment?
+- You have {{ grace_period_days }} days to update your payment method
+- During this grace period, you'll retain full access to your {{ tier }} features
+- After {{ grace_period_days }} days, your workspace will be downgraded to the Free tier
+
+Need help?
+Contact our support team at {{ support_email }}
+
+Best regards,
+The Team

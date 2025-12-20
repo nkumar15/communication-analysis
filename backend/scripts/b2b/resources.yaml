@@ -1,0 +1,105 @@
+# B2B RBAC Resources (SaaS Boilerplate - Domain Agnostic)
+# Common resources found in any multi-tenant SaaS application
+# Domain-specific resources (projects, tasks, etc) are in domain_resources.yaml
+
+resources:
+  # Analytics & Reporting
+  - name: dashboard
+    display_name: Dashboard
+    category: Analytics
+    description: Statistics, metrics, and overview
+  
+  - name: reports
+    display_name: Reports
+    category: Analytics
+    description: Generate and view business reports
+  
+  - name: analytics
+    display_name: Analytics
+    category: Analytics
+    description: Advanced analytics and insights
+  
+  # User & Access Management
+  - name: users
+    display_name: User Management
+    category: Administration
+    description: Manage users and team members
+  
+  - name: roles
+    display_name: Role Management
+    category: Administration
+    description: Manage roles and permissions
+  
+  - name: invitations
+    display_name: Invitations
+    category: Administration
+    description: Invite new users to the platform
+  
+  - name: teams
+    display_name: Team Management
+    category: Administration
+    description: Organize users into teams
+  
+  - name: team_members
+    display_name: Team Members
+    category: Team Management
+    description: Manage team membership
+  
+  - name: team_settings
+    display_name: Team Settings
+    category: Team Management
+    description: Configure team settings
+  
+  # Account & Billing
+  - name: account
+    display_name: Account Settings
+    category: Configuration
+    description: Manage account configuration and preferences
+  
+  - name: billing
+    display_name: Billing & Subscription
+    category: Administration
+    description: Manage billing, payments, and subscription plans
+  
+  - name: invoices
+    display_name: Invoices
+    category: Billing
+    description: View and download invoices
+  
+  # Integration & API
+  - name: integrations
+    display_name: Integrations
+    category: Configuration
+    description: Third-party integrations and connections
+  
+  - name: webhooks
+    display_name: Webhooks
+    category: Configuration
+    description: Configure outbound webhooks
+  
+  - name: api_keys
+    display_name: API Keys
+    category: Security
+    description: Manage API keys and access tokens
+  
+  # Audit & Security
+  - name: audit_logs
+    display_name: Audit Logs
+    category: Security
+    description: View system audit logs and user activity
+  
+  - name: security
+    display_name: Security Settings
+    category: Security
+    description: Manage security policies and two-factor authentication
+  
+  # Support & Documentation
+  - name: support
+    display_name: Support
+    category: Help
+    description: Access support tickets and help resources
+  
+  - name: notifications
+    display_name: Notifications
+    category: Configuration
+    description: Manage notification preferences

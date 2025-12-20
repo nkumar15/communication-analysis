@@ -1,0 +1,45 @@
+{
+  "name": "sso-frontend",
+  "version": "1.0.0",
+  "description": "Multitenant SSO Frontend",
+  "private": true,
+  "scripts": {
+    "start": "webpack serve --mode development --open",
+    "start:b2b": "PORTAL=b2b webpack serve --mode development --open",
+    "start:b2c": "PORTAL=b2c webpack serve --mode development --open",
+    "start:platform": "PORTAL=platform webpack serve --mode development --open",
+    "build": "webpack --mode production",
+    "build:b2b": "PORTAL=b2b webpack --mode production",
+    "build:b2c": "PORTAL=b2c webpack --mode production",
+    "build:platform": "PORTAL=platform webpack --mode production",
+    "build:all": "npm run build:b2b && npm run build:b2c && npm run build:platform",
+    "dev": "webpack serve --mode development",
+    "android": "cd mobile-b2b && npm run android",
+    "ios": "cd mobile-b2b && npm run ios"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.6",
+    "@mui/material": "^7.3.6",
+    "axios": "^1.13.2",
+    "firebase": "^10.7.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.0",
+    "recharts": "^3.6.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.6",
+    "@babel/preset-env": "^7.23.6",
+    "@babel/preset-react": "^7.23.3",
+    "babel-loader": "^9.1.3",
+    "css-loader": "^6.8.1",
+    "dotenv-webpack": "^8.0.1",
+    "html-webpack-plugin": "^5.6.0",
+    "style-loader": "^3.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  }
+}

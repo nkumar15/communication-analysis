@@ -1,0 +1,30 @@
+Subject: Payment Reminder: Invoice {invoice_number} is Overdue
+
+Hello,
+
+This is a friendly reminder that your invoice is now overdue.
+
+Invoice Details:
+- Invoice Number: {invoice_number}
+- Original Due Date: {due_date}
+- Amount Due: ${amount_due}
+- Days Overdue: {days_overdue}
+
+To avoid service interruption, please make payment as soon as possible.
+
+You can view your invoice here:
+{invoice_url}
+
+If you have already made payment, please disregard this message. If you're experiencing any issues with payment, please contact our billing team immediately.
+
+Payment Methods:
+- Wire Transfer: [Bank details]
+- Contact billing@{platform_domain} for assistance
+
+Thank you for your prompt attention to this matter.
+
+Best regards,
+The {platform_name} Team
+
+---
+This is an automated reminder. Please contact us if you need assistance.

@@ -1,0 +1,26 @@
+Subject: Subscription Canceled
+
+Hi {{ user_name }},
+
+Your subscription for {{ workspace_name }} has been canceled.
+
+Previous tier: {{ tier }}
+
+{% if period_end %}
+Your subscription will remain active until {{ period_end }}, after which your workspace will be downgraded to the Free tier.
+{% else %}
+Your workspace has been downgraded to the Free tier.
+{% endif %}
+
+Want to reactivate your subscription?
+[View Pricing Plans]({{ reactivate_url }})
+
+Free tier limitations:
+- 5 projects maximum
+- 1 GB storage
+- Basic features only
+
+Thank you for using our service!
+
+Best regards,
+The Team

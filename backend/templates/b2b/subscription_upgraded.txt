@@ -1,0 +1,30 @@
+Subject: Subscription Upgraded to {new_tier}!
+
+Hello,
+
+Your subscription has been successfully upgraded!
+
+Upgrade Details:
+- Previous Tier: {old_tier}
+- New Tier: {new_tier}
+- Billing Interval: {billing_interval}
+- Current Seat Count: {seat_count} users
+
+New Pricing:
+- Base Price: ${base_price}
+- Per-Seat Price: ${per_seat_price} × {seat_count} seats
+- New Total: ${total_amount} per {billing_interval}
+
+The upgrade is effective immediately, and you now have access to all {new_tier} tier features.
+
+Next Billing:
+- Next Billing Date: {next_billing_date}
+- Next Invoice Amount: ${total_amount}
+
+View your updated subscription:
+{subscription_url}
+
+Thank you for upgrading!
+
+Best regards,
+The {platform_name} Team
