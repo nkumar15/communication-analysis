@@ -6,3 +6,7 @@ httpx==0.25.2
 faker==20.1.0
 pytest-playwright==0.4.3
 pytest-xdist==3.2.1
+
+# Static code analysis
+bandit==1.7.6  # Python security linter
+semgrep==1.55.0  # Multi-language static analysis

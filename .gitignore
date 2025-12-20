@@ -74,3 +74,8 @@ docker-compose.override.yml
 *.bak
 *.backup
 .cache/
+
+# SAST Scan Reports
+backend/bandit-report.txt
+backend/semgrep-report.txt
+backend/trivy-report.txt
