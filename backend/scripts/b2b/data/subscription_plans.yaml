@@ -16,10 +16,10 @@ plans:
   - tier_key: professional
     name: Professional
     description: Advanced collaboration and security
-    base_price_monthly: 4900
-    base_price_yearly: 49000
-    per_seat_price_monthly: 1500
-    per_seat_price_yearly: 15000
+    base_price_monthly: 5000  # $50/month
+    base_price_yearly: 50000  # $500/year
+    per_seat_price_monthly: 2000  # $20/user/month
+    per_seat_price_yearly: 20000  # $200/user/year
     limits:
       projects: -1
       storage_gb: 100
