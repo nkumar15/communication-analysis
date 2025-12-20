@@ -29,10 +29,10 @@ CREATE TABLE b2c.users (
     avatar_url VARCHAR(500),
     email_verified BOOLEAN DEFAULT false,
     default_workspace_id UUID, -- Set after workspace creation
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    last_login_at TIMESTAMP,
-    deleted_at TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE INDEX idx_b2c_users_firebase_uid ON b2c.users(firebase_uid);
@@ -48,8 +48,8 @@ CREATE TABLE b2c.workspaces (
     owner_id UUID NOT NULL REFERENCES b2c.users(id) ON DELETE CASCADE,
     subscription_tier VARCHAR(50) DEFAULT 'free',
     settings JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deleted_at TIMESTAMP
 );
 
@@ -63,7 +63,7 @@ CREATE TABLE b2c.workspace_members (
     workspace_id UUID REFERENCES b2c.workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES b2c.users(id) ON DELETE CASCADE,
     role VARCHAR(50) NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
-    joined_at TIMESTAMP DEFAULT NOW(),
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     invited_by UUID REFERENCES b2c.users(id),
     PRIMARY KEY (workspace_id, user_id)
 );

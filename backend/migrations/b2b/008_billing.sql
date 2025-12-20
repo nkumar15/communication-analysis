@@ -53,13 +53,13 @@ CREATE TABLE IF NOT EXISTS b2b.subscriptions (
     billing_interval VARCHAR(20) DEFAULT 'monthly', -- 'monthly' | 'yearly'
     
     -- Billing Cycle
-    current_period_start TIMESTAMPTZ,
-    current_period_end TIMESTAMPTZ,
-    trial_ends_at TIMESTAMPTZ,
+    current_period_start TIMESTAMP WITH TIME ZONE,
+    current_period_end TIMESTAMP WITH TIME ZONE,
+    trial_ends_at TIMESTAMP WITH TIME ZONE,
     
     -- Cancellation
     cancel_at_period_end BOOLEAN DEFAULT false,
-    canceled_at TIMESTAMPTZ,
+    canceled_at TIMESTAMP WITH TIME ZONE,
     
     -- Stripe Provider Info (for card mode)
     provider VARCHAR(50) NOT NULL DEFAULT 'stripe',
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS b2b.subscriptions (
     provider_subscription_id VARCHAR(255) UNIQUE,
     
     -- Timestamps
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT valid_tier CHECK (tier IN ('starter', 'professional', 'enterprise')),
@@ -120,13 +120,13 @@ CREATE TABLE IF NOT EXISTS b2b.invoices (
     per_seat_price_snapshot_cents INTEGER NOT NULL,
     
     -- Billing Period
-    billing_period_start TIMESTAMPTZ NOT NULL,
-    billing_period_end TIMESTAMPTZ NOT NULL,
+    billing_period_start TIMESTAMP WITH TIME ZONE NOT NULL,
+    billing_period_end TIMESTAMP WITH TIME ZONE NOT NULL,
     
     -- Dates
-    invoice_date TIMESTAMPTZ DEFAULT NOW(),
-    due_date TIMESTAMPTZ,
-    paid_at TIMESTAMPTZ,
+    invoice_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    due_date TIMESTAMP WITH TIME ZONE,
+    paid_at TIMESTAMP WITH TIME ZONE,
     
     -- URLs (for Stripe invoices)
     invoice_pdf_url TEXT,
@@ -134,15 +134,15 @@ CREATE TABLE IF NOT EXISTS b2b.invoices (
     
     -- Approval Workflow (for manual invoices)
     approved_by UUID, -- Platform admin user ID (no FK - platform schema may not exist yet)
-    approved_at TIMESTAMPTZ,
+    approved_at TIMESTAMP WITH TIME ZONE,
     
     -- Payment Confirmation (for manual invoices)
     marked_paid_by UUID, -- Platform admin user ID (no FK - platform schema may not exist yet)
     payment_notes TEXT,
     
     -- Timestamps
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     CONSTRAINT valid_invoice_status CHECK (status IN ('draft', 'pending_approval', 'approved', 'sent', 'paid', 'overdue', 'void'))
 );
@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS b2b.subscription_events (
     triggered_by UUID, -- User or admin who triggered the event
     
     -- Timestamps
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_b2b_subscription_events_subscription ON b2b.subscription_events(subscription_id);
@@ -214,16 +214,16 @@ CREATE TABLE IF NOT EXISTS b2b.payment_mode_requests (
     
     -- Reviewer
     reviewed_by UUID, -- Platform admin user ID (no FK - platform schema may not exist yet)
-    reviewed_at TIMESTAMPTZ,
+    reviewed_at TIMESTAMP WITH TIME ZONE,
     admin_notes TEXT,
     
     -- Scheduling (no mid-cycle changes)
-    effective_date TIMESTAMPTZ, -- When the change will take effect (next billing period start)
-    applied_at TIMESTAMPTZ, -- When the change was actually applied
+    effective_date TIMESTAMP WITH TIME ZONE, -- When the change will take effect (next billing period start)
+    applied_at TIMESTAMP WITH TIME ZONE, -- When the change was actually applied
     
     -- Timestamps
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     CONSTRAINT valid_payment_mode_request_status CHECK (status IN ('pending', 'approved', 'rejected', 'scheduled', 'applied')),
     CONSTRAINT different_modes CHECK (current_mode != requested_mode)
