@@ -26,10 +26,22 @@ graph TD
     Extract --> Resolve{Resolving Tenant}
     
     Resolve -->|Lookup by Firebase ID| TenantDB[(Tenants Table)]
-    TenantDB -->|Found| SetCtx[SET app.current_tenant_id]
     TenantDB -->|Not Found| 404[404 Tenant Not Found]
+    TenantDB -->|Found| CheckActivation{Tenant Activated?}
     
-    SetCtx --> Handler[Route Handler / Business Logic]
+    CheckActivation -->|activation_status != 'active'| 403A[403 Tenant Not Activated]
+    CheckActivation -->|Yes| CheckDeactivation{Tenant Active?}
+    
+    CheckDeactivation -->|is_active = false| 403B[403 Organization Deactivated]
+    CheckDeactivation -->|Yes| SetCtx[SET app.current_tenant_id]
+    
+    SetCtx --> LookupUser{User Lookup}
+    LookupUser -->|Not Found| 401B[401 User Not Found]
+    LookupUser -->|Found| CheckUserActive{User Active?}
+    
+    CheckUserActive -->|is_active = false| 401C[401 User Inactive]
+    CheckUserActive -->|Yes| Handler[Route Handler / Business Logic]
+    
     Handler --> Query[SQL Query]
     
     subgraph "Postgres RLS Layer"
@@ -38,6 +50,15 @@ graph TD
         Policy -->|No Match| Empty[Empty Result]
     end
 ```
+
+**Key Security Checks:**
+1. **Token Verification** - Cryptographic signature validation
+2. **Tenant Resolution** - Firebase tenant ID → Database tenant UUID
+3. **Tenant Activation** - Must have completed onboarding (`activation_status = 'active'`)
+4. **Tenant Deactivation** - Platform admin can disable organizations (`is_active = true`)
+5. **User Existence** - User must exist in database
+6. **User Status** - User must be active (`is_active = true`)
+7. **RLS Context** - Per-request tenant context for data isolation
 
 ---
 
@@ -161,6 +182,47 @@ sequenceDiagram
 ---
 
 ## 5. Security & Isolation
+
+### RLS Context Management
+
+**Per-Request Context:** The RLS context (`app.current_tenant_id`) is set **per-request**, not globally. This ensures:
+
+1. **Thread Safety** - Multiple concurrent requests don't interfere
+2. **Isolation** - Each request sees only its tenant's data
+3. **Security** - No possibility of context leakage between requests
+
+```python
+# In get_current_active_user middleware (runs on EVERY request)
+current_tenant_id.set(str(tenant.id))  # Context var (thread-local)
+await rls_service.set_tenant_context(db, tenant.id)  # SET LOCAL (transaction-scoped)
+```
+
+**Important:** Context is automatically cleared when the request completes (FastAPI lifecycle).
+
+### Tenant Status Management
+
+Tenants have two status gates that control access:
+
+| Status | Field | Purpose | Set By |
+|--------|-------|---------|--------|
+| **Activation** | `activation_status` | Lifecycle state | Owner activation flow |
+| **Active** | `is_active` | Administrative control | Platform admin |
+
+**Activation States:**
+- `pending` - Tenant created, awaiting owner activation → **403 Error**
+- `active` - Owner completed activation → **Allowed**
+
+**Deactivation:**
+- `is_active = true` - Normal operations → **Allowed**
+- `is_active = false` - Platform admin disabled → **403 Error**
+
+**Use Cases for Deactivation:**
+1. **Non-payment** - Suspend access until billing resolved
+2. **Policy Violation** - Temporary suspension during investigation
+3. **Voluntary Suspension** - Customer-requested pause
+4. **Security Incident** - Immediate lockout
+
+**Reactivation:** Platform admin can set `is_active = true` to restore access.
 
 ### Common Attacks & Defenses
 

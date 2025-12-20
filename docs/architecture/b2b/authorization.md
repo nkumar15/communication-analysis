@@ -107,6 +107,97 @@ accessible_ids = await get_accessible_user_ids(user_id, db)
 query = select(UserModel).where(UserModel.id.in_(accessible_ids))
 ```
 
+**Important:** RLS context is set **per-request** in the authentication middleware, not globally. This ensures thread safety and prevents cross-request data leakage.
+
+---
+
+## 🛡️ Tenant & User Access Control
+
+### Platform Admin Controls
+
+Platform administrators have super-admin capabilities to manage tenant lifecycle and access:
+
+#### Tenant Deactivation
+
+Platform admins can temporarily or permanently disable tenant access without deleting data.
+
+**Use Cases:**
+1. **Billing Issues** - Suspend access until payment is resolved
+2. **Policy Violations** - Temporary suspension during investigation
+3. **Security Incidents** - Immediate lockout for compromised tenants
+4. **Voluntary Suspension** - Customer-requested pause (e.g., seasonal businesses)
+
+**API Endpoints:**
+
+```python
+# Deactivate a tenant
+PATCH /api/platform/b2b/tenants/{tenant_id}/deactivate
+```
+
+**Effect:**
+- Sets `tenant.is_active = false`
+- **All users** of that tenant receive `403 Forbidden` on next request
+- Checked in `get_current_active_user` middleware (line 57-61 in b2b_auth.py):
+
+```python
+if not tenant.is_active:
+    raise HTTPException(
+        status_code=403,
+        detail="This organization has been deactivated. Please contact your administrator."
+    )
+```
+
+**Reactivation:**
+
+```python
+# Reactivate a tenant
+PATCH /api/platform/b2b/tenants/{tenant_id}/reactivate
+```
+
+**Effect:**
+- Sets `tenant.is_active = true`
+- Users can immediately access the application again
+
+**Data Preservation:**
+- ✅ All data remains intact during deactivation
+- ✅ No deletion or data loss
+- ✅ Users, teams, projects, etc. all preserved
+- ✅ Instant recovery on reactivation
+
+#### User Deactivation
+
+Tenant admins can deactivate individual users:
+
+**Use Cases:**
+1. **Employee Offboarding** - Disable access when staff leaves
+2. **Security** - Block compromised user accounts
+3. **Temporary Leave** - Pause access during leave of absence
+
+**Effect:**
+- Sets `user.is_active = false`
+- User receives `401 Unauthorized` on login attempt
+- Checked in middleware after user lookup
+
+### Tenant Activation Status
+
+Separate from deactivation, tenants have an activation lifecycle:
+
+| State | Description | Access |
+|-------|-------------|--------|
+| `pending` | Created but owner hasn't activated | ❌ 403 Forbidden |
+| `active` | Owner completed activation | ✅ Allowed (if is_active=true) |
+
+**Validation in Middleware:**
+
+```python
+# Check activation status (line 50-54 in b2b_auth.py)
+if tenant.activation_status != 'active':
+    raise HTTPException(
+        status_code=403,
+        detail="Tenant is not yet activated. Please complete the activation process."
+    )
+```
+
 ---
 
 ## 📦 RBAC Seeding & Configuration
