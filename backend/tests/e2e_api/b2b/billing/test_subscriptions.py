@@ -61,9 +61,9 @@ class TestSubscriptionAPI:
         assert "per_seat_price_cents" in pricing
         assert "total_amount_cents" in pricing
         
-        # Professional tier pricing
-        assert pricing["base_price_cents"] == 5000  # $50
-        assert pricing["per_seat_price_cents"] == 2000  # $20
+        # Professional tier pricing (SGD)
+        assert pricing["base_price_cents"] == 500000  # $5,000
+        assert pricing["per_seat_price_cents"] == 200000  # $2,000
     
     async def test_create_checkout_starter_fails(self, client, b2b_tenant_owner_token):
         """Test that starter tier cannot be purchased (it's free)"""
@@ -116,9 +116,9 @@ class TestInvoiceAPI:
             payment_mode=PaymentMode.INVOICE.value,
             status=SubscriptionStatus.ACTIVE.value,
             seat_count=5,
-            base_price_cents=5000,
-            per_seat_price_cents=2000,
-            total_amount_cents=15000  # $50 + ($20 * 5)
+            base_price_cents=500000,  # $5,000
+            per_seat_price_cents=200000,  # $2,000
+            total_amount_cents=1500000  # $5,000 + ($2,000 * 5) = $15,000
         )
         db_session.add(subscription)
         await db_session.flush()
@@ -132,11 +132,11 @@ class TestInvoiceAPI:
             tenant_id=b2b_tenant.id,
             invoice_number=f"INV-{datetime.now(timezone.utc).strftime('%Y%m')}-TEST-{unique_suffix}",
             status=InvoiceStatus.SENT.value,
-            amount_due=15000,
+            amount_due=1500000,  # $15,000
             amount_paid=0,
             seat_count_snapshot=5,
-            base_price_snapshot_cents=5000,
-            per_seat_price_snapshot_cents=2000,
+            base_price_snapshot_cents=500000,  # $5,000
+            per_seat_price_snapshot_cents=200000,  # $2,000
             billing_period_start=datetime.now(timezone.utc) - timedelta(days=30),
             billing_period_end=datetime.now(timezone.utc),
             due_date=datetime.now(timezone.utc) + timedelta(days=30)
@@ -157,7 +157,7 @@ class TestInvoiceAPI:
         # Check that invoice number follows the expected pattern with current date
         assert data[0]["invoice_number"].startswith(f"INV-{datetime.now(timezone.utc).strftime('%Y%m')}-TEST-")
         assert data[0]["status"] == "sent"
-        assert data[0]["amount_due"] == 15000
+        assert data[0]["amount_due"] == 1500000  # $15,000
         assert data[0]["seat_count_snapshot"] == 5
     
     async def test_invoice_rls_isolation(
@@ -187,7 +187,9 @@ class TestInvoiceAPI:
                 tenant_id=b2b_tenant2.id,
                 tier=SubscriptionTier.PROFESSIONAL.value,
                 seat_count=3,
-                total_amount_cents=11000
+                base_price_cents=500000,  # $5,000
+                per_seat_price_cents=200000,  # $2,000
+                total_amount_cents=1100000  # $5,000 + ($2,000 * 3) = $11,000
             )
             db_session.add(subscription2)
             await db_session.flush()
@@ -200,10 +202,10 @@ class TestInvoiceAPI:
             tenant_id=b2b_tenant2.id,
             invoice_number=f"INV-{datetime.now(timezone.utc).strftime('%Y%m')}-T2-{unique_suffix}",
             status=InvoiceStatus.SENT.value,
-            amount_due=11000,
+            amount_due=1100000,  # $11,000
             seat_count_snapshot=3,
-            base_price_snapshot_cents=5000,
-            per_seat_price_snapshot_cents=2000,
+            base_price_snapshot_cents=500000,  # $5,000
+            per_seat_price_snapshot_cents=200000,  # $2,000
             billing_period_start=datetime.now(timezone.utc) - timedelta(days=30),
             billing_period_end=datetime.now(timezone.utc)
         )

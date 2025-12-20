@@ -103,6 +103,7 @@ b2b-migrate: ## Run migrations for B2B only (platform + b2b)
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
 	@$(MAKE) b2b-seed-roles
+	@$(MAKE) b2b-seed-plans
 	@echo "$(GREEN)✓ B2B migrations complete$(NC)"
 
 b2c-migrate: ## Run migrations for B2C only (platform + b2c)
