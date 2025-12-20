@@ -24,9 +24,15 @@ async def get_account_settings(
     """
     Get current tenant account settings
     
-    - All authenticated users can view account settings
+    - Requires account:read permission (Admin/Owner)
     - Returns tenant name, domain (read-only), logo, and creation date
     """
+    # Check permission
+    if not await has_permission(current_user['id'], 'account', 'read', db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view account settings"
+        )
     # Get tenant
     tenant = await db.get(TenantModel, current_user['tenant_id'])
     

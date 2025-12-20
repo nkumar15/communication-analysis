@@ -13,6 +13,7 @@ import stripe
 
 from core.database import get_db
 from services.b2b.middleware.b2b_auth import get_current_active_user
+from services.b2b.rbac.decorators import require_permission
 from services.b2b.services.subscription_service import SubscriptionService
 from services.b2b.services.invoice_service import InvoiceService
 from services.b2b.models import SubscriptionTier, InvoiceStatus
@@ -80,12 +81,13 @@ class InvoiceResponse(BaseModel):
 
 @router.get("/subscription", response_model=SubscriptionResponse)
 async def get_subscription(
-    current_user=Depends(get_current_active_user),
+    current_user=require_permission("billing", "read"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get current subscription for the tenant.
     Returns starter tier if no subscription exists.
+    Requires billing:read permission (Admin/Owner).
     """
     # current_user is a UserModel object with tenant_id attribute
     tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
@@ -158,12 +160,13 @@ async def get_subscription(
 @router.post("/checkout", response_model=CheckoutResponse)
 async def create_checkout_session(
     request: CheckoutRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=require_permission("billing", "manage"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Create Stripe checkout session for subscription upgrade.
     Only for card-based payments (professional, enterprise tiers).
+    Requires billing:manage permission (Owner only).
     """
     tenant_id = current_user.get('tenant_id') if isinstance(current_user, dict) else current_user.tenant_id
     try:
@@ -202,11 +205,12 @@ async def create_checkout_session(
 async def list_invoices(
     status: Optional[str] = None,
     limit: int = 50,
-    current_user=Depends(get_current_active_user),
+    current_user=require_permission("invoices", "read"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     List invoices for the current tenant.
+    Requires invoices:read permission (Admin/Owner).
     """
     tenant_id = current_user.get('tenant_id') if isinstance(current_user, dict) else current_user.tenant_id
     service = InvoiceService(db)
@@ -247,12 +251,13 @@ async def list_invoices(
 @router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
 async def get_invoice(
     invoice_id: UUID,
-    current_user=Depends(get_current_active_user),
+    current_user=require_permission("invoices", "read"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get specific invoice details.
     RLS will enforce tenant isolation.
+    Requires invoices:read permission (Admin/Owner).
     """
     service = InvoiceService(db)
     invoice = await service.get_invoice_by_id(invoice_id)

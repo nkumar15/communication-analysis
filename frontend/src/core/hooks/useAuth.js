@@ -92,15 +92,24 @@ export const useAuth = () => {
             projects: 'projects:read',
             users: 'users:read',
             teams: 'teams:read',
+            roles: 'roles:read',
             account: 'account:read',
+            billing: 'billing:read',
+            invoices: 'invoices:read',
             audit_logs: 'audit_logs:read',
-            invitations: 'invitations:read'
+            invitations: 'invitations:read',
+            integrations: 'integrations:read',
+            webhooks: 'webhooks:read',
+            api_keys: 'api_keys:read',
+            security: 'security:read',
+            reports: 'reports:read',
+            analytics: 'analytics:read'
         };
 
         const requiredPermission = featurePermissions[feature];
         if (!requiredPermission) {
-            // Unknown feature - allow if user has any permissions (authenticated)
-            return user.permissions?.length > 0;
+            // Unknown feature - deny access by default for security
+            return false;
         }
 
         const [resource, action] = requiredPermission.split(':');
