@@ -20,8 +20,8 @@ class B2CUser(Base, TimestampMixin):
     email_verified = Column(Boolean, default=False)
     default_workspace_id = Column(UUID(as_uuid=True), ForeignKey('b2c.workspaces.id'))
     
-    last_login_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     subscriptions = relationship("Subscription", back_populates="user")

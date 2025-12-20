@@ -61,7 +61,7 @@ async def get_current_b2c_user(
     
     # Set RLS context FIRST so we can query the user object
     from core.rls import rls_service
-    await rls_service.set_user_context(db, str(user_id))
+    await rls_service.set_user_context(db, user_id)
     
     # Now fetch user details (RLS allowed)
     result = await db.execute(

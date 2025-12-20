@@ -1,7 +1,7 @@
 """B2C Invitation Service"""
 from typing import Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from fastapi import HTTPException, status
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
@@ -50,18 +50,20 @@ class InvitationService:
         )
         
         # Check if user already exists and is a member
-        result = await db.execute(
-            select(B2CUser).where(B2CUser.email == email)
+        # Use security definer function to bypass RLS
+        from sqlalchemy import text
+        user_id_result = await db.execute(
+            select(func.b2c.lookup_user_by_email(email))
         )
-        existing_user = result.scalar_one_or_none()
+        existing_user_id = user_id_result.scalar_one_or_none()
         
-        if existing_user:
+        if existing_user_id:
             # Check if already a member
             member_result = await db.execute(
                 select(WorkspaceMember).where(
                     and_(
                         WorkspaceMember.workspace_id == workspace_id,
-                        WorkspaceMember.user_id == existing_user.id
+                        WorkspaceMember.user_id == existing_user_id
                     )
                 )
             )

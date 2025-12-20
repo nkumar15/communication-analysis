@@ -183,14 +183,24 @@ async def test_get_me_returns_user_info(api_client: AsyncClient, db_session):
 async def test_get_me_rejects_deleted_user(api_client: AsyncClient, db_session):
     """Test /me rejects deleted users"""
     
-    from datetime import datetime
+    from datetime import datetime, timezone
     
     # Create deleted user
     email = f"deleted-{uuid4().hex[:8]}@b2c.test"
     firebase_uid = f"firebase-{uuid4().hex[:12]}"
     user = await create_b2c_user(db_session, email, firebase_uid)
-    user.deleted_at = datetime.utcnow()
+    user.deleted_at = datetime.now(timezone.utc)
     await db_session.commit()
+    
+    # Verify persistence
+    from sqlalchemy import select, text
+    from services.b2c.models.user import B2CUser
+    # Set context again because commit() clears LOCAL variables
+    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user.id}'"))
+    chk = await db_session.execute(select(B2CUser).where(B2CUser.id == user.id))
+    u = chk.scalar_one()
+    print(f"DEBUG IN TEST: user.deleted_at = {u.deleted_at}")
+    print(f"DEBUG IN TEST: user.deleted_at type = {type(u.deleted_at)}")
     
     # Try to access /me
     mock_token_data = create_b2c_mock_token(firebase_uid, email)
@@ -201,6 +211,7 @@ async def test_get_me_rejects_deleted_user(api_client: AsyncClient, db_session):
             "/api/b2c/auth/me",
             headers={"Authorization": f"Bearer {id_token}"}
         )
+        print(f"DEBUG RESPONSE: {response.status_code} {response.json()}")
     
     assert response.status_code == 404  # User not found after deletion
     assert "not found" in response.json()["detail"].lower()

@@ -21,7 +21,7 @@ from core.rls import rls_service
 @pytest_asyncio.fixture
 async def workspace_owner(db_session):
     """Create a B2C user with personal workspace (free tier)"""
-    email = f"owner-{uuid4().hex[:8]}@b2c.test"
+    email = f"owner-{uuid4().hex[:8]}@example.com"
     firebase_uid = f"firebase-{uuid4().hex[:12]}"
     
     user = await create_b2c_user(db_session, email, firebase_uid, "Workspace Owner")
@@ -47,7 +47,7 @@ async def workspace_owner(db_session):
 @pytest_asyncio.fixture
 async def premium_workspace_owner(db_session):
     """Create a B2C user with Premium subscription for team workspace creation"""
-    email = f"premium-owner-{uuid4().hex[:8]}@b2c.test"
+    email = f"premium-owner-{uuid4().hex[:8]}@example.com"
     firebase_uid = f"firebase-{uuid4().hex[:12]}"
     
     user = await create_b2c_user(db_session, email, firebase_uid, "Premium Owner")
@@ -56,6 +56,39 @@ async def premium_workspace_owner(db_session):
         db_session, user.id, "Premium Personal Workspace", 'personal', subscription_tier='premium'
     )
     user.default_workspace_id = workspace.id
+
+    
+    # Set Admin context to bypass RLS for seeding
+    await rls_service.set_platform_admin_context(db_session)
+    
+    # Create active subscription record so WorkspaceService recognizes it
+    from services.b2c.models.subscription import Subscription
+    from services.b2c.models.subscription_plan import SubscriptionPlan
+    from sqlalchemy import select
+
+    # Lookup plan
+    plan_res = await db_session.execute(select(SubscriptionPlan).where(SubscriptionPlan.tier_key == 'premium'))
+    plan = plan_res.scalar_one_or_none()
+    
+    # If not found (should be seeded), create it
+    if not plan:
+        plan = SubscriptionPlan(
+            tier_key='premium', 
+            name='Premium Plan', 
+            price_monthly=1900,
+            limits={}, features={}
+        )
+        db_session.add(plan)
+        await db_session.flush()
+
+    subscription = Subscription(
+        workspace_id=workspace.id,
+        status="active",
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
+        plan_id=plan.id
+    )
+    db_session.add(subscription)
     
     await db_session.flush()
     
@@ -101,7 +134,7 @@ async def team_workspace(db_session, premium_workspace_owner):
 @pytest_asyncio.fixture
 async def team_member_user(db_session):
     """Create a regular user (will be invited to workspace)"""
-    email = f"member-{uuid4().hex[:8]}@b2c.test"
+    email = f"member-{uuid4().hex[:8]}@example.com"
     firebase_uid = f"firebase-{uuid4().hex[:12]}"
     
     user = await create_b2c_user(db_session, email, firebase_uid, "Team Member")
@@ -173,7 +206,7 @@ async def workspace_invitation(db_session, team_workspace, premium_workspace_own
     """Create a pending workspace invitation"""
     await rls_service.set_user_context(db_session, premium_workspace_owner['user'].id)
     
-    invitee_email = f"invitee-{uuid4().hex[:8]}@b2c.test"
+    invitee_email = f"invitee-{uuid4().hex[:8]}@example.com"
     
     invitation = WorkspaceInvitation(
         workspace_id=team_workspace.id,

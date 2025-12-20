@@ -178,11 +178,15 @@ class AuthService:
     ) -> list:
         """Get all workspaces user has access to"""
         from sqlalchemy.orm import selectinload
+        from uuid import UUID
+        
+        # Convert string to UUID
+        user_uuid = UUID(user_id) if isinstance(user_id, str) else user_id
         
         # Get workspace memberships with workspace details
         result = await db.execute(
             select(WorkspaceMember)
-            .where(WorkspaceMember.user_id == user_id)
+            .where(WorkspaceMember.user_id == user_uuid)
             .options(selectinload(WorkspaceMember.workspace))
         )
         memberships = result.scalars().all()

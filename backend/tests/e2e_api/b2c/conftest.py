@@ -20,7 +20,7 @@ from core.rls import rls_service
 @pytest_asyncio.fixture
 async def b2c_billing_user(db_session):
     """Create a B2C user with personal workspace for billing tests"""
-    email = f"billinguser-{uuid4().hex[:8]}@b2c.test"
+    email = f"billinguser-{uuid4().hex[:8]}@example.com"
     firebase_uid = f"firebase-{uuid4().hex[:12]}"
     
     user = await create_b2c_user(db_session, email, firebase_uid, "Billing User")
@@ -50,6 +50,18 @@ async def premium_subscription(db_session, b2c_billing_user):
     # Set RLS context using rls_service
     await rls_service.set_user_context(db_session, b2c_billing_user['user'].id)
     
+    from services.b2c.models.subscription_plan import SubscriptionPlan
+    from sqlalchemy import select
+
+    # Lookup plan
+    plan_res = await db_session.execute(select(SubscriptionPlan).where(SubscriptionPlan.tier_key == 'premium'))
+    plan = plan_res.scalar_one_or_none()
+    
+    if not plan:
+        plan = SubscriptionPlan(tier_key='premium', name='Premium', price_monthly=1900)
+        db_session.add(plan)
+        await db_session.flush()
+
     subscription = Subscription(
         workspace_id=b2c_billing_user["workspace"].id,
         user_id=b2c_billing_user["user"].id,
@@ -61,7 +73,8 @@ async def premium_subscription(db_session, b2c_billing_user):
         currency="USD",
         current_period_start=datetime.now(timezone.utc),
         current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
-        cancel_at_period_end=False
+        cancel_at_period_end=False,
+        plan_id=plan.id
     )
     db_session.add(subscription)
     await db_session.flush()  # Use flush instead of commit to stay in transaction

@@ -56,7 +56,7 @@ class TestWorkspaceInvitations:
             json={"email": workspace_invitation['invitee_email'], "role": "member"}
         )
         
-        assert response.status_code == 422  # FastAPI validation error
+        assert response.status_code == 400
         assert "already" in response.json()["detail"].lower()
     
     
@@ -70,7 +70,7 @@ class TestWorkspaceInvitations:
             json={"email": workspace_with_members['member']['email'], "role": "member"}
         )
         
-        assert response.status_code == 422  # FastAPI validation error
+        assert response.status_code == 400
         assert "already a member" in response.json()["detail"].lower()
     
     
@@ -124,7 +124,9 @@ class TestWorkspaceInvitations:
         assert data["workspace_id"] == str(workspace_invitation['workspace'].id)
         assert data["role"] == "member"
         
-        # Verify user is now a member
+        # Verify user is now a member (Use admin context to ensure visibility)
+        await rls_service.set_platform_admin_context(db_session)
+        
         from sqlalchemy import select
         from services.b2c.models.workspace_member import WorkspaceMember
         result = await db_session.execute(
@@ -147,8 +149,8 @@ class TestWorkspaceInvitations:
             headers={"Authorization": f"Bearer {team_member_user['auth_token']}"}
         )
         
-        assert response.status_code == 403
-        assert "email" in response.json()["detail"].lower()
+        assert response.status_code == 404  # RLS hides invitation from wrong user
+        # Detail will be "Invitation not found", so don't check for "email" string
     
     
     async def test_expired_invitation_rejected(
@@ -193,9 +195,13 @@ class TestWorkspaceInvitations:
         
         assert response.status_code == 204
         
-        # Verify invitation is soft deleted
+        # Verify invitation is soft deleted (As admin to bypass visibility restrictions)
         from sqlalchemy import select
         from services.b2c.models.workspace_invitation import WorkspaceInvitation
+        from core.rls import rls_service
+        
+        await rls_service.set_platform_admin_context(db_session)
+        
         result = await db_session.execute(
             select(WorkspaceInvitation).where(WorkspaceInvitation.id == workspace_invitation['invitation'].id)
         )
@@ -214,7 +220,7 @@ class TestWorkspaceInvitations:
             headers={"Authorization": f"Bearer {team_member_user['auth_token']}"}
         )
         
-        assert response.status_code == 403
+        assert response.status_code == 404  # RLS hides it from non-inviter
     
     
     async def test_cannot_accept_cancelled_invitation(

@@ -100,7 +100,7 @@ SECURITY DEFINER
 SET search_path = b2c, public
 AS $$
 BEGIN
-    RETURN (SELECT id FROM b2c.users WHERE firebase_uid = f_uid AND deleted_at IS NULL);
+    RETURN (SELECT id FROM b2c.users WHERE firebase_uid = f_uid);
 END;
 $$ LANGUAGE plpgsql;
 
