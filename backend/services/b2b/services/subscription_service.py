@@ -23,6 +23,8 @@ from services.b2b.models import (
     B2BSubscriptionPlan
 )
 from services.b2b.models.user import UserModel
+from services.b2b.models.rbac import Role
+from core.email import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -112,11 +114,24 @@ class SubscriptionService:
         customer_id = subscription.provider_customer_id if subscription else None
         
         if not customer_id:
+            # Get tenant owner for email
+            owner_result = await self.db.execute(
+                select(UserModel)
+                .join(Role, UserModel.role_id == Role.id)
+                .where(
+                    UserModel.tenant_id == tenant_id,
+                    Role.name == 'owner',
+                    UserModel.deleted_at == None
+                )
+            )
+            owner_user = owner_result.scalar_one_or_none()
+            owner_email = owner_user.email if owner_user else f"billing@{tenant.domain}"
+            
             # Create Stripe customer
-            logger.info(f"Creating Stripe customer for tenant {tenant_id}")
+            logger.info(f"Creating Stripe customer for tenant {tenant_id} with email {owner_email}")
             customer_result = await self.provider.create_customer(
                 user_id=str(tenant_id),
-                email=f"billing@{tenant.domain}",
+                email=owner_email,
                 name=tenant.name,
                 metadata={'tenant_id': str(tenant_id)}
             )
@@ -181,7 +196,7 @@ class SubscriptionService:
         
         logger.info(f"Processing checkout completion for tenant {tenant_id}")
         
-        # Get subscription data from Stripe
+        # Get subscription data from Stripe via provider
         provider_subscription_id = session_data.get('subscription')
         subscription_data = await self.provider.get_subscription(provider_subscription_id)
         
@@ -209,15 +224,19 @@ class SubscriptionService:
         subscription.currency = 'USD'
         
         subscription.provider_customer_id = session_data.get('customer')
-        subscription.provider_subscription_id = provider_subscription_id
-        subscription.current_period_start = datetime.fromtimestamp(
-            subscription_data['current_period_start'], 
-            tz=timezone.utc
-        )
-        subscription.current_period_end = datetime.fromtimestamp(
-            subscription_data['current_period_end'],
-            tz=timezone.utc
-        )
+        subscription.stripe_subscription_id = provider_subscription_id
+        
+        # Handle timestamps with fallbacks like B2C does
+        start_ts = subscription_data.get('current_period_start') or subscription_data.get('start_date') or subscription_data.get('created')
+        subscription.current_period_start = datetime.fromtimestamp(start_ts, tz=timezone.utc) if start_ts else datetime.now(timezone.utc)
+        
+        end_ts = subscription_data.get('current_period_end')
+        if end_ts:
+            subscription.current_period_end = datetime.fromtimestamp(end_ts, tz=timezone.utc)
+        else:
+            # Default to 30 days from now if not provided
+            from datetime import timedelta
+            subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
         
         await self.db.flush()
         
@@ -238,7 +257,46 @@ class SubscriptionService:
         self.db.add(event)
         await self.db.flush()
         
-        logger.info(f"Subscription activated: {subscription.id} (tier: {tier.value}, seats: {seat_count})")
+        logger.info(f"✅ Subscription activated: {subscription.id} (tier: {tier.value}, seats: {seat_count})")
+        
+        # Send confirmation email to tenant owner
+        try:
+            owner_result = await self.db.execute(
+                select(UserModel)
+                .join(Role, UserModel.role_id == Role.id)
+                .where(
+                    UserModel.tenant_id == tenant_id,
+                    Role.name == 'owner',
+                    UserModel.deleted_at == None
+                )
+            )
+            owner = owner_result.scalar_one_or_none()
+            
+            if owner:
+                # Get tenant for name
+                tenant_result = await self.db.execute(
+                    select(TenantModel).where(TenantModel.id == tenant_id)
+                )
+                tenant = tenant_result.scalar_one()
+                
+                await email_service.send_email(
+                    to_email=owner.email,
+                    subject=f"Subscription Upgraded - {tenant.name}",
+                    template_name="subscription_confirmation",
+                    template_data={
+                        "tenant_name": tenant.name,
+                        "owner_name": owner.name or owner.email,
+                        "tier": tier.value.title(),
+                        "seat_count": seat_count,
+                        "amount": f"${subscription.total_amount_cents / 100:.2f}",
+                        "billing_interval": billing_interval,
+                        "period_end": subscription.current_period_end.strftime("%B %d, %Y")
+                    }
+                )
+                logger.info(f"📧 Subscription confirmation email sent to {owner.email}")
+        except Exception as e:
+            logger.error(f"Failed to send subscription confirmation email: {e}")
+            # Don't fail the whole transaction for email issues
         
         return subscription
     

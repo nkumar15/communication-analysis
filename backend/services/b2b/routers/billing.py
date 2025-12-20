@@ -5,6 +5,7 @@ Endpoints for B2B tenant billing and subscription management.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, text
 from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel
@@ -124,9 +125,9 @@ async def get_subscription(
     
     # Fetch payment method info from Stripe if card payment
     payment_method_info = None
-    if subscription.payment_mode == 'card' and subscription.stripe_subscription_id:
+    if subscription.payment_mode == 'card' and subscription.provider_subscription_id:
         try:
-            stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+            stripe_sub = stripe.Subscription.retrieve(subscription.provider_subscription_id)
             if stripe_sub.default_payment_method:
                 pm = stripe.PaymentMethod.retrieve(stripe_sub.default_payment_method)
                 if pm.type == 'card':
@@ -315,17 +316,30 @@ async def stripe_webhook(
         event_type = event['type']
         data = event['data']['object']
         
-        logger.info(f"Received Stripe webhook: {event_type}")
+        logger.info(f"📥 Received Stripe webhook: {event_type}")
+        logger.debug(f"Webhook data: {data}")
         
         # Handle different event types
         subscription_service = SubscriptionService(db)
         invoice_service = InvoiceService(db)
         
+        # Set platform admin context to bypass RLS for system operations (like B2C does)
+        from core.rls import rls_service
+        await rls_service.set_platform_admin_context(db)
+        
         if event_type == 'checkout.session.completed':
-            await subscription_service.handle_checkout_completed(data)
-            await db.commit()
+            logger.info(f"💳 Processing checkout completion...")
+            try:
+                subscription = await subscription_service.handle_checkout_completed(data)
+                await db.commit()
+                logger.info(f"✅ Subscription updated successfully: {subscription.id}, tier: {subscription.tier}")
+            except Exception as e:
+                logger.error(f"❌ Failed to process checkout: {e}", exc_info=True)
+                await db.rollback()
+                raise
             
         elif event_type == 'customer.subscription.updated':
+            logger.info(f"🔄 Processing subscription update...")
             # Handle subscription updates (renewals, cancellations)
             subscription = await subscription_service.get_tenant_subscription(
                 UUID(data.get('metadata', {}).get('tenant_id'))
@@ -335,14 +349,18 @@ async def stripe_webhook(
                 pass  # TODO: Implement subscription update logic
             
         elif event_type == 'invoice.paid':
+            logger.info(f"💰 Processing invoice payment...")
             # Sync Stripe invoice
             await invoice_service.sync_stripe_invoice(data)
             await db.commit()
             
         elif event_type == 'invoice.payment_failed':
+            logger.warning(f"⚠️ Processing payment failure...")
             await invoice_service.sync_stripe_invoice(data)
             await db.commit()
             # TODO: Send payment failure notification
+        else:
+            logger.info(f"ℹ️ Unhandled event type: {event_type}")
         
         return {"status": "success"}
         
