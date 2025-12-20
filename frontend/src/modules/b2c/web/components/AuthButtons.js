@@ -3,10 +3,14 @@ import React from 'react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../../../../core/firebase/b2c-config';
 
-const AuthButtons = ({ onAuthSuccess, onError, loading }) => {
+const AuthButtons = ({ onAuthSuccess, onError, loading, email }) => {
     const handleGoogleLogin = async () => {
         try {
             const provider = new GoogleAuthProvider();
+            // Pre-fill email if provided (from invitation)
+            if (email) {
+                provider.setCustomParameters({ login_hint: email });
+            }
             const result = await signInWithPopup(auth, provider);
             onAuthSuccess(result.user);
         } catch (error) {

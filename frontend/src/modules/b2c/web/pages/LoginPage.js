@@ -1,13 +1,14 @@
 
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithCustomToken } from 'firebase/auth';
 import { auth } from '../../../../core/firebase/b2c-config';
 import AuthButtons from '../components/AuthButtons';
 
 const LoginPage = () => {
     const navigate = useNavigate();
-    const [email, setEmail] = useState('');
+    const [searchParams] = useSearchParams();
+    const [email, setEmail] = useState(searchParams.get('email') || '');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -45,7 +46,14 @@ const LoginPage = () => {
                 throw new Error(data.detail || 'Login failed');
             }
 
-            navigate('/dashboard');
+            // Check if user was accepting an invitation
+            const invitationToken = localStorage.getItem('invitation_return_token');
+            if (invitationToken) {
+                localStorage.removeItem('invitation_return_token');
+                navigate(`/invite/${invitationToken}`);
+            } else {
+                navigate('/dashboard');
+            }
         } catch (err) {
             console.error(err);
             setError(err.message);
@@ -82,6 +90,7 @@ const LoginPage = () => {
                     onAuthSuccess={handleAuthSuccess}
                     onError={setError}
                     loading={loading}
+                    email={email}
                 />
 
                 <form className="login-form" onSubmit={handleEmailLogin}>

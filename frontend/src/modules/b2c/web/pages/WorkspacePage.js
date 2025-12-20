@@ -329,7 +329,7 @@ const WorkspacePage = () => {
                             }}>
                                 Personal workspaces cannot be deleted.
                             </div>
-                        ) : (
+                        ) : workspace.role === 'owner' ? (
                             <button
                                 onClick={handleDeleteWorkspace}
                                 style={{
@@ -346,6 +346,17 @@ const WorkspacePage = () => {
                             >
                                 Delete Workspace
                             </button>
+                        ) : (
+                            <div style={{
+                                padding: '12px',
+                                backgroundColor: '#FFF5F5',
+                                borderRadius: '6px',
+                                border: '1px solid #FED7D7',
+                                color: '#C53030',
+                                fontSize: '14px'
+                            }}>
+                                Only workspace owners can delete the workspace.
+                            </div>
                         )}
                     </div>
                 </div>

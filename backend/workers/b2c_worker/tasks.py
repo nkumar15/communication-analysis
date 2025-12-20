@@ -287,7 +287,8 @@ def send_workspace_invitation_email(
     try:
         from core.email.service import email_service
         
-        invitation_url = f"{settings.frontend_url}/invite/{invitation_token}"
+        b2c_frontend_url = settings.frontend_url_b2c or settings.frontend_url
+        invitation_url = f"{b2c_frontend_url}/invite/{invitation_token}"
         subject = f"You've been invited to join {workspace_name}"
         
         html_content = f"""

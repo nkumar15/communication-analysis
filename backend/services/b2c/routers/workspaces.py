@@ -47,7 +47,7 @@ class UpdateMemberStatusRequest(BaseModel):
 # Workspace Endpoints
 # ============================================================================
 
-@router.get("/")
+@router.get("")
 async def list_workspaces(
     current_user: dict = Depends(get_current_b2c_user),
     db: AsyncSession = Depends(get_db)
@@ -69,7 +69,7 @@ async def list_workspaces(
         )
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_workspace(
     request: CreateWorkspaceRequest,
     current_user: dict = Depends(get_current_b2c_user),

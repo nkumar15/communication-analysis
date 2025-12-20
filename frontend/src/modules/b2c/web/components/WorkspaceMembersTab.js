@@ -9,6 +9,10 @@ const WorkspaceMembersTab = ({ workspace, members, onMembersUpdated }) => {
     const [error, setError] = useState('');
     const [invitations, setInvitations] = useState([]);
 
+    // Get current user's role in this workspace
+    const currentUserRole = workspace?.role || 'member';
+    const canManageMembers = currentUserRole === 'owner' || currentUserRole === 'admin';
+
     // Fetch invitations on mount
     React.useEffect(() => {
         if (workspace?.id) {
@@ -107,7 +111,7 @@ const WorkspaceMembersTab = ({ workspace, members, onMembersUpdated }) => {
             {/* Header with Invite Button */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0 }}>Workspace Members</h3>
-                {workspace.type === 'team' && (
+                {workspace.type === 'team' && canManageMembers && (
                     <button
                         onClick={() => setShowInviteModal(true)}
                         style={{
@@ -169,38 +173,40 @@ const WorkspaceMembersTab = ({ workspace, members, onMembersUpdated }) => {
                                             {new Date(invitation.created_at).toLocaleDateString()}
                                         </td>
                                         <td style={{ padding: '16px' }}>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                <button
-                                                    onClick={() => handleResendInvitation(invitation.id)}
-                                                    style={{
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid #E5E7EB',
-                                                        backgroundColor: 'white',
-                                                        color: '#6366F1',
-                                                        fontSize: '13px',
-                                                        fontWeight: '500',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    Resend
-                                                </button>
-                                                <button
-                                                    onClick={() => handleCancelInvitation(invitation.id)}
-                                                    style={{
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid #EF4444',
-                                                        backgroundColor: 'white',
-                                                        color: '#EF4444',
-                                                        fontSize: '13px',
-                                                        fontWeight: '500',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
+                                            {canManageMembers && (
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={() => handleResendInvitation(invitation.id)}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #E5E7EB',
+                                                            backgroundColor: 'white',
+                                                            color: '#6366F1',
+                                                            fontSize: '13px',
+                                                            fontWeight: '500',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Resend
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleCancelInvitation(invitation.id)}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #EF4444',
+                                                            backgroundColor: 'white',
+                                                            color: '#EF4444',
+                                                            fontSize: '13px',
+                                                            fontWeight: '500',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -269,7 +275,7 @@ const WorkspaceMembersTab = ({ workspace, members, onMembersUpdated }) => {
                                     {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'N/A'}
                                 </td>
                                 <td style={{ padding: '16px' }}>
-                                    {member.role !== 'owner' && (
+                                    {member.role !== 'owner' && canManageMembers && (
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <select
                                                 value={member.role}

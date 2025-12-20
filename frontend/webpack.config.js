@@ -83,7 +83,11 @@ module.exports = {
         open: true,
         proxy: {
             '/api': {
-                target: process.env.REACT_APP_API_URL || 'http://localhost:8080',
+                target: PORTAL === 'b2c'
+                    ? 'http://localhost:8002'  // B2C API
+                    : PORTAL === 'platform'
+                        ? 'http://localhost:8080'  // Platform API
+                        : 'http://localhost:8000', // B2B API
                 changeOrigin: true,
                 secure: false
             }

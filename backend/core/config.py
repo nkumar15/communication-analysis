@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     
     # URLs
     frontend_url: str
+    frontend_url_b2c: Optional[str] = None  # B2C frontend (port 3001), falls back to frontend_url
     backend_url: str
     
     # Mobile Deep Links

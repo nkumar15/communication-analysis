@@ -41,9 +41,9 @@ const InvitationAcceptPage = () => {
         // Check if user is authenticated
         const user = auth.currentUser;
         if (!user) {
-            // Redirect to login with return URL
+            // Redirect to login with return URL and pre-fill email
             localStorage.setItem('invitation_return_token', token);
-            navigate('/login');
+            navigate(`/login?email=${encodeURIComponent(invitation.email)}`);
             return;
         }
 

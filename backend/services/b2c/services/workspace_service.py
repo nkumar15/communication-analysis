@@ -123,15 +123,20 @@ class WorkspaceService:
         members_data = members_result.all()
         
         members = []
+        current_user_role = None
         for member_rel, user in members_data:
+            role = member_rel.role
             members.append({
                 "user_id": str(user.id),
                 "email": user.email,
                 "display_name": user.display_name,
-                "role": member_rel.role,
+                "role": role,
                 "status": member_rel.status,
                 "joined_at": member_rel.joined_at.isoformat() if member_rel.joined_at else None
             })
+            # Track current user's role
+            if user.id == user_id:
+                current_user_role = role
         
         return {
             "id": str(workspace.id),
@@ -141,6 +146,7 @@ class WorkspaceService:
             "subscription_tier": workspace.subscription_tier,
             "settings": workspace.settings,
             "created_at": workspace.created_at.isoformat() if workspace.created_at else None,
+            "role": current_user_role,  # Current user's role in this workspace
             "members": members,
             "member_count": len(members)
         }

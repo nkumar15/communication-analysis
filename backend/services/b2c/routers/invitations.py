@@ -151,6 +151,11 @@ async def get_invitation(
     Used to display invitation details before acceptance
     """
     try:
+        from core.rls import rls_service
+        
+        # Set platform admin context to bypass RLS for public invitation lookup
+        await rls_service.set_platform_admin_context(db)
+        
         invitation_details = await invitation_service.get_invitation_by_token(
             db=db,
             token=token
