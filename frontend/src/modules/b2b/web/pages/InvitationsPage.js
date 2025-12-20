@@ -45,7 +45,7 @@ const InvitationsPage = () => {
     const [bulkJobs, setBulkJobs] = useState([]);
 
     const navigate = useNavigate();
-    const { user, getInvitableRoles, getScopeLabel } = useAuth();
+    const { user, getInvitableRoles, getScopeLabel, hasPermission } = useAuth();
 
     useEffect(() => {
         loadData();
@@ -351,66 +351,69 @@ const InvitationsPage = () => {
                                 activeTab={activeTab}
                                 onTabChange={setActiveTab}
                             />
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <button
-                                    onClick={() => setShowInviteModal(true)}
-                                    style={{
-                                        backgroundColor: '#4F46E5',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        padding: '10px 20px',
-                                        fontSize: '14px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        transition: 'all 0.2s'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#4338CA';
-                                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(79, 70, 229, 0.3)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#4F46E5';
-                                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(79, 70, 229, 0.2)';
-                                    }}
-                                >
-                                    <span style={{ fontSize: '16px', fontWeight: 'bold' }}>+</span>
-                                    Invite User
-                                </button>
-                                <button
-                                    onClick={() => setShowBulkInviteModal(true)}
-                                    style={{
-                                        backgroundColor: '#10B981',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        padding: '10px 20px',
-                                        fontSize: '14px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        transition: 'all 0.2s'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#059669';
-                                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(16, 185, 129, 0.3)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#10B981';
-                                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.2)';
-                                    }}
-                                >
-                                    <span style={{ fontSize: '16px' }}>📋</span>
-                                    Bulk Invite
-                                </button>
-                            </div>
+                            {/* Only show invite buttons if user has invite permission */}
+                            {hasPermission('users', 'invite') && (
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button
+                                        onClick={() => setShowInviteModal(true)}
+                                        style={{
+                                            backgroundColor: '#4F46E5',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            padding: '10px 20px',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#4338CA';
+                                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(79, 70, 229, 0.3)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#4F46E5';
+                                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(79, 70, 229, 0.2)';
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '16px', fontWeight: 'bold' }}>+</span>
+                                        Invite User
+                                    </button>
+                                    <button
+                                        onClick={() => setShowBulkInviteModal(true)}
+                                        style={{
+                                            backgroundColor: '#10B981',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            padding: '10px 20px',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#059669';
+                                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(16, 185, 129, 0.3)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#10B981';
+                                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.2)';
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '16px' }}>📋</span>
+                                        Bulk Invite
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 

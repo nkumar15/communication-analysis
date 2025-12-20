@@ -74,8 +74,8 @@ class TeamMemberResponse(BaseModel):
     team_id: UUID
     user_id: UUID
     team_role: str
-    user_email: EmailStr
-    user_name: Optional[str]
+    user_email: Optional[EmailStr] = None
+    user_name: Optional[str] = None
     joined_at: datetime
     
     class Config:
