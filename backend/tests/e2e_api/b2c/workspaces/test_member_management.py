@@ -171,4 +171,112 @@ class TestWorkspaceMemberManagement:
             headers={"Authorization": f"Bearer {workspace_with_members['member']['auth_token']}"}
         )
         
-        assert response.status_code == 404  # RLS blocks access
+        assert response.status_code == 403 # RLS blocks access or verify_workspace_access check
+
+    async def test_suspend_member(
+        self, api_client: AsyncClient, workspace_with_members, db_session
+    ):
+        """Owner can suspend a member"""
+        member_id = str(workspace_with_members['member']['user'].id)
+        workspace_id = str(workspace_with_members['workspace'].id)
+        
+        response = await api_client.patch(
+            f"http://test/api/b2c/workspaces/{workspace_id}/members/{member_id}/status",
+            headers={"Authorization": f"Bearer {workspace_with_members['owner']['auth_token']}"},
+            json={"status": "suspended"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "suspended"
+        
+        # Verify via API
+        members_response = await api_client.get(
+            f"http://test/api/b2c/workspaces/{workspace_id}/members",
+            headers={"Authorization": f"Bearer {workspace_with_members['owner']['auth_token']}"}
+        )
+        assert members_response.status_code == 200
+        members_data = members_response.json()["members"]
+        
+        suspended_member = next((m for m in members_data if m["user_id"] == member_id), None)
+        assert suspended_member is not None, f"Member {member_id} not found"
+        assert suspended_member["status"] == "suspended"
+
+    async def test_suspended_member_cannot_access_workspace(
+        self, api_client: AsyncClient, workspace_with_members, db_session
+    ):
+        """Suspended member gets 403 when accessing workspace"""
+        member_id = str(workspace_with_members['member']['user'].id)
+        workspace_id = str(workspace_with_members['workspace'].id)
+        
+        # Suspend member directly in DB to setup state
+        from services.b2c.models.workspace_member import WorkspaceMember
+        from sqlalchemy import select, update
+        
+        stmt = (
+            update(WorkspaceMember)
+            .where(
+                WorkspaceMember.workspace_id == workspace_with_members['workspace'].id,
+                WorkspaceMember.user_id == workspace_with_members['member']['user'].id
+            )
+            .values(status='suspended')
+        )
+        await db_session.execute(stmt)
+        await db_session.commit()
+        
+        # Try to access workspace details
+        response = await api_client.get(
+            f"http://test/api/b2c/workspaces/{workspace_id}",
+            headers={"Authorization": f"Bearer {workspace_with_members['member']['auth_token']}"}
+        )
+        
+        assert response.status_code == 403
+        assert "suspended" in response.json()["detail"].lower()
+
+    async def test_reactivate_member(
+        self, api_client: AsyncClient, workspace_with_members, db_session
+    ):
+        """Owner can reactivate a suspended member"""
+        member_id = str(workspace_with_members['member']['user'].id)
+        workspace_id = str(workspace_with_members['workspace'].id)
+        
+        # Suspend first
+        await api_client.patch(
+            f"http://test/api/b2c/workspaces/{workspace_id}/members/{member_id}/status",
+            headers={"Authorization": f"Bearer {workspace_with_members['owner']['auth_token']}"},
+            json={"status": "suspended"}
+        )
+        
+        # Reactivate
+        response = await api_client.patch(
+            f"http://test/api/b2c/workspaces/{workspace_id}/members/{member_id}/status",
+            headers={"Authorization": f"Bearer {workspace_with_members['owner']['auth_token']}"},
+            json={"status": "active"}
+        )
+        
+        assert response.status_code == 200
+        assert response.json()["status"] == "active"
+        
+        # Verify access restored
+        response = await api_client.get(
+            f"http://test/api/b2c/workspaces/{workspace_id}",
+            headers={"Authorization": f"Bearer {workspace_with_members['member']['auth_token']}"}
+        )
+        assert response.status_code == 200
+
+    async def test_cannot_suspend_owner(
+        self, api_client: AsyncClient, workspace_with_members
+    ):
+        """Owner cannot be suspended"""
+        owner_id = str(workspace_with_members['owner']['user'].id)
+        workspace_id = str(workspace_with_members['workspace'].id)
+        
+        response = await api_client.patch(
+            f"http://test/api/b2c/workspaces/{workspace_id}/members/{owner_id}/status",
+            headers={"Authorization": f"Bearer {workspace_with_members['owner']['auth_token']}"},
+            json={"status": "suspended"}
+        )
+        
+        assert response.status_code == 403
+        assert "owner" in response.json()["detail"].lower()
+

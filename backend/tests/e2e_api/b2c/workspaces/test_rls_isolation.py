@@ -25,7 +25,7 @@ class TestWorkspaceRLSIsolation:
             headers={"Authorization": f"Bearer {workspace_owner['auth_token']}"}
         )
         
-        assert response.status_code == 404  # RLS blocks access
+        assert response.status_code == 403  # Explicit permission check blocks access
     
     
     async def test_removed_member_loses_access_immediately(
@@ -53,7 +53,7 @@ class TestWorkspaceRLSIsolation:
             f"{"http://test"}/api/b2c/workspaces/{workspace_id}",
             headers={"Authorization": f"Bearer {workspace_with_members['member']['auth_token']}"}
         )
-        assert response.status_code == 404
+        assert response.status_code == 403  # Explicit access check after removal
     
     
     async def test_user_only_sees_their_workspaces_in_list(

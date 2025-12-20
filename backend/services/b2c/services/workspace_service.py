@@ -89,6 +89,17 @@ class WorkspaceService:
         # Set RLS context
         await rls_service.set_user_context(db, str(user_id))
         
+        # Verify access (checks membership and active status)
+        try:
+            await self.verify_workspace_access(db, workspace_id, user_id)
+        except HTTPException as e:
+            if e.status_code == status.HTTP_403_FORBIDDEN:
+                # Re-raise with same detail, or generic if needed.
+                # verify_workspace_access raises 403 for suspended users
+                raise
+            raise
+
+        
         # Get workspace with members
         result = await db.execute(
             select(Workspace)
@@ -118,6 +129,7 @@ class WorkspaceService:
                 "email": user.email,
                 "display_name": user.display_name,
                 "role": member_rel.role,
+                "status": member_rel.status,
                 "joined_at": member_rel.joined_at.isoformat() if member_rel.joined_at else None
             })
         
@@ -286,6 +298,68 @@ class WorkspaceService:
             updated_by=str(requester_id)
         )
     
+    async def update_member_status(
+        self,
+        db: AsyncSession,
+        workspace_id: UUID,
+        target_user_id: UUID,
+        new_status: str,
+        requester_id: UUID
+    ):
+        """
+        Update workspace member status (active/suspended)
+        
+        Only owner or admin can update status
+        Cannot suspend owner
+        """
+        # Verify permission
+        await self.verify_workspace_access(
+            db, workspace_id, requester_id, min_role='admin'
+        )
+        
+        # Get member
+        result = await db.execute(
+            select(WorkspaceMember).where(
+                and_(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.user_id == target_user_id
+                )
+            )
+        )
+        member = result.scalar_one_or_none()
+        
+        if not member:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Member not found in workspace"
+            )
+        
+        # Prevent owner suspension
+        if member.role == 'owner':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot suspend owner"
+            )
+        
+        # Validate status
+        valid_statuses = ['active', 'suspended']
+        if new_status not in valid_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {valid_statuses}"
+            )
+        
+        member.status = new_status
+        await db.flush()
+        
+        logger.info(
+            "member_status_updated",
+            workspace_id=str(workspace_id),
+            user_id=str(target_user_id),
+            new_status=new_status,
+            updated_by=str(requester_id)
+        )
+    
     async def remove_member(
         self,
         db: AsyncSession,
@@ -373,6 +447,14 @@ class WorkspaceService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied - not a workspace member"
             )
+        
+        # Check if suspended
+        if member.status != 'active':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied - account suspended"
+            )
+
         
         # Check role hierarchy
         user_role_level = role_hierarchy.get(member.role, 0)

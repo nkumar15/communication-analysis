@@ -12,7 +12,8 @@ class WorkspaceMember(Base):
     
     workspace_id = Column(UUID(as_uuid=True), ForeignKey('b2c.workspaces.id', ondelete='CASCADE'), primary_key=True)
     user_id = Column(UUID(as_uuid=True), primary_key=True, index=True)
-    role = Column(String(50), nullable=False, default='member')  # owner, admin, member
+    role = Column(String(50), nullable=False, default='member')  # owner, admin, member, viewer
+    status = Column(String(20), nullable=False, default='active')  # active, suspended
     joined_at = Column(DateTime, server_default=text("NOW()"))
     
     from sqlalchemy.orm import relationship

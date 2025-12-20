@@ -39,6 +39,10 @@ class UpdateMemberRoleRequest(BaseModel):
     role: str  # admin, member, viewer
 
 
+class UpdateMemberStatusRequest(BaseModel):
+    status: str  # active, suspended
+
+
 # ============================================================================
 # Workspace Endpoints
 # ============================================================================
@@ -330,6 +334,49 @@ async def update_member_role(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update member role"
+        )
+
+
+
+@router.patch("/{workspace_id}/members/{user_id}/status")
+async def update_member_status(
+    workspace_id: str,
+    user_id: str,
+    request: UpdateMemberStatusRequest,
+    current_user: dict = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update member status (active/suspended)
+    
+    Requires owner or admin role
+    Cannot suspend owner
+    """
+    try:
+        await workspace_service.update_member_status(
+            db=db,
+            workspace_id=UUID(workspace_id),
+            target_user_id=UUID(user_id),
+            new_status=request.status,
+            requester_id=UUID(str(current_user['id']))
+        )
+        
+        await db.commit()
+        
+        return {
+            "workspace_id": workspace_id,
+            "user_id": user_id,
+            "status": request.status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating member status: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update member status"
         )
 
 

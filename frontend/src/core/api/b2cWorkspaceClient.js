@@ -222,6 +222,23 @@ class B2CWorkspaceClient {
         }
     }
 
+    /**
+     * Update member status (active/suspended)
+     */
+    async updateMemberStatus(workspaceId, userId, status) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2c/workspaces/${workspaceId}/members/${userId}/status`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ status }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update member status');
+        }
+        return response.json();
+    }
+
     // ============================================================================
     // Workspace Invitations
     // ============================================================================
@@ -242,6 +259,39 @@ class B2CWorkspaceClient {
         }
         return response.json();
     }
+
+    /**
+     * Get pending workspace invitations
+     */
+    async getWorkspaceInvitations(workspaceId) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2c/workspaces/${workspaceId}/invitations`, {
+            method: 'GET',
+            headers,
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to fetch invitations');
+        }
+        return response.json();
+    }
+
+    /**
+     * Resend invitation
+     */
+    async resendInvitation(invitationId) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2c/invitations/${invitationId}/resend`, {
+            method: 'POST',
+            headers,
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to resend invitation');
+        }
+        return response.json();
+    }
+
 
     /**
      * Get invitation details by token (public endpoint)

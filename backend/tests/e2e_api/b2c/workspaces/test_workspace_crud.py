@@ -99,7 +99,7 @@ class TestWorkspaceCRUD:
             headers={"Authorization": f"Bearer {workspace_owner['auth_token']}"}
         )
         
-        assert response.status_code == 404
+        assert response.status_code == 403  # Explicit verification denies access
     
     
     async def test_update_workspace_settings(

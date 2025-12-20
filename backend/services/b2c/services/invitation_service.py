@@ -113,6 +113,15 @@ class InvitationService:
         db.add(invitation)
         await db.flush()
         
+        # Eager load workspace for email sending
+        from sqlalchemy.orm import selectinload
+        result = await db.execute(
+            select(WorkspaceInvitation)
+            .where(WorkspaceInvitation.id == invitation.id)
+            .options(selectinload(WorkspaceInvitation.workspace))
+        )
+        invitation = result.scalar_one()
+        
         logger.info(
             "invitation_created",
             invitation_id=str(invitation.id),
@@ -189,6 +198,89 @@ class InvitationService:
             "expires_at": invitation.expires_at.isoformat(),
             "created_at": invitation.created_at.isoformat() if invitation.created_at else None
         }
+
+    async def get_pending_invitations(
+        self,
+        db: AsyncSession,
+        workspace_id: UUID
+    ) -> list[Dict]:
+        """
+        Get pending invitations for workspace
+        """
+        result = await db.execute(
+            select(WorkspaceInvitation)
+            .where(
+                and_(
+                    WorkspaceInvitation.workspace_id == workspace_id,
+                    WorkspaceInvitation.accepted_at.is_(None),
+                    WorkspaceInvitation.cancelled_at.is_(None),
+                    WorkspaceInvitation.expires_at > datetime.now(timezone.utc)
+                )
+            )
+            .order_by(WorkspaceInvitation.created_at.desc())
+        )
+        invitations = result.scalars().all()
+        
+        return [
+            {
+                "id": str(inv.id),
+                "email": inv.email,
+                "role": inv.role,
+                "expires_at": inv.expires_at.isoformat(),
+                "created_at": inv.created_at.isoformat() if inv.created_at else None,
+                "status": "pending"
+            }
+            for inv in invitations
+        ]
+
+    async def resend_invitation(
+        self,
+        db: AsyncSession,
+        invitation_id: UUID,
+        requester_id: UUID
+    ) -> WorkspaceInvitation:
+        """
+        Resend invitation (extend expiry if needed)
+        """
+        # Get invitation
+        from sqlalchemy.orm import selectinload
+        result = await db.execute(
+            select(WorkspaceInvitation)
+            .where(
+                and_(
+                    WorkspaceInvitation.id == invitation_id,
+                    WorkspaceInvitation.cancelled_at.is_(None),
+                    WorkspaceInvitation.accepted_at.is_(None)
+                )
+            )
+            .options(selectinload(WorkspaceInvitation.workspace))
+        )
+        invitation = result.scalar_one_or_none()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invitation not found or invalid"
+            )
+            
+        # Verify permission (same as cancel - inviter or admin)
+        if invitation.invited_by != requester_id:
+            try:
+                await workspace_service.verify_workspace_access(
+                    db, invitation.workspace_id, requester_id, min_role='admin'
+                )
+            except HTTPException:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Permission denied"
+                )
+        
+        # Extend expiry
+        invitation.expires_at = datetime.now(timezone.utc) + timedelta(days=self.INVITATION_EXPIRY_DAYS)
+        await db.flush()
+        
+        return invitation
+
     
     async def accept_invitation(
         self,
