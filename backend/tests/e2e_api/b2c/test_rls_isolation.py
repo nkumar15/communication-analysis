@@ -100,7 +100,6 @@ async def test_user_cannot_see_other_users_subscription_via_direct_query(db_sess
     subscription_b = Subscription(
         workspace_id=user_b["workspace"].id,
         user_id=user_b["user"].id,
-        tier="premium",
         status="active"
     )
     db_session.add(subscription_b)
@@ -225,7 +224,6 @@ async def test_user_cannot_insert_subscription_for_other_user(db_session, two_us
     malicious_subscription = Subscription(
         workspace_id=user_b["workspace"].id,
         user_id=user_b["user"].id,  # Trying to set someone else's user_id
-        tier="premium",
         status="active"
     )
     db_session.add(malicious_subscription)
@@ -251,7 +249,6 @@ async def test_user_can_create_own_subscription(db_session, two_users):
     own_subscription = Subscription(
         workspace_id=user_a["workspace"].id,
         user_id=user_a["user"].id,
-        tier="premium",
         status="active"
     )
     db_session.add(own_subscription)

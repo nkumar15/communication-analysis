@@ -61,7 +61,8 @@ class StripeProvider(PaymentProvider):
         price_id: str,
         success_url: str,
         cancel_url: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        quantity: int = 1
     ) -> Dict[str, Any]:
         """Create a Stripe Checkout session."""
         session = stripe.checkout.Session.create(
@@ -69,7 +70,7 @@ class StripeProvider(PaymentProvider):
             payment_method_types=['card'],
             line_items=[{
                 'price': price_id,
-                'quantity': 1,
+                'quantity': quantity,
             }],
             mode='subscription',
             success_url=success_url,

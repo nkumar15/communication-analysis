@@ -56,7 +56,7 @@ class TestWorkspaceInvitations:
             json={"email": workspace_invitation['invitee_email'], "role": "member"}
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 422
         assert "already" in response.json()["detail"].lower()
     
     
@@ -70,7 +70,7 @@ class TestWorkspaceInvitations:
             json={"email": workspace_with_members['member']['email'], "role": "member"}
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 422
         assert "already a member" in response.json()["detail"].lower()
     
     

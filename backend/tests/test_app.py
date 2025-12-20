@@ -12,9 +12,10 @@ from core.database import init_db, close_db
 from core.utils.firebase import firebase_auth_service
 
 # Import ALL routers for testing
-from services.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings
+from services.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
 from services.domains.projects.routers import projects, tasks, comments
-from services.platform.routers import platform, platform_b2b, platform_b2c, roles, invitations
+from services.platform.routers import platform, platform_b2b, platform_b2c
+from services.platform.routers import roles as platform_roles, invitations as platform_invitations
 from services.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
 
 # B2C billing router requires stripe - import conditionally
@@ -60,10 +61,11 @@ app.add_middleware(
 # Include ALL routers
 app.include_router(auth.router)
 app.include_router(activation.router)
-app.include_router(invitations.router)
+app.include_router(invitations.router)  # B2B invitations
 app.include_router(users.router)
-app.include_router(roles.router)
+app.include_router(roles.router)  # B2B roles
 app.include_router(teams.router)
+app.include_router(team_roles.router)  # B2B team roles
 app.include_router(account.router)
 app.include_router(audit_logs.router)
 app.include_router(billing.router)  # B2B billing
@@ -74,8 +76,8 @@ app.include_router(comments.router)
 app.include_router(platform.router)
 app.include_router(platform_b2b.router)
 app.include_router(platform_b2c.router)
-app.include_router(roles.router)  # Platform roles management  
-app.include_router(invitations.router)  # Platform invitations
+app.include_router(platform_roles.router)  # Platform roles management
+app.include_router(platform_invitations.router)  # Platform invitations
 app.include_router(b2c_auth.router)
 app.include_router(b2c_workspaces.router)
 app.include_router(b2c_invitations.router)

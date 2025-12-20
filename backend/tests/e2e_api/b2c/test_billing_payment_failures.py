@@ -26,7 +26,6 @@ async def test_past_due_subscription_created_correctly(db_session, b2c_billing_u
         user_id=b2c_billing_user["user"].id,
         provider_customer_id=f"cus_{uuid4().hex[:12]}",
         provider_subscription_id=f"sub_{uuid4().hex[:12]}",
-        tier="premium",
         status="past_due",
         billing_interval="monthly",
         amount_cents=1900,
@@ -53,7 +52,6 @@ async def test_canceled_subscription_created_correctly(db_session, b2c_billing_u
         user_id=b2c_billing_user["user"].id,
         provider_customer_id=f"cus_{uuid4().hex[:12]}",
         provider_subscription_id=f"sub_{uuid4().hex[:12]}",
-        tier="premium",
         status="canceled",
         billing_interval="monthly",
         amount_cents=1900,
@@ -81,7 +79,6 @@ async def test_trialing_subscription_created_correctly(db_session, b2c_billing_u
         user_id=b2c_billing_user["user"].id,
         provider_customer_id=f"cus_{uuid4().hex[:12]}",
         provider_subscription_id=f"sub_{uuid4().hex[:12]}",
-        tier="premium",
         status="trialing",
         billing_interval="monthly",
         amount_cents=1900,
@@ -107,7 +104,6 @@ async def test_incomplete_subscription_created_correctly(db_session, b2c_billing
         user_id=b2c_billing_user["user"].id,
         provider_customer_id=f"cus_{uuid4().hex[:12]}",
         provider_subscription_id=f"sub_{uuid4().hex[:12]}",
-        tier="premium",
         status="incomplete",  # Valid status per DB constraint
         billing_interval="monthly",
         amount_cents=1900,
@@ -133,7 +129,6 @@ async def test_active_subscription_created_correctly(db_session, b2c_billing_use
         user_id=b2c_billing_user["user"].id,
         provider_customer_id=f"cus_{uuid4().hex[:12]}",
         provider_subscription_id=f"sub_{uuid4().hex[:12]}",
-        tier="premium",
         status="active",
         billing_interval="monthly",
         amount_cents=1900,
@@ -162,7 +157,6 @@ async def test_subscription_rls_prevents_cross_user_visibility(db_session, b2c_b
         user_id=b2c_billing_user["user"].id,
         provider_customer_id=f"cus_{uuid4().hex[:12]}",
         provider_subscription_id=f"sub_{uuid4().hex[:12]}",
-        tier="premium",
         status="active"
     )
     db_session.add(subscription)
