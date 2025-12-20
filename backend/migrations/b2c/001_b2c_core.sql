@@ -1,26 +1,45 @@
 -- ============================================================================
--- B2C SCHEMA: Personal & Team Workspaces
+-- B2C CORE SCHEMA
 -- ============================================================================
--- Creates the B2C schema for individual users and team collaboration
--- Key Features:
---   - Native Firebase authentication (not GCIP)
---   - Personal workspaces (1 per user, auto-created)
---   - Team workspaces (collaboration)
---   - Workspace-scoped RLS (not tenant-scoped like B2B)
+-- Foundation: Schema, Users, Workspaces, Members, and Core Functions.
 -- ============================================================================
 
 CREATE SCHEMA IF NOT EXISTS b2c;
 
--- Create ENUM types
+-- ============================================================================
+-- 1. COMMON TYPES & FUNCTIONS
+-- ============================================================================
+
+-- Workspace Type Enum
 DO $$ BEGIN
     CREATE TYPE b2c.workspace_type AS ENUM ('personal', 'team');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
+-- Update Timestamp Trigger Function
+CREATE OR REPLACE FUNCTION b2c.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Generic update_modified_column (used by some modules)
+CREATE OR REPLACE FUNCTION update_modified_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ============================================================================
--- USERS TABLE
+-- 2. CORE TABLES
 -- ============================================================================
+
+-- USERS
 CREATE TABLE b2c.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     firebase_uid VARCHAR(255) UNIQUE NOT NULL,
@@ -38,9 +57,7 @@ CREATE TABLE b2c.users (
 CREATE INDEX idx_b2c_users_firebase_uid ON b2c.users(firebase_uid);
 CREATE INDEX idx_b2c_users_email ON b2c.users(email);
 
--- ============================================================================
--- WORKSPACES TABLE
--- ============================================================================
+-- WORKSPACES
 CREATE TABLE b2c.workspaces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -56,9 +73,14 @@ CREATE TABLE b2c.workspaces (
 CREATE INDEX idx_b2c_workspaces_owner ON b2c.workspaces(owner_id);
 CREATE INDEX idx_b2c_workspaces_type ON b2c.workspaces(type);
 
--- ============================================================================
--- WORKSPACE MEMBERS TABLE
--- ============================================================================
+-- Constraint for Users -> Default Workspace
+ALTER TABLE b2c.users 
+    ADD CONSTRAINT fk_users_default_workspace 
+    FOREIGN KEY (default_workspace_id) 
+    REFERENCES b2c.workspaces(id) 
+    ON DELETE SET NULL;
+
+-- WORKSPACE MEMBERS
 CREATE TABLE b2c.workspace_members (
     workspace_id UUID REFERENCES b2c.workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES b2c.users(id) ON DELETE CASCADE,
@@ -72,17 +94,10 @@ CREATE INDEX idx_b2c_workspace_members_user ON b2c.workspace_members(user_id);
 CREATE INDEX idx_b2c_workspace_members_workspace ON b2c.workspace_members(workspace_id);
 
 -- ============================================================================
--- ADD FOREIGN KEY TO USERS TABLE
+-- 3. HELPER FUNCTIONS
 -- ============================================================================
-ALTER TABLE b2c.users 
-    ADD CONSTRAINT fk_users_default_workspace 
-    FOREIGN KEY (default_workspace_id) 
-    REFERENCES b2c.workspaces(id) 
-    ON DELETE SET NULL;
 
--- ============================================================================
--- HELPER FUNCTIONS (To prevent RLS recursion & Safe Lookups)
--- ============================================================================
+-- Function: Get User Workspaces (Prevent RLS Recursion)
 CREATE OR REPLACE FUNCTION b2c.get_user_workspace_ids(uid UUID)
 RETURNS TABLE (workspace_id UUID) 
 SECURITY DEFINER
@@ -92,8 +107,9 @@ BEGIN
     RETURN QUERY SELECT wm.workspace_id FROM b2c.workspace_members wm WHERE wm.user_id = uid;
 END;
 $$ LANGUAGE plpgsql;
+ALTER FUNCTION b2c.get_user_workspace_ids(uuid) OWNER TO postgres;
 
--- Lookup user ID by Firebase UID (Bypass RLS for Login)
+-- Function: Lookup User by Firebase UID (Allows Deleted Users for 404 handling)
 CREATE OR REPLACE FUNCTION b2c.lookup_user_by_firebase_uid(f_uid TEXT)
 RETURNS UUID
 SECURITY DEFINER
@@ -104,20 +120,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function: Lookup User by Email
+CREATE OR REPLACE FUNCTION b2c.lookup_user_by_email(email_addr TEXT)
+RETURNS UUID
+SECURITY DEFINER
+SET search_path = b2c, public
+AS $$
+BEGIN
+    RETURN (SELECT id FROM b2c.users WHERE email = email_addr);
+END;
+$$ LANGUAGE plpgsql;
+ALTER FUNCTION b2c.lookup_user_by_email(text) OWNER TO postgres;
+
 -- ============================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- 4. RLS POLICIES (Core)
 -- ============================================================================
 
--- Enable RLS on all tables
+-- ENABLE RLS
 ALTER TABLE b2c.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE b2c.workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE b2c.workspace_members ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can only see their own profile
+-- User Self Access
 CREATE POLICY user_self_access ON b2c.users
     USING (id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
 
--- Policy: Users can see workspaces they're a member of
+-- Workspace Access
 CREATE POLICY workspace_member_access ON b2c.workspaces
     USING (
         owner_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
@@ -125,7 +153,7 @@ CREATE POLICY workspace_member_access ON b2c.workspaces
         id IN (SELECT b2c.get_user_workspace_ids(NULLIF(current_setting('app.current_user_id', true), '')::uuid))
     );
 
--- Policy: Users can see workspace memberships for their workspaces
+-- Workspace Members Access
 CREATE POLICY workspace_member_visibility ON b2c.workspace_members
     USING (
         user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
