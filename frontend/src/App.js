@@ -17,13 +17,6 @@ import TeamRoleManagementPage from './modules/b2b/web/pages/TeamRoleManagementPa
 import ProjectsPage from './modules/domains/projects/pages/ProjectsPage';
 import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPage';
 import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
-import PlatformAdminRoute from './core/components/PlatformAdminRoute';
-import SuperAdminLayout from './modules/platform/web/layouts/SuperAdminLayout';
-import TenantList from './modules/platform/web/pages/TenantListPage';
-import TenantDetailsPage from './modules/platform/web/pages/TenantDetailsPage';
-import Dashboard from './modules/platform/web/pages/DashboardPage';
-import AnalyticsPage from './modules/platform/web/pages/AnalyticsPage';
-import SettingsPage from './modules/platform/web/pages/SettingsPage';
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
 
 import apiService from './core/api/b2bClient';
@@ -136,23 +129,6 @@ function App() {
                 {/* Billing routes */}
                 <Route path="/billing/subscription" element={<ProtectedRoute><SubscriptionSettingsPage /></ProtectedRoute>} />
                 <Route path="/billing/invoices" element={<ProtectedRoute><InvoicesListPage /></ProtectedRoute>} />
-
-                {/* SaaS Admin Console */}
-                <Route
-                    path="/super-admin"
-                    element={
-                        <PlatformAdminRoute>
-                            <SuperAdminLayout />
-                        </PlatformAdminRoute>
-                    }
-                >
-                    <Route index element={<Navigate to="dashboard" replace />} />
-                    <Route path="dashboard" element={<Dashboard />} />
-                    <Route path="tenants" element={<TenantList />} />
-                    <Route path="tenants/:tenantId" element={<TenantDetailsPage />} />
-                    <Route path="analytics" element={<AnalyticsPage />} />
-                    <Route path="settings" element={<SettingsPage />} />
-                </Route>
 
                 {/* Default redirect */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
