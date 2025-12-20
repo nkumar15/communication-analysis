@@ -12,7 +12,8 @@ This guide explains the RBAC implementation in the SSO boilerplate, including te
 2. [Role Architecture](#role-architecture)
 3. [Invitation Workflows](#invitation-workflows)
 4. [Permission Model](#permission-model)
-5 [Best Practices](#best-practices)
+5. [Subscription & Billing Permissions](#subscription--billing-permissions)
+6. [Best Practices](#best-practices)
 
 ---
 
@@ -160,7 +161,9 @@ async def process_batch(tenant_id: UUID, db: AsyncSession):
     )
 ```
 
-**See Also:** [Multi-Tenant Isolation Architecture](../architecture/multi-tenant-isolation.md) for complete RLS documentation.
+**See Also:**
+- [Multi-Tenant Isolation Architecture](../architecture/b2b/multi-tenant-isolation.md) - Complete RLS documentation
+- [B2B Authorization Architecture](../architecture/b2b/authorization.md) - Comprehensive RBAC implementation details
 
 ---
 
@@ -193,6 +196,48 @@ async def process_batch(tenant_id: UUID, db: AsyncSession):
 **Tenant permissions > Team permissions**
 
 If a user's tenant role grants a permission, team role cannot restrict it.
+
+---
+
+## Subscription & Billing Permissions
+
+### Billing-Related Permissions
+
+The system includes subscription and billing management with specific RBAC controls:
+
+**Subscription Management:**
+- `subscription:read` - View current subscription, plan details, seat count
+- `subscription:write` - Upgrade/downgrade subscription tiers
+- `subscription:manage` - Change payment modes, cancel subscription
+
+**Invoice Management:**
+- `invoices:read` - View billing history and invoices
+- `invoices:write` - Mark invoices as paid (admin only)
+- `invoices:export` - Download invoice PDFs
+
+### Default Role Assignments
+
+| Role | Subscription | Invoices | Billing Settings |
+|------|-------------|----------|------------------|
+| **Owner** | Full access | Full access | Full access |
+| **Admin** | View, Upgrade | View, Export | View only |
+| **Viewer** | View only | View only | No access |
+
+**Example Use Cases:**
+
+```python
+# Check if user can upgrade subscription
+if await has_permission(user_id, 'subscription', 'write', db):
+    # User can initiate subscription upgrade
+    await subscription_service.create_checkout_session(...)
+
+# Check if user can view invoices
+if await has_permission(user_id, 'invoices', 'read', db):
+    # User can view billing history
+    invoices = await invoice_service.list_invoices(...)
+```
+
+**See Also:** [B2B Subscription Architecture](../architecture/b2b/subscription.md) for complete billing implementation details.
 
 ---
 
@@ -280,9 +325,24 @@ GET /api/b2b/teams/team-roles
 
 ## Related Documentation
 
-- [Tenant Admin Guide](./tenant-admin.md) - How to use the admin interface
+### User Guides
+- [B2B Tenant Admin Guide](./b2b-tenant-admin.md) - How to use the admin interface
 - [Development Guide](./development.md) - Setting up the development environment
-- [API Documentation](../api) - Complete API reference
+- [Platform Admin Guide](./platform-admin.md) - Platform administration
+
+### Architecture Documentation
+- [B2B Authorization Architecture](../architecture/b2b/authorization.md) - Comprehensive RBAC system details
+- [B2B Authentication](../architecture/b2b/authentication.md) - Auth flow and tenant validation
+- [Multi-Tenant Isolation](../architecture/b2b/multi-tenant-isolation.md) - RLS implementation
+- [B2B Subscription](../architecture/b2b/subscription.md) - Billing RBAC and payment flows
+- [Tenant Onboarding Flow](../architecture/b2b/tenant-onboarding-flow.md) - Complete onboarding sequence
+
+### Specifications
+- [RBAC Specification](../specifications/rbac.md) - Functional requirements (SPEC-03)
+- [User Management Specification](../specifications/user.md) - User workflows (SPEC-04)
+
+### Testing
+- [Test Matrix](../testing/test-matrix.md) - RBAC test coverage mapping
 
 ---
 

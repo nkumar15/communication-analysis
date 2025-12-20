@@ -61,9 +61,11 @@ make web-platform  # Platform portal (port 3002)
 | Platform | 3002 | `make web-platform` |
 
 **API Documentation:**
+- **API Gateway**: http://localhost:8080 (unified entry point)
 - **B2B API**: http://localhost:8000/docs
 - **Platform API**: http://localhost:8001/docs
 - **B2C API**: http://localhost:8002/docs
+- **Domain API**: http://localhost:8003/docs
 
 ---
 
@@ -107,7 +109,13 @@ The backend consists of 3 independent microservices:
 **projects schema** - Domain logic
 - projects
 
-For detailed architecture, see [System Architecture](../architecture/system-architecture.md)
+**For detailed documentation:**
+- [System Architecture](../architecture/system-architecture.md)
+- [B2B Authentication](../architecture/b2b/authentication.md)
+- [B2B Authorization & RBAC](../architecture/b2b/authorization.md)
+- [B2B Tenant Onboarding](../architecture/b2b/tenant-onboarding-flow.md)
+- [B2B Subscription & Billing](../architecture/b2b/subscription.md)
+- [Multi-Tenant Isolation](../architecture/b2b/multi-tenant-isolation.md)
 
 ---
 
@@ -1082,18 +1090,59 @@ Before deploying to production:
 
 ---
 
+## Testing Status
+
+**Current Test Health:** 93.9% passing (278/298 tests) ✅
+
+| Service | Tests | Passing | Pass Rate |
+|---------|-------|---------|----------|
+| **B2B** | 178 | 175 | **98.3%** ⭐ |
+| **B2C** | 70 | 54 | **77.1%** |
+| **Platform** | 24 | 21 | **87.5%** |
+| **Domains** | 26 | 26 | **100%** |
+
+**Running Tests:**
+```bash
+# Full suite
+make test-api
+
+# Specific services
+make test-b2b        # B2B tests
+make test-platform   # Platform tests
+make test-b2c        # B2C tests
+
+# With coverage
+make test-api-coverage
+```
+
+**Test Matrix:** See [Test Matrix](../testing/test-matrix.md) for complete coverage mapping.
+
+---
+
 ## Additional Resources
 
+**Testing:**
+- [Test Matrix](../testing/test-matrix.md) - Complete coverage mapping
 - [Testing Strategy](../testing/strategy.md) - Test plans & roadmap
 - [Testing Workflows](../testing/workflows.md) - Detailed testing procedures
-- [E2E Activation Guide](../testing/e2e-activation.md) - Step-by-step activation testing
-- [API Docs](http://localhost:8000/docs) - Interactive API documentation
+- [B2B E2E Activation Guide](../testing/b2b-e2e-activation.md) - Step-by-step activation testing
+
+**Architecture:**
+- [B2B Authentication](../architecture/b2b/authentication.md) - Auth flow, RLS context, tenant validation
+- [B2B Authorization](../architecture/b2b/authorization.md) - RBAC system, permissions, access control
+- [B2B Tenant Onboarding](../architecture/b2b/tenant-onboarding-flow.md) - Complete onboarding sequence
+- [B2B Subscription](../architecture/b2b/subscription.md) - Pricing, payments, invoices
+- [Multi-Tenant Isolation](../architecture/b2b/multi-tenant-isolation.md) - RLS implementation
+
+**API & Tools:**
+- [API Gateway](http://localhost:8080) - Unified API entry point
+- [API Docs](http://localhost:8000/docs) - Interactive B2B API documentation
 - [Firebase GCIP](https://cloud.google.com/identity-platform) - Multi-tenancy docs
 
 ---
 
-**Last Updated:** 2025-11-30  
-**Version:** 1.1
+**Last Updated:** 2025-12-20  
+**Version:** 1.2
 
 ---
 
