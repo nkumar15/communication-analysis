@@ -330,3 +330,56 @@ class TestTeamManagement:
         
         member_in_t2 = next(m for m in r2.json() if m["user_id"] == str(user.id))
         assert member_in_t2["team_role"] == "team_manager"
+
+    @pytest.mark.asyncio
+    async def test_get_available_users_for_team(self, api_client: AsyncClient, b2b_test_setup):
+        """Test getting list of available users to add to team"""
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
+        
+        # Create team
+        team_resp = await api_client.post(
+            "/api/b2b/teams/", 
+            json={"name": "Available Users Test"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        team_id = team_resp.json()["id"]
+        
+        # Create additional user (not in team)
+        user2 = await create_test_user(
+            setup['session'],
+            tenant_id=setup["tenant_id"],
+            email=f"available@{tenant.domain}",
+            role_slug="member"
+        )
+        
+        # Get available users
+        response = await api_client.get(
+            f"/api/b2b/teams/{team_id}/available-users",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        
+        # user2 should be in available list
+        assert any(u["id"] == str(user2.id) for u in data)
+        
+        # Add user2 to team
+        await api_client.post(
+            f"/api/b2b/teams/{team_id}/members",
+            json={"user_id": str(user2.id), "team_role": "team_contributor"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        # Get available users again
+        response = await api_client.get(
+            f"/api/b2b/teams/{team_id}/available-users",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        # user2 should NOT be in available list anymore (already a member)
+        data = response.json()
+        assert not any(u["id"] == str(user2.id) for u in data)
