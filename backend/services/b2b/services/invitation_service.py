@@ -518,6 +518,11 @@ class InvitationService:
                 detail="Tenant not found"
             )
         
+        # Set tenant context for RLS to ensure we can see roles
+        # This is critical because we started in platform_admin context
+        from core.rls import rls_service
+        await rls_service.set_tenant_context(db, tenant.id)
+        
         # Check if user exists
         existing_user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
         
