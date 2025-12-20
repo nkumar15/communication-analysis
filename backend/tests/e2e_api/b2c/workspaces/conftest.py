@@ -86,7 +86,8 @@ async def premium_workspace_owner(db_session):
         status="active",
         current_period_start=datetime.now(timezone.utc),
         current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
-        plan_id=plan.id
+        plan_id=plan.id,
+        user_id=user.id
     )
     db_session.add(subscription)
     

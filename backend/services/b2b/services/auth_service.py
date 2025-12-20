@@ -290,6 +290,13 @@ class AuthService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Tenant not found for Firebase tenant: {firebase_tenant_id}"
             )
+            
+        # SECURITY: Check if tenant is active
+        if not tenant.is_active:
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This organization has been deactivated. Please contact your administrator."
+            )
         
         # Set RLS Context
         await rls_service.set_tenant_context(db, tenant.id)

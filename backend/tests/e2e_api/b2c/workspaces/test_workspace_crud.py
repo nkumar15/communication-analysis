@@ -185,9 +185,8 @@ class TestWorkspaceCRUD:
     async def test_workspace_quota_enforcement_premium(
         self, api_client: AsyncClient, premium_workspace_owner
     ):
-        """Premium users limited to 3 team workspaces"""
-        # Create 3 team workspaces
-        for i in range(3):
+        # Create 10 team workspaces (limit is 10)
+        for i in range(10):
             response = await api_client.post(
                 f"{"http://test"}/api/b2c/workspaces/",
                 headers={"Authorization": f"Bearer {premium_workspace_owner['auth_token']}"},

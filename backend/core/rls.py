@@ -25,6 +25,7 @@ class RLSService:
             db: Database session
             tenant_id: Tenant UUID to set as current context
         """
+        await db.execute(text("RESET app.is_platform_admin"))
         await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
     
     @staticmethod
@@ -39,6 +40,7 @@ class RLSService:
             db: Database session
             user_id: User UUID to set as current context
         """
+        await db.execute(text("RESET app.is_platform_admin"))
         await db.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
     
     @staticmethod
