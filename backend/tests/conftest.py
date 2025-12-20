@@ -260,6 +260,13 @@ async def api_client(db_session):
             )
             user = result.scalar_one()
             
+            # Fix: Check for deleted user (matches real middleware behavior)
+            if user.deleted_at:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User account not found"
+                )
+            
             # Return user data matching what the real middleware returns
             return {
                 "id": str(user.id),
