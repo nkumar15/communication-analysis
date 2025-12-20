@@ -20,6 +20,7 @@ function SuperAdminLayout() {
     const handleProductChange = (product) => {
         setSelectedProduct(product);
         localStorage.setItem('platform_product', product);
+        navigate('/dashboard');
     };
 
     const handleLogout = async () => {
