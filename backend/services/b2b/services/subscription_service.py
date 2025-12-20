@@ -151,7 +151,7 @@ class SubscriptionService:
         
         # Default URLs
         if not success_url:
-            success_url = f"{settings.frontend_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"
+            success_url = f"{settings.frontend_url}/billing/subscription?session_id={{CHECKOUT_SESSION_ID}}"
         if not cancel_url:
             cancel_url = f"{settings.frontend_url}/billing"
         
@@ -279,19 +279,37 @@ class SubscriptionService:
                 )
                 tenant = tenant_result.scalar_one()
                 
-                await email_service.send_email(
+                # Use specific email method instead of generic send_email
+                dashboard_url = f"{settings.frontend_url}/dashboard"
+                
+                # Format plan name
+                plan_display = f"{tier.value.title()} Plan ({seat_count} seats)"
+                amount_display = f"${subscription.total_amount_cents / 100:.2f}"
+                
+                # Fetch invoice PDF URL
+                invoice_pdf_url = None
+                try:
+                    # 'latest_invoice' is usually expanded in subscription object from Stripe
+                    latest_invoice_id = subscription_data.get('latest_invoice')
+                    if latest_invoice_id:
+                        if isinstance(latest_invoice_id, str):
+                            invoice_obj = await self.provider.get_invoice(latest_invoice_id)
+                        else:
+                            invoice_obj = latest_invoice_id
+                            
+                        invoice_pdf_url = invoice_obj.get('invoice_pdf')
+                        logger.info(f"Found invoice PDF URL: {invoice_pdf_url}")
+                except Exception as e:
+                    logger.warning(f"Could not fetch invoice PDF: {e}")
+
+                email_service.send_subscription_confirmation_email(
                     to_email=owner.email,
-                    subject=f"Subscription Upgraded - {tenant.name}",
-                    template_name="subscription_confirmation",
-                    template_data={
-                        "tenant_name": tenant.name,
-                        "owner_name": owner.name or owner.email,
-                        "tier": tier.value.title(),
-                        "seat_count": seat_count,
-                        "amount": f"${subscription.total_amount_cents / 100:.2f}",
-                        "billing_interval": billing_interval,
-                        "period_end": subscription.current_period_end.strftime("%B %d, %Y")
-                    }
+                    plan_name=plan_display,
+                    amount=amount_display,
+                    interval=billing_interval,
+                    next_billing_date=subscription.current_period_end.strftime("%B %d, %Y"),
+                    dashboard_url=dashboard_url,
+                    invoice_pdf_url=invoice_pdf_url
                 )
                 logger.info(f"📧 Subscription confirmation email sent to {owner.email}")
         except Exception as e:

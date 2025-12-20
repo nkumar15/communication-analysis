@@ -228,8 +228,11 @@ class InvoiceService:
             subscription = result.scalar_one_or_none()
         
         if not subscription:
-            logger.warning(f"Subscription not found for Stripe invoice {provider_invoice_id}")
-            raise ValueError("Subscription not found")
+            # Race condition: invoice.paid arrived before checkout.session.completed created the subscription
+            # We want to fail with 500 so Stripe retries later.
+            # But we'll log it as a warning, not an error.
+            logger.warning(f"Subscription not found for Stripe invoice {provider_invoice_id} (likely race condition, will retry)")
+            raise ValueError(f"Subscription not found for invoice {provider_invoice_id}")
         
         # Check if invoice exists
         result = await self.db.execute(
