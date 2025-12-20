@@ -1,130 +1,188 @@
-# End-to-End Activation Flow Test Guide
+# B2B E2E Activation Flow Test Guide
 
-Complete walkthrough for testing the tenant activation process.
+Complete walkthrough for testing the B2B tenant activation process.
+
+**Last Updated:** 2025-12-20  
+**Status:** ✅ Fully Automated (API) | ⚠️ Manual (Browser)
+
+---
+
+## Overview
+
+The tenant activation flow consists of 5 main steps:
+1. **Platform Admin** creates tenant and sends invitation
+2. **Tenant Owner** receives email with activation link
+3. **Owner** validates activation token
+4. **Owner** authenticates via SSO
+5. **Owner** completes activation
+
+**Documentation:**
+- Specification: [`docs/specifications/tenant-onboarding.md`](../specifications/tenant-onboarding.md)
+- Architecture: [`docs/architecture/b2b/tenant-onboarding-flow.md`](../architecture/b2b/tenant-onboarding-flow.md)
 
 ---
 
 ## Prerequisites
 
-1. **Backend running** (port 8000)
+1. **Backend running** (port 8080)
 2. **Frontend running** (port 3000)
-3. **Firebase tenant created** (or reuse existing)
+3. **Firebase project** with multi-tenancy enabled
+4. **Test OIDC provider** configured (Auth0/Okta test account)
 
-Check status:
+### Check Status
 ```bash
-docker-compose ps  # Backend should be Up
-# Frontend: cd frontend && npm start
+docker-compose ps           # Backend should be "Up"
+cd frontend && npm start    # Frontend on port 3000
 ```
 
 ---
 
-## Testing Steps
+## Method 1: Automated API Testing (Recommended)
+
+### Run Activation Tests
+
+```bash
+# Full activation test suite
+make test-api FILTER="test_activation"
+
+# Specific tests
+docker-compose run --rm e2e-tests pytest \
+  tests/e2e_api/b2b/onboarding/test_activation.py -v
+
+# Platform onboarding tests
+docker-compose run --rm e2e-tests pytest \
+  tests/e2e_api/platform/test_tenant_onboarding.py -v
+```
+
+### Test Coverage
+
+**Covered Scenarios:**
+- ✅ Valid activation token flow
+- ✅ Expired token rejection
+- ✅ Already activated tenant
+- ✅ Invalid token format
+- ✅ Tenant status transitions
+- ✅ Owner user creation
+- ✅ Default team assignment
+- ✅ Multi-provider support
+
+---
+
+## Method 2: Manual Browser Testing
 
 ### Step 1: Create Test Tenant
 
-Run the interactive reset script:
-
+**Option A: Using Make Command**
 ```bash
 make reset-db
 ```
 
-**When prompted, enter:**
-- Create tenant? **y**
-- Firebase Tenant ID: `firstcompany-99oyw` (your existing one)
-- OIDC Provider ID: `oidc.oidc.auth0.firstcompany` (or your OIDC provider)
-- Company Name: `First Company`
-- Domain: `firstcompany.net`
-- Admin Email: `admin01@firstcompany.net`
-
-**Expected Output:**
-```
-================================================================================
-📧 ACTIVATION EMAIL (Fallback to console)
-================================================================================
-ACTIVATION URL (Copy this to browser):
-
-    http://localhost:3000/activate/TOKEN_HERE
-
-Expires: 2025-11-25 13:46 UTC
-================================================================================
-```
-
-**Copy the activation URL!**
-
----
-
-### Step 2: Start Frontend (if not running)
-
+**Option B: Using Platform API** (Preferred for production-like testing)
 ```bash
-cd frontend
-npm start
+# 1. Get platform admin token (from platform app login)
+PLATFORM_TOKEN="your_platform_admin_jwt_token"
+
+# 2. Create tenant via API
+curl -X POST http://localhost:8080/api/platform/b2b/tenants/onboard \
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Test Company",
+    "domain": "testcompany.com",
+    "owner_email": "admin@testcompany.com"
+  }'
 ```
 
-Waits for: `Compiled successfully!`
+**Expected Response:**
+```json
+{
+  "tenant_id": "uuid",
+  "tenant_name": "Test Company",
+  "domain": "testcompany.com",
+  "owner_email": "admin@testcompany.com",
+  "firebase_tenant_id": "testcompany-xxxxx",
+  "activation_url": "http://localhost:3000/activate/{token}",
+  "activation_token": "secret_token",
+  "expires_at": "2025-12-22T10:00:00Z"
+}
+```
+
+**Copy the `activation_url`** from the response!
 
 ---
 
-### Step 3: Open Activation Link
+### Step 2: Open Activation Link
 
 Paste the activation URL in your browser:
 ```
-http://localhost:3000/activate/TOKEN_HERE
+http://localhost:3000/activate/{token}
 ```
 
 **Expected Flow:**
 
-#### Screen 1: Validating
+#### Screen 1: Validating Token
 - Loading spinner
 - "Validating activation link..."
+- API calls `/api/public/activate/validate/{token}`
 
-#### Screen 2: Welcome
+#### Screen 2: Welcome Screen
 - 🎉 Welcome message
-- Company name displayed
-- Admin email shown
-- Domain shown
+- Company name displayed: "Test Company"
+- Admin email shown: "admin@testcompany.com"
+- Domain shown: "testcompany.com"
 - **"Get Started →"** button
 
 ---
 
-### Step 4: Click "Get Started"
+### Step 3: Begin Activation
 
-**What happens:**
-1. Frontend fetches Firebase tenant config
-2. Opens Firebase OIDC login popup
-3. You log in with your SSO provider (Auth0/Okta/etc)
+Click **"Get Started"**
+
+**What Happens:**
+1. Frontend fetches tenant's Firebase config
+2. Frontend calls `GET /api/b2b/activate/tenant-info/{tenant_id}`
+3. Firebase OIDC login popup opens
+4. You complete SSO login with test provider
 
 **Expected:**
 - Firebase authentication popup opens
-- You complete SSO login
-- Popup closes
-- User record created in database
+- You log in with your SSO provider (Auth0/Okta/etc)
+- Popup closes automatically
+- Firebase ID token received
 
 ---
 
-### Step 5: SSO Login Success
+### Step 4: SSO Login Success
 
 After successful SSO login:
 
-#### Screen 3: Success
+#### Screen 3: SSO Verified
 - ✅ SSO Login Successful!
 - "Your single sign-on is working correctly"
+- Firebase UID displayed
 - **"Activate Account"** button
 
 ---
 
-### Step 6: Complete Activation
+### Step 5: Complete Activation
 
 Click **"Activate Account"**
 
-**What happens:**
-1. Frontend calls `/api/activate/complete`
-2. Backend marks invitation as accepted
-3. Backend activates tenant
-4. Redirects to dashboard
+**What Happens:**
+1. Frontend calls `POST /api/activate/complete`
+2. Backend validates token + Firebase ID token
+3. Backend executes atomic transaction:
+   - Updates `tenant.activation_status = 'active'`
+   - Creates owner user record
+   - Assigns Owner role
+   - Adds user to Default Team
+   - Marks invitation as accepted
+4. Frontend redirects to `/dashboard`
 
 **Expected:**
-- Redirect to `/dashboard`
-- You're logged in!
+- Success message displayed
+- Redirect to B2B dashboard
+- You're logged in as tenant owner!
 
 ---
 
@@ -136,116 +194,234 @@ After completing activation:
 
 ```bash
 # Check tenant status
-docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
-  "SELECT id, name, activation_status, activated_at FROM tenants;"
+docker-compose exec postgres psql -U sso_user -d sso_db -c \
+  "SELECT id, name, domain, activation_status, activation_expires_at FROM b2b.tenants ORDER BY created_at DESC LIMIT 5;"
+
+# Check owner user
+docker-compose exec postgres psql -U sso_user -d sso_db -c \
+  "SELECT id, email, firebase_uid, role_id, is_active FROM b2b.users ORDER BY created_at DESC LIMIT 5;"
 
 # Check invitation
-docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
-  "SELECT id, email, accepted_at FROM invitations;"
+docker-compose exec postgres psql -U sso_user -d sso_db -c \
+  "SELECT id, email, role, accepted_at FROM b2b.invitations ORDER BY created_at DESC LIMIT 5;"
 
-# Check user
-docker-compose exec -T postgres psql -U sso_user -d sso_db -c \
-  "SELECT id, email, role, firebase_uid FROM users;"
-```
-
-**Expected Results:**
-
-**Tenants:**
-```
-id | name          | activation_status | activated_at
-----+---------------+-------------------+-------------
- 1 | First Company | active            | 2025-11-23...
+# Check default team
+docker-compose exec postgres psql -U sso_user -d sso_db -c \
+  "SELECT id, name, is_default FROM b2b.teams ORDER BY created_at DESC LIMIT 5;"
 ```
 
-**Invitations:**
+### Expected Results
+
+**Tenants Table:**
 ```
-id | email                  | accepted_at
-----+------------------------+-------------
- 1 | admin01@firstcompany.net | 2025-11-23...
+id                  | name         | domain          | activation_status | activation_expires_at
+--------------------+--------------+-----------------+-------------------+---------------------
+uuid-here...        | Test Company | testcompany.com | active            | NULL (was set, now NULL)
 ```
 
-**Users:**
+**Users Table:**
 ```
-id | email                  | role  | firebase_uid
-----+------------------------+-------+-------------
- 1 | admin01@firstcompany.net | admin | xyz123abc...
+id           | email                  | firebase_uid | role_id      | is_active
+-------------+------------------------+--------------+--------------+-----------
+uuid-here... | admin@testcompany.com  | FirebaseUID  | owner-role-id| true
+```
+
+**Invitations Table:**
+```
+id           | email                  | role  | accepted_at
+-------------+------------------------+-------+--------------------
+uuid-here... | admin@testcompany.com  | owner | 2025-12-20 10:30:00
+```
+
+**Teams Table:**
+```
+id           | name          | is_default
+-------------+---------------+------------
+uuid-here... | Default Team  | true
 ```
 
 ---
 
-## Common Issues
+## Common Issues & Solutions
 
 ### Issue: "Invalid activation token"
-**Cause:** Token expired or already used
-**Fix:** Run `make reset-db` again to get a new token
 
-### Issue: Frontend shows 404
-**Cause:** Frontend route not configured
-**Fix:** Check App.js has `/activate/:token` route
+**Possible Causes:**
+- Token expired (>48 hours)
+- Token already used
+- Token malformed
 
-### Issue: CORS error
-**Cause:** Frontend can't reach backend
-**Fix:** Check backend is on port 8000, frontend on 3000
+**Solutions:**
+```bash
+# Check token expiration in database
+docker-compose exec postgres psql -U sso_user -d sso_db -c \
+  "SELECT id, domain, activation_expires_at, activation_status FROM b2b.tenants WHERE id = 'tenant-uuid';"
 
-### Issue: "Tenant already activated"
-**Cause:** Testing same tenant twice
-**Fix:** Use different domain or reset DB
+# Resend activation (Platform Admin only)
+curl -X POST http://localhost:8080/api/platform/b2b/tenants/{tenant_id}/resend \
+  -H "Authorization: Bearer $PLATFORM_TOKEN"
+```
 
-### Issue: SSO popup doesn't open
-**Cause:** Popup blocked or Firebase config wrong
-**Fix:** 
-- Allow popups in browser
-- Check Firebase tenant ID is correct
-- Verify OIDC provider configured
+---
+
+### Issue: "Tenant not found" or 404
+
+**Causes:**
+- Tenant ID doesn't exist
+- RLS context not set for public endpoint
+
+**Verification:**
+```bash
+# Check if tenant exists
+docker-compose exec postgres psql -U sso_user -d sso_db -c \
+  "SELECT id, domain FROM b2b.tenants;"
+```
+
+---
+
+### Issue: "Organization has been deactivated"
+
+**Cause:** Tenant's `is_active = false`
+
+**Solution:**
+```bash
+# Reactivate tenant (Platform Admin only)
+curl -X PATCH http://localhost:8080/api/platform/b2b/tenants/{tenant_id}/reactivate \
+  -H "Authorization: Bearer $PLATFORM_TOKEN"
+```
+
+---
+
+### Issue: SSO Popup Doesn't Open
+
+**Causes:**
+- Browser blocking popups
+- Firebase tenant ID incorrect
+- OIDC provider not configured
+
+**Solutions:**
+1. **Allow popups** in browser settings
+2. **Verify Firebase config**:
+   ```bash
+   # Check tenant's Firebase tenant ID
+   docker-compose exec postgres psql -U sso_user -d sso_db -c \
+     "SELECT firebase_tenant_id FROM b2b.tenants WHERE domain = 'testcompany.com';"
+   ```
+3. **Check OIDC provider**:
+   ```bash
+   docker-compose exec postgres psql -U sso_user -d sso_db -c \
+     "SELECT provider_id, provider_type FROM b2b.auth_providers WHERE tenant_id = 'uuid';"
+   ```
+
+---
+
+### Issue: "User already exists with different email"
+
+**Cause:** Firebase UID collision (extremely rare)
+
+**Solution:** Use different test email address
 
 ---
 
 ## Quick Test Script
 
 ```bash
-# 1. Reset and create tenant
+#!/bin/bash
+# Full E2E activation test
+
+# 1. Reset database
 make reset-db
-# Enter your details when prompted
 
-# 2. Copy activation URL from output
+# 2. Create tenant via CLI (interactive)
+# Follow prompts to enter:
+# - Company name
+# - Domain
+# - Owner email
+# - Firebase tenant ID (if reusing)
+# - OIDC provider ID
 
-# 3. Open in browser
-# Paste URL: http://localhost:3000/activate/TOKEN
+# 3. Copy activation URL from output
 
-# 4. Click through:
-#    - Get Started
-#    - Complete SSO login
-#    - Activate Account
+# 4. Open in browser
+echo "Open this URL in your browser:"
+echo "http://localhost:3000/activate/TOKEN_FROM_OUTPUT"
 
-# 5. Verify in database
+# 5. Complete flow in browser
+echo "Steps:"
+echo "  1. Click 'Get Started'"
+echo "  2. Complete SSO login"
+echo "  3. Click 'Activate Account'"
+
+# 6. Verify in database
+echo "Verifying..."
 docker-compose exec postgres psql -U sso_user -d sso_db -c \
-  "SELECT name, activation_status FROM tenants;"
+  "SELECT name, activation_status FROM b2b.tenants ORDER BY created_at DESC LIMIT 1;"
 ```
 
 ---
 
 ## Success Criteria
 
-✅ Activation link validates successfully
-✅ Welcome screen shows correct tenant info
-✅ SSO login completes without errors
-✅ User record created with real Firebase UID
-✅ Invitation marked as accepted
-✅ Tenant status changed to 'active'
-✅ Redirected to dashboard
-✅ Can access protected routes
+✅ Activation link validates successfully  
+✅ Welcome screen shows correct tenant info  
+✅ SSO login completes without errors  
+✅ Firebase ID token received  
+✅ User record created with real Firebase UID  
+✅ Owner role assigned  
+✅ Default team created  
+✅ Invitation marked as accepted  
+✅ Tenant status = 'active'  
+✅ Activation token cleared  
+✅ Redirected to dashboard  
+✅ Can access protected B2B routes  
 
 ---
 
-## Next Steps After Successful Test
+## Next Steps After Successful Activation
 
-1. **Invite additional users** (managers/members)
-2. **Test multi-user scenarios**
-3. **Configure production email** (Resend API)
-4. **Deploy to staging**
-5. **Production rollout**
+1. **Invite team members** via `/organization/invite`
+2. **Create teams** for organizational structure
+3. **Configure SSO providers** (SAML, Google, etc.)
+4. **Set up billing** (upgrade to Professional/Enterprise)
+5. **Test multi-user collaboration**
 
 ---
 
-**Last Updated:** 2025-11-23
+## Automated Test Reference
+
+The API test suite covers all activation scenarios:
+
+```python
+# Location: tests/e2e_api/b2b/onboarding/test_activation.py
+
+class TestActivationFlow:
+    async def test_validate_valid_token(self):
+        """Token validation returns tenant info"""
+        
+    async def test_validate_expired_token(self):
+        """Expired tokens return 410 Gone"""
+        
+    async def test_complete_activation_success(self):
+        """Full activation flow completes successfully"""
+        
+    async def test_complete_activation_creates_user(self):
+        """User record created with correct role"""
+        
+    async def test_complete_activation_marks_invitation_accepted(self):
+        """Invitation accepted_at timestamp set"""
+        
+    async def test_tenant_status_becomes_active(self):
+        """activation_status changes to 'active'"""
+```
+
+**Run all activation tests:**
+```bash
+docker-compose run --rm e2e-tests pytest \
+  tests/e2e_api/b2b/onboarding/test_activation.py -v
+```
+
+---
+
 **Ready to test!** 🚀
+
+For detailed architecture, see [`docs/architecture/b2b/tenant-onboarding-flow.md`](../architecture/b2b/tenant-onboarding-flow.md)
