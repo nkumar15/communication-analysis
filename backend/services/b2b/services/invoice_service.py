@@ -260,14 +260,45 @@ class InvoiceService:
         invoice.base_price_snapshot_cents = subscription.base_price_cents
         invoice.per_seat_price_snapshot_cents = subscription.per_seat_price_cents
         
-        # Period from invoice lines
-        if invoice_data.get('lines', {}).get('data'):
+        # Determine Invoice Date (fallback to now)
+        if invoice_data.get('created'):
+            invoice.invoice_date = datetime.fromtimestamp(invoice_data['created'], tz=timezone.utc)
+        else:
+            invoice.invoice_date = datetime.now(timezone.utc)
+
+        # Determine Billing Period
+        # Strategy:
+        # 1. Try top-level period_start/end (standard Stripe invoice fields)
+        # 2. Try first line item's period
+        # 3. Fallback to subscription's current period
+        # 4. Final fallback to invoice_date (to satisfy nullable=False constraint)
+        
+        period_start_ts = invoice_data.get('period_start')
+        period_end_ts = invoice_data.get('period_end')
+        
+        # If not at top level, check lines
+        if (not period_start_ts or not period_end_ts) and invoice_data.get('lines', {}).get('data'):
             line = invoice_data['lines']['data'][0]
             period = line.get('period', {})
-            if period.get('start'):
-                invoice.billing_period_start = datetime.fromtimestamp(period['start'], tz=timezone.utc)
-            if period.get('end'):
-                invoice.billing_period_end = datetime.fromtimestamp(period['end'], tz=timezone.utc)
+            if not period_start_ts:
+                period_start_ts = period.get('start')
+            if not period_end_ts:
+                period_end_ts = period.get('end')
+                
+        # Apply timestamps or fallbacks
+        if period_start_ts:
+            invoice.billing_period_start = datetime.fromtimestamp(period_start_ts, tz=timezone.utc)
+        elif subscription.current_period_start:
+            invoice.billing_period_start = subscription.current_period_start
+        else:
+            invoice.billing_period_start = invoice.invoice_date
+            
+        if period_end_ts:
+            invoice.billing_period_end = datetime.fromtimestamp(period_end_ts, tz=timezone.utc)
+        elif subscription.current_period_end:
+            invoice.billing_period_end = subscription.current_period_end
+        else:
+            invoice.billing_period_end = invoice.invoice_date
         
         if invoice_data.get('created'):
             invoice.invoice_date = datetime.fromtimestamp(invoice_data['created'], tz=timezone.utc)
