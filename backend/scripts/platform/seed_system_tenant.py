@@ -129,8 +129,8 @@ async def seed_platform_system(
             else:
                 print(f"   ℹ️  Role already exists: {role_def['display_name']}")
         
-        if created_count > 0:
-            await db.commit()
+        # Always commit to ensure tenant and provider changes are saved
+        await db.commit()
         
         print(f"\n✅ Platform foundation setup complete!")
         print(f"   Platform Tenant ID: {platform_tenant.id}")

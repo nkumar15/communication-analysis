@@ -63,7 +63,6 @@ async def create_platform_admin(email: str, name: str = None, role_name: str = "
         # 2. Find Platform Role
         result = await db.execute(
             select(PlatformRole)
-            .where(PlatformRole.platform_tenant_id == platform_tenant.id)
             .where(PlatformRole.name == role_name)
         )
         platform_role = result.scalar_one_or_none()
