@@ -1,27 +1,73 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import platformApiService from '../../../../core/api/platformClient';
+import { useProduct } from '../layouts/SuperAdminLayout';
 import '../styles/platform.css';
 
 function BillingPage() {
+    const { selectedProduct } = useProduct(); // Use global product selector
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchType, setSearchType] = useState(''); // 'tenant' or 'user' or ''
     const [searchResults, setSearchResults] = useState([]);
     const [selectedProfile, setSelectedProfile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
+    // Calculate pagination
+    const totalPages = Math.ceil(searchResults.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentItems = searchResults.slice(startIndex, endIndex);
+
+    // Load all profiles on mount and when product changes
+    useEffect(() => {
+        fetchAllProfiles();
+    }, [selectedProduct]);
+
+    // Refetch all profiles when search is cleared
+    useEffect(() => {
+        if (searchQuery === '' && searchResults.length > 0) {
+            fetchAllProfiles();
+        }
+    }, [searchQuery]);
+
+    const fetchAllProfiles = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const type = selectedProduct === 'b2b' ? 'tenant' : 'user';
+            const response = await platformApiService.searchBillingProfiles('', type);
+            setSearchResults(response.items || []);
+            setCurrentPage(1); // Reset to first page
+        } catch (err) {
+            console.error(err);
+            setError('Failed to load profiles');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Search
     const handleSearch = async (e) => {
         e.preventDefault();
-        if (!searchQuery.trim()) return;
+        if (!searchQuery.trim()) {
+            // If empty, refetch all
+            fetchAllProfiles();
+            return;
+        }
 
         setLoading(true);
         setError(null);
         setSelectedProfile(null);
         try {
-            const response = await platformApiService.searchBillingProfiles(searchQuery, searchType || undefined);
+            // Use selectedProduct to determine type: b2b -> tenant, b2c -> user
+            const type = selectedProduct === 'b2b' ? 'tenant' : 'user';
+            const response = await platformApiService.searchBillingProfiles(searchQuery, type);
             setSearchResults(response.items || []);
+            setCurrentPage(1); // Reset to first page on new search
         } catch (err) {
             console.error(err);
             setError('Failed to search profiles');
@@ -110,16 +156,6 @@ function BillingPage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{ flex: 1 }}
                     />
-                    <select
-                        className="platform-select"
-                        value={searchType}
-                        onChange={(e) => setSearchType(e.target.value)}
-                        style={{ width: '150px' }}
-                    >
-                        <option value="">All Types</option>
-                        <option value="tenant">B2B Tenants</option>
-                        <option value="user">B2C Users</option>
-                    </select>
                     <button type="submit" className="platform-btn platform-btn-primary" disabled={loading}>
                         {loading ? 'Searching...' : 'Search'}
                     </button>
@@ -131,24 +167,32 @@ function BillingPage() {
             {/* Search Results */}
             {searchResults.length > 0 && (
                 <div className="platform-card">
-                    <h3 className="text-lg font-semibold mb-4">Search Results</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h3 className="text-lg font-semibold">
+                            {searchQuery ? `Search Results (${searchResults.length})` : `All ${selectedProduct.toUpperCase()} Profiles (${searchResults.length})`}
+                        </h3>
+                        {totalPages > 1 && (
+                            <div style={{ fontSize: '14px', color: '#6B7280' }}>
+                                Page {currentPage} of {totalPages}
+                            </div>
+                        )}
+                    </div>
                     <div className="platform-table-container">
                         <table className="platform-table">
                             <thead>
                                 <tr>
                                     <th>Name</th>
                                     <th>Type</th>
-                                    <th>Detail</th>
+                                    <th>Email/Domain</th>
                                     <th>Status</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {searchResults.map((item) => (
+                                {currentItems.map((item) => (
                                     <tr key={item.id}>
                                         <td>
                                             <div className="font-medium">{item.name}</div>
-                                            <div className="text-xs text-gray-500">{item.email || item.domain}</div>
                                         </td>
                                         <td>
                                             <span className={`px-2 py-1 rounded text-xs ${item.type === 'tenant' ? 'bg-blue-900 text-blue-200' : 'bg-green-900 text-green-200'}`}>
@@ -170,102 +214,200 @@ function BillingPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginTop: '20px',
+                            paddingTop: '20px',
+                            borderTop: '1px solid #E5E7EB'
+                        }}>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #D1D5DB',
+                                    background: currentPage === 1 ? '#F3F4F6' : 'white',
+                                    color: currentPage === 1 ? '#9CA3AF' : '#374151',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                ← Previous
+                            </button>
+                            <span style={{ fontSize: '14px', color: '#6B7280', minWidth: '100px', textAlign: 'center' }}>
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #D1D5DB',
+                                    background: currentPage === totalPages ? '#F3F4F6' : 'white',
+                                    color: currentPage === totalPages ? '#9CA3AF' : '#374151',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                Next →
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Profile Detail View */}
             {selectedProfile && (
-                <div className="platform-card">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <h2 className="text-xl font-bold">{selectedProfile.name}</h2>
-                            <p className="text-gray-400">{selectedProfile.type === 'tenant' ? '🏢 Tenant' : '👤 User'} • {selectedProfile.email}</p>
-                            {selectedProfile.tax_id && <p className="text-xs text-gray-500 mt-1">Tax ID: {selectedProfile.tax_id}</p>}
+                <div className="platform-card animate-fadeIn">
+                    {/* Header */}
+                    <div className="platform-profile-header">
+                        <div className="platform-profile-title-group">
+                            <div className="platform-profile-avatar" style={{
+                                backgroundColor: selectedProfile.type === 'tenant' ? '#e0e7ff' : '#d1fae5',
+                                color: selectedProfile.type === 'tenant' ? '#4338ca' : '#065f46'
+                            }}>
+                                {selectedProfile.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="platform-profile-info">
+                                <h2>
+                                    {selectedProfile.name}
+                                    <span className="platform-status-badge" style={{
+                                        backgroundColor: selectedProfile.type === 'tenant' ? '#EEF2FF' : '#ECFDF5',
+                                        color: selectedProfile.type === 'tenant' ? '#4F46E5' : '#059669',
+                                        border: '1px solid currentColor'
+                                    }}>
+                                        {selectedProfile.type}
+                                    </span>
+                                </h2>
+                                <div className="platform-profile-meta">
+                                    <span>📧 {selectedProfile.email}</span>
+                                    {selectedProfile.tax_id && <span>🆔 {selectedProfile.tax_id}</span>}
+                                </div>
+                            </div>
                         </div>
-                        <button onClick={() => setSelectedProfile(null)} className="text-gray-400 hover:text-white">✕ Close</button>
+                        <button
+                            onClick={() => setSelectedProfile(null)}
+                            className="platform-btn platform-btn-outline"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <span>←</span> Back to List
+                        </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Subscription Card */}
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <h3 className="font-semibold mb-3 border-b border-gray-700 pb-2">Subscription</h3>
+                    <div className="platform-profile-grid">
+                        {/* Subscriptions */}
+                        <div className="platform-section-card">
+                            <div className="platform-section-title">
+                                <span>💎</span> Subscription
+                            </div>
+
                             {selectedProfile.subscription ? (
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Status:</span>
-                                        <span className={`px-2 py-0.5 rounded text-xs ${selectedProfile.subscription.status === 'active' ? 'bg-green-900 text-green-200' : 'bg-gray-700'}`}>
+                                <div>
+                                    <div className="platform-detail-row">
+                                        <span className="platform-detail-label">Plan</span>
+                                        <span className="platform-detail-value">{selectedProfile.subscription.tier}</span>
+                                    </div>
+                                    <div className="platform-detail-row">
+                                        <span className="platform-detail-label">Status</span>
+                                        <span className={`platform-status-badge ${selectedProfile.subscription.status === 'active' ? 'platform-status-active' : 'platform-status-inactive'}`}>
                                             {selectedProfile.subscription.status?.toUpperCase()}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Plan:</span>
-                                        <span>{selectedProfile.subscription.tier} ({selectedProfile.subscription.billing_interval})</span>
+                                    <div className="platform-detail-row">
+                                        <span className="platform-detail-label">Billing</span>
+                                        <span className="platform-detail-value" style={{ textTransform: 'capitalize' }}>{selectedProfile.subscription.billing_interval}</span>
                                     </div>
-                                    {selectedProfile.subscription.amount_cents > 0 && (
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-400">Amount:</span>
-                                            <span>{(selectedProfile.subscription.amount_cents / 100).toLocaleString('en-US', { style: 'currency', currency: selectedProfile.subscription.currency })}</span>
-                                        </div>
-                                    )}
-                                    {selectedProfile.subscription.trial_ends_at && (
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-400">Trial Ends:</span>
-                                            <span className="text-yellow-400">{new Date(selectedProfile.subscription.trial_ends_at).toLocaleDateString()}</span>
-                                        </div>
-                                    )}
-                                    {selectedProfile.subscription.current_period_end && (
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-400">Renews:</span>
-                                            <span>{new Date(selectedProfile.subscription.current_period_end).toLocaleDateString()}</span>
-                                        </div>
-                                    )}
 
-                                    <div className="pt-4 flex gap-2">
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '1rem' }}>
                                         <button
                                             onClick={handleExtendTrial}
                                             disabled={actionLoading}
-                                            className="platform-btn platform-btn-sm platform-btn-secondary flex-1"
+                                            className="platform-btn platform-btn-secondary"
+                                            style={{ fontSize: '12px' }}
                                         >
                                             Extend Trial
                                         </button>
                                         <button
                                             onClick={handleCancelSubscription}
                                             disabled={actionLoading}
-                                            className="platform-btn platform-btn-sm platform-btn-danger flex-1"
+                                            className="platform-btn"
+                                            style={{
+                                                backgroundColor: '#FEF2F2',
+                                                color: '#EF4444',
+                                                border: '1px solid #FECACA',
+                                                fontSize: '12px'
+                                            }}
                                         >
-                                            Cancel
+                                            Cancel Sub
                                         </button>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-gray-500 italic">No active subscription</p>
+                                <div className="platform-empty-state">
+                                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>🌑</div>
+                                    <p>No active subscription found</p>
+                                </div>
                             )}
                         </div>
 
-                        {/* Invoices Card */}
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <h3 className="font-semibold mb-3 border-b border-gray-700 pb-2">Invoices</h3>
+                        {/* Invoices */}
+                        <div className="platform-section-card">
+                            <div className="platform-section-title">
+                                <span>📄</span> Invoice History
+                            </div>
+
                             {selectedProfile.invoices && selectedProfile.invoices.length > 0 ? (
-                                <div className="space-y-3 max-h-60 overflow-y-auto">
-                                    {selectedProfile.invoices.map(inv => (
-                                        <div key={inv.id} className="flex justify-between items-center text-sm">
-                                            <div>
-                                                <div className="font-medium">{(inv.amount_due / 100).toLocaleString('en-US', { style: 'currency', currency: inv.currency })}</div>
-                                                <div className="text-xs text-gray-500">{new Date(inv.created_at).toLocaleDateString()}</div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`px-2 py-0.5 rounded text-xs ${inv.status === 'paid' ? 'bg-green-900 text-green-200' : 'bg-yellow-900 text-yellow-200'}`}>
-                                                    {inv.status}
-                                                </span>
-                                                {inv.invoice_pdf_url && (
-                                                    <a href={inv.invoice_pdf_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-xs">PDF</a>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
+                                <div className="platform-table-container">
+                                    <table className="platform-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Status</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selectedProfile.invoices.map((inv) => (
+                                                <tr key={inv.id}>
+                                                    <td>{new Date(inv.created_at).toLocaleDateString()}</td>
+                                                    <td style={{ fontWeight: '600' }}>
+                                                        {(inv.amount_due / 100).toLocaleString('en-US', { style: 'currency', currency: inv.currency })}
+                                                    </td>
+                                                    <td>
+                                                        <span className={`platform-status-badge ${inv.status === 'paid' ? 'platform-status-active' : 'platform-status-inactive'}`}>
+                                                            {inv.status}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {inv.invoice_pdf_url ? (
+                                                            <a href={inv.invoice_pdf_url} target="_blank" rel="noopener noreferrer" style={{ color: '#4F46E5', textDecoration: 'none', fontWeight: '500' }}>
+                                                                PDF
+                                                            </a>
+                                                        ) : (
+                                                            <span style={{ color: '#9CA3AF' }}>-</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             ) : (
-                                <p className="text-gray-500 italic">No invoices found</p>
+                                <div className="platform-empty-state">
+                                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div>
+                                    <p>No invoices generated yet</p>
+                                </div>
                             )}
                         </div>
                     </div>

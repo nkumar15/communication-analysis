@@ -41,7 +41,7 @@ from services.platform.schemas.billing_schemas import (
 )
 
 router = APIRouter(
-    prefix="/billing",
+    prefix="/api/platform/billing",
     tags=["Platform Billing"],
     dependencies=[Depends(verify_platform_admin)]
 )
@@ -160,7 +160,7 @@ async def get_billing_profile(
             email=tenant.billing_email, # or fetch owner email?
             tax_id=tenant.tax_id,
             billing_address=tenant.billing_address,
-            compliance_settings=tenant.compliance_settings,
+            compliance_settings=getattr(tenant, 'compliance_settings', None),
             subscription=sub_detail,
             invoices=[InvoiceItem(
                 id=inv.id,

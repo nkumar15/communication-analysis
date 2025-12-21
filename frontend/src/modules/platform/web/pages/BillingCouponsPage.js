@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import platformApiService from '../../../../core/api/platformClient';
+import { useProduct } from '../layouts/SuperAdminLayout';
 import '../styles/platform.css';
 
 function BillingCouponsPage() {
-    const [activeTab, setActiveTab] = useState('b2b'); // 'b2b' or 'b2c'
+    const { selectedProduct } = useProduct(); // Use global product selector
     const [coupons, setCoupons] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -22,13 +23,13 @@ function BillingCouponsPage() {
 
     useEffect(() => {
         fetchCoupons();
-    }, [activeTab]);
+    }, [selectedProduct]); // Refetch when product selection changes
 
     const fetchCoupons = async () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await platformApiService.getCoupons(activeTab);
+            const data = await platformApiService.getCoupons(selectedProduct);
             setCoupons(data);
         } catch (err) {
             setError(err.message);
@@ -52,7 +53,7 @@ function BillingCouponsPage() {
                 description: newCoupon.description
             };
 
-            await platformApiService.createCoupon(payload, activeTab);
+            await platformApiService.createCoupon(payload, selectedProduct);
             setShowCreateForm(false);
             setNewCoupon({
                 code: '',
@@ -76,7 +77,7 @@ function BillingCouponsPage() {
             <div className="platform-page-header">
                 <div>
                     <h1 className="platform-page-title">Coupons</h1>
-                    <p className="platform-page-subtitle">Manage promotional codes for {activeTab.toUpperCase()}</p>
+                    <p className="platform-page-subtitle">Manage promotional codes for {selectedProduct.toUpperCase()}</p>
                 </div>
                 <button
                     className="platform-btn platform-btn-primary"
@@ -86,124 +87,356 @@ function BillingCouponsPage() {
                 </button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-gray-700 mb-6">
-                <button
-                    className={`px-4 py-2 font-medium text-sm ${activeTab === 'b2b' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400 hover:text-white'}`}
-                    onClick={() => setActiveTab('b2b')}
-                >
-                    B2B Coupons
-                </button>
-                <button
-                    className={`px-4 py-2 font-medium text-sm ${activeTab === 'b2c' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400 hover:text-white'}`}
-                    onClick={() => setActiveTab('b2c')}
-                >
-                    B2C Coupons
-                </button>
-            </div>
 
-            {/* Create Form */}
+            {/* Create Form Modal */}
             {showCreateForm && (
-                <div className="platform-card mb-6 border border-gray-600">
-                    <h3 className="text-lg font-semibold mb-4">Create New {activeTab.toUpperCase()} Coupon</h3>
-                    <form onSubmit={handleCreateCoupon} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Coupon Code</label>
-                                <input
-                                    type="text" required
-                                    className="platform-input w-full"
-                                    placeholder="e.g. WELCOME20"
-                                    value={newCoupon.code}
-                                    onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Description</label>
-                                <input
-                                    type="text"
-                                    className="platform-input w-full"
-                                    placeholder="Internal note"
-                                    value={newCoupon.description}
-                                    onChange={(e) => setNewCoupon({ ...newCoupon, description: e.target.value })}
-                                />
-                            </div>
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '600px',
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                        overflow: 'hidden'
+                    }}>
+                        {/* Header */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+                            padding: '24px',
+                            color: 'white'
+                        }}>
+                            <h2 style={{
+                                margin: 0,
+                                fontSize: '24px',
+                                fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span style={{ fontSize: '28px' }}>🎟️</span>
+                                Create New {selectedProduct.toUpperCase()} Coupon
+                            </h2>
+                            <p style={{
+                                margin: '8px 0 0 0',
+                                fontSize: '14px',
+                                opacity: 0.9
+                            }}>
+                                Create a promotional code for {selectedProduct.toUpperCase()} subscriptions
+                            </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Type</label>
-                                <select
-                                    className="platform-select w-full"
-                                    value={newCoupon.discount_type}
-                                    onChange={(e) => setNewCoupon({ ...newCoupon, discount_type: e.target.value })}
-                                >
-                                    <option value="percentage">Percentage Off</option>
-                                    <option value="fixed_amount">Fixed Amount Off</option>
-                                </select>
-                            </div>
-                            {newCoupon.discount_type === 'percentage' ? (
+                        {/* Form */}
+                        <form onSubmit={handleCreateCoupon} style={{ padding: '28px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                                 <div>
-                                    <label className="block text-xs text-gray-400 mb-1">Percentage (%)</label>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '8px',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        color: '#374151'
+                                    }}>
+                                        Coupon Code <span style={{ color: '#EF4444' }}>*</span>
+                                    </label>
                                     <input
-                                        type="number" required min="1" max="100"
-                                        className="platform-input w-full"
-                                        value={newCoupon.discount_percent}
-                                        onChange={(e) => setNewCoupon({ ...newCoupon, discount_percent: e.target.value })}
+                                        type="text" required
+                                        value={newCoupon.code}
+                                        onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
+                                        placeholder="e.g. WELCOME20"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 16px',
+                                            border: '2px solid #E5E7EB',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            backgroundColor: '#F9FAFB',
+                                            color: '#111827',
+                                            outline: 'none'
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#6366F1';
+                                            e.target.style.backgroundColor = 'white';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#E5E7EB';
+                                            e.target.style.backgroundColor = '#F9FAFB';
+                                        }}
                                     />
                                 </div>
-                            ) : (
                                 <div>
-                                    <label className="block text-xs text-gray-400 mb-1">Amount (Cents)</label>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '8px',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        color: '#374151'
+                                    }}>
+                                        Description
+                                    </label>
                                     <input
-                                        type="number" required min="1"
-                                        className="platform-input w-full"
-                                        placeholder="e.g. 1000 for $10"
-                                        value={newCoupon.discount_amount_cents}
-                                        onChange={(e) => setNewCoupon({ ...newCoupon, discount_amount_cents: e.target.value })}
+                                        type="text"
+                                        value={newCoupon.description}
+                                        onChange={(e) => setNewCoupon({ ...newCoupon, description: e.target.value })}
+                                        placeholder="Internal note"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 16px',
+                                            border: '2px solid #E5E7EB',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            backgroundColor: '#F9FAFB',
+                                            color: '#111827',
+                                            outline: 'none'
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#6366F1';
+                                            e.target.style.backgroundColor = 'white';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#E5E7EB';
+                                            e.target.style.backgroundColor = '#F9FAFB';
+                                        }}
                                     />
                                 </div>
-                            )}
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Max Redemptions (Optional)</label>
-                                <input
-                                    type="number" min="1"
-                                    className="platform-input w-full"
-                                    value={newCoupon.max_redemptions}
-                                    onChange={(e) => setNewCoupon({ ...newCoupon, max_redemptions: e.target.value })}
-                                />
                             </div>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Valid Until (Optional)</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                                <div>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '8px',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        color: '#374151'
+                                    }}>
+                                        Discount Type
+                                    </label>
+                                    <select
+                                        value={newCoupon.discount_type}
+                                        onChange={(e) => setNewCoupon({ ...newCoupon, discount_type: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 16px',
+                                            border: '2px solid #E5E7EB',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            backgroundColor: '#F9FAFB',
+                                            color: '#111827',
+                                            outline: 'none'
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#6366F1';
+                                            e.target.style.backgroundColor = 'white';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#E5E7EB';
+                                            e.target.style.backgroundColor = '#F9FAFB';
+                                        }}
+                                    >
+                                        <option value="percentage">Percentage Off</option>
+                                        <option value="fixed_amount">Fixed Amount Off</option>
+                                    </select>
+                                </div>
+                                {newCoupon.discount_type === 'percentage' ? (
+                                    <div>
+                                        <label style={{
+                                            display: 'block',
+                                            marginBottom: '8px',
+                                            fontWeight: '600',
+                                            fontSize: '14px',
+                                            color: '#374151'
+                                        }}>
+                                            Percentage (%) <span style={{ color: '#EF4444' }}>*</span>
+                                        </label>
+                                        <input
+                                            type="number" required min="1" max="100"
+                                            value={newCoupon.discount_percent}
+                                            onChange={(e) => setNewCoupon({ ...newCoupon, discount_percent: e.target.value })}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 16px',
+                                                border: '2px solid #E5E7EB',
+                                                borderRadius: '8px',
+                                                fontSize: '14px',
+                                                backgroundColor: '#F9FAFB',
+                                                color: '#111827',
+                                                outline: 'none'
+                                            }}
+                                            onFocus={(e) => {
+                                                e.target.style.borderColor = '#6366F1';
+                                                e.target.style.backgroundColor = 'white';
+                                            }}
+                                            onBlur={(e) => {
+                                                e.target.style.borderColor = '#E5E7EB';
+                                                e.target.style.backgroundColor = '#F9FAFB';
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <label style={{
+                                            display: 'block',
+                                            marginBottom: '8px',
+                                            fontWeight: '600',
+                                            fontSize: '14px',
+                                            color: '#374151'
+                                        }}>
+                                            Amount (Cents) <span style={{ color: '#EF4444' }}>*</span>
+                                        </label>
+                                        <input
+                                            type="number" required min="1"
+                                            value={newCoupon.discount_amount_cents}
+                                            onChange={(e) => setNewCoupon({ ...newCoupon, discount_amount_cents: e.target.value })}
+                                            placeholder="e.g. 1000 for $10"
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 16px',
+                                                border: '2px solid #E5E7EB',
+                                                borderRadius: '8px',
+                                                fontSize: '14px',
+                                                backgroundColor: '#F9FAFB',
+                                                color: '#111827',
+                                                outline: 'none'
+                                            }}
+                                            onFocus={(e) => {
+                                                e.target.style.borderColor = '#6366F1';
+                                                e.target.style.backgroundColor = 'white';
+                                            }}
+                                            onBlur={(e) => {
+                                                e.target.style.borderColor = '#E5E7EB';
+                                                e.target.style.backgroundColor = '#F9FAFB';
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                <div>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '8px',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        color: '#374151'
+                                    }}>
+                                        Max Redemptions
+                                    </label>
+                                    <input
+                                        type="number" min="1"
+                                        value={newCoupon.max_redemptions}
+                                        onChange={(e) => setNewCoupon({ ...newCoupon, max_redemptions: e.target.value })}
+                                        placeholder="Optional"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 16px',
+                                            border: '2px solid #E5E7EB',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            backgroundColor: '#F9FAFB',
+                                            color: '#111827',
+                                            outline: 'none'
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#6366F1';
+                                            e.target.style.backgroundColor = 'white';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#E5E7EB';
+                                            e.target.style.backgroundColor = '#F9FAFB';
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '28px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}>
+                                    Valid Until
+                                </label>
                                 <input
                                     type="date"
-                                    className="platform-input w-full"
                                     value={newCoupon.valid_until}
                                     onChange={(e) => setNewCoupon({ ...newCoupon, valid_until: e.target.value })}
+                                    style={{
+                                        width: '50%',
+                                        padding: '12px 16px',
+                                        border: '2px solid #E5E7EB',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        backgroundColor: '#F9FAFB',
+                                        color: '#111827',
+                                        outline: 'none'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#6366F1';
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#E5E7EB';
+                                        e.target.style.backgroundColor = '#F9FAFB';
+                                    }}
                                 />
                             </div>
-                        </div>
 
-                        <div className="flex justify-end gap-2 pt-2">
-                            <button
-                                type="button"
-                                className="platform-btn platform-btn-secondary"
-                                onClick={() => setShowCreateForm(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                className="platform-btn platform-btn-primary"
-                                disabled={loading}
-                            >
-                                {loading ? 'Creating...' : 'Create Coupon'}
-                            </button>
-                        </div>
-                    </form>
+                            {/* Actions */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '12px',
+                                justifyContent: 'flex-end'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreateForm(false)}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: '2px solid #E5E7EB',
+                                        background: 'white',
+                                        color: '#374151',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#F3F4F6'}
+                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{
+                                        padding: '12px 28px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: loading ? '#9CA3AF' : 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                        boxShadow: loading ? 'none' : '0 4px 12px rgba(99, 102, 241, 0.4)'
+                                    }}
+                                >
+                                    {loading ? '⏳ Creating...' : '🎟️ Create Coupon'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
 
