@@ -109,6 +109,8 @@ class Invoice(Base):
     invoice_date = Column(TIMESTAMP(timezone=True))
     due_date = Column(TIMESTAMP(timezone=True))
     paid_at = Column(TIMESTAMP(timezone=True))
+    billing_period_start = Column(TIMESTAMP(timezone=True))
+    billing_period_end = Column(TIMESTAMP(timezone=True))
     
     # Timestamps
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

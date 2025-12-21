@@ -594,6 +594,21 @@ class SubscriptionService:
             invoice.invoice_date = datetime.fromtimestamp(invoice_data['created'], tz=timezone.utc)
         if invoice_data.get('status_transitions', {}).get('paid_at'):
             invoice.paid_at = datetime.fromtimestamp(invoice_data['status_transitions']['paid_at'], tz=timezone.utc)
+            
+        # Extract billing period
+        if invoice_data.get('period_start'):
+            invoice.billing_period_start = datetime.fromtimestamp(invoice_data['period_start'], tz=timezone.utc)
+        if invoice_data.get('period_end'):
+            invoice.billing_period_end = datetime.fromtimestamp(invoice_data['period_end'], tz=timezone.utc)
+        
+        # Fallback to lines if top-level period not available/accurate (typical in some Stripe setups)
+        # But generally for subscription invoices, period_start/end on invoice object are correct.
+        if not invoice.billing_period_start and invoice_data.get('lines', {}).get('data'):
+             # Try to get from first line item
+             first_line = invoice_data['lines']['data'][0]
+             if first_line.get('period'):
+                 invoice.billing_period_start = datetime.fromtimestamp(first_line['period']['start'], tz=timezone.utc)
+                 invoice.billing_period_end = datetime.fromtimestamp(first_line['period']['end'], tz=timezone.utc)
         
         await self.db.flush()
         
