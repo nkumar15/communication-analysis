@@ -228,6 +228,59 @@ class PlatformApiService {
         return this.post(`/api/platform/b2b/plans/${planId}/archive`);
     }
 
+    // ============================================================================
+    // Unified Billing Management
+    // ============================================================================
+
+    /**
+     * Search billing profiles (Tenants or Users)
+     */
+    async searchBillingProfiles(query, type) {
+        const params = new URLSearchParams({ query });
+        if (type) params.append('type', type);
+        return this.get(`/api/platform/billing/profiles/search?${params.toString()}`);
+    }
+
+    /**
+     * Get detailed billing profile
+     */
+    async getBillingProfile(id, type) {
+        return this.get(`/api/platform/billing/profiles/${id}?type=${type}`);
+    }
+
+    /**
+     * Cancel subscription
+     */
+    async cancelSubscription(id, type, reason, immediate = false) {
+        return this.post(`/api/platform/billing/subscriptions/${id}/cancel?type=${type}`, {
+            reason,
+            immediate
+        });
+    }
+
+    /**
+     * Extend trial
+     */
+    async extendTrial(id, type, days) {
+        return this.post(`/api/platform/billing/subscriptions/${id}/extend-trial?type=${type}`, {
+            days
+        });
+    }
+
+    /**
+     * List coupons
+     */
+    async getCoupons(scope = 'all') {
+        return this.get(`/api/platform/billing/coupons?scope=${scope}`);
+    }
+
+    /**
+     * Create coupon
+     */
+    async createCoupon(data, scope) {
+        return this.post(`/api/platform/billing/coupons?scope=${scope}`, data);
+    }
+
     /**
      * Generic PATCH request with auth headers
      */

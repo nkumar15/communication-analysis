@@ -383,3 +383,64 @@ async def stripe_webhook(
         logger.error(f"Webhook error: {e}")
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# Billing Profile Endpoints
+# ============================================================================
+
+class BillingProfileResponse(BaseModel):
+    tax_id: Optional[str] = None
+    vat_number: Optional[str] = None
+    billing_address: Optional[str] = None
+    billing_email: Optional[str] = None
+
+class BillingProfileUpdate(BaseModel):
+    tax_id: Optional[str] = None
+    vat_number: Optional[str] = None
+    billing_address: Optional[str] = None
+    billing_email: Optional[str] = None
+
+@router.get("/profile", response_model=BillingProfileResponse)
+async def get_billing_profile(
+    current_user=require_permission("billing", "read"),
+    db: AsyncSession = Depends(get_db)
+):
+    from services.b2b.models import TenantModel
+    tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
+    tenant = await db.get(TenantModel, tenant_id)
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    return BillingProfileResponse(
+        tax_id=tenant.tax_id,
+        vat_number=tenant.vat_number,
+        billing_address=tenant.billing_address,
+        billing_email=tenant.billing_email
+    )
+
+@router.patch("/profile", response_model=BillingProfileResponse)
+async def update_billing_profile(
+    payload: BillingProfileUpdate,
+    current_user=require_permission("billing", "manage"),
+    db: AsyncSession = Depends(get_db)
+):
+    from services.b2b.models import TenantModel
+    tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
+    tenant = await db.get(TenantModel, tenant_id)
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+    
+    # Update fields if provided (allow empty string to clear?)
+    if payload.tax_id is not None: tenant.tax_id = payload.tax_id
+    if payload.vat_number is not None: tenant.vat_number = payload.vat_number
+    if payload.billing_address is not None: tenant.billing_address = payload.billing_address
+    if payload.billing_email is not None: tenant.billing_email = payload.billing_email
+    
+    await db.commit()
+    return BillingProfileResponse(
+         tax_id=tenant.tax_id,
+        vat_number=tenant.vat_number,
+        billing_address=tenant.billing_address,
+        billing_email=tenant.billing_email
+    )
+

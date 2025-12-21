@@ -28,6 +28,7 @@ from core.utils import get_utc_now
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")  
 
 
+
 # Create a single test engine and session factory
 test_engine = None
 test_session_factory = None
@@ -356,6 +357,12 @@ async def platform_admin_setup(db_session: AsyncSession):
             firebase_tenant_id=system_tenant.firebase_tenant_id
         ))
     }
+
+
+@pytest_asyncio.fixture
+async def platform_admin_token(platform_admin_setup):
+    """Fixture to provide platform admin token directly"""
+    return platform_admin_setup["token"]
 
 
 # Helper functions (not fixtures - just plain functions)

@@ -1,6 +1,6 @@
 from core.models.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 class TenantModel(Base, TimestampMixin, SoftDeleteMixin):
@@ -23,10 +23,18 @@ class TenantModel(Base, TimestampMixin, SoftDeleteMixin):
     activation_started_at = Column(DateTime(timezone=True), nullable=True)
     
     is_active = Column(Boolean, default=True, nullable=False)
+
+    # Billing Profile Fields
+    tax_id = Column(String(50), nullable=True)
+    vat_number = Column(String(50), nullable=True)
+    billing_address = Column(JSONB, nullable=True)
+    billing_email = Column(String(255), nullable=True)
+    # compliance_settings = Column(JSONB, nullable=True) # Todo: import JSONB if needed
     
     # Relationships (billing-related)
     subscription = relationship("B2BSubscription", back_populates="tenant", uselist=False)
     invoices = relationship("B2BInvoice", back_populates="tenant")
     subscription_events = relationship("B2BSubscriptionEvent", back_populates="tenant")
     payment_mode_requests = relationship("PaymentModeRequest", back_populates="tenant")
+    coupon_redemptions = relationship("B2BCouponRedemption", back_populates="tenant")
 

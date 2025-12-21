@@ -622,3 +622,50 @@ async def get_my_redemptions(
         })
     
     return {"redemptions": result}
+
+# ============================================================================
+# Billing Profile Endpoints
+# ============================================================================
+
+class BillingProfileResponse(BaseModel):
+    tax_id: Optional[str] = None
+    vat_number: Optional[str] = None
+    billing_address: Optional[str] = None
+    billing_email: Optional[str] = None
+
+class BillingProfileUpdate(BaseModel):
+    tax_id: Optional[str] = None
+    vat_number: Optional[str] = None
+    billing_address: Optional[str] = None
+    billing_email: Optional[str] = None
+
+@router.get("/profile", response_model=BillingProfileResponse)
+async def get_billing_profile(
+    current_user: B2CUser = Depends(get_current_b2c_user)
+):
+    return BillingProfileResponse(
+        tax_id=current_user.tax_id,
+        vat_number=current_user.vat_number,
+        billing_address=current_user.billing_address,
+        billing_email=current_user.billing_email
+    )
+
+@router.patch("/profile", response_model=BillingProfileResponse)
+async def update_billing_profile(
+    payload: BillingProfileUpdate,
+    current_user: B2CUser = Depends(get_current_b2c_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if payload.tax_id is not None: current_user.tax_id = payload.tax_id
+    if payload.vat_number is not None: current_user.vat_number = payload.vat_number
+    if payload.billing_address is not None: current_user.billing_address = payload.billing_address
+    if payload.billing_email is not None: current_user.billing_email = payload.billing_email
+    
+    await db.commit()
+    
+    return BillingProfileResponse(
+        tax_id=current_user.tax_id,
+        vat_number=current_user.vat_number,
+        billing_address=current_user.billing_address,
+        billing_email=current_user.billing_email
+    )

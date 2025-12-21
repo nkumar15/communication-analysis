@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, UUID, DateTime, text, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from core.models.base import Base, TimestampMixin
 
 class B2CUser(Base, TimestampMixin):
@@ -23,8 +23,15 @@ class B2CUser(Base, TimestampMixin):
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     
+    # Billing Profile Fields
+    tax_id = Column(String(50), nullable=True)
+    vat_number = Column(String(50), nullable=True)
+    billing_address = Column(JSONB, nullable=True)
+    billing_email = Column(String(255), nullable=True)
+    compliance_settings = Column(JSONB, nullable=True)
+    
     # Relationships
     subscriptions = relationship("Subscription", back_populates="user")
     payment_methods = relationship("PaymentMethod", back_populates="user")
     invoices = relationship("Invoice", back_populates="user")
-    coupon_redemptions = relationship("CouponRedemption", back_populates="user")
+    coupon_redemptions = relationship("B2CCouponRedemption", back_populates="user")

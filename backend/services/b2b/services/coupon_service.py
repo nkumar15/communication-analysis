@@ -1,114 +1,63 @@
 """
-Async Coupon Service
+Async Coupon Service for B2B
 
 Business logic for coupon validation, redemption, and discount calculation.
-Uses async SQLAlchemy patterns for compatibility with AsyncSession.
+Uses async SQLAlchemy patterns.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import Optional, List, Union, Dict, Any
 from datetime import datetime, timezone
 import logging
+from uuid import UUID
 
-from services.b2c.models.subscription import B2CCoupon as Coupon, B2CCouponRedemption as CouponRedemption, Subscription
-from services.b2c.models.user import B2CUser
+from services.b2b.models import (
+    B2BCoupon as Coupon, 
+    B2BCouponRedemption as CouponRedemption, 
+    B2BSubscription, 
+    TenantModel
+)
 from core.payment import PaymentProviderFactory
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def get_user_id(user: Union[B2CUser, Dict[str, Any]]) -> Any:
-    """Extract user ID from either a B2CUser object or a dict."""
-    if isinstance(user, dict):
-        return user.get('id')
-    return user.id
+# Exceptions remain same because they are local classes not models
 
-
-# ============================================================================
-# Exceptions
-# ============================================================================
-
-class CouponError(Exception):
-    """Base exception for coupon-related errors."""
-    pass
-
-
-class CouponNotFoundError(CouponError):
-    """Coupon code does not exist."""
-    pass
-
-
-class CouponExpiredError(CouponError):
-    """Coupon has expired."""
-    pass
-
-
-class CouponInactiveError(CouponError):
-    """Coupon is not active."""
-    pass
-
-
-class CouponMaxRedemptionsError(CouponError):
-    """Coupon has reached maximum redemptions."""
-    pass
-
-
-class CouponAlreadyRedeemedError(CouponError):
-    """User has already redeemed this coupon."""
-    pass
-
-
-class CouponNotApplicableError(CouponError):
-    """Coupon is not applicable to this tier."""
-    pass
-
-
-# ============================================================================
-# Async Coupon Service
-# ============================================================================
-
-class CouponService:
+class B2BCouponService:
     """
-    Async service for managing coupons, discounts, and promotional offers.
-    All database operations use async SQLAlchemy patterns.
+    Async service for managing B2B coupons.
     """
-    
+
+
     def __init__(self, db: AsyncSession):
         self.db = db
-        # Initialize Stripe provider (Defaulting to Stripe for coupon management for now)
+        # Initialize Stripe provider
         self.provider = PaymentProviderFactory.create(
             'stripe',
             config={
-                'secret_key': settings.stripe_secret_key,
-                'webhook_secret': settings.stripe_webhook_secret,
+                'secret_key': settings.stripe_b2b_secret_key,
+                'webhook_secret': settings.stripe_b2b_webhook_secret,
             }
         )
     
     async def validate_coupon(
         self,
         code: str,
-        user: B2CUser,
+        tenant_id: UUID,
         tier: Optional[str] = None
     ) -> Coupon:
         """
-        Validate a coupon code.
+        Validate a coupon code for a tenant.
         
         Args:
             code: Coupon code
-            user: User attempting to use coupon
+            tenant_id: Tenant attempting to use coupon
             tier: Subscription tier (for applicability check)
             
         Returns:
             Coupon object if valid
-            
-        Raises:
-            CouponNotFoundError: Code doesn't exist
-            CouponExpiredError: Coupon expired
-            CouponInactiveError: Coupon not active
-            CouponMaxRedemptionsError: Max redemptions reached
-            CouponAlreadyRedeemedError: User already redeemed
-            CouponNotApplicableError: Not applicable to tier
         """
         # Find coupon
         result = await self.db.execute(
@@ -136,20 +85,19 @@ class CouponService:
             if coupon.times_redeemed >= coupon.max_redemptions:
                 raise CouponMaxRedemptionsError(f"Coupon '{code}' has reached maximum redemptions")
         
-        # Check if user already redeemed
-        user_id = get_user_id(user)
+        # Check if tenant already redeemed
         result = await self.db.execute(
             select(CouponRedemption).where(
                 and_(
                     CouponRedemption.coupon_id == coupon.id,
-                    CouponRedemption.user_id == user_id
+                    CouponRedemption.tenant_id == tenant_id
                 )
             )
         )
         existing_redemption = result.scalar_one_or_none()
         
         if existing_redemption:
-            raise CouponAlreadyRedeemedError(f"You have already used coupon '{code}'")
+            raise CouponAlreadyRedeemedError(f"Tenant has already utilized coupon '{code}'")
         
         # Check tier applicability
         if tier and coupon.applicable_tiers:
@@ -169,14 +117,6 @@ class CouponService:
     ) -> int:
         """
         Calculate discount amount.
-        
-        Args:
-            coupon: Coupon object
-            amount_cents: Original amount in cents
-            currency: Currency code
-            
-        Returns:
-            Discount amount in cents
         """
         if coupon.discount_type == 'percentage':
             discount_cents = int((amount_cents * coupon.discount_percent) / 100)
@@ -196,29 +136,21 @@ class CouponService:
     async def redeem_coupon(
         self,
         coupon: Coupon,
-        user: B2CUser,
-        subscription: Subscription,
-        discount_amount_cents: int
+        tenant_id: UUID,
+        subscription: B2BSubscription,
+        discount_amount_cents: int,
+        redeemed_by: Optional[UUID] = None
     ) -> CouponRedemption:
         """
         Record a coupon redemption.
-        
-        Args:
-            coupon: Coupon being redeemed
-            user: User redeeming the coupon
-            subscription: Subscription the coupon is applied to
-            discount_amount_cents: Actual discount amount applied
-            
-        Returns:
-            CouponRedemption object
         """
         # Create redemption record
-        user_id = get_user_id(user)
         redemption = CouponRedemption(
             coupon_id=coupon.id,
-            user_id=user_id,
+            tenant_id=tenant_id,
             subscription_id=subscription.id,
-            discount_amount_cents=discount_amount_cents
+            discount_amount_cents=discount_amount_cents,
+            redeemed_by=redeemed_by
         )
         self.db.add(redemption)
         
@@ -228,8 +160,8 @@ class CouponService:
         await self.db.flush()
         
         logger.info(
-            f"Coupon redeemed: {coupon.code} by user {user_id}, "
-            f"discount: {discount_amount_cents/100:.2f} {subscription.currency}"
+            f"Coupon redeemed: {coupon.code} by tenant {tenant_id}, "
+            f"discount: {discount_amount_cents/100:.2f}"
         )
         
         return redemption
@@ -241,13 +173,6 @@ class CouponService:
     ) -> List[Coupon]:
         """
         Get list of active promotional coupons.
-        
-        Args:
-            tier: Filter by applicable tier
-            limit: Maximum number of coupons to return
-            
-        Returns:
-            List of active coupons
         """
         now = datetime.now(timezone.utc)
         
@@ -266,36 +191,6 @@ class CouponService:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
     
-    async def get_user_redemptions(
-        self,
-        user: B2CUser,
-        limit: int = 10
-    ) -> List[CouponRedemption]:
-        """
-        Get coupon redemptions for a user.
-        
-        Args:
-            user: User to get redemptions for
-            limit: Maximum number to return
-            
-        Returns:
-            List of CouponRedemption objects
-        """
-        result = await self.db.execute(
-            select(CouponRedemption)
-            .where(CouponRedemption.user_id == get_user_id(user))
-            .order_by(CouponRedemption.redeemed_at.desc())
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-    
-    async def get_coupon_by_id(self, coupon_id) -> Optional[Coupon]:
-        """Get coupon by ID."""
-        result = await self.db.execute(
-            select(Coupon).where(Coupon.id == coupon_id)
-        )
-        return result.scalar_one_or_none()
-    
     async def create_coupon(
         self,
         code: str,
@@ -310,13 +205,44 @@ class CouponService:
     ) -> Coupon:
         """
         Create a new coupon (admin function).
+        Creates in Stripe first, then DB.
         """
         if discount_type == 'percentage' and discount_percent is None:
             raise ValueError("discount_percent required for percentage discount")
         
         if discount_type == 'fixed_amount' and discount_amount_cents is None:
             raise ValueError("discount_amount_cents required for fixed amount discount")
-        
+            
+        # 1. Create Stripe Coupon
+        # We try to use the code as the ID for simplicity
+        provider_coupon_id = None
+        try:
+            stripe_data = await self.provider.create_coupon(
+                duration='forever', # Defaulting to forever for now, or 'once' if redemptions=1? 
+                                  # Usually admins want 'repeating' or 'forever' for subscription discounts.
+                                  # Let's assume 'repeating' if valid_until is set? Or just 'forever'.
+                                  # Better: Add 'duration' to create_coupon args? Default 'forever'.
+                name=f"{code} ({description or 'B2B Coupon'})",
+                percent_off=float(discount_percent) if discount_percent else None,
+                amount_off=discount_amount_cents,
+                currency=currency.lower() if discount_amount_cents else None,
+                max_redemptions=max_redemptions,
+                redeem_by=int(valid_until.timestamp()) if valid_until else None,
+                metadata={'code': code}
+            )
+            provider_coupon_id = stripe_data['provider_coupon_id']
+            logger.info(f"Created Stripe coupon: {provider_coupon_id}")
+        except Exception as e:
+            logger.error(f"Failed to create Stripe coupon: {e}")
+            # If it already exists (likely if we rely on IDs), we might want to fail or proceed?
+            # Stripe create_coupon without ID generates one "Z4x..."
+            # For "Promotion Code" flow we need a Coupon.
+            # But earlier I decided to use "discounts=[{'coupon': ID}]".
+            # So provider_coupon_id is crucial.
+            # If failed, we should probably abort creation.
+            raise ValueError(f"Failed to create provider coupon: {str(e)}")
+
+        # 2. Save to DB
         coupon = Coupon(
             code=code.upper(),
             discount_type=discount_type,
@@ -326,37 +252,14 @@ class CouponService:
             max_redemptions=max_redemptions,
             valid_until=valid_until,
             applicable_tiers=applicable_tiers,
-            description=description
+            description=description,
+            provider_coupon_id=provider_coupon_id
         )
-        
-        # 1. Create Stripe Coupon (optional in test mode)
-        try:
-            stripe_data = await self.provider.create_coupon(
-                duration='forever',
-                name=f"{code} ({description or 'B2C Coupon'})",
-                percent_off=float(discount_percent) if discount_percent else None,
-                amount_off=discount_amount_cents,
-                currency=currency.lower() if discount_amount_cents else None,
-                max_redemptions=max_redemptions,
-                redeem_by=int(valid_until.timestamp()) if valid_until else None,
-                metadata={'code': code}
-            )
-            coupon.provider_coupon_id = stripe_data['provider_coupon_id']
-            logger.info(f"Created Stripe coupon: {coupon.provider_coupon_id}")
-        except Exception as e:
-            logger.error(f"Failed to create Stripe coupon: {e}")
-            # In test mode or when Stripe is unavailable, use a test ID
-            import os
-            if os.getenv('TESTING') == 'true':
-                coupon.provider_coupon_id = f"test_coupon_{code.lower()}"
-                logger.warning(f"Using test provider_coupon_id: {coupon.provider_coupon_id}")
-            else:
-                raise ValueError(f"Failed to create provider coupon: {str(e)}")
         
         self.db.add(coupon)
         await self.db.flush()
         
-        logger.info(f"Coupon created: {coupon.code}")
+        logger.info(f"B2B Coupon created: {coupon.code}")
         
         return coupon
     
@@ -374,7 +277,5 @@ class CouponService:
         
         coupon.is_active = False
         await self.db.flush()
-        
-        logger.info(f"Coupon deactivated: {coupon.code}")
         
         return coupon

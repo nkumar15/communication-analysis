@@ -117,6 +117,18 @@ function SuperAdminLayout() {
 
                         <div className="my-2 border-t border-gray-700"></div>
                         <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            Billing & Revenue
+                        </div>
+
+                        <Link to="/billing" className={`platform-nav-item ${isActive('/billing') && !isActive('/billing/coupons') ? 'active' : ''}`}>
+                            <span>💳 Overview</span>
+                        </Link>
+                        <Link to="/billing/coupons" className={`platform-nav-item ${isActive('/billing/coupons') ? 'active' : ''}`}>
+                            <span>🎟️ Coupons</span>
+                        </Link>
+
+                        <div className="my-2 border-t border-gray-700"></div>
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                             Management
                         </div>
 

@@ -62,24 +62,30 @@ class StripeProvider(PaymentProvider):
         success_url: str,
         cancel_url: str,
         metadata: Optional[Dict[str, Any]] = None,
-        quantity: int = 1
+        quantity: int = 1,
+        discounts: Optional[list[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """Create a Stripe Checkout session."""
-        session = stripe.checkout.Session.create(
-            customer=customer_id,
-            payment_method_types=['card'],
-            line_items=[{
+        params = {
+            'customer': customer_id,
+            'payment_method_types': ['card'],
+            'line_items': [{
                 'price': price_id,
                 'quantity': quantity,
             }],
-            mode='subscription',
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata=metadata or {},
-            subscription_data={
+            'mode': 'subscription',
+            'success_url': success_url,
+            'cancel_url': cancel_url,
+            'metadata': metadata or {},
+            'subscription_data': {
                 'metadata': metadata or {}
             }
-        )
+        }
+        
+        if discounts:
+            params['discounts'] = discounts
+            
+        session = stripe.checkout.Session.create(**params)
         
         return {
             'checkout_session_id': session.id,
@@ -92,7 +98,9 @@ class StripeProvider(PaymentProvider):
         customer_id: str,
         price_id: str,
         trial_days: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        discounts: Optional[list[Dict[str, Any]]] = None,
+        promotion_code: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create a Stripe subscription."""
         params = {
@@ -100,6 +108,12 @@ class StripeProvider(PaymentProvider):
             'items': [{'price': price_id}],
             'metadata': metadata or {},
         }
+        
+        if discounts:
+            params['discounts'] = discounts
+            
+        if promotion_code:
+            params['promotion_code'] = promotion_code
         
         if trial_days:
             params['trial_period_days'] = trial_days
@@ -273,3 +287,64 @@ class StripeProvider(PaymentProvider):
         )
         
         return customer
+    async def create_coupon(
+        self,
+        duration: str, # 'once', 'repeating', 'forever'
+        name: Optional[str] = None,
+        percent_off: Optional[float] = None,
+        amount_off: Optional[int] = None,
+        currency: Optional[str] = None,
+        duration_in_months: Optional[int] = None,
+        max_redemptions: Optional[int] = None,
+        redeem_by: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Create a Stripe coupon."""
+        params = {
+            'duration': duration,
+            'metadata': metadata or {}
+        }
+        
+        if name:
+            params['name'] = name
+        if percent_off:
+            params['percent_off'] = percent_off
+        if amount_off:
+            params['amount_off'] = amount_off
+            params['currency'] = currency
+        if duration_in_months:
+            params['duration_in_months'] = duration_in_months
+        if max_redemptions:
+            params['max_redemptions'] = max_redemptions
+        if redeem_by:
+            params['redeem_by'] = redeem_by
+            
+        coupon = stripe.Coupon.create(**params)
+        
+        return {
+            'provider_coupon_id': coupon.id,
+            'valid': coupon.valid,
+            'created': coupon.created
+        }
+    
+    async def create_promotion_code(
+        self,
+        coupon_id: str,
+        code: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Create a customer-facing promotion code."""
+        params = {
+            'coupon': coupon_id,
+            'metadata': metadata or {}
+        }
+        if code:
+            params['code'] = code
+            
+        promo = stripe.PromotionCode.create(**params)
+        
+        return {
+            'provider_promotion_code_id': promo.id,
+            'code': promo.code,
+            'active': promo.active
+        }

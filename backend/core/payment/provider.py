@@ -72,7 +72,9 @@ class PaymentProvider(ABC):
         price_id: str,
         success_url: str,
         cancel_url: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        quantity: int = 1,
+        discounts: Optional[list[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Create a checkout session for subscription purchase.
@@ -99,7 +101,9 @@ class PaymentProvider(ABC):
         customer_id: str,
         price_id: str,
         trial_days: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        discounts: Optional[list[Dict[str, Any]]] = None,
+        promotion_code: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Create a subscription directly (without checkout).
@@ -285,5 +289,35 @@ class PaymentProvider(ABC):
             
         Returns:
             Updated customer object
+        """
+        pass
+    
+    @abstractmethod
+    async def create_coupon(
+        self,
+        duration: str, # 'once', 'repeating', 'forever'
+        name: Optional[str] = None,
+        percent_off: Optional[float] = None,
+        amount_off: Optional[int] = None,
+        currency: Optional[str] = None,
+        duration_in_months: Optional[int] = None,
+        max_redemptions: Optional[int] = None,
+        redeem_by: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a coupon in the provider's system.
+        """
+        pass
+    
+    @abstractmethod
+    async def create_promotion_code(
+        self,
+        coupon_id: str,
+        code: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a customer-facing promotion code.
         """
         pass
