@@ -78,7 +78,7 @@ app.include_router(platform_b2b.router)
 app.include_router(platform_b2c.router)
 app.include_router(platform_roles.router)  # Platform roles management
 app.include_router(platform_invitations.router)  # Platform invitations
-app.include_router(platform_billing.router, prefix="/api/platform") # Explicit prefix registration if needed, or rely on router's prefix
+app.include_router(platform_billing.router) # Explicit prefix registration if needed, or rely on router's prefix
 app.include_router(b2c_auth.router)
 app.include_router(b2c_workspaces.router)
 app.include_router(b2c_invitations.router)

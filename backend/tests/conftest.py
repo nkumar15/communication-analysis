@@ -513,7 +513,20 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
     from core.constants import B2BRoleName
 
     # 1. Resources
-    resources = [("users", True), ("roles", True), ("settings", True), ("audit_logs", True)]
+    # Must match resources.yaml
+    resources = [
+        ("users", True), 
+        ("roles", True), 
+        ("settings", True), 
+        ("audit_logs", True),
+        ("billing", True),
+        ("invoices", True),
+        ("teams", False),
+        ("team_members", False),
+        ("projects", False),
+        ("tasks", False),
+        ("comments", False)
+    ]
     existing_res = await db_session.execute(select(Resource.name))
     existing_res_names = set(existing_res.scalars().all())
     
@@ -526,7 +539,7 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
             ))
     
     # 2. Actions
-    actions = ["read", "write", "delete", "create", "admin", "invite"]
+    actions = ["read", "write", "delete", "create", "admin", "invite", "manage", "export"]
     existing_act = await db_session.execute(select(Action.name))
     existing_act_names = set(existing_act.scalars().all())
     
@@ -540,15 +553,19 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
     all_perms = [
         {"resource": "users", "actions": ["read", "write", "create", "delete", "invite"]},
         {"resource": "roles", "actions": ["read", "write", "create", "delete"]},
-        {"resource": "invitations", "actions": ["read", "write", "create", "delete"]},
         {"resource": "settings", "actions": ["read", "write"]},
-        {"resource": "audit_logs", "actions": ["read"]}
+        {"resource": "audit_logs", "actions": ["read"]},
+        {"resource": "billing", "actions": ["read", "write", "manage"]},
+        {"resource": "teams", "actions": ["read", "write", "delete"]},
+        {"resource": "projects", "actions": ["read", "write", "delete"]},
+        {"resource": "tasks", "actions": ["read", "write", "delete"]},
     ]
     read_only = [
         {"resource": "users", "actions": ["read"]},
         {"resource": "roles", "actions": ["read"]},
-        {"resource": "invitations", "actions": ["read"]},
-        {"resource": "settings", "actions": ["read"]}
+        {"resource": "settings", "actions": ["read"]},
+        {"resource": "projects", "actions": ["read"]},
+        {"resource": "tasks", "actions": ["read"]}
     ]
     
     templates = {
