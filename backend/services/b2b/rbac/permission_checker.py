@@ -80,31 +80,16 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     Returns:
         list: List of permission strings like ['shops:read', 'users:write']
     """
-    # Get user using explicit query (respects RLS)
-    user_result = await db.execute(
-        select(UserModel).where(UserModel.id == user_id)
-    )
-    user = user_result.scalar_one_or_none()
-    
-    if not user or not user.role_id:
-        return []
-    
-    # Get role using explicit query (respects RLS)
-    role_result = await db.execute(
-        select(Role).where(Role.id == user.role_id)
-    )
-    role = role_result.scalar_one_or_none()
-    
-    if not role or not role.is_active:
-        return []
-    
-    # Get all permissions for this role
+    # OPTIMIZATION: Single query with explicit JOINs instead of multiple round-trips
     result = await db.execute(
         select(Resource.name, Action.name)
-        .select_from(RolePermission)
+        .select_from(UserModel)
+        .join(Role, UserModel.role_id == Role.id)
+        .join(RolePermission, Role.id == RolePermission.role_id)
         .join(Resource, RolePermission.resource_id == Resource.id)
         .join(Action, RolePermission.action_id == Action.id)
-        .where(RolePermission.role_id == role.id)
+        .where(UserModel.id == user_id)
+        .where(Role.is_active == True)
     )
     
     permissions = []
