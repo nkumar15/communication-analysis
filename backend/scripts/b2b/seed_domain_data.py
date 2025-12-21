@@ -97,7 +97,8 @@ if __name__ == "__main__":
                 name=res['name'],
                 display_name=res['display_name'],
                 category=res.get('category'),
-                description=res.get('description')
+                description=res.get('description'),
+                is_system_resource=res.get('is_system_resource', False)  # Read from YAML
             )
             for res in resources_data
         ]
@@ -126,7 +127,8 @@ if __name__ == "__main__":
                 name=res['name'],
                 display_name=res['display_name'],
                 category=res.get('category'),
-                description=res.get('description')
+                description=res.get('description'),
+                is_system_resource=res.get('is_system_resource', False)  # Read from YAML
             )
             for res in resources_data
         ]

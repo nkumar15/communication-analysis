@@ -513,13 +513,17 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
     from core.constants import B2BRoleName
 
     # 1. Resources
-    resources = ["users", "roles", "invitations", "settings", "audit_logs"]
+    resources = [("users", True), ("roles", True), ("settings", True), ("audit_logs", True)]
     existing_res = await db_session.execute(select(Resource.name))
     existing_res_names = set(existing_res.scalars().all())
     
-    for r in resources:
-        if r not in existing_res_names:
-            db_session.add(Resource(name=r, display_name=r.title()))
+    for name, is_system in resources:
+        if name not in existing_res_names:
+            db_session.add(Resource(
+                name=name,
+                display_name=name.replace('_', ' ').title(),
+                is_system_resource=is_system
+            ))
     
     # 2. Actions
     actions = ["read", "write", "delete", "create", "admin", "invite"]

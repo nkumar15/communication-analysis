@@ -3,103 +3,122 @@
 # Domain-specific resources (projects, tasks, etc) are in domain_resources.yaml
 
 resources:
-  # Analytics & Reporting
+  # Analytics & Reporting - SYSTEM RESOURCES (tenant-wide)
   - name: dashboard
     display_name: Dashboard
     category: Analytics
     description: Statistics, metrics, and overview
+    is_system_resource: true
   
   - name: reports
     display_name: Reports
     category: Analytics
     description: Generate and view business reports
+    is_system_resource: true
   
   - name: analytics
     display_name: Analytics
     category: Analytics
     description: Advanced analytics and insights
+    is_system_resource: true
   
-  # User & Access Management
+  # User &  # User Management - SYSTEM LEVEL (tenant-wide user invitations)
   - name: users
     display_name: User Management
     category: Administration
-    description: Manage users and team members
+    description: Invite and manage users at tenant level
+    is_system_resource: true  # System-level: invite users to tenant
   
   - name: roles
     display_name: Role Management
     category: Administration
     description: Manage roles and permissions
-  
-  - name: invitations
-    display_name: Invitations
-    category: Administration
-    description: Invite new users to the platform
+    is_system_resource: true  # System-level only
   
   - name: teams
     display_name: Team Management
     category: Administration
     description: Organize users into teams
+    is_system_resource: false  # Team-level resource
   
   - name: team_members
     display_name: Team Members
     category: Team Management
     description: Manage team membership
+    is_system_resource: false
   
   - name: team_settings
     display_name: Team Settings
     category: Team Management
     description: Configure team settings
+    is_system_resource: false
   
-  # Account & Billing
+  # Account & Billing - SYSTEM RESOURCES
   - name: account
     display_name: Account Settings
     category: Configuration
     description: Manage account configuration and preferences
+    is_system_resource: true  # Tenant-wide account
   
   - name: billing
     display_name: Billing & Subscription
     category: Administration
     description: Manage billing, payments, and subscription plans
+    is_system_resource: true
   
   - name: invoices
     display_name: Invoices
     category: Billing
     description: View and download invoices
+    is_system_resource: true
   
-  # Integration & API
+  # Integration & API - SYSTEM RESOURCES
   - name: integrations
     display_name: Integrations
     category: Configuration
     description: Third-party integrations and connections
+    is_system_resource: true
   
   - name: webhooks
     display_name: Webhooks
     category: Configuration
     description: Configure outbound webhooks
+    is_system_resource: true
   
   - name: api_keys
     display_name: API Keys
     category: Security
     description: Manage API keys and access tokens
+    is_system_resource: true
   
-  # Audit & Security
+  # Audit & Security - SYSTEM RESOURCES
   - name: audit_logs
     display_name: Audit Logs
     category: Security
     description: View system audit logs and user activity
+    is_system_resource: true
   
   - name: security
     display_name: Security Settings
     category: Security
     description: Manage security policies and two-factor authentication
+    is_system_resource: true
   
-  # Support & Documentation
+  # Account & Configuration - SYSTEM RESOURCES
+  - name: account
+    display_name: Account Settings
+    category: Configuration
+    description: Manage tenant account settings and configuration
+    is_system_resource: true
+  
   - name: support
     display_name: Support
     category: Help
     description: Access support tickets and help resources
+    is_system_resource: true
   
   - name: notifications
     display_name: Notifications
     category: Configuration
-    description: Manage notification preferences
+    description: Manage notification preferences and settings
+    is_system_resource: true

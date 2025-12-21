@@ -1,8 +1,9 @@
-// TeamRoleManagementPage.js – UI for managing team-level roles and capabilities
+// TeamRoleManagementPage.js – UI for managing team-level roles with permission matrix
 import React, { useEffect, useState } from 'react';
 import apiService from '../../../../core/api/b2bClient';
 import AdminLayout from '../layouts/AdminLayout';
 import { DashboardSkeleton } from '../../../../core/components/LoadingSkeleton';
+import PermissionMatrix from '../components/PermissionMatrix';
 
 const TeamRoleManagementPage = () => {
     const [teamRoles, setTeamRoles] = useState([]);
@@ -15,10 +16,7 @@ const TeamRoleManagementPage = () => {
         name: '',
         display_name: '',
         description: '',
-        can_manage_members: false,
-        can_manage_settings: false,
-        can_write_resources: true,
-        can_delete_resources: false,
+        permissions: [],  // Array of 'resource:action' strings
         is_default: false
     });
     const [saving, setSaving] = useState(false);
@@ -45,10 +43,7 @@ const TeamRoleManagementPage = () => {
             name: '',
             display_name: '',
             description: '',
-            can_manage_members: false,
-            can_manage_settings: false,
-            can_write_resources: true,
-            can_delete_resources: false,
+            permissions: [],
             is_default: false
         });
     };
@@ -60,14 +55,27 @@ const TeamRoleManagementPage = () => {
 
     const handleOpenEdit = (role) => {
         setSelectedRole(role);
+        // Convert role.permissions from array of objects to array of strings
+        // Handle format: {resource: "x", actions: ["y", "z"]} -> ["x:y", "x:z"]
+        const permissionStrings = [];
+        for (const p of role.permissions || []) {
+            if (typeof p === 'string') {
+                permissionStrings.push(p);
+            } else if (p.resource && p.actions) {
+                // Expand actions array
+                for (const action of p.actions) {
+                    permissionStrings.push(`${p.resource}:${action}`);
+                }
+            } else if (p.resource && p.action) {
+                permissionStrings.push(`${p.resource}:${p.action}`);
+            }
+        }
+
         setFormData({
             name: role.name,
             display_name: role.display_name,
             description: role.description || '',
-            can_manage_members: role.can_manage_members,
-            can_manage_settings: role.can_manage_settings,
-            can_write_resources: role.can_write_resources,
-            can_delete_resources: role.can_delete_resources,
+            permissions: permissionStrings,
             is_default: role.is_default
         });
         setShowEditModal(true);
@@ -77,7 +85,18 @@ const TeamRoleManagementPage = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            await apiService.post('/api/b2b/team-roles', formData);
+            // Convert permissions from ["resource:action"] to [{resource: "x", action: "y"}]
+            const permissionsPayload = formData.permissions.map(p => {
+                const [resource, action] = p.split(':');
+                return { resource, action };
+            });
+
+            const payload = {
+                ...formData,
+                permissions: permissionsPayload
+            };
+
+            await apiService.post('/api/b2b/team-roles', payload);
             setShowCreateModal(false);
             resetForm();
             fetchTeamRoles();
@@ -94,13 +113,16 @@ const TeamRoleManagementPage = () => {
         if (!selectedRole) return;
         setSaving(true);
         try {
+            // Convert permissions from ["resource:action"] to [{resource: "x", action: "y"}]
+            const permissionsPayload = formData.permissions.map(p => {
+                const [resource, action] = p.split(':');
+                return { resource, action };
+            });
+
             const updateData = {
                 display_name: formData.display_name,
                 description: formData.description,
-                can_manage_members: formData.can_manage_members,
-                can_manage_settings: formData.can_manage_settings,
-                can_write_resources: formData.can_write_resources,
-                can_delete_resources: formData.can_delete_resources,
+                permissions: permissionsPayload,
                 is_default: formData.is_default
             };
             await apiService.put(`/api/b2b/team-roles/${selectedRole.id}`, updateData);
@@ -141,13 +163,31 @@ const TeamRoleManagementPage = () => {
         }));
     };
 
-    const getCapabilityBadges = (role) => {
+    const getPermissionBadges = (role) => {
+        // Show first 5 permissions as badges
+        const permissions = role.permissions || [];
         const badges = [];
-        if (role.can_manage_members) badges.push({ label: 'Manage Members', color: 'green' });
-        if (role.can_manage_settings) badges.push({ label: 'Manage Settings', color: 'blue' });
-        if (role.can_write_resources) badges.push({ label: 'Write', color: 'yellow' });
-        if (role.can_delete_resources) badges.push({ label: 'Delete', color: 'red' });
-        return badges;
+
+        for (const p of permissions) {
+            // Handle different formats:
+            if (typeof p === 'string') {
+                // Format: "resource:action"
+                badges.push({ label: p, color: 'blue' });
+            } else if (p && p.resource && p.actions) {
+                // Format: {resource: "x", actions: ["y", "z"]}
+                for (const action of p.actions) {
+                    badges.push({ label: `${p.resource}:${action}`, color: 'blue' });
+                }
+            } else if (p && p.resource && p.action) {
+                // Format: {resource: "x", action: "y"}
+                badges.push({ label: `${p.resource}:${p.action}`, color: 'blue' });
+            }
+
+            // Stop if we have 5 badges
+            if (badges.length >= 5) break;
+        }
+
+        return badges.slice(0, 5);
     };
 
     if (loading) {
@@ -207,16 +247,19 @@ const TeamRoleManagementPage = () => {
                                 )}
                             </div>
                             <p className="role-description">{role.description || 'No description'}</p>
-                            <div className="role-capabilities">
-                                <h4>Capabilities</h4>
-                                <div className="capability-badges">
-                                    {getCapabilityBadges(role).map((badge, idx) => (
+                            <div className="role-permissions">
+                                <h4>Permissions</h4>
+                                <div className="permission-badges">
+                                    {getPermissionBadges(role).map((badge, idx) => (
                                         <span key={idx} className={`badge badge-${badge.color}`}>
                                             {badge.label}
                                         </span>
                                     ))}
-                                    {getCapabilityBadges(role).length === 0 && (
-                                        <span className="badge badge-gray">Read Only</span>
+                                    {(role.permissions?.length || 0) > 5 && (
+                                        <span className="badge badge-gray">+{role.permissions.length - 5} more</span>
+                                    )}
+                                    {(!role.permissions || role.permissions.length === 0) && (
+                                        <span className="badge badge-gray">No permissions</span>
                                     )}
                                 </div>
                             </div>
@@ -272,49 +315,11 @@ const TeamRoleManagementPage = () => {
                                         />
                                     </div>
                                     <div className="form-section">
-                                        <h4>Capabilities</h4>
-                                        <div className="capability-checkboxes">
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_manage_members"
-                                                    checked={formData.can_manage_members}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Manage Members</span>
-                                                <small>Add/remove team members</small>
-                                            </label>
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_manage_settings"
-                                                    checked={formData.can_manage_settings}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Manage Settings</span>
-                                                <small>Edit team name, description</small>
-                                            </label>
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_write_resources"
-                                                    checked={formData.can_write_resources}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Write Resources</span>
-                                                <small>Create/edit projects, tasks, etc.</small>
-                                            </label>
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_delete_resources"
-                                                    checked={formData.can_delete_resources}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Delete Resources</span>
-                                                <small>Delete projects, tasks, etc.</small>
-                                            </label>
-                                        </div>
+                                        <h4>Permissions</h4>
+                                        <PermissionMatrix
+                                            selectedPermissions={formData.permissions}
+                                            onChange={(perms) => setFormData({ ...formData, permissions: perms })}
+                                        />
                                     </div>
                                     <div className="form-group">
                                         <label className="checkbox-label">
@@ -380,45 +385,11 @@ const TeamRoleManagementPage = () => {
                                         />
                                     </div>
                                     <div className="form-section">
-                                        <h4>Capabilities</h4>
-                                        <div className="capability-checkboxes">
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_manage_members"
-                                                    checked={formData.can_manage_members}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Manage Members</span>
-                                            </label>
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_manage_settings"
-                                                    checked={formData.can_manage_settings}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Manage Settings</span>
-                                            </label>
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_write_resources"
-                                                    checked={formData.can_write_resources}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Write Resources</span>
-                                            </label>
-                                            <label className="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    name="can_delete_resources"
-                                                    checked={formData.can_delete_resources}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>Can Delete Resources</span>
-                                            </label>
-                                        </div>
+                                        <h4>Permissions</h4>
+                                        <PermissionMatrix
+                                            selectedPermissions={formData.permissions}
+                                            onChange={(perms) => setFormData({ ...formData, permissions: perms })}
+                                        />
                                     </div>
                                     <div className="form-group">
                                         <label className="checkbox-label">
@@ -501,13 +472,13 @@ const TeamRoleManagementPage = () => {
                     font-size: 0.9rem;
                     margin: 0 0 1rem 0;
                 }
-                .role-capabilities h4 {
+                .role-permissions h4 {
                     font-size: 0.8rem;
                     color: #6b7280;
                     margin: 0 0 0.5rem 0;
                     text-transform: uppercase;
                 }
-                .capability-badges {
+                .permission-badges {
                     display: flex;
                     flex-wrap: wrap;
                     gap: 0.5rem;
@@ -583,7 +554,7 @@ const TeamRoleManagementPage = () => {
                     background: white;
                     border-radius: 12px;
                     width: 100%;
-                    max-width: 500px;
+                    max-width: 900px;  /* Increased from 500px for permission matrix */
                     max-height: 90vh;
                     overflow-y: auto;
                 }
@@ -592,7 +563,11 @@ const TeamRoleManagementPage = () => {
                     justify-content: space-between;
                     align-items: center;
                     padding: 1.5rem;
+                    padding: 1rem 1.5rem;  /* Reduced from default */
                     border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
                 }
                 .modal-header h2 {
                     margin: 0;
@@ -605,7 +580,7 @@ const TeamRoleManagementPage = () => {
                     color: #6b7280;
                 }
                 .modal-body {
-                    padding: 1.5rem;
+                    padding: 1rem 1.5rem;  /* Reduced padding */
                 }
                 .modal-footer {
                     padding: 1rem 1.5rem;
@@ -615,20 +590,22 @@ const TeamRoleManagementPage = () => {
                     gap: 0.75rem;
                 }
                 .form-group {
-                    margin-bottom: 1rem;
+                    margin-bottom: 0.75rem;  /* Reduced from 1rem */
                 }
                 .form-group label {
                     display: block;
+                    margin-bottom: 0.25rem;  /* Reduced */
                     font-weight: 500;
-                    margin-bottom: 0.5rem;
+                    font-size: 0.85rem;  /* Slightly smaller */
+                    color: #374151;
                 }
                 .form-group input,
                 .form-group textarea {
                     width: 100%;
-                    padding: 0.75rem;
+                    padding: 0.5rem;  /* Reduced */
                     border: 1px solid #d1d5db;
                     border-radius: 6px;
-                    font-size: 1rem;
+                    font-size: 0.875rem;
                 }
                 .form-group small {
                     display: block;
@@ -637,7 +614,7 @@ const TeamRoleManagementPage = () => {
                     font-size: 0.8rem;
                 }
                 .form-section {
-                    margin: 1.5rem 0;
+                    margin: 1rem 0;  /* Reduced */
                     padding: 1rem;
                     background: #f9fafb;
                     border-radius: 8px;

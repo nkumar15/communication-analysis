@@ -43,6 +43,7 @@ class Resource(Base, TimestampMixin):
     display_name = Column(String(100), nullable=False)  # 'Dashboard', 'User Management'
     category = Column(String(50))  # Group in UI: 'Administration', 'Core'
     description = Column(Text)
+    is_system_resource = Column(Boolean, default=False, nullable=False)  # True = tenant-level, False = team-level
     
     # Relationships
     permissions = relationship("RolePermission", back_populates="resource")
