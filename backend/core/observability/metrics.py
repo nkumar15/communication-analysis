@@ -30,6 +30,8 @@ def setup_metrics():
     global HTTP_REQUESTS_TOTAL, HTTP_REQUEST_DURATION_SECONDS
     global USER_LOGINS_TOTAL, TENANT_ONBOARDING_TOTAL
     global AUTH_FAILURES_TOTAL, RBAC_DENIALS_TOTAL, EXTERNAL_API_DURATION
+    global DB_CONNECTION_POOL_SIZE, DB_CONNECTION_POOL_CHECKEDOUT
+    global DB_QUERY_DURATION_SECONDS, AUTH_TOKEN_VALIDATION_DURATION_SECONDS, SUBSCRIPTION_EVENTS_TOTAL
     
     if not PROMETHEUS_AVAILABLE:
         logger.warning("Prometheus client not installed, metrics disabled")
@@ -79,6 +81,35 @@ def setup_metrics():
         "Duration of external API calls",
         ["service", "endpoint"]
     )
+    
+    from prometheus_client import Gauge
+    DB_CONNECTION_POOL_SIZE = Gauge(
+        "db_connection_pool_size",
+        "Current total size of database connection pool"
+    )
+    
+    DB_CONNECTION_POOL_CHECKEDOUT = Gauge(
+        "db_connection_pool_checkedout",
+        "Number of database connections currently checked out"
+    )
+
+    DB_QUERY_DURATION_SECONDS = Histogram(
+        "db_query_duration_seconds",
+        "Database query duration",
+        ["query_type", "table_name"]
+    )
+
+    AUTH_TOKEN_VALIDATION_DURATION_SECONDS = Histogram(
+        "auth_token_validation_duration_seconds",
+        "Time taken to validate auth tokens",
+        ["provider"]
+    )
+
+    SUBSCRIPTION_EVENTS_TOTAL = Counter(
+        "subscription_events_total",
+        "Total subscription events",
+        ["event_type", "plan"]
+    )
 
 
 from starlette.responses import Response
@@ -122,4 +153,27 @@ def record_external_api(service: str, endpoint: str):
     duration = time.time() - start
     if PROMETHEUS_AVAILABLE and EXTERNAL_API_DURATION:
         EXTERNAL_API_DURATION.labels(service=service, endpoint=endpoint).observe(duration)
+
+def record_db_pool_metrics(size: int, checked_out: int):
+    if PROMETHEUS_AVAILABLE:
+        if DB_CONNECTION_POOL_SIZE:
+            DB_CONNECTION_POOL_SIZE.set(size)
+        if DB_CONNECTION_POOL_CHECKEDOUT:
+            DB_CONNECTION_POOL_CHECKEDOUT.set(checked_out)
+
+def record_db_query_duration(duration: float, query_type: str = "unknown", table_name: str = "unknown"):
+    if PROMETHEUS_AVAILABLE and DB_QUERY_DURATION_SECONDS:
+        DB_QUERY_DURATION_SECONDS.labels(query_type=query_type, table_name=table_name).observe(duration)
+
+@contextmanager
+def record_token_validation(provider: str = "firebase"):
+    start = time.time()
+    yield
+    duration = time.time() - start
+    if PROMETHEUS_AVAILABLE and AUTH_TOKEN_VALIDATION_DURATION_SECONDS:
+        AUTH_TOKEN_VALIDATION_DURATION_SECONDS.labels(provider=provider).observe(duration)
+
+def increment_subscription_event(event_type: str, plan: str):
+    if PROMETHEUS_AVAILABLE and SUBSCRIPTION_EVENTS_TOTAL:
+        SUBSCRIPTION_EVENTS_TOTAL.labels(event_type=event_type, plan=plan).inc()
 

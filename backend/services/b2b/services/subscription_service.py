@@ -288,6 +288,10 @@ class SubscriptionService:
         
         logger.info(f"✅ Subscription activated: {subscription.id} (tier: {tier.value}, seats: {seat_count})")
         
+        # Metric
+        from core.observability.metrics import increment_subscription_event
+        increment_subscription_event(event_type='subscription_activated', plan=tier.value)
+        
         # Send confirmation email to tenant owner
         try:
             owner_result = await self.db.execute(
@@ -416,6 +420,11 @@ class SubscriptionService:
             await self.db.flush()
             
             logger.info(f"Seat count updated: {subscription.id} ({old_seat_count} → {new_seat_count})")
+            
+            # Metric
+            from core.observability.metrics import increment_subscription_event
+            increment_subscription_event(event_type='seat_count_updated', plan=subscription.tier)
+
         
         return subscription
 
@@ -482,5 +491,9 @@ class SubscriptionService:
         )
         self.db.add(event)
         await self.db.commit()
+        
+        # Metric
+        from core.observability.metrics import increment_subscription_event
+        increment_subscription_event(event_type='subscription_canceled', plan=subscription.tier)
         
         return subscription

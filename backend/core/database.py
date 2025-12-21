@@ -22,8 +22,8 @@ elif database_url.startswith("postgresql://"):
 engine = create_async_engine(
     database_url,
     echo=False,  # Set to True for SQL query logging
-    pool_size=20,
-    max_overflow=10,
+    pool_size=40,
+    max_overflow=20,
     pool_pre_ping=True,  # Verify connections before using
 )
 
@@ -84,6 +84,12 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
                 from uuid import UUID
                 await rls_service.set_tenant_context(session, UUID(tenant_id))
             
+            # Record pool metrics
+            from core.observability.metrics import record_db_pool_metrics
+            # Access underlying pool stats (async engine wraps sync pool)
+            pool = engine.sync_engine.pool
+            record_db_pool_metrics(pool.size(), pool.checkedout())
+            
             yield session
             await session.commit()
         except Exception:
@@ -104,3 +110,42 @@ async def init_db():
 async def close_db():
     """Close database connection"""
     await engine.dispose()
+
+
+# Metrics Instrumentation
+from sqlalchemy import event
+import time
+from core.observability.metrics import record_db_query_duration
+
+@event.listens_for(engine.sync_engine, "before_cursor_execute")
+def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    conn.info.setdefault("query_start_time", []).append(time.time())
+
+@event.listens_for(engine.sync_engine, "after_cursor_execute")
+def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    total = time.time() - conn.info["query_start_time"].pop(-1)
+    
+    # Simple heuristic to guess table name from statement (imperfect but useful)
+    table_name = "unknown"
+    query_type = "unknown"
+    
+    try:
+        stmt = statement.strip().lower()
+        if stmt.startswith("select"):
+            query_type = "SELECT"
+        elif stmt.startswith("insert"):
+            query_type = "INSERT"
+        elif stmt.startswith("update"):
+            query_type = "UPDATE"
+        elif stmt.startswith("delete"):
+            query_type = "DELETE"
+            
+        # Very naive table extraction (e.g. FROM "table")
+        if "from " in stmt:
+            parts = stmt.split("from ")
+            if len(parts) > 1:
+                table_name = parts[1].split()[0].strip('";')
+    except Exception:
+        pass
+        
+    record_db_query_duration(total, query_type, table_name)
