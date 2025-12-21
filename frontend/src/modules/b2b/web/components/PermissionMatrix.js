@@ -37,6 +37,19 @@ const PermissionMatrix = ({ selectedPermissions = [], onChange }) => {
         }
     };
 
+    // Filter actions based on resource type using backend-provided mapping
+    const getApplicableActions = (resourceName) => {
+        return actions.filter(action => {
+            // If applicable_resources is null or undefined, action applies to all resources
+            if (!action.applicable_resources || action.applicable_resources.length === 0) {
+                return true;
+            }
+
+            // Check if this resource is in the applicable list
+            return action.applicable_resources.includes(resourceName);
+        });
+    };
+
     const isPermissionSelected = (resourceName, actionName) => {
         const permission = `${resourceName}:${actionName}`;
         return selectedPermissions.includes(permission);
@@ -58,7 +71,8 @@ const PermissionMatrix = ({ selectedPermissions = [], onChange }) => {
     };
 
     const toggleAllForResource = (resourceName) => {
-        const resourcePermissions = actions.map(action => `${resourceName}:${action.name}`);
+        const applicableActions = getApplicableActions(resourceName);
+        const resourcePermissions = applicableActions.map(action => `${resourceName}:${action.name}`);
         const allSelected = resourcePermissions.every(p => selectedPermissions.includes(p));
 
         let newPermissions;
@@ -115,40 +129,56 @@ const PermissionMatrix = ({ selectedPermissions = [], onChange }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {resources.map(resource => (
-                            <tr key={resource.id}>
-                                <td className="resource-name">
-                                    <strong>{resource.display_name || resource.name}</strong>
-                                    {resource.description && (
-                                        <small>{resource.description}</small>
-                                    )}
-                                </td>
-                                {actions.map(action => (
-                                    <td key={action.id} className="permission-cell">
-                                        <label className="checkbox-wrapper" title={`${resource.display_name}: ${action.display_name}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isPermissionSelected(resource.name, action.name)}
-                                                onChange={() => togglePermission(resource.name, action.name)}
-                                                data-permission={`${resource.name}:${action.name}`}
-                                            />
-                                            <span className="tooltip-text">
-                                                {resource.description && `${resource.description} - `}
-                                                {action.display_name}
-                                            </span>
-                                        </label>
+                        {resources.map(resource => {
+                            const applicableActions = getApplicableActions(resource.name);
+
+                            return (
+                                <tr key={resource.id}>
+                                    <td className="resource-name">
+                                        <strong>{resource.display_name || resource.name}</strong>
+                                        {resource.description && (
+                                            <small>{resource.description}</small>
+                                        )}
                                     </td>
-                                ))}
-                                <td className="select-all-cell">
-                                    <input
-                                        type="checkbox"
-                                        checked={isAllSelectedForResource(resource.name)}
-                                        onChange={() => toggleAllForResource(resource.name)}
-                                        title={`Select all for ${resource.name}`}
-                                    />
-                                </td>
-                            </tr>
-                        ))}
+                                    {actions.map(action => {
+                                        const isApplicable = applicableActions.some(a => a.id === action.id);
+
+                                        if (!isApplicable) {
+                                            // Show empty cell with disabled state
+                                            return (
+                                                <td key={action.id} className="permission-cell disabled">
+                                                    <span className="not-applicable">—</span>
+                                                </td>
+                                            );
+                                        }
+
+                                        return (
+                                            <td key={action.id} className="permission-cell">
+                                                <div className="checkbox-wrapper">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isPermissionSelected(resource.name, action.name)}
+                                                        onChange={() => togglePermission(resource.name, action.name)}
+                                                    />
+                                                    <div className="tooltip-text">
+                                                        {resource.display_name}: {action.display_name}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                    <td className="select-all-cell">
+                                        <input
+                                            type="checkbox"
+                                            checked={applicableActions.every(action =>
+                                                isPermissionSelected(resource.name, action.name)
+                                            )}
+                                            onChange={() => toggleAllForResource(resource.name)}
+                                        />
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -249,6 +279,14 @@ const PermissionMatrix = ({ selectedPermissions = [], onChange }) => {
                 .select-all-cell {
                     text-align: center;
                     position: relative;
+                }
+                .permission-cell.disabled {
+                    background: #f9fafb;
+                    cursor: not-allowed;
+                }
+                .permission-cell.disabled .not-applicable {
+                    color: #d1d5db;
+                    font-size: 1.2rem;
                 }
                 .checkbox-wrapper {
                     position: relative;

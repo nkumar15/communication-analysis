@@ -69,7 +69,12 @@ if __name__ == "__main__":
         
         print(f"Seeding {len(actions_data)} actions...")
         actions = [
-            Action(name=action['name'], display_name=action['display_name'])
+            Action(
+                name=action['name'], 
+                display_name=action['display_name'],
+                description=action.get('description'),
+                applicable_resources=action.get('applicable_resources')  # Can be None for all resources
+            )
             for action in actions_data
         ]
         db.add_all(actions)
@@ -92,19 +97,34 @@ if __name__ == "__main__":
             return
         
         print(f"Seeding {len(resources_data)} SaaS resources...")
-        resources = [
-            Resource(
-                name=res['name'],
-                display_name=res['display_name'],
-                category=res.get('category'),
-                description=res.get('description'),
-                is_system_resource=res.get('is_system_resource', False)  # Read from YAML
+        
+        # Seed resources individually to handle duplicates
+        seeded_count = 0
+        for res_data in resources_data:
+            # Check if resource already exists
+            result = await db.execute(
+                select(Resource).where(Resource.name == res_data['name'])
             )
-            for res in resources_data
-        ]
-        db.add_all(resources)
+            existing = result.scalar_one_or_none()
+            
+            if not existing:
+                resource = Resource(
+                    name=res_data['name'],
+                    display_name=res_data['display_name'],
+                    category=res_data.get('category'),
+                    description=res_data.get('description'),
+                    is_system_resource=res_data.get('is_system_resource', False)
+                )
+                db.add(resource)
+                seeded_count += 1
+            else:
+                # Update existing resource's is_system_resource flag if changed
+                if existing.is_system_resource != res_data.get('is_system_resource', False):
+                    existing.is_system_resource = res_data.get('is_system_resource', False)
+                    print(f"  Updated is_system_resource for '{res_data['name']}'")
+        
         await db.flush()
-        print(f"✓ Seeded {len(resources)} SaaS resources")
+        print(f"✓ Seeded {seeded_count} new SaaS resources")
 
     async def seed_domain_resources(db: AsyncSession) -> None:
         """Seed domain-specific resources from domain_resources.yaml"""
@@ -122,19 +142,34 @@ if __name__ == "__main__":
             return
         
         print(f"Seeding {len(resources_data)} domain resources...")
-        resources = [
-            Resource(
-                name=res['name'],
-                display_name=res['display_name'],
-                category=res.get('category'),
-                description=res.get('description'),
-                is_system_resource=res.get('is_system_resource', False)  # Read from YAML
+        
+        # Seed resources individually to handle duplicates
+        seeded_count = 0
+        for res_data in resources_data:
+            # Check if resource already exists
+            result = await db.execute(
+                select(Resource).where(Resource.name == res_data['name'])
             )
-            for res in resources_data
-        ]
-        db.add_all(resources)
+            existing = result.scalar_one_or_none()
+            
+            if not existing:
+                resource = Resource(
+                    name=res_data['name'],
+                    display_name=res_data['display_name'],
+                    category=res_data.get('category'),
+                    description=res_data.get('description'),
+                    is_system_resource=res_data.get('is_system_resource', False)
+                )
+                db.add(resource)
+                seeded_count += 1
+            else:
+                # Update existing resource's is_system_resource flag if changed
+                if existing.is_system_resource != res_data.get('is_system_resource', False):
+                    existing.is_system_resource = res_data.get('is_system_resource', False)
+                    print(f"  Updated is_system_resource for '{res_data['name']}'")
+        
         await db.flush()
-        print(f"✓ Seeded {len(resources)} domain resources")
+        print(f"✓ Seeded {seeded_count} new domain resources")
 
     async def seed_role_templates(db: AsyncSession) -> None:
         """Seed role templates from role_templates.yaml"""
