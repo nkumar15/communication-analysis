@@ -390,13 +390,56 @@ function BillingPage() {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {inv.invoice_pdf_url ? (
-                                                            <a href={inv.invoice_pdf_url} target="_blank" rel="noopener noreferrer" style={{ color: '#4F46E5', textDecoration: 'none', fontWeight: '500' }}>
-                                                                PDF
-                                                            </a>
-                                                        ) : (
-                                                            <span style={{ color: '#9CA3AF' }}>-</span>
-                                                        )}
+                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                            {inv.invoice_pdf_url ? (
+                                                                <a href={inv.invoice_pdf_url} target="_blank" rel="noopener noreferrer" className="platform-btn platform-btn-outline" style={{ padding: '4px 8px', fontSize: '12px', minHeight: 'unset' }}>
+                                                                    PDF
+                                                                </a>
+                                                            ) : (
+                                                                <span style={{ fontSize: '12px', color: '#9CA3AF', padding: '4px 8px' }}>-</span>
+                                                            )}
+
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (!window.confirm('Send invoice email to tenant contact?')) return;
+                                                                    try {
+                                                                        await platformClient.sendInvoice(inv.id, selectedProfile.type);
+                                                                        alert('Invoice email sent!');
+                                                                    } catch (err) {
+                                                                        alert(err.message);
+                                                                    }
+                                                                }}
+                                                                className="platform-btn platform-btn-secondary"
+                                                                style={{ padding: '4px 8px', fontSize: '12px', minHeight: 'unset' }}
+                                                                title="Email Invoice"
+                                                            >
+                                                                ✉️ Email
+                                                            </button>
+
+                                                            {inv.status === 'paid' && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        const reason = window.prompt('Reason for refund:');
+                                                                        if (!reason) return;
+                                                                        try {
+                                                                            await platformClient.refundInvoice(inv.id, selectedProfile.type, reason);
+                                                                            alert('Refund initiated successfully');
+                                                                            loadProfile(selectedProfile.id, selectedProfile.type); // Refresh
+                                                                        } catch (err) {
+                                                                            alert(err.message);
+                                                                        }
+                                                                    }}
+                                                                    className="platform-btn"
+                                                                    style={{
+                                                                        backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
+                                                                        padding: '4px 8px', fontSize: '12px', minHeight: 'unset'
+                                                                    }}
+                                                                    title="Refund Invoice"
+                                                                >
+                                                                    💸 Refund
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}

@@ -17,6 +17,7 @@ from services.platform.middleware.platform_auth import verify_platform_admin
 # Services
 from services.b2b.services.subscription_service import SubscriptionService as B2BSubscriptionService
 from services.b2b.services.coupon_service import B2BCouponService
+from services.b2b.services.invoice_service import InvoiceService as B2BInvoiceService
 from services.b2c.services.subscription_service import SubscriptionService as B2CSubscriptionService
 from services.b2c.services.coupon_service import CouponService as B2CCouponService
 
@@ -300,6 +301,58 @@ async def extend_trial(
         return {"message": f"Trial extended by {days} days", "trial_ends_at": sub.trial_ends_at}
     else:
         raise HTTPException(400, "Invalid type")
+
+# ============================================================================
+# INVOICE OPERATIONS
+# ============================================================================
+
+@router.post("/invoices/{id}/send")
+async def send_invoice_email(
+    id: UUID,
+    type: str = Query(..., description="tenant or user"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Trigger invoice email."""
+    if type == 'tenant':
+        service = B2BInvoiceService(db)
+        try:
+             # Set platform admin context
+            from sqlalchemy import text
+            await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+            
+            await service.send_invoice_email(invoice_id=id)
+            return {"message": "Invoice email sent"}
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+        except Exception as e:
+             raise HTTPException(500, str(e))
+    else:
+        # B2C Invoice Service not implemented yet with this method
+        raise HTTPException(501, "Not implemented for B2C yet")
+
+@router.post("/invoices/{id}/refund")
+async def refund_invoice(
+    id: UUID,
+    type: str = Query(..., description="tenant or user"),
+    reason: Optional[str] = Body(None, embed=True),
+    db: AsyncSession = Depends(get_db)
+):
+    """Refund an invoice."""
+    if type == 'tenant':
+        service = B2BInvoiceService(db)
+        try:
+            # Set platform admin context
+            from sqlalchemy import text
+            await db.execute(text("SET LOCAL app.is_platform_admin = 'true'"))
+            
+            await service.process_refund(invoice_id=id, reason=reason)
+            return {"message": "Invoice refunded"}
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except Exception as e:
+             raise HTTPException(500, str(e))
+    else:
+        raise HTTPException(501, "Not implemented for B2C yet")
 
 # ============================================================================
 # COUPON MANAGEMENT

@@ -249,6 +249,20 @@ class PlatformApiService {
     }
 
     /**
+     * Send invoice email
+     */
+    async sendInvoice(id, type) {
+        return this.post(`/api/platform/billing/invoices/${id}/send?type=${type}`);
+    }
+
+    /**
+     * Refund invoice
+     */
+    async refundInvoice(id, type, reason) {
+        return this.post(`/api/platform/billing/invoices/${id}/refund?type=${type}`, { reason });
+    }
+
+    /**
      * Cancel subscription
      */
     async cancelSubscription(id, type, reason, immediate = false) {
