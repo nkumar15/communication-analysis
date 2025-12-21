@@ -22,6 +22,7 @@ const ActivationPage = () => {
         oidc_client_secret: '',
         oidc_issuer: ''
     });
+    const [isActivating, setIsActivating] = useState(false); // ✅ Prevent double-click
 
     useEffect(() => {
         validateToken();
@@ -138,7 +139,10 @@ const ActivationPage = () => {
     };
 
     const completeActivation = async () => {
+        if (isActivating) return; // ✅ Prevent double-click
+
         try {
+            setIsActivating(true);
             setLoading(true);
 
             const headers = await api.getAuthHeaders();
@@ -159,15 +163,14 @@ const ActivationPage = () => {
             const data = await response.json();
             console.log('✅ Activation complete:', data);
 
-            // Redirect to dashboard
-            setTimeout(() => {
-                navigate('/dashboard');
-            }, 2000);
+            // ✅ Navigate immediately (no setTimeout)
+            navigate('/dashboard', { replace: true });
 
         } catch (err) {
             console.error('Activation error:', err);
             setError(err.message || 'Failed to complete activation');
             setStep('error');
+            setIsActivating(false); // Allow retry on error
         } finally {
             setLoading(false);
         }
@@ -410,10 +413,10 @@ const ActivationPage = () => {
                         <Button
                             onClick={completeActivation}
                             size="lg"
-                            disabled={loading}
+                            disabled={loading || isActivating}
                             style={{ width: '100%', backgroundColor: '#16a34a' }}
                         >
-                            {loading ? 'Activating...' : 'Activate Account'}
+                            {isActivating ? 'Redirecting...' : (loading ? 'Activating...' : 'Activate Account')}
                         </Button>
                     </CardContent>
                 </Card>
