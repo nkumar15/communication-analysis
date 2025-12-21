@@ -21,11 +21,15 @@ DB_CONNECTION_POOL_SIZE = None
 # Custom Metrics
 USER_LOGINS_TOTAL = None
 TENANT_ONBOARDING_TOTAL = None
+AUTH_FAILURES_TOTAL = None
+RBAC_DENIALS_TOTAL = None
+EXTERNAL_API_DURATION = None
 
 def setup_metrics():
     """Initialize Prometheus metrics"""
     global HTTP_REQUESTS_TOTAL, HTTP_REQUEST_DURATION_SECONDS
     global USER_LOGINS_TOTAL, TENANT_ONBOARDING_TOTAL
+    global AUTH_FAILURES_TOTAL, RBAC_DENIALS_TOTAL, EXTERNAL_API_DURATION
     
     if not PROMETHEUS_AVAILABLE:
         logger.warning("Prometheus client not installed, metrics disabled")
@@ -57,6 +61,25 @@ def setup_metrics():
         ["plan"]
     )
 
+    # New Metrics (Phase 2)
+    AUTH_FAILURES_TOTAL = Counter(
+        "auth_failures_total",
+        "Total authentication failures",
+        ["provider"]
+    )
+
+    RBAC_DENIALS_TOTAL = Counter(
+        "rbac_denials_total",
+        "Total RBAC permission denials",
+        ["resource", "action"]
+    )
+
+    EXTERNAL_API_DURATION = Histogram(
+        "external_api_duration_seconds",
+        "Duration of external API calls",
+        ["service", "endpoint"]
+    )
+
 
 from starlette.responses import Response
 
@@ -83,3 +106,20 @@ def increment_login(provider_type: str, status: str = "success"):
 def increment_tenant_onboarding(plan: str = "default"):
     if PROMETHEUS_AVAILABLE and TENANT_ONBOARDING_TOTAL:
         TENANT_ONBOARDING_TOTAL.labels(plan=plan).inc()
+
+def increment_auth_failure(provider: str):
+    if PROMETHEUS_AVAILABLE and AUTH_FAILURES_TOTAL:
+        AUTH_FAILURES_TOTAL.labels(provider=provider).inc()
+
+def increment_rbac_denial(resource: str, action: str):
+    if PROMETHEUS_AVAILABLE and RBAC_DENIALS_TOTAL:
+        RBAC_DENIALS_TOTAL.labels(resource=resource, action=action).inc()
+
+@contextmanager
+def record_external_api(service: str, endpoint: str):
+    start = time.time()
+    yield
+    duration = time.time() - start
+    if PROMETHEUS_AVAILABLE and EXTERNAL_API_DURATION:
+        EXTERNAL_API_DURATION.labels(service=service, endpoint=endpoint).observe(duration)
+

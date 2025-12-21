@@ -264,23 +264,6 @@ services:
       - domain-api
     restart: unless-stopped
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: sso_frontend
-    ports:
-      - "3000:3000"
-    environment:
-      # Browser runs on host machine, so use localhost URLs
-      - REACT_APP_API_URL=http://localhost:8080
-      - WDS_SOCKET_PORT=0
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - b2b-api
-
   e2e-tests:
     build:
       context: ./backend
@@ -304,7 +287,6 @@ services:
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - b2b-api
-      - frontend
     command: python -m pytest tests/e2e_browser -v
 
   # Jaeger - Distributed Tracing

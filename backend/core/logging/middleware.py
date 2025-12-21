@@ -92,11 +92,43 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             duration_ms = int((time.time() - start_time) * 1000)
             
             # Log successful response
-            logger.info(
-                "request_completed",
+            # Log successful response
+            log_method = logger.info
+            event = "request_completed"
+            
+            if response.status_code >= 500:
+                log_method = logger.error
+                event = "server_error"
+            elif response.status_code in [401, 403, 429]:
+                log_method = logger.warning
+                event = "client_auth_error"
+            elif response.status_code >= 400:
+                 log_method = logger.info # 400s are usually business logic/client errors, keep as info to reduce noise
+                 event = "client_error"
+
+            log_method(
+                event,
                 status_code=response.status_code,
                 duration_ms=duration_ms,
             )
+
+            # Record Prometheus metrics
+            from core.observability.metrics import record_request_metrics
+            record_request_metrics(
+                method=http_method,
+                path=http_path,
+                status_code=response.status_code,
+                duration=duration_ms / 1000.0
+            )
+
+            # Slow request detection (> 2000ms)
+            if duration_ms > 2000:
+                logger.warning(
+                    "slow_request_detected",
+                    duration_ms=duration_ms,
+                    threshold_ms=2000,
+                    path=http_path
+                )
             
             return response
             
