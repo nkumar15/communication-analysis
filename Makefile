@@ -311,6 +311,22 @@ test-env: ## Validate environment configuration
 		else echo "$(YELLOW)✗ $$file missing$(NC)"; fi \
 	done
 
+##@ Performance
+
+DURATION ?= 1m
+
+load-test-b2b: ## Run B2B Locust load test (50 users). Usage: make load-test-b2b DURATION=30s
+	@echo "$(BLUE)Starting B2B Locust load test (50 users, $(DURATION))...$(NC)"
+	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
+	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
+	@echo "$(GREEN)✓ B2B Load test complete$(NC)"
+
+load-test-b2c: ## Run B2C Locust load test (50 users). Usage: make load-test-b2c DURATION=30s
+	@echo "$(BLUE)Starting B2C Locust load test (50 users, $(DURATION))...$(NC)"
+	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
+	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
+	@echo "$(GREEN)✓ B2C Load test complete$(NC)"
+
 ##@ SAST (Static Application Security Testing)
 
 sast-scan: ## Run all SAST scans (Python + React + Containers)
