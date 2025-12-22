@@ -8,7 +8,7 @@ from sqlalchemy import select
 from core.database import get_db
 from infrastructure.auth import firebase_auth_service
 from services.b2c.models.user import B2CUser
-from core.logging import get_logger
+from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 

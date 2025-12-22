@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.logging import get_logger
+from infrastructure.logging import get_logger
 from services.b2b.models import UserModel, Team, TeamMember
 from services.b2b.models.team_role_definition import TeamRoleDefinition
 

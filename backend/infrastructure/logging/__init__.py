@@ -7,12 +7,12 @@ This module provides structured logging that adapts to different environments:
 - AWS: CloudWatch Logs JSON format
 
 Usage:
-    from core.logging import get_logger
+    from infrastructure.logging import get_logger
     
     logger = get_logger(__name__)
     logger.info("user_login", user_id="123", tenant_id="abc")
 """
 
-from core.logging.config import setup_logging, get_logger, add_context
+from infrastructure.logging.config import setup_logging, get_logger, add_context
 
 __all__ = ["setup_logging", "get_logger", "add_context"]

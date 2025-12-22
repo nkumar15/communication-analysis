@@ -14,7 +14,7 @@ from services.b2c.middleware.b2c_auth import get_current_b2c_user
 from services.b2c.services.workspace_service import workspace_service
 from services.b2c.services.auth_service import auth_service
 from services.b2c.models.user import B2CUser
-from core.logging import get_logger
+from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 

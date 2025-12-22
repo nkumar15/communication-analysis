@@ -18,7 +18,7 @@ from services.b2b.services.auth_service import auth_service
 from infrastructure.auth import firebase_auth_service
 from core.middleware import get_current_user
 from core.database import get_db
-from core.logging import get_logger
+from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -14,7 +14,7 @@ from opentelemetry import trace
 
 # Reuse existing formatters 
 # In a real refactor we might move these files too, but import works for now
-from core.logging.formatters import (
+from infrastructure.logging.formatters import (
     GCPFormatter,
     AWSFormatter,
     GenericJSONFormatter,

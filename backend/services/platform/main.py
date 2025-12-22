@@ -15,9 +15,9 @@ from core.database import init_db, close_db, engine
 from infrastructure.auth import firebase_auth_service
 
 # Import logging
-from core.logging.config import setup_logging, get_logger
+from infrastructure.logging.config import setup_logging, get_logger
 from infrastructure.monitoring.config import setup_observability
-from core.logging.middleware import LoggingMiddleware
+from infrastructure.logging.middleware import LoggingMiddleware
 
 # Get logger for this module
 logger = get_logger(__name__)
