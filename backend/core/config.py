@@ -27,9 +27,14 @@ class Settings(BaseSettings):
     mobile_app_domain: Optional[str] = "app.example.com"  # Must match AndroidManifest.xml
     mobile_package_name: Optional[str] = "com.saas.b2b"   # Android package name
     
+
     # Email (Resend)
     resend_api_key: Optional[str] = None
-    
+    email_provider: str = "mailhog"
+    email_from: str = "Enterprise SSO <noreply@localhost>"
+    mailhog_host: str = "mailhog"
+    mailhog_port: int = 1025
+
     # Redis (for Celery task queue)
     redis_host: str = "localhost"
     redis_port: int = 6379
@@ -90,7 +95,9 @@ class Settings(BaseSettings):
     log_environment: str = "local"  # local, gcp, aws, production
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
     log_json_indent: Optional[int] = 2  # Pretty print JSON in local, None for production
-    
+    sentry_dsn: Optional[str] = None
+    otel_exporter_otlp_endpoint: Optional[str] = None
+
     # Cloud Provider Configuration (for logging)
     gcp_project_id: Optional[str] = None
     aws_region: Optional[str] = None
