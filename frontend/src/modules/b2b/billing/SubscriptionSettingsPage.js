@@ -284,9 +284,32 @@ const SubscriptionSettingsPage = () => {
                             </div>
                         </div>
                         <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#EFF6FF', borderLeft: '4px solid #3B82F6', borderRadius: '6px' }}>
-                            <span style={{ fontSize: '14px', color: '#1E40AF' }}>
-                                ℹ️ Payment method is managed through Stripe. Contact support to update your card.
+                            <span style={{ fontSize: '14px', color: '#1E40AF', display: 'block', marginBottom: '12px' }}>
+                                ℹ️ Payment method is managed securely via Stripe.
                             </span>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const data = await apiService.createPortalSession(window.location.href);
+                                        window.location.href = data.url;
+                                    } catch (err) {
+                                        console.error('Portal error:', err);
+                                        alert('Failed to redirect to billing portal');
+                                    }
+                                }}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #3B82F6',
+                                    backgroundColor: 'white',
+                                    color: '#3B82F6',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Open Billing Portal
+                            </button>
                         </div>
                     </div>
                 ) : (

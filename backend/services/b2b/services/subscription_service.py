@@ -497,3 +497,27 @@ class SubscriptionService:
         increment_subscription_event(event_type='subscription_canceled', plan=subscription.tier)
         
         return subscription
+    async def create_portal_session(self, tenant_id: UUID, return_url: str) -> str:
+        """
+        Create a Stripe Customer Portal session for the tenant.
+        Allows users to manage payment methods, billing info, etc.
+        """
+        subscription = await self.get_tenant_subscription(tenant_id)
+        
+        # If no subscription or no provider customer ID, we can't create a portal session 
+        # (unless we create a customer first, but usually this is for existing subs)
+        if not subscription or not subscription.provider_customer_id:
+             # Try to find a customer by email? 
+             # Or check if we have a customer ID stored elsewhere?
+             # For now, require a subscription or at least a customer ID in the subscription record.
+             # Actually, if they are on a free plan (STARTER), they might not have a customer ID yet.
+             # But the requirement is to "change card", implying they have one.
+             raise ValueError("No billing account found. Please upgrade to a paid plan first.")
+             
+        # Call provider
+        result = await self.provider.create_customer_portal_session(
+            customer_id=subscription.provider_customer_id,
+            return_url=return_url
+        )
+        
+        return result['portal_url']

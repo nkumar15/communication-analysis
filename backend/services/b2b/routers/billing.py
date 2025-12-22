@@ -213,6 +213,48 @@ async def create_checkout_session(
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
 
+class PortalSessionRequest(BaseModel):
+    return_url: Optional[str] = None
+
+@router.post("/portal", response_model=dict)
+async def create_portal_session(
+    request: PortalSessionRequest = None,
+    current_user=require_permission("billing", "manage"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a Stripe Customer Portal session.
+    Returns a URL to redirect the user to.
+    Requires billing:manage permission.
+    """
+    tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
+    service = SubscriptionService(db)
+    
+    # Default return URL
+    default_return_url = f"{settings.frontend_url}/billing"
+    
+    # Use requested return URL if valid and safe
+    return_url = default_return_url
+    if request and request.return_url:
+        # Security check: Ensure return_url belongs to our frontend
+        if request.return_url.startswith(settings.frontend_url):
+            return_url = request.return_url
+        else:
+             logger.warning(f"Ignored unsafe return_url: {request.return_url}")
+    
+    try:
+        portal_url = await service.create_portal_session(
+            tenant_id=tenant_id,
+            return_url=return_url
+        )
+        return {"url": portal_url}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Portal creation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create portal session")
+
+
 # ============================================================================
 # Invoice Endpoints
 # ============================================================================

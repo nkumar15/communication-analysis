@@ -363,6 +363,13 @@ class ApiService {
         }
         return response.json();
     }
+
+    /**
+     * Create portal session
+     */
+    async createPortalSession(returnUrl) {
+        return this.post('/api/b2b/billing/portal', { return_url: returnUrl });
+    }
 }
 
 export default new ApiService();
