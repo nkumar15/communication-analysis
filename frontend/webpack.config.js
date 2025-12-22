@@ -77,6 +77,7 @@ module.exports = {
         })
     ],
     devServer: {
+        host: '0.0.0.0',  // Bind to all interfaces (allows Docker access)
         port: PORTAL === 'b2c' ? 3001 : PORTAL === 'platform' ? 3002 : 3000,
         hot: true,
         historyApiFallback: true,

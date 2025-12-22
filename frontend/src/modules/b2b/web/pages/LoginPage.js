@@ -10,6 +10,34 @@ function LoginPage() {
     const navigate = useNavigate();
 
     useEffect(() => {
+        // E2E Test Backdoor (Same matches B2C implementation)
+        const customToken = localStorage.getItem('custom_token');
+        if (customToken) {
+            console.log('🧪 E2E Backdoor: Found custom token, logging in...');
+            localStorage.removeItem('custom_token');
+            setLoading(true);
+
+            // Auto-login with custom token
+            firebaseAuthService.signInWithCustomToken(customToken)
+                .then(async (result) => {
+                    // Get ID token directly from the result
+                    console.log('🔍 Backdoor: Getting ID token for backend sync...');
+                    await result.user.getIdToken();
+
+                    // Sync user
+                    await apiService.syncUser();
+                    console.log('✅ Backdoor: User synced with backend');
+
+                    navigate('/');
+                })
+                .catch((e) => {
+                    console.error('E2E Backdoor failed', e);
+                    setError(e.message);
+                    setLoading(false);
+                });
+            return;
+        }
+
         // Check if user is already authenticated
         const checkAuth = async () => {
             const user = firebaseAuthService.getCurrentUser();

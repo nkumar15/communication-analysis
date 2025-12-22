@@ -212,4 +212,12 @@ class FirebaseAuthService {
     }
 }
 
-export default new FirebaseAuthService();
+const instance = new FirebaseAuthService();
+
+// Expose on window for E2E testing
+// if (process.env.NODE_ENV === 'development' || process.env.REACT_APP_E2E_TESTING === 'true') {
+//    window.firebaseAuthService = instance;
+//    console.log('🧪 FirebaseAuthService exposed on window for testing');
+// }
+
+export default instance;

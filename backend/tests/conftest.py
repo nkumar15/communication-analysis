@@ -961,3 +961,85 @@ async def create_auth_provider(
     await db_session.refresh(provider)
     
     return provider
+
+# ============================================================================
+# Browser Test Fixtures
+# ============================================================================
+
+@pytest_asyncio.fixture
+async def async_page():
+    """
+    Async Playwright page fixture for B2B tests.
+    Creates a new browser context and page for each test.
+    Respects HEADED and SLOW environment variables.
+    """
+    from playwright.async_api import async_playwright
+    
+    # Read environment variables for headed mode and slow motion
+    headed = os.getenv("HEADED") == "1"
+    slow_mo = 2000 if os.getenv("SLOW") == "1" else 0
+    
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=not headed,
+            slow_mo=slow_mo
+        )
+        context = await browser.new_context()
+        page = await context.new_page()
+        
+        yield page
+        
+        await page.close()
+        await context.close()
+        await browser.close()
+
+@pytest_asyncio.fixture
+async def authenticated_b2b_page(async_page, b2b_test_setup):
+    """
+    Fixture that provides an authenticated Async Playwright page for B2B.
+    It uses the LoginPage POM to handle authentication.
+    """
+    from firebase_admin import auth
+    from .e2e_browser.pages.b2b.login_page import LoginPage
+    
+    # Allow overriding base URL for Docker environments
+    base_url = os.getenv("BASE_URL", "http://localhost:3000")
+    
+    user = b2b_test_setup["admin"]
+    tenant = b2b_test_setup["tenant"]
+    
+    # Mint Custom Token
+    custom_token = auth.create_custom_token(user.firebase_uid, developer_claims={
+        "tenant": tenant.firebase_tenant_id
+    }).decode('utf-8')
+    
+    # Use LoginPage POM
+    login_page = LoginPage(async_page, base_url)
+    await login_page.navigate()
+    
+    # Inject token
+    await async_page.evaluate(f"localStorage.setItem('custom_token', '{custom_token}')")
+    
+    # Reload and wait for network to be idle (important for token processing)
+    await async_page.reload(wait_until="networkidle")
+    
+    # Wait for redirect to dashboard (can take time due to Firebase init + backend sync)
+    try:
+        await async_page.wait_for_url("**/dashboard", timeout=30000)
+    except:
+        # Debugging info
+        current_url = async_page.url
+        print(f"Current URL: {current_url}")
+        
+        if await async_page.locator(".error-message").count() > 0:
+            error = await async_page.locator('.error-message').text_content()
+            print(f"Login Error: {error}")
+        
+        # Check if still on login page
+        page_content = await async_page.content()
+        if "Enterprise SSO Portal" in page_content:
+            print("Still on login page - token may not have processed")
+        
+        pytest.fail(f"Failed to redirect to dashboard after custom token injection. Current URL: {current_url}")
+        
+    return async_page
