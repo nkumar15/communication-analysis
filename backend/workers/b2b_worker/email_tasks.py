@@ -74,7 +74,7 @@ def send_invitation_email(self, invitation_id: str, tenant_id: str):
 async def _send_invitation_email_async(invitation_id: str, tenant_id: str, db):
     """Async implementation of send_invitation_email using injected session"""
     try:
-        from services.b2b.models import InvitationModel
+        from modules.b2b.models import InvitationModel
         from infrastructure.email import email_service
         
         # Fetch invitation with tenant data
@@ -160,7 +160,7 @@ def send_bulk_invitation_emails(self, invitation_ids: List[str], tenant_id: str)
 async def _send_bulk_invitation_emails_async(invitation_ids: List[str], tenant_id: str, db):
     """Async implementation of send_bulk_invitation_emails using injected session"""
     try:
-        from services.b2b.models import InvitationModel
+        from modules.b2b.models import InvitationModel
         from infrastructure.email import email_service
         
         # Fetch all invitations

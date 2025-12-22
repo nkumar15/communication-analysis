@@ -11,8 +11,8 @@ from tests.conftest import (
     create_mock_firebase_token,
     encode_mock_jwt
 )
-from services.b2b.models import Team, TeamMember
-from services.b2b.models.team_role_definition import TeamRoleDefinition
+from modules.b2b.models import Team, TeamMember
+from modules.b2b.models.team_role_definition import TeamRoleDefinition
 from sqlalchemy import select, or_
 
 
@@ -246,7 +246,7 @@ async def domain_test_data(db_session):
 @pytest_asyncio.fixture
 async def team_project(db_session, domain_test_data):
     """Create a test project in default team"""
-    from services.domains.projects.models.project import Project
+    from modules.domains.projects.models.project import Project
     
     project = Project(
         tenant_id=domain_test_data["tenant"].id,
@@ -266,7 +266,7 @@ async def team_project(db_session, domain_test_data):
 @pytest_asyncio.fixture
 async def other_team_project(db_session, domain_test_data):
     """Create a test project in another team"""
-    from services.domains.projects.models.project import Project
+    from modules.domains.projects.models.project import Project
     
     project = Project(
         tenant_id=domain_test_data["tenant"].id,
@@ -286,7 +286,7 @@ async def other_team_project(db_session, domain_test_data):
 @pytest_asyncio.fixture
 async def tenant2_project(db_session, domain_test_data):
     """Create a project for tenant 2"""
-    from services.domains.projects.models.project import Project
+    from modules.domains.projects.models.project import Project
     
     project = Project(
         tenant_id=domain_test_data["tenant2"].id,
@@ -306,7 +306,7 @@ async def tenant2_project(db_session, domain_test_data):
 @pytest_asyncio.fixture
 async def team_task(db_session, team_project, domain_test_data):
     """Create a test task in team project"""
-    from services.domains.projects.models.task import Task
+    from modules.domains.projects.models.task import Task
     
     task = Task(
         tenant_id=domain_test_data["tenant"].id,
@@ -327,7 +327,7 @@ async def team_task(db_session, team_project, domain_test_data):
 @pytest_asyncio.fixture
 async def team_comment(db_session, team_task, domain_test_data):
     """Create a test comment on task"""
-    from services.domains.projects.models.comment import Comment
+    from modules.domains.projects.models.comment import Comment
     
     comment = Comment(
         tenant_id=domain_test_data["tenant"].id,
@@ -350,7 +350,7 @@ async def team_comment(db_session, team_task, domain_test_data):
 @pytest_asyncio.fixture
 async def professional_subscription(db_session, b2b_tenant, rls_service):
     """Create a professional tier subscription for testing"""
-    from services.b2b.models import (
+    from modules.b2b.models import (
         B2BSubscription,
         SubscriptionTier,
         PaymentMode,
@@ -405,7 +405,7 @@ async def professional_subscription(db_session, b2b_tenant, rls_service):
 @pytest_asyncio.fixture
 async def enterprise_subscription(db_session, b2b_tenant, rls_service):
     """Create an enterprise tier subscription for testing"""
-    from services.b2b.models import (
+    from modules.b2b.models import (
         B2BSubscription,
         SubscriptionTier,
         PaymentMode,
@@ -455,7 +455,7 @@ async def enterprise_subscription(db_session, b2b_tenant, rls_service):
 @pytest_asyncio.fixture
 async def paid_invoice(db_session, professional_subscription, rls_service):
     """Create a paid invoice for testing"""
-    from services.b2b.models import B2BInvoice, InvoiceStatus
+    from modules.b2b.models import B2BInvoice, InvoiceStatus
     from datetime import datetime, timedelta, timezone
     import secrets
     
@@ -491,7 +491,7 @@ async def paid_invoice(db_session, professional_subscription, rls_service):
 @pytest_asyncio.fixture
 async def pending_invoice(db_session, professional_subscription, rls_service):
     """Create a pending (sent but unpaid) invoice for testing"""
-    from services.b2b.models import B2BInvoice, InvoiceStatus
+    from modules.b2b.models import B2BInvoice, InvoiceStatus
     from datetime import datetime, timedelta, timezone
     import secrets
     
@@ -526,7 +526,7 @@ async def pending_invoice(db_session, professional_subscription, rls_service):
 @pytest_asyncio.fixture
 async def overdue_invoice(db_session, professional_subscription, rls_service):
     """Create an overdue invoice for testing"""
-    from services.b2b.models import B2BInvoice, InvoiceStatus
+    from modules.b2b.models import B2BInvoice, InvoiceStatus
     from datetime import datetime, timedelta, timezone
     import secrets
     
@@ -561,7 +561,7 @@ async def overdue_invoice(db_session, professional_subscription, rls_service):
 @pytest_asyncio.fixture
 async def platform_admin_user(db_session):
     """Create a platform admin user for testing"""
-    from services.platform.models import PlatformUser
+    from modules.platform.models import PlatformUser
     import secrets
     
     # Create platform admin user (no RLS for platform schema)

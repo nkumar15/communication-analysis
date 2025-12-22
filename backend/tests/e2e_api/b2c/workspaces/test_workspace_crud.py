@@ -149,7 +149,7 @@ class TestWorkspaceCRUD:
         
         # Verify workspace is deleted
         from sqlalchemy import select
-        from services.b2c.models.workspace import Workspace
+        from modules.b2c.models.workspace import Workspace
         result = await db_session.execute(
             select(Workspace).where(Workspace.id == team_workspace.id)
         )

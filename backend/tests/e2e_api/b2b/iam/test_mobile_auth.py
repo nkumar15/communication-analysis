@@ -15,7 +15,7 @@ from sqlalchemy import select, text
 from uuid import uuid4
 from unittest.mock import patch, MagicMock
 
-from services.b2b.models import UserModel, TenantModel
+from modules.b2b.models import UserModel, TenantModel
 from core.db.rls import rls_service
 from core.constants import B2BRoleName
 from tests.conftest import (

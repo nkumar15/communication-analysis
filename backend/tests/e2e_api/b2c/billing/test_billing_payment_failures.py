@@ -11,7 +11,7 @@ from unittest.mock import patch, AsyncMock
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from services.b2c.models.subscription import Subscription
+from modules.b2c.models.subscription import Subscription
 from core.db.rls import rls_service
 
 

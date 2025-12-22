@@ -2,9 +2,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
-from services.b2b.models import TenantModel, Coupon as B2BCoupon
-from services.b2c.models.user import B2CUser
-from services.platform.services.tenant_onboarding_service import tenant_onboarding_service
+from modules.b2b.models import TenantModel, Coupon as B2BCoupon
+from modules.b2c.models.user import B2CUser
+from modules.platform.services.tenant_onboarding_service import tenant_onboarding_service
 
 @pytest.mark.asyncio
 async def test_billing_stats_access(

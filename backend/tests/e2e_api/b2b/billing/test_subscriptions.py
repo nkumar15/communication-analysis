@@ -7,7 +7,7 @@ import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
-from services.b2b.models import (
+from modules.b2b.models import (
     Subscription,
     Invoice,
     SubscriptionTier,
@@ -236,7 +236,7 @@ class TestSeatCountCalculation:
         rls_service
     ):
         """Test that seat count reflects active users"""
-        from services.b2b.models.user import UserModel
+        from modules.b2b.models.user import UserModel
         
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
         

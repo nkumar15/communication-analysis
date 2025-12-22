@@ -128,7 +128,7 @@ class TestWorkspaceInvitations:
         await rls_service.set_platform_admin_context(db_session)
         
         from sqlalchemy import select
-        from services.b2c.models.workspace_member import WorkspaceMember
+        from modules.b2c.models.workspace_member import WorkspaceMember
         result = await db_session.execute(
             select(WorkspaceMember).where(
                 WorkspaceMember.workspace_id == workspace_invitation['workspace'].id,
@@ -157,7 +157,7 @@ class TestWorkspaceInvitations:
         self, api_client: AsyncClient, db_session, team_workspace, premium_workspace_owner
     ):
         """Expired invitations cannot be viewed or accepted"""
-        from services.b2c.models.workspace_invitation import WorkspaceInvitation
+        from modules.b2c.models.workspace_invitation import WorkspaceInvitation
         from core.db.rls import rls_service
         
         await rls_service.set_user_context(db_session, premium_workspace_owner['user'].id)
@@ -197,7 +197,7 @@ class TestWorkspaceInvitations:
         
         # Verify invitation is soft deleted (As admin to bypass visibility restrictions)
         from sqlalchemy import select
-        from services.b2c.models.workspace_invitation import WorkspaceInvitation
+        from modules.b2c.models.workspace_invitation import WorkspaceInvitation
         from core.db.rls import rls_service
         
         await rls_service.set_platform_admin_context(db_session)

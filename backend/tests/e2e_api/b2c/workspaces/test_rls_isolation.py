@@ -7,8 +7,8 @@ from uuid import uuid4
 from sqlalchemy import select, text
 
 from core.config import settings
-from services.b2c.models.workspace import Workspace
-from services.b2c.models.workspace_member import WorkspaceMember
+from modules.b2c.models.workspace import Workspace
+from modules.b2c.models.workspace_member import WorkspaceMember
 
 
 @pytest.mark.asyncio
@@ -151,7 +151,7 @@ class TestWorkspaceRLSIsolation:
         self, api_client: AsyncClient, workspace_invitation, workspace_owner, db_session
     ):
         """Users can only see invitations to their email or in their workspaces"""
-        from services.b2c.models.workspace_invitation import WorkspaceInvitation
+        from modules.b2c.models.workspace_invitation import WorkspaceInvitation
         from core.db.rls import rls_service
         
         # workspace_owner (not in workspace) cannot see invitation

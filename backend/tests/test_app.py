@@ -12,15 +12,15 @@ from core.db.session import init_db, close_db
 from infrastructure.auth import firebase_auth_service
 
 # Import ALL routers for testing
-from services.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
-from services.domains.projects.routers import projects, tasks, comments
-from services.platform.routers import platform, platform_b2b, platform_b2c
-from services.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
-from services.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
+from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
+from modules.domains.projects.routers import projects, tasks, comments
+from modules.platform.routers import platform, platform_b2b, platform_b2c
+from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
+from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
 
 # B2C billing router requires stripe - import conditionally
 try:
-    from services.b2c.routers import billing as b2c_billing
+    from modules.b2c.routers import billing as b2c_billing
     HAS_B2C_BILLING = True
 except ImportError:
     HAS_B2C_BILLING = False

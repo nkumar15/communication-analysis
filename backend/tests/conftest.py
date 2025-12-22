@@ -166,11 +166,11 @@ async def api_client(db_session):
     
     # Override auth dependency to verify mock tokens
     from core.middleware.auth import get_current_user, bearer_scheme
-    from services.b2b.middleware.b2b_auth import get_current_active_user
+    from modules.b2b.middleware.b2b_auth import get_current_active_user
     from fastapi import Depends, HTTPException, status
     from fastapi.security import HTTPAuthorizationCredentials
-    from services.b2b.models.user import UserModel
-    from services.b2b.models.rbac import Role
+    from modules.b2b.models.user import UserModel
+    from modules.b2b.models.rbac import Role
     from sqlalchemy import select
     import json 
     import base64
@@ -207,7 +207,7 @@ async def api_client(db_session):
     app.dependency_overrides[get_current_user] = override_get_current_user
     
     # Override B2C auth dependency for B2C endpoints
-    from services.b2c.middleware.b2c_auth import get_current_b2c_user
+    from modules.b2c.middleware.b2c_auth import get_current_b2c_user
     
     async def override_get_current_b2c_user(
         credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
@@ -236,7 +236,7 @@ async def api_client(db_session):
             firebase_uid = payload.get("uid")
             
             # Look up actual B2C user by firebase_uid to get UUID and set RLS
-            from services.b2c.models.user import B2CUser
+            from modules.b2c.models.user import B2CUser
             from sqlalchemy import text
             
             # Use SECURITY DEFINER function to lookup user (bypasses RLS)
@@ -296,7 +296,7 @@ async def api_client(db_session):
 async def platform_admin_setup(db_session: AsyncSession):
     """Setup System Tenant, Platform Admin Role, and User"""
     from sqlalchemy import select
-    from services.platform.models import PlatformTenant, PlatformRole, PlatformUser
+    from modules.platform.models import PlatformTenant, PlatformRole, PlatformUser
     from core.constants import PlatformRoleName
     
     # Generate unique identifiers for this test run
@@ -507,8 +507,8 @@ def create_auth_headers(user, tenant=None):
 
 async def ensure_rbac_seeds(db_session: AsyncSession):
     """Ensure basic RBAC data (Resources, Actions, Templates) exists"""
-    from services.b2b.models.rbac import Resource, Action
-    from services.b2b.models.role_template import RoleTemplate
+    from modules.b2b.models.rbac import Resource, Action
+    from modules.b2b.models.role_template import RoleTemplate
     from sqlalchemy import select
     from core.constants import B2BRoleName
 
@@ -596,7 +596,7 @@ async def create_test_tenant(
     activation_status: str = "active"
 ):
     """Create a test tenant"""
-    from services.b2b.models import TenantModel
+    from modules.b2b.models import TenantModel
     from sqlalchemy import text
     
     if domain == "test.com":
@@ -621,11 +621,11 @@ async def create_test_tenant(
     await ensure_rbac_seeds(db_session)
     
     # Seed roles for this tenant using RoleTemplateService
-    from services.b2b.services.role_template_service import role_template_service
+    from modules.b2b.services.role_template_service import role_template_service
     await role_template_service.seed_tenant_roles(db_session, tenant.id)
 
     # Create default team
-    from services.b2b.services.team_service import create_team
+    from modules.b2b.services.team_service import create_team
     await create_team(
         db=db_session,
         tenant_id=tenant.id,
@@ -643,7 +643,7 @@ async def create_platform_tenant(
     firebase_tenant_id: str = None
 ):
     """Create the platform tenant (singleton) - Idempotent"""
-    from services.platform.models import PlatformTenant, PlatformRole
+    from modules.platform.models import PlatformTenant, PlatformRole
     from sqlalchemy import select
     
     # Check if exists (singleton)
@@ -698,7 +698,7 @@ async def create_platform_user(
     platform_tenant_id: UUID = None  # Optional for backward compatibility
 ):
     """Create a platform user - Idempotent"""
-    from services.platform.models import PlatformUser, PlatformRole, PlatformTenant
+    from modules.platform.models import PlatformUser, PlatformRole, PlatformTenant
     from sqlalchemy import select
     
     # Get or create platform tenant if not provided
@@ -751,8 +751,8 @@ async def create_test_user(
     name: str = None
 ):
     """Create a test user"""
-    from services.b2b.models import UserModel
-    from services.b2b.models.rbac import Role
+    from modules.b2b.models import UserModel
+    from modules.b2b.models.rbac import Role
     from sqlalchemy import select, text
     
     # Set RLS context for this user's tenant FIRST
@@ -791,7 +791,7 @@ async def create_test_invitation(
     team_role: str = None   # NEW: Optional team role
 ):
     """Create a test invitation"""
-    from services.b2b.models import InvitationModel
+    from modules.b2b.models import InvitationModel
     from sqlalchemy import text
     
     # Set RLS context for invitation creation
@@ -825,7 +825,7 @@ async def create_b2c_user(
     display_name: str = None
 ):
     """Create a B2C user for testing"""
-    from services.b2c.models.user import B2CUser
+    from modules.b2c.models.user import B2CUser
     from sqlalchemy import text
     
     if not firebase_uid:
@@ -858,8 +858,8 @@ async def create_b2c_workspace(
     subscription_tier: str = 'free'
 ):
     """Create a B2C workspace for testing"""
-    from services.b2c.models.workspace import Workspace, WorkspaceType
-    from services.b2c.models.workspace_member import WorkspaceMember
+    from modules.b2c.models.workspace import Workspace, WorkspaceType
+    from modules.b2c.models.workspace_member import WorkspaceMember
     from sqlalchemy import text
     
     # Set user context to owner to allow workspace creation
@@ -920,7 +920,7 @@ async def create_auth_provider(
     config_data: dict = None
 ):
     """Create an auth provider for testing SSO"""
-    from services.b2b.models.auth_provider import AuthProvider
+    from modules.b2b.models.auth_provider import AuthProvider
     from sqlalchemy import select
     
     # Default provider_id if not provided

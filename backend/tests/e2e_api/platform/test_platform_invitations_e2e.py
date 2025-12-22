@@ -21,7 +21,7 @@ from tests.conftest import (
     create_platform_tenant,
     create_platform_user
 )
-from services.platform.models import PlatformInvitation, PlatformRole
+from modules.platform.models import PlatformInvitation, PlatformRole
 
 
 @pytest.mark.integration

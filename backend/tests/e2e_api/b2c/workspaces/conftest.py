@@ -12,9 +12,9 @@ from tests.conftest import (
     create_b2c_mock_token,
     encode_mock_jwt
 )
-from services.b2c.models.workspace import Workspace, WorkspaceType
-from services.b2c.models.workspace_member import WorkspaceMember
-from services.b2c.models.workspace_invitation import WorkspaceInvitation
+from modules.b2c.models.workspace import Workspace, WorkspaceType
+from modules.b2c.models.workspace_member import WorkspaceMember
+from modules.b2c.models.workspace_invitation import WorkspaceInvitation
 from core.db.rls import rls_service
 
 
@@ -62,8 +62,8 @@ async def premium_workspace_owner(db_session):
     await rls_service.set_platform_admin_context(db_session)
     
     # Create active subscription record so WorkspaceService recognizes it
-    from services.b2c.models.subscription import Subscription
-    from services.b2c.models.subscription_plan import SubscriptionPlan
+    from modules.b2c.models.subscription import Subscription
+    from modules.b2c.models.subscription_plan import SubscriptionPlan
     from sqlalchemy import select
 
     # Lookup plan

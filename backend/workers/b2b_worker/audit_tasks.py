@@ -67,7 +67,7 @@ def persist_audit_log(self, audit_data: dict):
 
 async def _persist_audit_log_async(audit_data: dict, db):
     """Async implementation of persist_audit_log using injected session"""
-    from services.b2b.models import AuditLog
+    from modules.b2b.models import AuditLog
     from core.db.rls import rls_service
     
     try:

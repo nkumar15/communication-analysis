@@ -82,42 +82,46 @@ FROM builder AS b2b
 USER appuser
 # Copy only necessary code
 COPY --chown=appuser:appuser core /app/core
-COPY --chown=appuser:appuser services/domains /app/services/domains
-COPY --chown=appuser:appuser services/b2b /app/services/b2b
+COPY --chown=appuser:appuser infrastructure /app/infrastructure
+COPY --chown=appuser:appuser modules/domains /app/modules/domains
+COPY --chown=appuser:appuser modules/b2b /app/modules/b2b
 COPY --chown=appuser:appuser migrations /app/migrations
 EXPOSE 8000
-CMD ["uvicorn", "services.b2b.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "modules.b2b.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # --- Platform Microservice ---
 FROM builder AS platform
 USER appuser
 COPY --chown=appuser:appuser core /app/core
-COPY --chown=appuser:appuser services/platform /app/services/platform
+COPY --chown=appuser:appuser infrastructure /app/infrastructure
+COPY --chown=appuser:appuser modules/platform /app/modules/platform
 COPY --chown=appuser:appuser migrations /app/migrations
 EXPOSE 8001
-CMD ["uvicorn", "services.platform.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "modules.platform.main:app", "--host", "0.0.0.0", "--port", "8001"]
 
 # --- B2C Microservice ---
 FROM builder AS b2c
 USER appuser
 # Copy code
 COPY core/ /app/core/
-COPY services/b2c/ /app/services/b2c/
-COPY services/__init__.py /app/services/
+COPY infrastructure/ /app/infrastructure/
+COPY modules/b2c/ /app/modules/b2c/
+COPY modules/__init__.py /app/modules/
 WORKDIR /app
 EXPOSE 8002
-CMD ["uvicorn", "services.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "modules.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
 
 # --- Domain Microservice ---
 FROM builder AS domain
 USER appuser
 # Copy code
 COPY core/ /app/core/
-COPY services/domains/ /app/services/domains/
-COPY services/__init__.py /app/services/
+COPY infrastructure/ /app/infrastructure/
+COPY modules/domains/ /app/modules/domains/
+COPY modules/__init__.py /app/modules/
 WORKDIR /app
 EXPOSE 8003
-CMD ["uvicorn", "services.domains.main:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["uvicorn", "modules.domains.main:app", "--host", "0.0.0.0", "--port", "8003"]
 
 # ==========================================
 # 5. Test Runner Stage (Development)

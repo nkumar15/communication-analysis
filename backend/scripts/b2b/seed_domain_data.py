@@ -35,9 +35,9 @@ if __name__ == "__main__":
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy.orm.attributes import flag_modified
     from core.db.session import database_url
-    from services.b2b.models.rbac import Resource, Action
-    from services.b2b.models.role_template import RoleTemplate
-    from services.b2b.models.team_role_definition import TeamRoleDefinition
+    from modules.b2b.models.rbac import Resource, Action
+    from modules.b2b.models.role_template import RoleTemplate
+    from modules.b2b.models.team_role_definition import TeamRoleDefinition
 
     # Base path for YAML files
     YAML_DIR = Path(__file__).parent

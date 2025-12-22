@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from core.db.session import AsyncSessionLocal
 from infrastructure.auth import firebase_auth_service
-from services.platform.services.tenant_onboarding_service import tenant_onboarding_service
+from modules.platform.services.tenant_onboarding_service import tenant_onboarding_service
 
 
 @click.group()
@@ -128,7 +128,7 @@ def list_tenants(domain):
 
 async def list_tenants_async(domain):
     """List tenants"""
-    from services.b2b.models import TenantModel
+    from modules.b2b.models import TenantModel
     from sqlalchemy import select
     
     async with AsyncSessionLocal() as db:
@@ -163,9 +163,9 @@ def setup_sso(token, provider_type, client_id, client_secret, issuer):
 
 async def setup_sso_async(token, provider_type, client_id, client_secret, issuer):
     """Async SSO setup logic"""
-    from services.b2b.services.tenant_service import tenant_service
-    from services.b2b.services.auth_provider_service import auth_provider_service
-    from services.b2b.models import TenantModel
+    from modules.b2b.services.tenant_service import tenant_service
+    from modules.b2b.services.auth_provider_service import auth_provider_service
+    from modules.b2b.models import TenantModel
     
     click.echo(f"🔧 Configuring SSO for token: {token[:10]}...")
     
@@ -242,7 +242,7 @@ def resend_activation(tenant_id, domain):
 
 async def resend_activation_async(tenant_id, domain):
     """Resend activation email"""
-    from services.b2b.models import TenantModel
+    from modules.b2b.models import TenantModel
     from sqlalchemy import select
     from uuid import UUID
     

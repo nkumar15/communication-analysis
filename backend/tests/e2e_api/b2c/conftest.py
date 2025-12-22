@@ -13,7 +13,7 @@ from tests.conftest import (
     create_b2c_mock_token,
     encode_mock_jwt
 )
-from services.b2c.models.subscription import Subscription, Coupon, CouponRedemption, Invoice
+from modules.b2c.models.subscription import Subscription, Coupon, CouponRedemption, Invoice
 from core.db.rls import rls_service
 
 
@@ -50,7 +50,7 @@ async def premium_subscription(db_session, b2c_billing_user):
     # Set RLS context using rls_service
     await rls_service.set_user_context(db_session, b2c_billing_user['user'].id)
     
-    from services.b2c.models.subscription_plan import SubscriptionPlan
+    from modules.b2c.models.subscription_plan import SubscriptionPlan
     from sqlalchemy import select
 
     # Lookup plan

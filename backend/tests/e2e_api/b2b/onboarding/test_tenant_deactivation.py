@@ -11,7 +11,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from services.b2b.models import TenantModel, UserModel
+from modules.b2b.models import TenantModel, UserModel
 from core.db.rls import rls_service
 from core.constants import B2BRoleName
 from uuid import uuid4
@@ -367,7 +367,7 @@ class TestTenantDeactivationAudit:
         db_session: AsyncSession
     ):
         """Test that tenant deactivation creates audit log entry"""
-        from services.platform.models import PlatformAuditLog
+        from modules.platform.models import PlatformAuditLog
         
         platform_admin_token = platform_admin_setup["token"]
         
@@ -399,7 +399,7 @@ class TestTenantDeactivationAudit:
         db_session: AsyncSession
     ):
         """Test that tenant reactivation creates audit log entry"""
-        from services.platform.models import PlatformAuditLog
+        from modules.platform.models import PlatformAuditLog
         
         platform_admin_token = platform_admin_setup["token"]
         

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, AsyncMock
 from datetime import datetime, timezone
 import time
 
-from services.b2c.services.subscription_service import SubscriptionService
-from services.b2c.models.subscription import Invoice, Subscription
+from modules.b2c.services.subscription_service import SubscriptionService
+from modules.b2c.models.subscription import Invoice, Subscription
 
 
 

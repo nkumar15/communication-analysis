@@ -18,8 +18,8 @@ from tests.conftest import (
     create_b2c_mock_token,
     encode_mock_jwt
 )
-from services.b2c.models.subscription import Subscription, Invoice, PaymentMethod, CouponRedemption, Coupon
-from services.b2c.models.workspace import Workspace
+from modules.b2c.models.subscription import Subscription, Invoice, PaymentMethod, CouponRedemption, Coupon
+from modules.b2c.models.workspace import Workspace
 from core.db.rls import rls_service
 
 

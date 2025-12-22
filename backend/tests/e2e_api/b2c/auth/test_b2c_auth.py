@@ -164,7 +164,7 @@ async def test_get_me_returns_user_info(api_client: AsyncClient, db_session):
     id_token = encode_mock_jwt(mock_token_data)
     
     # Mock Firebase verification in middleware
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.get(
             "/api/b2c/auth/me",
             headers={"Authorization": f"Bearer {id_token}"}
@@ -194,7 +194,7 @@ async def test_get_me_rejects_deleted_user(api_client: AsyncClient, db_session):
     
     # Verify persistence
     from sqlalchemy import select, text
-    from services.b2c.models.user import B2CUser
+    from modules.b2c.models.user import B2CUser
     # Set context again because commit() clears LOCAL variables
     await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user.id}'"))
     chk = await db_session.execute(select(B2CUser).where(B2CUser.id == user.id))
@@ -206,7 +206,7 @@ async def test_get_me_rejects_deleted_user(api_client: AsyncClient, db_session):
     mock_token_data = create_b2c_mock_token(firebase_uid, email)
     id_token = encode_mock_jwt(mock_token_data)
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.get(
             "/api/b2c/auth/me",
             headers={"Authorization": f"Bearer {id_token}"}
@@ -231,7 +231,7 @@ async def test_rls_context_set_for_b2c_user(api_client: AsyncClient, db_session)
     mock_token_data = create_b2c_mock_token(firebase_uid, email)
     id_token = encode_mock_jwt(mock_token_data)
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.get(
             "/api/b2c/auth/me",
             headers={"Authorization": f"Bearer {id_token}"}

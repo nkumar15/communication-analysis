@@ -7,7 +7,7 @@ import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
-from services.b2b.models import (
+from modules.b2b.models import (
     Subscription,
     Invoice,
     SubscriptionTier,
@@ -15,7 +15,7 @@ from services.b2b.models import (
     SubscriptionStatus,
     InvoiceStatus
 )
-from services.b2b.services.invoice_service import InvoiceService
+from modules.b2b.services.invoice_service import InvoiceService
 
 
 pytestmark = pytest.mark.asyncio

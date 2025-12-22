@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from services.b2b.models import TenantModel
+from modules.b2b.models import TenantModel
 from core.db.session import get_db
 from uuid import uuid4
 
