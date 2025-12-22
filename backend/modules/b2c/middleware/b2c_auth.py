@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from core.db.session import get_db
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 from modules.b2c.models.user import B2CUser
 from infrastructure.logging import get_logger
 
@@ -30,7 +30,7 @@ async def get_current_b2c_user(
     
     try:
         # Verify Firebase token
-        decoded_token = await firebase_auth_service.verify_id_token(id_token)
+        decoded_token = await get_auth_provider().verify_id_token(id_token)
         firebase_uid = decoded_token.get('uid')
         email = decoded_token.get('email')
         

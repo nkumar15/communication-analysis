@@ -42,7 +42,7 @@ def require_permission(resource: str, action: str):
         role_id = current_user.get('role_id')
         allowed = await has_permission(user_id, resource, action, db, role_id=role_id)
         if not allowed:
-            from infrastructure.monitoring.metrics import increment_rbac_denial
+            from infrastructure.monitoring import increment_rbac_denial
             increment_rbac_denial(resource, action)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

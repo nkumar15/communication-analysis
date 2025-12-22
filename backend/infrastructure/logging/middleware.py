@@ -113,7 +113,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             )
 
             # Record Prometheus metrics
-            from infrastructure.monitoring.metrics import record_request_metrics
+            from infrastructure.monitoring import record_request_metrics
             record_request_metrics(
                 method=http_method,
                 path=http_path,

@@ -43,7 +43,7 @@ class FirebaseAuthProvider(AuthProvider):
 
         try:
             # Firebase Admin SDK has built-in 5-minute clock skew tolerance
-            from infrastructure.monitoring.metrics import record_token_validation
+            from infrastructure.monitoring import record_token_validation
             with record_token_validation(provider="firebase"):
                 decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=50)
             return decoded_token

@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from fastapi import HTTPException, status
 from uuid import uuid4
 
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 from modules.b2c.models.user import B2CUser
 from modules.b2c.models.workspace import Workspace, WorkspaceType
 from modules.b2c.models.workspace_member import WorkspaceMember

@@ -1,10 +1,7 @@
 import os
-from contextlib import contextmanager
-import time
 from typing import Dict, Optional, Any
 from abc import ABC, abstractmethod
 import structlog
-from starlette.responses import Response
 
 logger = structlog.get_logger(__name__)
 
@@ -173,111 +170,6 @@ class ConsoleProvider(MetricsProvider):
 
 
 # =============================================================================
-# Factory & Facade
+# Factory & Facade have been moved to __init__.py to prevent circular imports
 # =============================================================================
-
-_provider: Optional[MetricsProvider] = None
-
-def get_provider() -> MetricsProvider:
-    global _provider
-    if _provider is None:
-        try:
-            import prometheus_client
-            # In production we might check settings.metrics_enabled
-            _provider = PrometheusProvider()
-            logger.info("Initialized Prometheus Metrics Provider")
-        except ImportError:
-            _provider = ConsoleProvider()
-            logger.info("Initialized Console Metrics Provider (Prometheus not found)")
-    return _provider
-
-
-def setup_metrics():
-    """Initialize metrics provider (Idempotent)"""
-    get_provider()
-
-
-def metrics_endpoint(request):
-    """Serve metrics for scraping"""
-    provider = get_provider()
-    return Response(provider.generate_latest(), media_type=provider.content_type)
-
-
-# =============================================================================
-# Facade Functions (Backward Compatibility)
-# =============================================================================
-
-def record_request_metrics(method: str, path: str, status_code: int, duration: float):
-    get_provider().increment(
-        "http_requests_total", 
-        labels={"method": method, "path": path, "status_code": str(status_code)}
-    )
-    get_provider().observe(
-        "http_request_duration_seconds", 
-        duration, 
-        labels={"method": method, "path": path}
-    )
-
-def increment_login(provider_type: str, status: str = "success"):
-    get_provider().increment(
-        "user_logins_total", 
-        labels={"provider_type": provider_type, "status": status}
-    )
-
-def increment_tenant_onboarding(plan: str = "default"):
-    get_provider().increment(
-        "tenant_onboarding_total", 
-        labels={"plan": plan}
-    )
-
-def increment_auth_failure(provider: str):
-    get_provider().increment(
-        "auth_failures_total", 
-        labels={"provider": provider}
-    )
-
-def increment_rbac_denial(resource: str, action: str):
-    get_provider().increment(
-        "rbac_denials_total", 
-        labels={"resource": resource, "action": action}
-    )
-
-@contextmanager
-def record_external_api(service: str, endpoint: str):
-    start = time.time()
-    yield
-    duration = time.time() - start
-    get_provider().observe(
-        "external_api_duration_seconds", 
-        duration, 
-        labels={"service": service, "endpoint": endpoint}
-    )
-
-def record_db_pool_metrics(size: int, checked_out: int):
-    get_provider().set_gauge("db_connection_pool_size", size)
-    get_provider().set_gauge("db_connection_pool_checkedout", checked_out)
-
-def record_db_query_duration(duration: float, query_type: str = "unknown", table_name: str = "unknown"):
-    get_provider().observe(
-        "db_query_duration_seconds", 
-        duration, 
-        labels={"query_type": query_type, "table_name": table_name}
-    )
-
-@contextmanager
-def record_token_validation(provider: str = "firebase"):
-    start = time.time()
-    yield
-    duration = time.time() - start
-    get_provider().observe(
-        "auth_token_validation_duration_seconds", 
-        duration, 
-        labels={"provider": provider}
-    )
-
-def increment_subscription_event(event_type: str, plan: str):
-    get_provider().increment(
-        "subscription_events_total", 
-        labels={"event_type": event_type, "plan": plan}
-    )
 

@@ -259,13 +259,13 @@ async def join_tenant(
     
     This endpoint handles new users who just completed SSO login
     """
-    from infrastructure.auth import firebase_auth_service
+    from infrastructure.auth import get_auth_provider
     
     # Bypass RLS to find invitation globally
     await rls_service.set_platform_admin_context(db)
     
     # Extract user info from Firebase token
-    user_info = firebase_auth_service.get_user_info(decoded_token)
+    user_info = get_auth_provider().get_user_info(decoded_token)
     firebase_uid = user_info.get("firebase_uid")
     email = user_info.get("email")
     name = user_info.get("name")

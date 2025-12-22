@@ -15,13 +15,14 @@ from sqlalchemy import select
 from core.config import settings
 from core.utils import get_utc_now
 from infrastructure.email import email_service
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 from core.constants import B2BRoleName
 from modules.b2b.models import TenantModel, AuthProvider, InvitationModel
 from modules.b2b.services.role_template_service import role_template_service
 from modules.b2b.services.team_service import create_team
 from modules.b2b.services.invitation_service import invitation_service
-from scripts.core.firebase_admin_cli import create_firebase_tenant, configure_oidc_provider
+from modules.b2b.services.invitation_service import invitation_service
+from infrastructure.auth import get_tenant_provisioner
 
 
 class TenantOnboardingService:
@@ -49,7 +50,7 @@ class TenantOnboardingService:
 
         try:
             # Initialize Firebase if not already done
-            firebase_auth_service.initialize()
+            get_auth_provider().initialize()
             
             # Check for existing tenant in DB first to handle idempotency
             stmt = select(TenantModel).where(TenantModel.domain == domain.lower())
@@ -119,7 +120,8 @@ class TenantOnboardingService:
             # 1. Create OR Use Firebase tenant
             if not firebase_tenant_id:
                 # Use domain for uniqueness as requested
-                firebase_tenant_id = create_firebase_tenant(company_name, domain)
+                provisioner = get_tenant_provisioner()
+                firebase_tenant_id = provisioner.create_tenant(company_name, domain)
             
             # 2. Generate activation token
             activation_token = secrets.token_urlsafe(32)

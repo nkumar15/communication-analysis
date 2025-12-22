@@ -45,8 +45,8 @@ class TestActivationFlow:
         platform_admin_token = platform_admin_setup["token"]
         
         # Mock Firebase interactions for onboarding
-        with patch('modules.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant, \
-             patch('modules.platform.services.tenant_onboarding_service.configure_oidc_provider') as mock_config_oidc:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant, \
+             patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.configure_oidc_provider') as mock_config_oidc:
             
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
             mock_config_oidc.return_value = "oidc.test"

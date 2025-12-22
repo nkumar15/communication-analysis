@@ -19,7 +19,7 @@ async def test_create_checkout_session(api_client: AsyncClient, b2c_billing_user
          patch('modules.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
-         patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+         patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
             "/api/b2c/billing/checkout",
@@ -49,7 +49,7 @@ async def test_create_checkout_with_coupon(api_client: AsyncClient, b2c_billing_
          patch('modules.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
-         patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+         patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
             "/api/b2c/billing/checkout",
@@ -72,7 +72,7 @@ async def test_checkout_invalid_tier(api_client: AsyncClient, b2c_billing_user):
     
     with patch('modules.b2c.services.subscription_service.PaymentProviderFactory.create', return_value=AsyncMock()), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_premium_monthly', 'price_test_premium_monthly'), \
-         patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+         patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/checkout",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -91,7 +91,7 @@ async def test_checkout_invalid_tier(api_client: AsyncClient, b2c_billing_user):
 async def test_get_subscription_free_tier(api_client: AsyncClient, b2c_billing_user):
     """Test getting subscription returns free tier info for user without subscription"""
     
-    with patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.get(
             f"/api/b2c/billing/subscription?workspace_id={b2c_billing_user['workspace'].id}",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}
@@ -108,7 +108,7 @@ async def test_get_subscription_free_tier(api_client: AsyncClient, b2c_billing_u
 async def test_get_subscription_premium(api_client: AsyncClient, b2c_billing_user, premium_subscription):
     """Test getting active premium subscription"""
     
-    with patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.get(
             f"/api/b2c/billing/subscription?workspace_id={b2c_billing_user['workspace'].id}",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}
@@ -131,7 +131,7 @@ async def test_cancel_subscription_at_period_end(api_client: AsyncClient, b2c_bi
          patch('modules.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
-         patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+         patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
             f"/api/b2c/billing/cancel?workspace_id={b2c_billing_user['workspace'].id}&immediate=false",
@@ -154,7 +154,7 @@ async def test_cancel_subscription_immediately(api_client: AsyncClient, b2c_bill
          patch('modules.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
-         patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+         patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
             f"/api/b2c/billing/cancel?workspace_id={b2c_billing_user['workspace'].id}&immediate=true",
@@ -175,7 +175,7 @@ async def test_customer_portal_session(api_client: AsyncClient, b2c_billing_user
          patch('modules.b2c.services.subscription_service.settings.stripe_price_premium_yearly', 'price_test_premium_yearly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_monthly', 'price_test_ultimate_monthly'), \
          patch('modules.b2c.services.subscription_service.settings.stripe_price_ultimate_yearly', 'price_test_ultimate_yearly'), \
-         patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+         patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         
         response = await api_client.post(
             "/api/b2c/billing/portal",
@@ -193,7 +193,7 @@ async def test_customer_portal_session(api_client: AsyncClient, b2c_billing_user
 async def test_list_invoices_empty(api_client: AsyncClient, b2c_billing_user):
     """Test listing invoices returns empty for new user"""
     
-    with patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.get(
             "/api/b2c/billing/invoices",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}
@@ -226,7 +226,7 @@ async def test_download_invoice(api_client: AsyncClient, b2c_billing_user, premi
     await db_session.flush()
     await db_session.refresh(invoice)
     
-    with patch('modules.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.get(
             f"/api/b2c/billing/invoices/{invoice.id}/download",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},

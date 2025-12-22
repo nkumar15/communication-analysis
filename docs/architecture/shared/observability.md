@@ -115,3 +115,101 @@ Business-specific metrics are defined in `backend/core/observability/metrics.py`
 ### AWS
 1.  **Logging**: Set `LOG_ENVIRONMENT=aws`. Logs emitted as JSON for CloudWatch.
 2.  **Tracing**: similar to GCP, use ADOT (AWS Distro for OpenTelemetry) collector to forward OTLP data to **AWS X-Ray**.
+
+---
+
+## 4. Cloud Monitoring Adapter Guide
+
+The refactored `backend/infrastructure/monitoring` package makes it easy to add new monitoring backends (CloudWatch, Stackdriver) using the **Factory Pattern**.
+
+### 1. Google Cloud Monitoring (Stackdriver)
+
+**Prerequisites:**
+- Install: `pip install google-cloud-monitoring`
+- Auth: `GOOGLE_APPLICATION_CREDENTIALS`
+
+**Implementation:**
+Create `backend/infrastructure/monitoring/gcp.py`:
+
+```python
+from typing import Dict
+from google.cloud import monitoring_v3
+import time
+from .metrics import MetricsProvider
+
+class GCPMonitoringProvider(MetricsProvider):
+    def __init__(self, project_id: str):
+        self.client = monitoring_v3.MetricServiceClient()
+        self.project_name = f"projects/{project_id}"
+        self.series = [] # Buffer for batching
+
+    def increment(self, name: str, labels: Dict[str, str] = None, value: int = 1):
+        # Construct TimeSeries object and push to buffer or send immediately (batching recommended)
+        pass 
+
+    def observe(self, name: str, value: float, labels: Dict[str, str] = None):
+        # Create distribution metric
+        pass
+
+    def set_gauge(self, name: str, value: float, labels: Dict[str, str] = None):
+        # Create gauge metric
+        pass
+
+    def generate_latest(self) -> bytes:
+        return b"GCP Monitoring collects metrics via API push, not scrape."
+
+    @property
+    def content_type(self) -> str:
+        return "text/plain"
+```
+
+### 2. AWS CloudWatch
+
+**Prerequisites:**
+- Install: `pip install boto3`
+- Auth: AWS Credentials
+
+**Implementation:**
+Create `backend/infrastructure/monitoring/aws.py`:
+
+```python
+from typing import Dict
+import boto3
+from .metrics import MetricsProvider
+
+class CloudWatchProvider(MetricsProvider):
+    def __init__(self, namespace: str = "EnterpriseSSO"):
+        self.client = boto3.client('cloudwatch')
+        self.namespace = namespace
+
+    def increment(self, name: str, labels: Dict[str, str] = None, value: int = 1):
+        dimensions = [{'Name': k, 'Value': v} for k, v in (labels or {}.items())]
+        
+        self.client.put_metric_data(
+            Namespace=self.namespace,
+            MetricData=[{
+                'MetricName': name,
+                'Value': value,
+                'Unit': 'Count',
+                'Dimensions': dimensions
+            }]
+        )
+
+    # ... implement observe (as timing/count) and set_gauge ...
+```
+
+### 3. Register in Factory
+
+Update `backend/infrastructure/monitoring/__init__.py`:
+
+```python
+def get_metrics_provider() -> "MetricsProvider":
+    # ...
+    if settings.monitoring_provider == "gcp":
+        from .gcp import GCPMonitoringProvider
+        _metrics_provider = GCPMonitoringProvider(settings.gcp_project_id)
+    elif settings.monitoring_provider == "aws":
+        from .aws import CloudWatchProvider
+        _metrics_provider = CloudWatchProvider()
+    # ...
+```

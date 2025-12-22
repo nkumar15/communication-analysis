@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from core.config import settings
 from core.db.session import init_db, close_db
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 
 # Import ALL routers for testing
 from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🧪 Starting unified test app...")
     await init_db()
-    firebase_auth_service.initialize()
+    get_auth_provider().initialize()
     print("✓ Test app ready")
     
     yield

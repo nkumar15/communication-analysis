@@ -10,7 +10,7 @@ IMPORTANT: This middleware checks the platform_admins table, NOT the users table
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 from modules.platform.models import PlatformUser, PlatformRole, PlatformAuditLog
 from core.utils import get_utc_now
 from core.db.session import get_db

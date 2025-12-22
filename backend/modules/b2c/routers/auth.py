@@ -52,11 +52,11 @@ async def signup(
     Auto-creates personal workspace
     Requires verified Firebase ID token
     """
-    from infrastructure.auth import firebase_auth_service
+    from infrastructure.auth import get_auth_provider
     
     # Verify Firebase token
     try:
-        decoded_token = await firebase_auth_service.verify_id_token(request.id_token)
+        decoded_token = await get_auth_provider().verify_id_token(request.id_token)
         firebase_uid = decoded_token.get('uid')
         email = decoded_token.get('email')
         email_verified = decoded_token.get('email_verified', False)
@@ -105,11 +105,11 @@ async def login(
     
     Idempotent: Creates user+workspace on first login if needed
     """
-    from infrastructure.auth import firebase_auth_service
+    from infrastructure.auth import get_auth_provider
     
     # Verify Firebase token
     try:
-        decoded_token = await firebase_auth_service.verify_id_token(request.id_token)
+        decoded_token = await get_auth_provider().verify_id_token(request.id_token)
         firebase_uid = decoded_token.get('uid')
         email = decoded_token.get('email')
         email_verified = decoded_token.get('email_verified', False)

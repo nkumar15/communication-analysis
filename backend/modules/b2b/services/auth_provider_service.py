@@ -204,7 +204,7 @@ class AuthProviderService:
         Setup the initial Auth Provider during tenant activation.
         Now uses domain-specific ID: oidc.{firebase_tenant_id}-web
         """
-        from scripts.core.firebase_admin_cli import configure_oidc_provider
+        from infrastructure.auth import get_tenant_provisioner
         from modules.b2b.schemas.auth_provider import AuthProviderCreate, AuthProviderType
         from modules.b2b.models import TenantModel
 
@@ -236,7 +236,8 @@ class AuthProviderService:
 
             # Call with individual parameters
             # Use the new ID and Name
-            actual_provider_id = configure_oidc_provider(
+            provisioner = get_tenant_provisioner()
+            actual_provider_id = provisioner.configure_oidc_provider(
                 firebase_tenant_id,
                 provider_type,
                 client_id,
@@ -283,7 +284,7 @@ class AuthProviderService:
         """
         Update existing provider credentials.
         """
-        from scripts.core.firebase_admin_cli import configure_oidc_provider
+        from infrastructure.auth.provisioning import get_tenant_provisioner
         from sqlalchemy.orm.attributes import flag_modified
         
         # Get the primary provider for this tenant
@@ -309,8 +310,9 @@ class AuthProviderService:
             
             print(f"🔧 Configuring Web Provider: {web_provider_id} (Name: {web_display_name})")
             
-            configure_oidc_provider(
-                firebase_tenant_id=tenant.firebase_tenant_id,
+            provisioner = get_tenant_provisioner()
+            provisioner.configure_oidc_provider(
+                tenant_id=tenant.firebase_tenant_id,
                 provider_type=provider.provider_type, 
                 client_id=client_id,
                 client_secret=client_secret,
@@ -332,8 +334,8 @@ class AuthProviderService:
                 
                 print(f"🔧 Configuring Mobile Provider: {mobile_provider_id}")
                 
-                configure_oidc_provider(
-                    firebase_tenant_id=tenant.firebase_tenant_id,
+                provisioner.configure_oidc_provider(
+                    tenant_id=tenant.firebase_tenant_id,
                     provider_type=provider.provider_type,
                     client_id=mobile_id,
                     client_secret=mobile_secret,

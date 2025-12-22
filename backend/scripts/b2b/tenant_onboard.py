@@ -11,7 +11,7 @@ import click
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from core.db.session import AsyncSessionLocal
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 from modules.platform.services.tenant_onboarding_service import tenant_onboarding_service
 
 

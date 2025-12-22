@@ -23,7 +23,7 @@ from sqlalchemy.orm import sessionmaker
 
 from modules.platform.models import PlatformTenant, PlatformRole, PlatformUser
 from core.config import settings
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 import firebase_admin
 from firebase_admin import auth, tenant_mgt
 

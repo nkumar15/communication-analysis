@@ -34,7 +34,7 @@ class AuthService:
         from fastapi import HTTPException, status
         from core.config import settings
         from modules.b2b.services.tenant_service import tenant_service
-        from infrastructure.auth import firebase_auth_service
+        from infrastructure.auth import get_auth_provider
         import httpx
         
         logger.info("mobile_login_started", 
@@ -74,7 +74,7 @@ class AuthService:
                 response = await client.post(url, json=payload)
                 
                 if response.status_code != 200:
-                    from infrastructure.monitoring.metrics import increment_auth_failure
+                    from infrastructure.monitoring import increment_auth_failure
                     increment_auth_failure(provider_id)
                     
                     error_data = response.json()
@@ -109,7 +109,7 @@ class AuthService:
                     raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant context lost")
                 
                 # 5. Create Custom Token for Client SDK
-                custom_token_bytes = firebase_auth_service.create_custom_token(
+                custom_token_bytes = get_auth_provider().create_custom_token(
                     uid=firebase_uid,
                     tenant_id=firebase_tenant_id
                 )
@@ -126,7 +126,7 @@ class AuthService:
                 }
                 
         except httpx.RequestError as e:
-            from infrastructure.monitoring.metrics import increment_auth_failure
+            from infrastructure.monitoring import increment_auth_failure
             increment_auth_failure(provider_id)
             
             logger.error("gcip_network_error", error=str(e))

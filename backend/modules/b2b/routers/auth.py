@@ -15,7 +15,7 @@ from modules.b2b.schemas.auth import (
 )
 from modules.b2b.schemas.user import TeamMembership
 from modules.b2b.services.auth_service import auth_service
-from infrastructure.auth import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 from core.middleware import get_current_user
 from core.db.session import get_db
 from infrastructure.logging import get_logger
@@ -92,7 +92,7 @@ async def get_current_user_info(
     the user record in PostgreSQL.
     """
     # Extract user info from token
-    user_info = firebase_auth_service.get_user_info(decoded_token)
+    user_info = get_auth_provider().get_user_info(decoded_token)
     
     firebase_uid = user_info.get("firebase_uid")
     email = user_info.get("email")
@@ -147,7 +147,7 @@ async def sync_user(
     to ensure user exists in our database.
     """
     # Extract user info from token
-    user_info = firebase_auth_service.get_user_info(decoded_token)
+    user_info = get_auth_provider().get_user_info(decoded_token)
     
     firebase_uid = user_info.get("firebase_uid")
     email = user_info.get("email")

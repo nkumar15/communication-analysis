@@ -1,5 +1,6 @@
 import os
 import structlog
+from typing import Optional
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME
@@ -10,50 +11,68 @@ from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
 logger = structlog.get_logger(__name__)
 
-def setup_tracing(app, service_name: str, sqlalchemy_engine=None):
-    """
-    Configure OpenTelemetry Tracing
+def get_tracer_provider(service_name: str) -> Optional[TracerProvider]:
+    """Factory to create TracerProvider based on configuration"""
+    from core.config import settings
     
-    Args:
-        app: FastAPI app instance
-        service_name: Name of the service (e.g., 'b2b-api')
-        sqlalchemy_engine: Optional SQLAlchemy engine to instrument
-    """
+    if settings.tracing_provider == "none":
+        logger.info("Tracing disabled (tracing_provider='none')")
+        return None
+        
+    logger.info(f"Setting up Tracing with provider: {settings.tracing_provider}")
     
-    otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    
-    if not otel_endpoint:
-        logger.info("Tracing disabled or console-only (OTEL_EXPORTER_OTLP_ENDPOINT not set)")
-        # Optionally set up console exporter for local debug if desired,
-        # but usually we want to keep logs clean unless debugging.
-        return
-
-    logger.info(f"Setting up OTLP Tracing for {service_name} at {otel_endpoint}")
-
-    # 1. Setup Resource (Service Identity)
+    # 1. Setup Resource
     resource = Resource.create({
         SERVICE_NAME: service_name,
         "environment": os.getenv("ENVIRONMENT", "local")
     })
-
-    # 2. Setup Provider
+    
     provider = TracerProvider(resource=resource)
     
-    # 3. Setup Exporter
-    # Use HTTP by default as it's fire-and-forget and easier than gRPC in some setups
-    otlp_exporter = OTLPSpanExporter(endpoint=f"{otel_endpoint}/v1/traces")
+    # 2. Setup Exporter
+    processor = None
     
-    # 4. Add Processor (Batch is better for prod)
-    processor = BatchSpanProcessor(otlp_exporter)
-    provider.add_span_processor(processor)
+    if settings.tracing_provider == "otlp":
+        otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        if otel_endpoint:
+            otlp_exporter = OTLPSpanExporter(endpoint=f"{otel_endpoint}/v1/traces")
+            processor = BatchSpanProcessor(otlp_exporter)
+            logger.info(f"OTLP Exporter configured for {otel_endpoint}")
+        else:
+            logger.warning("tracing_provider='otlp' but OTEL_EXPORTER_OTLP_ENDPOINT not set. Falling back to No-Op.")
+            return None
+            
+    elif settings.tracing_provider == "console":
+        console_exporter = ConsoleSpanExporter()
+        processor = BatchSpanProcessor(console_exporter)
+        logger.info("Console Exporter configured")
+        
+    else:
+        logger.warning(f"Unknown tracing_provider '{settings.tracing_provider}', disabling tracing")
+        return None
+        
+    if processor:
+        provider.add_span_processor(processor)
+        
+    return provider
+
+
+def setup_tracing(app, service_name: str, sqlalchemy_engine=None):
+    """
+    Configure OpenTelemetry Tracing using Factory Pattern
+    """
+    provider = get_tracer_provider(service_name)
     
+    if not provider:
+        return
+        
     # Set Global Provider
     trace.set_tracer_provider(provider)
 
-    # 5. Instrument FastAPI
+    # Instrument FastAPI
     FastAPIInstrumentor().instrument_app(app, tracer_provider=provider)
 
-    # 6. Instrument SQLAlchemy
+    # Instrument SQLAlchemy
     if sqlalchemy_engine:
         # If it's an AsyncEngine, we must instrument the underlying sync_engine
         engine_to_instrument = getattr(sqlalchemy_engine, "sync_engine", sqlalchemy_engine)
