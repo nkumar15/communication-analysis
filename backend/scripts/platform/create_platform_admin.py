@@ -40,7 +40,7 @@ async def create_platform_admin(email: str, name: str = None, role_name: str = "
     print(f"   Role: {role_name}")
     
     # Initialize Firebase
-    firebase_auth_service.initialize()
+    get_auth_provider().initialize()
     
     # Setup database connection
     db_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")

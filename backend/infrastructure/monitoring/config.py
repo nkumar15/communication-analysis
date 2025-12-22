@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .metrics import setup_metrics, metrics_endpoint
+from . import setup_metrics, metrics_endpoint
 from .tracing import setup_tracing
 from .sentry_utils import init_sentry
 
