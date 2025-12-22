@@ -87,7 +87,7 @@ const PricingPage = () => {
                     tier: tier,
                     billing_interval: billingInterval,
                     coupon_code: couponCode || undefined,
-                    success_url: `${window.location.origin}/billing/success`,
+                    success_url: `${window.location.origin}/billing/subscription`,
                     cancel_url: `${window.location.origin}/pricing`,
                 }),
             });

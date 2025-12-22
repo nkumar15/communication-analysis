@@ -16,6 +16,7 @@ from email.mime.multipart import MIMEMultipart
 from typing import Optional
 from datetime import datetime
 
+from core.config import settings
 
 class EmailProvider(ABC):
     """Abstract base class for email providers"""
@@ -59,9 +60,9 @@ class MailhogProvider(EmailProvider):
     """
     
     def __init__(self):
-        self.host = os.getenv("MAILHOG_HOST", "mailhog")
-        self.port = int(os.getenv("MAILHOG_PORT", "1025"))
-        self.default_from = os.getenv("EMAIL_FROM", "noreply@localhost")
+        self.host = settings.mailhog_host
+        self.port = settings.mailhog_port
+        self.default_from = settings.email_from
     
     @property
     def name(self) -> str:
@@ -118,8 +119,8 @@ class ResendProvider(EmailProvider):
     """
     
     def __init__(self):
-        self.api_key = os.getenv("RESEND_API_KEY")
-        self.default_from = os.getenv("EMAIL_FROM", "Enterprise SSO <onboarding@yourapp.com>")
+        self.api_key = settings.resend_api_key
+        self.default_from = settings.email_from
         
         if self.api_key:
             import resend
@@ -144,6 +145,13 @@ class ResendProvider(EmailProvider):
         
         try:
             import resend
+            
+            params = {
+               "from": from_email or self.default_from,
+               "to": [to_email],
+               "subject": subject,
+               "html": html_content
+            }
             
             resend_attachments = []
             if attachments:
@@ -181,8 +189,8 @@ class SESProvider(EmailProvider):
     """
     
     def __init__(self):
-        self.region = os.getenv("AWS_REGION", "us-east-1")
-        self.default_from = os.getenv("EMAIL_FROM", "noreply@yourapp.com")
+        self.region = settings.aws_region or "us-east-1"
+        self.default_from = settings.email_from
         self._client = None
     
     @property
@@ -278,7 +286,7 @@ def get_email_provider() -> EmailProvider:
     Set EMAIL_PROVIDER env var to: mailhog, resend, ses, console
     Default: mailhog (for local development)
     """
-    provider_name = os.getenv("EMAIL_PROVIDER", "mailhog").lower()
+    provider_name = settings.email_provider.lower()
     
     providers = {
         "mailhog": MailhogProvider,

@@ -12,6 +12,14 @@ const SubscriptionPage = () => {
     const [billingInterval, setBillingInterval] = useState('monthly');
     const [workspaceId, setWorkspaceId] = useState(null);
     const [upgradingTier, setUpgradingTier] = useState(null);
+    const [couponCode, setCouponCode] = useState('');
+    const [billingProfile, setBillingProfile] = useState({
+        tax_id: '',
+        vat_number: '',
+        billing_address: '',
+        billing_email: ''
+    });
+    const [profileLoading, setProfileLoading] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -20,6 +28,12 @@ const SubscriptionPage = () => {
     const loadData = async () => {
         setLoading(true);
         try {
+            // Load Billing Profile
+            try {
+                const profile = await b2cWorkspaceClient.getBillingProfile();
+                if (profile) setBillingProfile(profile);
+            } catch (e) { console.warn("Failed to load billing profile", e); }
+
             // Load Workspace & Subscription
             let wsId = searchParams.get('workspace_id');
             if (!wsId) {
@@ -96,6 +110,7 @@ const SubscriptionPage = () => {
                 workspace_id: workspaceId,
                 tier: tier,
                 billing_interval: billingInterval,
+                coupon_code: couponCode || undefined,
                 success_url: `${window.location.origin}/subscription?success=true`,
                 cancel_url: `${window.location.origin}/subscription?canceled=true`
             });
@@ -114,6 +129,20 @@ const SubscriptionPage = () => {
             window.location.href = data.portal_url;
         } catch (error) {
             console.error('Portal error:', error);
+        }
+    };
+
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        setProfileLoading(true);
+        try {
+            await b2cWorkspaceClient.updateBillingProfile(billingProfile);
+            alert("Billing details updated successfully.");
+        } catch (err) {
+            console.error('Profile update error:', err);
+            alert('Failed to update billing details.');
+        } finally {
+            setProfileLoading(false);
         }
     };
 
@@ -182,6 +211,26 @@ const SubscriptionPage = () => {
                             Yearly <span style={{ color: '#10B981', fontSize: '13px' }}>(Save 20%)</span>
                         </button>
                     </div>
+                </div>
+
+                {/* Coupon Input */}
+                <div style={{ maxWidth: '400px', margin: '0 auto 32px auto', textAlign: 'center' }}>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#6B7280' }}>Have a coupon?</label>
+                    <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder="Enter Code (e.g. WELCOME20)"
+                        style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            border: '1px solid #D1D5DB',
+                            textAlign: 'center',
+                            fontSize: '16px',
+                            letterSpacing: '1px'
+                        }}
+                    />
                 </div>
 
                 {/* Pricing Cards */}
@@ -331,9 +380,24 @@ const SubscriptionPage = () => {
                             </div>
                         </div>
                         <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#EFF6FF', borderLeft: '4px solid #3B82F6', borderRadius: '6px' }}>
-                            <span style={{ fontSize: '13px', color: '#1E40AF' }}>
+                            <span style={{ fontSize: '13px', color: '#1E40AF', display: 'block', marginBottom: '12px' }}>
                                 ℹ️ Payment method is managed securely via Stripe.
                             </span>
+                            <button
+                                onClick={handleManageBilling}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #3B82F6',
+                                    backgroundColor: 'white',
+                                    color: '#3B82F6',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Open Billing Portal
+                            </button>
                         </div>
                     </div>
                 ) : (
@@ -369,6 +433,78 @@ const SubscriptionPage = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Billing Profile Card */}
+                <div style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    border: '1px solid #E5E7EB',
+                    marginBottom: '24px',
+                    maxWidth: '600px',
+                    margin: '0 auto 24px auto',
+                    textAlign: 'left'
+                }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>Billing Details</h3>
+                    <form onSubmit={handleUpdateProfile}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#374151' }}>Tax ID / EIN</label>
+                                <input
+                                    type="text"
+                                    value={billingProfile.tax_id || ''}
+                                    onChange={(e) => setBillingProfile({ ...billingProfile, tax_id: e.target.value })}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#374151' }}>VAT Number</label>
+                                <input
+                                    type="text"
+                                    value={billingProfile.vat_number || ''}
+                                    onChange={(e) => setBillingProfile({ ...billingProfile, vat_number: e.target.value })}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB' }}
+                                />
+                            </div>
+                        </div>
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#374151' }}>Billing Email</label>
+                            <input
+                                type="email"
+                                value={billingProfile.billing_email || ''}
+                                onChange={(e) => setBillingProfile({ ...billingProfile, billing_email: e.target.value })}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB' }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#374151' }}>Billing Address</label>
+                            <textarea
+                                value={billingProfile.billing_address || ''}
+                                onChange={(e) => setBillingProfile({ ...billingProfile, billing_address: e.target.value })}
+                                rows="3"
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                type="submit"
+                                disabled={profileLoading}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    backgroundColor: '#4F46E5',
+                                    color: 'white',
+                                    border: 'none',
+                                    fontWeight: '600',
+                                    cursor: profileLoading ? 'not-allowed' : 'pointer',
+                                    opacity: profileLoading ? 0.7 : 1
+                                }}
+                            >
+                                {profileLoading ? 'Saving...' : 'Save Details'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
 
                 {activeTier !== 'free' && (
                     <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '28px', border: '1px solid #E5E7EB', textAlign: 'center' }}>

@@ -47,10 +47,13 @@ status: ## Show status of all services and configuration
 
 up: ## Start all backend services (frontend runs locally)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker nginx mailhog
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
 	@echo "Email UI:     http://localhost:8025 (Mailhog)"
+	@echo "Grafana:      http://localhost:3002"
+	@echo "Prometheus:   http://localhost:9090"
+	@echo "Jaeger:       http://localhost:16686"
 	@echo "Run 'make web-b2b' for B2B frontend on port 3000"
 
 down: ## Stop all services
@@ -310,6 +313,22 @@ test-env: ## Validate environment configuration
 		if [ -f $$file ]; then echo "$(GREEN)✓ $$file exists$(NC)"; \
 		else echo "$(YELLOW)✗ $$file missing$(NC)"; fi \
 	done
+
+##@ Performance
+
+DURATION ?= 1m
+
+load-test-b2b: ## Run B2B Locust load test (50 users). Usage: make load-test-b2b DURATION=30s
+	@echo "$(BLUE)Starting B2B Locust load test (50 users, $(DURATION))...$(NC)"
+	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
+	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
+	@echo "$(GREEN)✓ B2B Load test complete$(NC)"
+
+load-test-b2c: ## Run B2C Locust load test (50 users). Usage: make load-test-b2c DURATION=30s
+	@echo "$(BLUE)Starting B2C Locust load test (50 users, $(DURATION))...$(NC)"
+	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
+	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
+	@echo "$(GREEN)✓ B2C Load test complete$(NC)"
 
 ##@ SAST (Static Application Security Testing)
 

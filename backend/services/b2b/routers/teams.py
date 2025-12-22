@@ -3,6 +3,7 @@ Teams API Router - Manage teams and team membership
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from uuid import UUID
 from typing import List
 
@@ -510,7 +511,7 @@ async def update_team_member_role(
         team_id=team_member.team_id,
         user_id=team_member.user_id,
         team_role=team_member.team_role,
-        user_email=user.email if user else "",
+        user_email=user.email if user else None,
         user_name=user.name if user else None,
         joined_at=team_member.joined_at
     )
@@ -572,7 +573,7 @@ async def move_user_between_teams(
         team_id=new_membership.team_id,
         user_id=new_membership.user_id,
         team_role=new_membership.team_role,
-        user_email=user.email if user else "",
+        user_email=user.email if user else None,
         user_name=user.name if user else None,
         joined_at=new_membership.joined_at
     )
@@ -590,6 +591,7 @@ async def get_available_users_for_team(
     Returns list of users available to be added to the team.
     Requires: teams:write permission OR team_manager of this team
     """
+    # Get all active users in tenant
     all_users_result = await db.execute(
         select(UserModel).where(
             UserModel.tenant_id == current_user['tenant_id'],
@@ -598,6 +600,10 @@ async def get_available_users_for_team(
         )
     )
     all_users = all_users_result.scalars().all()
+    
+    # Get existing team members
+    existing_members = await team_service.get_team_members(db, team_id)
+    existing_member_ids = {member.user_id for member, user in existing_members}
     
     # Filter out existing members
     available_users = [

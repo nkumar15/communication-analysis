@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
-from services.b2b.models import UserModel
+from services.b2b.models import UserModel, Role
 from services.b2b.schemas import User
 from core.constants import B2BRoleName
 from core.utils import get_utc_now
@@ -98,7 +98,10 @@ class UserService:
             # 2a. User exists - update standard metadata
             existing_user.last_login = now
             existing_user.updated_at = now
-            if name and not existing_user.name:
+            
+            # Always update name if provided from SSO token (e.g., from Auth0)
+            # This ensures names from SSO providers are always synced
+            if name:
                 existing_user.name = name
             
             # Note: We do NOT overwrite firebase_uid anymore.
@@ -147,12 +150,22 @@ class UserService:
         """
         now = get_utc_now()
         
+        # Look up role_id before UPSERT to ensure it's set during INSERT
+        role_result = await db.execute(
+            select(Role)
+            .where(Role.tenant_id == tenant_id)
+            .where(Role.name == role)
+        )
+        role_obj = role_result.scalar_one_or_none()
+        role_id = role_obj.id if role_obj else None
+        
         # Using PostgreSQL's ON CONFLICT (UPSERT)
         stmt = insert(UserModel).values(
             tenant_id=tenant_id,
             email=email,
             name=name,
             firebase_uid=firebase_uid,
+            role_id=role_id,  # Include role_id in INSERT
             last_login=now,
         ).on_conflict_do_update(
             index_elements=['tenant_id', 'firebase_uid'],
@@ -169,7 +182,6 @@ class UserService:
         
         # Populate role_id if missing (new user or existing user without role_id)
         if user_model.role_id is None:
-            from services.b2b.models import Role
             # Use the role argument passed to the function
             role_name = role
             

@@ -2,11 +2,15 @@
 :root {
     --platform-bg: #f3f4f6;
     --platform-sidebar-bg: #1a1a2e;
+    /* Dark sidebar - reverted */
     --platform-sidebar-text: #a0a0b0;
     --platform-sidebar-active: #ffffff;
-    --platform-sidebar-active-bg: rgba(255, 255, 255, 0.1);
-    --platform-primary: #6c5ce7;
-    --platform-primary-hover: #5b4cc4;
+    --platform-sidebar-active-bg: #8B5CF6;
+    /* Purple for active items */
+    --platform-primary: #8B5CF6;
+    /* Purple primary */
+    --platform-primary-hover: #7C3AED;
+    /* Darker purple on hover */
     --platform-text: #1f2937;
     --platform-border: #e5e7eb;
     --platform-card-bg: #ffffff;
@@ -243,4 +247,208 @@
     font-weight: 700;
     color: var(--platform-text);
     margin: 0;
+}
+
+/* Form Inputs */
+.platform-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    color: var(--platform-text);
+    font-size: 14px;
+    transition: all 0.15s ease;
+}
+
+.platform-input:focus {
+    outline: none;
+    border-color: var(--platform-primary);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.platform-input::placeholder {
+    color: #9ca3af;
+}
+
+.platform-select {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    color: var(--platform-text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.platform-select:focus {
+    outline: none;
+    border-color: var(--platform-primary);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+/* Form Labels */
+.platform-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+/* Secondary Button */
+.platform-btn-secondary {
+    background-color: white;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.platform-btn-secondary:hover {
+    background-color: #f9fafb;
+    border-color: #9ca3af;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+.animate-fadeIn {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Profile Detail View - Custom Styling */
+.platform-profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--platform-border);
+}
+
+.platform-profile-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.platform-profile-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.platform-profile-info h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.platform-profile-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+.platform-profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .platform-profile-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.platform-section-card {
+    background-color: #f9fafb;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--platform-border);
+}
+
+.platform-section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--platform-text);
+}
+
+.platform-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background-color: white;
+    border-radius: 0.5rem;
+    border: 1px solid var(--platform-border);
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+}
+
+.platform-detail-label {
+    color: #6b7280;
+}
+
+.platform-detail-value {
+    font-weight: 600;
+    color: var(--platform-text);
+}
+
+.platform-status-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.platform-status-active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.platform-status-inactive {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.platform-status-paid {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.platform-empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #6b7280;
+    border: 2px dashed var(--platform-border);
+    border-radius: 0.75rem;
 }

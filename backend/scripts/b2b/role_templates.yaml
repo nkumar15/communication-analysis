@@ -22,8 +22,6 @@ role_templates:
         actions: [read, write, delete, invite]
       - resource: roles
         actions: [read, write, delete]
-      - resource: invitations
-        actions: [read, write, delete]
       - resource: teams
         actions: [read, write, delete]
       
@@ -73,8 +71,6 @@ role_templates:
       - resource: users
         actions: [read, write, invite]
       - resource: roles
-        actions: [read, write, delete]
-      - resource: invitations
         actions: [read, write, delete]
       - resource: teams
         actions: [read, write, delete]

@@ -28,6 +28,7 @@ from core.utils import get_utc_now
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")  
 
 
+
 # Create a single test engine and session factory
 test_engine = None
 test_session_factory = None
@@ -358,6 +359,12 @@ async def platform_admin_setup(db_session: AsyncSession):
     }
 
 
+@pytest_asyncio.fixture
+async def platform_admin_token(platform_admin_setup):
+    """Fixture to provide platform admin token directly"""
+    return platform_admin_setup["token"]
+
+
 # Helper functions (not fixtures - just plain functions)
 
 async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
@@ -497,6 +504,90 @@ def create_auth_headers(user, tenant=None):
 
 
 # Direct async helper functions (not fixtures)
+
+async def ensure_rbac_seeds(db_session: AsyncSession):
+    """Ensure basic RBAC data (Resources, Actions, Templates) exists"""
+    from services.b2b.models.rbac import Resource, Action
+    from services.b2b.models.role_template import RoleTemplate
+    from sqlalchemy import select
+    from core.constants import B2BRoleName
+
+    # 1. Resources
+    # Must match resources.yaml
+    resources = [
+        ("users", True), 
+        ("roles", True), 
+        ("settings", True), 
+        ("audit_logs", True),
+        ("billing", True),
+        ("invoices", True),
+        ("teams", False),
+        ("team_members", False),
+        ("projects", False),
+        ("tasks", False),
+        ("comments", False)
+    ]
+    existing_res = await db_session.execute(select(Resource.name))
+    existing_res_names = set(existing_res.scalars().all())
+    
+    for name, is_system in resources:
+        if name not in existing_res_names:
+            db_session.add(Resource(
+                name=name,
+                display_name=name.replace('_', ' ').title(),
+                is_system_resource=is_system
+            ))
+    
+    # 2. Actions
+    actions = ["read", "write", "delete", "create", "admin", "invite", "manage", "export"]
+    existing_act = await db_session.execute(select(Action.name))
+    existing_act_names = set(existing_act.scalars().all())
+    
+    for a in actions:
+        if a not in existing_act_names:
+            db_session.add(Action(name=a, display_name=a.title()))
+            
+    # 3. Role Templates
+    # We need to ensure we cover: admin, owner, member, viewer
+    # Grant basic permissions to unblock tests
+    all_perms = [
+        {"resource": "users", "actions": ["read", "write", "create", "delete", "invite"]},
+        {"resource": "roles", "actions": ["read", "write", "create", "delete"]},
+        {"resource": "settings", "actions": ["read", "write"]},
+        {"resource": "audit_logs", "actions": ["read"]},
+        {"resource": "billing", "actions": ["read", "write", "manage"]},
+        {"resource": "teams", "actions": ["read", "write", "delete"]},
+        {"resource": "projects", "actions": ["read", "write", "delete"]},
+        {"resource": "tasks", "actions": ["read", "write", "delete"]},
+    ]
+    read_only = [
+        {"resource": "users", "actions": ["read"]},
+        {"resource": "roles", "actions": ["read"]},
+        {"resource": "settings", "actions": ["read"]},
+        {"resource": "projects", "actions": ["read"]},
+        {"resource": "tasks", "actions": ["read"]}
+    ]
+    
+    templates = {
+        "owner": {"is_default": True, "perms": all_perms}, 
+        "admin": {"is_default": True, "perms": all_perms},
+        "member": {"is_default": True, "perms": read_only},
+        "viewer": {"is_default": True, "perms": read_only},
+    }
+    
+    existing_tpl = await db_session.execute(select(RoleTemplate.name))
+    existing_tpl_names = set(existing_tpl.scalars().all())
+    
+    for name, config in templates.items():
+        if name not in existing_tpl_names:
+            db_session.add(RoleTemplate(
+                name=name,
+                display_name=name.title(),
+                is_default=config["is_default"],
+                permissions=config["perms"]
+            ))
+            
+    await db_session.flush()
 async def create_test_tenant(
     db_session: AsyncSession,
     name: str = "Test Company",
@@ -525,6 +616,9 @@ async def create_test_tenant(
     # Set tenant context for RLS before inserting tenant-scoped data
     from core.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
+    
+    # Ensure RBAC seeds exist (Global Templates)
+    await ensure_rbac_seeds(db_session)
     
     # Seed roles for this tenant using RoleTemplateService
     from services.b2b.services.role_template_service import role_template_service

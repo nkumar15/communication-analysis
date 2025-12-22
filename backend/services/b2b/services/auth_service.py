@@ -74,6 +74,9 @@ class AuthService:
                 response = await client.post(url, json=payload)
                 
                 if response.status_code != 200:
+                    from core.observability.metrics import increment_auth_failure
+                    increment_auth_failure(provider_id)
+                    
                     error_data = response.json()
                     error_msg = error_data.get('error', {}).get('message', 'Unknown error')
                     logger.warning("gcip_signin_failed", status=response.status_code, error=error_msg)
@@ -123,6 +126,9 @@ class AuthService:
                 }
                 
         except httpx.RequestError as e:
+            from core.observability.metrics import increment_auth_failure
+            increment_auth_failure(provider_id)
+            
             logger.error("gcip_network_error", error=str(e))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

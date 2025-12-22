@@ -10,8 +10,10 @@ from typing import Optional, List, Union, Dict, Any
 from datetime import datetime, timezone
 import logging
 
-from services.b2c.models.subscription import Coupon, CouponRedemption, Subscription
+from services.b2c.models.subscription import B2CCoupon as Coupon, B2CCouponRedemption as CouponRedemption, Subscription
 from services.b2c.models.user import B2CUser
+from core.payment import PaymentProviderFactory
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +76,14 @@ class CouponService:
     
     def __init__(self, db: AsyncSession):
         self.db = db
+        # Initialize Stripe provider (Defaulting to Stripe for coupon management for now)
+        self.provider = PaymentProviderFactory.create(
+            'stripe',
+            config={
+                'secret_key': settings.stripe_secret_key,
+                'webhook_secret': settings.stripe_webhook_secret,
+            }
+        )
     
     async def validate_coupon(
         self,
@@ -318,6 +328,30 @@ class CouponService:
             applicable_tiers=applicable_tiers,
             description=description
         )
+        
+        # 1. Create Stripe Coupon (optional in test mode)
+        try:
+            stripe_data = await self.provider.create_coupon(
+                duration='forever',
+                name=f"{code} ({description or 'B2C Coupon'})",
+                percent_off=float(discount_percent) if discount_percent else None,
+                amount_off=discount_amount_cents,
+                currency=currency.lower() if discount_amount_cents else None,
+                max_redemptions=max_redemptions,
+                redeem_by=int(valid_until.timestamp()) if valid_until else None,
+                metadata={'code': code}
+            )
+            coupon.provider_coupon_id = stripe_data['provider_coupon_id']
+            logger.info(f"Created Stripe coupon: {coupon.provider_coupon_id}")
+        except Exception as e:
+            logger.error(f"Failed to create Stripe coupon: {e}")
+            # In test mode or when Stripe is unavailable, use a test ID
+            import os
+            if os.getenv('TESTING') == 'true':
+                coupon.provider_coupon_id = f"test_coupon_{code.lower()}"
+                logger.warning(f"Using test provider_coupon_id: {coupon.provider_coupon_id}")
+            else:
+                raise ValueError(f"Failed to create provider coupon: {str(e)}")
         
         self.db.add(coupon)
         await self.db.flush()

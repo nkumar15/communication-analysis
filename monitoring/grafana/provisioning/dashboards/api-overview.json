@@ -381,7 +381,7 @@
                         "type": "prometheus",
                         "uid": "prometheus"
                     },
-                    "expr": "avg(rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m]))",
+                    "expr": "sum(rate(http_request_duration_seconds_sum[5m])) / sum(rate(http_request_duration_seconds_count[5m]))",
                     "legendFormat": "Avg Latency",
                     "refId": "A"
                 }

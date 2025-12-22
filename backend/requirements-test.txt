@@ -10,3 +10,4 @@ pytest-xdist==3.2.1
 # Static code analysis
 bandit==1.7.6  # Python security linter
 semgrep==1.55.0  # Multi-language static analysis
+locust==2.20.1  # Load testing

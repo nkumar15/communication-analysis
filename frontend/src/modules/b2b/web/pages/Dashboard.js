@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { TENANT_ROLES } from '../constants/roles';
 import apiService from '../../../../core/api/b2bClient';
 import firebaseAuthService from '../../../../core/firebase/authService';
 
@@ -113,7 +114,7 @@ function Dashboard() {
                 </div>
 
                 <div className="dashboard-content">
-                    {user.role === 'admin' && (
+                    {user.role === TENANT_ROLES.ADMIN && (
                         <div className="content-card" style={{
                             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                             color: 'white',

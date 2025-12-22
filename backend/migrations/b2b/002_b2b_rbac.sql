@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS b2b.resources (
     display_name VARCHAR(100) NOT NULL,
     category VARCHAR(50),
     description TEXT,
+    is_system_resource BOOLEAN NOT NULL DEFAULT false,  -- True = tenant-level, False = team-level
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );

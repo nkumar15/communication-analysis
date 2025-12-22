@@ -31,7 +31,15 @@ const RoleManagementPage = () => {
             setRoles(rolesData);
             setTemplates(templatesData);
             setResources(resourcesData);
-            setActions(actionsData);
+            // actionsData is { resources: [], actions: [] } or just [] depending on endpoint evolution
+            // Handle both structure for backwards compatibility
+            if (Array.isArray(actionsData)) {
+                setActions(actionsData);
+            } else if (actionsData && Array.isArray(actionsData.actions)) {
+                setActions(actionsData.actions);
+            } else {
+                setActions([]);
+            }
         } catch (e) {
             console.error('Failed to fetch data', e);
             setError('Unable to load roles');

@@ -2,12 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import firebaseAuthService from '../../../../core/firebase/authService';
 import apiService from '../../../../core/api/b2bClient';
+import useAuth from '../../../../core/hooks/useAuth';
 
 const UserProfileDropdown = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [user, setUser] = useState(null);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
+    const { canAccess } = useAuth();
 
     useEffect(() => {
         loadUser();
@@ -146,100 +148,108 @@ const UserProfileDropdown = () => {
                         </div>
                     </div>
 
-                    {/* Billing Menu */}
+                    {/* Billing & Settings Menu */}
                     <div style={{ padding: '8px 0', borderBottom: '1px solid #F3F4F6' }}>
-                        <button
-                            onClick={() => { navigate('/billing/subscription'); setIsOpen(false); }}
-                            style={{
-                                width: '100%',
-                                padding: '10px 16px',
-                                backgroundColor: 'white',
-                                border: 'none',
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                color: '#374151',
-                                fontWeight: '500',
-                                transition: 'background-color 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px'
-                            }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                        >
-                            <span>💳</span>
-                            <span>Subscription & Billing</span>
-                        </button>
-                        <button
-                            onClick={() => { navigate('/billing/invoices'); setIsOpen(false); }}
-                            style={{
-                                width: '100%',
-                                padding: '10px 16px',
-                                backgroundColor: 'white',
-                                border: 'none',
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                color: '#374151',
-                                fontWeight: '500',
-                                transition: 'background-color 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px'
-                            }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                        >
-                            <span>📄</span>
-                            <span>Invoices</span>
-                        </button>
-                        <button
-                            onClick={() => { navigate('/settings/account'); setIsOpen(false); }}
-                            style={{
-                                width: '100%',
-                                padding: '10px 16px',
-                                backgroundColor: 'white',
-                                border: 'none',
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                color: '#374151',
-                                fontWeight: '500',
-                                transition: 'background-color 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px'
-                            }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                        >
-                            <span>⚙️</span>
-                            <span>Account Settings</span>
-                        </button>
-                        <button
-                            onClick={() => { navigate('/audit-logs'); setIsOpen(false); }}
-                            style={{
-                                width: '100%',
-                                padding: '10px 16px',
-                                backgroundColor: 'white',
-                                border: 'none',
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                color: '#374151',
-                                fontWeight: '500',
-                                transition: 'background-color 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px'
-                            }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                        >
-                            <span>🔍</span>
-                            <span>Audit Logs</span>
-                        </button>
+                        {canAccess('billing') && (
+                            <button
+                                onClick={() => { navigate('/billing/subscription'); setIsOpen(false); }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    color: '#374151',
+                                    fontWeight: '500',
+                                    transition: 'background-color 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                            >
+                                <span>💳</span>
+                                <span>Subscription & Billing</span>
+                            </button>
+                        )}
+                        {canAccess('invoices') && (
+                            <button
+                                onClick={() => { navigate('/billing/invoices'); setIsOpen(false); }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    color: '#374151',
+                                    fontWeight: '500',
+                                    transition: 'background-color 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                            >
+                                <span>📄</span>
+                                <span>Invoices</span>
+                            </button>
+                        )}
+                        {canAccess('account') && (
+                            <button
+                                onClick={() => { navigate('/settings/account'); setIsOpen(false); }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    color: '#374151',
+                                    fontWeight: '500',
+                                    transition: 'background-color 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                            >
+                                <span>⚙️</span>
+                                <span>Account Settings</span>
+                            </button>
+                        )}
+                        {canAccess('audit_logs') && (
+                            <button
+                                onClick={() => { navigate('/audit-logs'); setIsOpen(false); }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    color: '#374151',
+                                    fontWeight: '500',
+                                    transition: 'background-color 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                            >
+                                <span>🔍</span>
+                                <span>Audit Logs</span>
+                            </button>
+                        )}
                     </div>
 
                     {/* Logout Button */}

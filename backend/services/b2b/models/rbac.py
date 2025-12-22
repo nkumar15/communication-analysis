@@ -1,6 +1,7 @@
 from core.models.base import Base, TimestampMixin
+from uuid import uuid4
 from sqlalchemy import Column, String, Boolean, Text, ForeignKey, Index, Integer, text, DateTime
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from .tenant import TenantModel
@@ -43,19 +44,24 @@ class Resource(Base, TimestampMixin):
     display_name = Column(String(100), nullable=False)  # 'Dashboard', 'User Management'
     category = Column(String(50))  # Group in UI: 'Administration', 'Core'
     description = Column(Text)
+    is_system_resource = Column(Boolean, default=False, nullable=False)  # True = tenant-level, False = team-level
     
     # Relationships
     permissions = relationship("RolePermission", back_populates="resource")
 
 
-class Action(Base, TimestampMixin):
-    """Generic actions that can be performed on resources"""
-    __tablename__ = "actions"
+class Action(Base):
+    """Action that can be performed on a resource"""
+    __tablename__ = 'actions'
     __table_args__ = {'schema': 'b2b'}
     
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    name = Column(String(50), unique=True, nullable=False)  # 'read', 'write', 'delete'
-    display_name = Column(String(100), nullable=False)  # 'View', 'Create/Edit', 'Delete'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name = Column(String(50), unique=True, nullable=False, index=True)
+    display_name = Column(String(100), nullable=False)
+    description = Column(Text)
+    applicable_resources = Column(JSONB, nullable=True)  # List of resource names this action applies to (null = all)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
     permissions = relationship("RolePermission", back_populates="action")

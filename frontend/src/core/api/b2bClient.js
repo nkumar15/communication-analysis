@@ -201,6 +201,24 @@ class ApiService {
         return response.json();
     }
 
+    // Generic DELETE request with auth headers
+    async delete(path) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'DELETE',
+            headers,
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`DELETE ${path} failed: ${response.status} - ${error}`);
+        }
+        // DELETE returns 204 No Content, so check for empty response
+        if (response.status === 204) {
+            return null;
+        }
+        return response.json();
+    }
+
     // Convenience methods for roles and projects
     async getRoles() {
         return this.get('/api/b2b/roles');
@@ -344,6 +362,13 @@ class ApiService {
             throw new Error(data.detail || 'Activation failed');
         }
         return response.json();
+    }
+
+    /**
+     * Create portal session
+     */
+    async createPortalSession(returnUrl) {
+        return this.post('/api/b2b/billing/portal', { return_url: returnUrl });
     }
 }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../../../../core/hooks/useAuth';
+import { TENANT_ROLES, getTenantRoleLabel } from '../../constants/roles';
 
 const Sidebar = () => {
     const navigate = useNavigate();
@@ -26,7 +27,15 @@ const Sidebar = () => {
 
         // Configuration
         { id: 'roles', label: 'Tenant Roles', icon: '🛡️', path: '/roles', feature: 'roles' },
-        { id: 'team-roles', label: 'Team Roles', icon: '🎯', path: '/team-roles', feature: 'roles' }
+        { id: 'team-roles', label: 'Team Roles', icon: '🎯', path: '/team-roles', feature: 'roles' },
+
+        // Billing & Account (Admin/Owner only)
+        { id: 'billing', label: 'Subscription & Billing', icon: '💳', path: '/billing', feature: 'billing' },
+        { id: 'invoices', label: 'Invoices', icon: '📄', path: '/invoices', feature: 'invoices' },
+        { id: 'account', label: 'Account Settings', icon: '⚙️', path: '/account', feature: 'account' },
+
+        // Security (Admin/Owner only)
+        { id: 'audit-logs', label: 'Audit Logs', icon: '📊', path: '/audit-logs', feature: 'audit_logs' }
     ];
 
     // Filter menu items based on user permissions
@@ -90,11 +99,9 @@ const Sidebar = () => {
                     </div>
                     {!isCollapsed && (
                         <div>
-                            <div style={{ fontWeight: '700', fontSize: '16px' }}>SSO Portal</div>
+                            <div style={{ fontWeight: '700', fontSize: '16px' }}>B2B SaaS App</div>
                             <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
-                                {user?.role === 'admin' ? 'Admin Panel' :
-                                    user?.role === 'field_manager' ? 'Manager Panel' :
-                                        'Agent Panel'}
+                                {getTenantRoleLabel(user?.role)}
                             </div>
                         </div>
                     )}

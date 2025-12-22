@@ -46,6 +46,7 @@ class InvoiceStatus(str, PyEnum):
     PAID = "paid"
     OVERDUE = "overdue"
     VOID = "void"
+    REFUNDED = "refunded"
 
 
 class PaymentModeRequestStatus(str, PyEnum):

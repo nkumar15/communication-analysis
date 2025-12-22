@@ -36,4 +36,5 @@ opentelemetry-sdk>=1.22.0
 opentelemetry-exporter-otlp>=1.22.0
 opentelemetry-instrumentation-fastapi>=0.43b0
 opentelemetry-instrumentation-sqlalchemy>=0.43b0
+sentry-sdk[fastapi,sqlalchemy,redis]>=1.40.0
 

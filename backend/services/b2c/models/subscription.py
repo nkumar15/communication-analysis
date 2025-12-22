@@ -109,6 +109,8 @@ class Invoice(Base):
     invoice_date = Column(TIMESTAMP(timezone=True))
     due_date = Column(TIMESTAMP(timezone=True))
     paid_at = Column(TIMESTAMP(timezone=True))
+    billing_period_start = Column(TIMESTAMP(timezone=True))
+    billing_period_end = Column(TIMESTAMP(timezone=True))
     
     # Timestamps
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
@@ -141,7 +143,7 @@ class SubscriptionEvent(Base):
     subscription = relationship("Subscription", back_populates="events")
 
 
-class Coupon(Base):
+class B2CCoupon(Base):
     __tablename__ = "coupons"
     __table_args__ = {"schema": "b2c"}
 
@@ -150,6 +152,7 @@ class Coupon(Base):
     # Coupon Details
     code = Column(String(50), unique=True, nullable=False)
     description = Column(Text)
+    provider_coupon_id = Column(String(255))
     
     # Discount
     discount_type = Column(String(20), nullable=False)
@@ -174,10 +177,10 @@ class Coupon(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    redemptions = relationship("CouponRedemption", back_populates="coupon")
+    redemptions = relationship("B2CCouponRedemption", back_populates="coupon")
 
 
-class CouponRedemption(Base):
+class B2CCouponRedemption(Base):
     __tablename__ = "coupon_redemptions"
     __table_args__ = {"schema": "b2c"}
 
@@ -193,5 +196,9 @@ class CouponRedemption(Base):
     redeemed_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     
     # Relationships
-    coupon = relationship("Coupon", back_populates="redemptions")
+    coupon = relationship("B2CCoupon", back_populates="redemptions")
     user = relationship("B2CUser", back_populates="coupon_redemptions")
+
+# Backward compatibility aliases
+Coupon = B2CCoupon
+CouponRedemption = B2CCouponRedemption

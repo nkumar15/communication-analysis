@@ -124,7 +124,7 @@ async def list_invitations(
     - Shows pending and accepted invitations
     """
     # Check permission
-    if not await has_permission(current_user['id'], 'invitations', 'read', db):
+    if not await has_permission(current_user['id'], 'users', 'read', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view invitations"
@@ -163,7 +163,7 @@ async def cancel_invitation(
     - Only pending invitations can be cancelled
     """
     # Check permission
-    if not await has_permission(current_user['id'], 'invitations', 'delete', db):
+    if not await has_permission(current_user['id'], 'users', 'invite', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to cancel invitations"
@@ -191,7 +191,7 @@ async def resend_invitation(
     - Only pending, non-expired invitations
     """
     # Check permission
-    if not await has_permission(current_user['id'], 'invitations', 'write', db):
+    if not await has_permission(current_user['id'], 'users', 'invite', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to resend invitations"

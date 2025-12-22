@@ -495,3 +495,54 @@ class TestInvitationFlow:
         
         assert team_member.team_role == "team_contributor"  # Default role
 
+    @pytest.mark.asyncio
+    async def test_accept_invitation_assigns_correct_role(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """Accepted invitation assigns the CORRECT role (Regression Fix)"""
+        from services.b2b.models import Role
+        
+        # Setup
+        tenant = await create_test_tenant(db_session)
+        invitation = await create_test_invitation(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"futureadmin@{tenant.domain}",
+            role=B2BRoleName.ADMIN
+        )
+        
+        # Accept
+        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+            uid="future-admin-uid",
+            email=f"futureadmin@{tenant.domain}",
+            email_verified=True,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
+        
+        response = await api_client.post(
+            f"/api/b2b/invitations/join?token={invitation.invitation_token}",
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        assert response.status_code == 200
+        
+        # Verify Role
+        from tests.conftest import set_tenant_context
+        await set_tenant_context(db_session, tenant.id)
+        
+        result = await db_session.execute(
+            select(UserModel).where(UserModel.email == f"futureadmin@{tenant.domain}")
+        )
+        user = result.scalar_one()
+        
+        # Check that role_id corresponds to ADMIN, not viewer
+        # We need to fetch the role name for this role_id
+        role_result = await db_session.execute(
+            select(Role).where(Role.id == user.role_id)
+        )
+        role = role_result.scalar_one()
+        
+        assert role.name == B2BRoleName.ADMIN
+        assert role.name != B2BRoleName.VIEWER
+

@@ -19,11 +19,14 @@ from .subscription import (
     PaymentModeRequestStatus
 )
 from .subscription_plan import B2BSubscriptionPlan
+from .coupon import B2BCoupon, B2BCouponRedemption
 
 # Backwards compatibility aliases
 Subscription = B2BSubscription
 Invoice = B2BInvoice
 SubscriptionEvent = B2BSubscriptionEvent
+Coupon = B2BCoupon
+CouponRedemption = B2BCouponRedemption
 
 
 __all__ = [
@@ -52,4 +55,8 @@ __all__ = [
     "InvoiceStatus",
     "PaymentModeRequestStatus",
     "B2BSubscriptionPlan",
+    "Coupon",
+    "CouponRedemption",
+    "B2BCoupon",
+    "B2BCouponRedemption",
 ]

@@ -23,6 +23,8 @@ class ActionResponse(BaseModel):
     id: UUID
     name: str
     display_name: str
+    description: Optional[str] = None
+    applicable_resources: Optional[List[str]] = None  # null = applies to all
     
     class Config:
         from_attributes = True

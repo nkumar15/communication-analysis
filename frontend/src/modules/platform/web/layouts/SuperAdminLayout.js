@@ -82,10 +82,23 @@ function SuperAdminLayout() {
                     </div>
 
                     <nav className="platform-nav">
+                        {/* Core */}
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Core
+                        </div>
                         <Link to="/dashboard" className={`platform-nav-item ${isActive('/dashboard') || location.pathname === '/' ? 'active' : ''}`}>
                             <span>📊 Dashboard</span>
                         </Link>
-                        {selectedProduct === 'b2b' && (
+                        <Link to="/analytics" className={`platform-nav-item ${isActive('/analytics') ? 'active' : ''}`}>
+                            <span>📈 Analytics</span>
+                        </Link>
+
+                        {/* Business */}
+                        <div className="my-2 border-t border-gray-700/50"></div>
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Business
+                        </div>
+                        {selectedProduct === 'b2b' ? (
                             <>
                                 <Link to="/tenants" className={`platform-nav-item ${isActive('/tenants') ? 'active' : ''}`}>
                                     <span>🏢 Tenants</span>
@@ -94,8 +107,7 @@ function SuperAdminLayout() {
                                     <span>💰 Plans</span>
                                 </Link>
                             </>
-                        )}
-                        {selectedProduct === 'b2c' && (
+                        ) : (
                             <>
                                 <Link to="/workspaces" className={`platform-nav-item ${isActive('/workspaces') ? 'active' : ''}`}>
                                     <span>📁 Workspaces</span>
@@ -105,30 +117,42 @@ function SuperAdminLayout() {
                                 </Link>
                             </>
                         )}
-                        <Link to="/analytics" className={`platform-nav-item ${isActive('/analytics') ? 'active' : ''}`}>
-                            <span>📈 Analytics</span>
+
+                        {/* Billing */}
+                        <div className="my-2 border-t border-gray-700/50"></div>
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Billing
+                        </div>
+                        <Link to="/billing" className={`platform-nav-item ${isActive('/billing') && !isActive('/billing/coupons') ? 'active' : ''}`}>
+                            <span>💳 Overview</span>
                         </Link>
+                        <Link to="/billing/coupons" className={`platform-nav-item ${isActive('/billing/coupons') ? 'active' : ''}`}>
+                            <span>🎟️ Coupons</span>
+                        </Link>
+
+                        {/* System */}
+                        <div className="my-2 border-t border-gray-700/50"></div>
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            System
+                        </div>
                         <Link to="/system-health" className={`platform-nav-item ${isActive('/system-health') ? 'active' : ''}`}>
-                            <span>🏥 System Health</span>
+                            <span>🏥 Health</span>
                         </Link>
                         <Link to="/audit-logs" className={`platform-nav-item ${isActive('/audit-logs') ? 'active' : ''}`}>
                             <span>📋 Audit Logs</span>
                         </Link>
 
-                        <div className="my-2 border-t border-gray-700"></div>
-                        <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        {/* Management */}
+                        <div className="my-2 border-t border-gray-700/50"></div>
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                             Management
                         </div>
-
                         <Link to="/roles" className={`platform-nav-item ${isActive('/roles') ? 'active' : ''}`}>
                             <span>🛡️ Roles</span>
                         </Link>
                         <Link to="/users" className={`platform-nav-item ${isActive('/users') ? 'active' : ''}`}>
                             <span>👥 Users</span>
                         </Link>
-
-                        <div className="my-2 border-t border-gray-700"></div>
-
                         <Link to="/settings" className={`platform-nav-item ${isActive('/settings') ? 'active' : ''}`}>
                             <span>⚙️ Settings</span>
                         </Link>

@@ -1,22 +1,39 @@
 # B2B RBAC Actions
 # These are universal actions that can be performed on resources
-# Format: name, display_name
+# applicable_resources: list of resource names (null/empty = applies to all resources)
 
 actions:
   - name: read
     display_name: View
+    description: View and read access
+    # No applicable_resources = applies to all resources
   
   - name: write
     display_name: Create/Edit
+    description: Create and edit access
+    # No applicable_resources = applies to all resources
   
   - name: delete
     display_name: Delete
+    description: Delete and remove access
+    # No applicable_resources = applies to all resources
   
   - name: invite
     display_name: Invite Users
+    description: Invite new users to the system
+    applicable_resources: [users]  # Only for users resource
   
   - name: export
     display_name: Export Data
+    description: Export data in various formats
+    applicable_resources: [projects, tasks, comments, reports, analytics, audit_logs, invoices]
   
   - name: manage
     display_name: Full Management
+    description: Complete management and configuration access
+    applicable_resources: [billing, security, integrations, webhooks, api_keys]
+  
+  - name: admin
+    display_name: Administrative
+    description: Administrative control and management
+    applicable_resources: [roles, teams, team_members]

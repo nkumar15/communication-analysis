@@ -15,6 +15,8 @@ import AuditLogsPage from './web/pages/AuditLogsPage';
 import SystemHealthPage from './web/pages/SystemHealthPage';
 import PlanManagementPage from './web/pages/PlanManagementPage';
 import B2BPlanManagementPage from './web/pages/B2BPlanManagementPage';
+import BillingPage from './web/pages/BillingPage';
+import BillingCouponsPage from './web/pages/BillingCouponsPage';
 import RolesPage from './pages/RolesPage';
 import UsersPage from './pages/UsersPage';
 import PlatformLogin from './web/pages/LoginPage';
@@ -63,6 +65,8 @@ function PlatformApp() {
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="/plans" element={<PlanManagementPage />} />
                         <Route path="/b2b-plans" element={<B2BPlanManagementPage />} />
+                        <Route path="/billing" element={<BillingPage />} />
+                        <Route path="/billing/coupons" element={<BillingCouponsPage />} />
                     </Route>
                 </Route>
 

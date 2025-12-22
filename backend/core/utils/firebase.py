@@ -29,9 +29,39 @@ class FirebaseAuthService:
         Raises:
             ValueError: If token is invalid
         """
+
+
+        
+        # MOCK AUTH BYPASS (For Load Testing/Local Dev only)
+        if settings.log_environment in ["local", "development"]:
+            try:
+                # Check for mock signature format from utils.encode_mock_jwt
+                # format: header.payload.signature
+                parts = id_token.split(".")
+                if len(parts) == 3 and parts[2] == "mock_signature":
+                    import json
+                    import base64
+                    
+                    # Store payload parts
+                    payload_segment = parts[1]
+                    
+                    # Add padding if needed
+                    pad = len(payload_segment) % 4
+                    if pad > 0:
+                        payload_segment += "=" * (4 - pad)
+                        
+                    # Decode payload
+                    payload = json.loads(base64.urlsafe_b64decode(payload_segment))
+                    return payload
+            except Exception:
+                # Fallthrough to real verification if anything fails
+                pass
+
         try:
             # Firebase Admin SDK has built-in 5-minute clock skew tolerance
-            decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=50)
+            from core.observability.metrics import record_token_validation
+            with record_token_validation(provider="firebase"):
+                decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=50)
             return decoded_token
         except Exception as e:
             raise ValueError(f"Invalid token: {str(e)}")

@@ -88,6 +88,37 @@ class B2CWorkspaceClient {
         return response.json();
     }
 
+    /**
+     * Get user billing profile
+     */
+    async getBillingProfile() {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2c/billing/profile`, {
+            method: 'GET',
+            headers,
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch billing profile');
+        }
+        return response.json();
+    }
+
+    /**
+     * Update user billing profile
+     */
+    async updateBillingProfile(data) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2c/billing/profile`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to update billing profile');
+        }
+        return response.json();
+    }
+
     // ============================================================================
     // Workspace Management
     // ============================================================================

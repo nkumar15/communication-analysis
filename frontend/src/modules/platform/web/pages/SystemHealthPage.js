@@ -168,7 +168,7 @@ function SystemHealthPage() {
 
             {/* Service Status */}
             <div className="platform-card" style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', color: '#E5E7EB' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', color: '#111827' }}>
                     Services Status
                 </h2>
                 <div style={{
@@ -181,7 +181,7 @@ function SystemHealthPage() {
                             key={service}
                             style={{
                                 padding: '16px',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                backgroundColor: '#F9FAFB',
                                 borderRadius: '8px',
                                 border: `1px solid ${data.status === 'healthy' ? '#10B98130' : '#EF444430'}`
                             }}
@@ -195,7 +195,7 @@ function SystemHealthPage() {
                                 <span style={{
                                     fontSize: '14px',
                                     fontWeight: '600',
-                                    color: '#E5E7EB',
+                                    color: '#374151',
                                     textTransform: 'capitalize'
                                 }}>
                                     {service.replace(/_/g, ' ')}
@@ -213,7 +213,7 @@ function SystemHealthPage() {
                                 {data.status}
                             </div>
                             {data.response_time && (
-                                <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>
+                                <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px' }}>
                                     Response: {data.response_time}ms
                                 </div>
                             )}
@@ -224,7 +224,7 @@ function SystemHealthPage() {
 
             {/* Platform Metrics */}
             <div className="platform-card" style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', color: '#E5E7EB' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', color: '#111827' }}>
                     Platform Metrics (Last 24 Hours)
                 </h2>
                 <div style={{
@@ -233,7 +233,7 @@ function SystemHealthPage() {
                     gap: '20px'
                 }}>
                     <div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>
                             Tenant Activation Rate
                         </div>
                         <div style={{ fontSize: '24px', fontWeight: '700', color: '#10B981' }}>
@@ -241,7 +241,7 @@ function SystemHealthPage() {
                         </div>
                     </div>
                     <div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>
                             Failed Login Attempts
                         </div>
                         <div style={{ fontSize: '24px', fontWeight: '700', color: '#F59E0B' }}>
@@ -249,7 +249,7 @@ function SystemHealthPage() {
                         </div>
                     </div>
                     <div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>
                             Subscription Failures
                         </div>
                         <div style={{ fontSize: '24px', fontWeight: '700', color: '#EF4444' }}>
@@ -257,7 +257,7 @@ function SystemHealthPage() {
                         </div>
                     </div>
                     <div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>
                             Email Delivery Rate
                         </div>
                         <div style={{ fontSize: '24px', fontWeight: '700', color: '#10B981' }}>
@@ -265,7 +265,7 @@ function SystemHealthPage() {
                         </div>
                     </div>
                     <div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>
                             Active API Keys
                         </div>
                         <div style={{ fontSize: '24px', fontWeight: '700', color: '#6366F1' }}>
@@ -278,7 +278,7 @@ function SystemHealthPage() {
             {/* Recent Errors */}
             <div className="platform-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#E5E7EB', margin: 0 }}>
+                    <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: 0 }}>
                         Recent Application Errors
                     </h2>
                     <button
@@ -288,7 +288,7 @@ function SystemHealthPage() {
                             borderRadius: '6px',
                             border: '1px solid #6366F1',
                             backgroundColor: 'transparent',
-                            color: '#A78BFA',
+                            color: '#6366F1',
                             fontSize: '13px',
                             fontWeight: '500',
                             cursor: 'pointer'
@@ -301,7 +301,7 @@ function SystemHealthPage() {
                 {errors.length > 0 ? (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr style={{ borderBottom: '2px solid #374151' }}>
+                            <tr style={{ borderBottom: '2px solid #E5E7EB' }}>
                                 <th style={styles.th}>Time</th>
                                 <th style={styles.th}>Service</th>
                                 <th style={styles.th}>Severity</th>
@@ -311,14 +311,14 @@ function SystemHealthPage() {
                         </thead>
                         <tbody>
                             {errors.map((error) => (
-                                <tr key={error.id} style={{ borderBottom: '1px solid #374151' }}>
+                                <tr key={error.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
                                     <td style={styles.td}>
-                                        <span style={{ fontSize: '13px', color: '#9CA3AF' }}>
+                                        <span style={{ fontSize: '13px', color: '#6B7280' }}>
                                             {formatTimestamp(error.timestamp)}
                                         </span>
                                     </td>
                                     <td style={styles.td}>
-                                        <span style={{ fontWeight: '500' }}>{error.service}</span>
+                                        <span style={{ fontWeight: '500', color: '#374151' }}>{error.service}</span>
                                     </td>
                                     <td style={styles.td}>
                                         <span style={{
@@ -334,7 +334,7 @@ function SystemHealthPage() {
                                         </span>
                                     </td>
                                     <td style={styles.td}>
-                                        <span style={{ fontSize: '13px' }}>{error.message}</span>
+                                        <span style={{ fontSize: '13px', color: '#374151' }}>{error.message}</span>
                                     </td>
                                     <td style={styles.td}>
                                         <button
@@ -344,7 +344,7 @@ function SystemHealthPage() {
                                                 borderRadius: '4px',
                                                 border: '1px solid #6366F1',
                                                 backgroundColor: 'transparent',
-                                                color: '#A78BFA',
+                                                color: '#6366F1',
                                                 fontSize: '12px',
                                                 cursor: 'pointer'
                                             }}
@@ -357,7 +357,7 @@ function SystemHealthPage() {
                         </tbody>
                     </table>
                 ) : (
-                    <div style={{ textAlign: 'center', padding: '40px', color: '#9CA3AF' }}>
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
                         No recent errors - all systems running smoothly! 🎉
                     </div>
                 )}
@@ -372,14 +372,14 @@ const styles = {
         padding: '12px 16px',
         fontSize: '12px',
         fontWeight: '600',
-        color: '#9CA3AF',
+        color: '#6B7280',
         textTransform: 'uppercase',
         letterSpacing: '0.5px'
     },
     td: {
         padding: '14px 16px',
         fontSize: '14px',
-        color: '#E5E7EB'
+        color: '#374151'
     }
 };
 

@@ -12,14 +12,73 @@ from core.database import get_db
 from services.b2b.middleware import get_current_active_user
 from services.b2b.rbac.decorators import require_permission
 from services.b2b.services.team_role_service import team_role_service
+from services.b2b.services.role_service import role_service  # For resources/actions
 from services.b2b.schemas.team_roles import (
     TeamRoleCreate,
     TeamRoleUpdate,
     TeamRoleResponse
 )
+from services.b2b.schemas.roles import ResourceResponse
+from services.b2b.schemas.actions_all import ActionsAllResponse
 
 
 router = APIRouter(prefix="/api/b2b/team-roles", tags=["team-roles"])
+
+
+@router.get("/resources", response_model=List[ResourceResponse])
+async def list_resources(
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List team-level resources only (excludes system resources).
+    
+    Used by frontend to build team role permission matrix.
+    Only shows resources where is_system_resource = false.
+    """
+    from sqlalchemy import select, false
+    from services.b2b.models.rbac import Resource
+    
+    stmt = select(Resource).where(
+        Resource.is_system_resource == false()
+    ).order_by(Resource.display_name)
+    
+    result = await db.execute(stmt)
+    resources = result.scalars().all()
+    
+    return resources
+
+
+@router.get("/actions", response_model=ActionsAllResponse)
+async def list_actions(
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all actions and team-level resources for permission matrix.
+    
+    Used by frontend to build permission selection UI.
+    Only returns resources where is_system_resource = false.
+    """
+    from sqlalchemy import select, false
+    from services.b2b.models.rbac import Resource
+    
+    # Get team-level resources only
+    stmt = select(Resource).where(
+        Resource.is_system_resource == false()
+    ).order_by(Resource.display_name)
+    
+    result = await db.execute(stmt)
+    resources = result.scalars().all()
+    
+    # Get all actions
+    actions = await role_service.get_all_actions(db)
+    
+    return {
+        "resources": resources,
+        "actions": actions
+    }
+
 
 
 @router.get("", response_model=List[TeamRoleResponse])
