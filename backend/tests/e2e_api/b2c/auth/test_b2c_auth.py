@@ -16,7 +16,7 @@ async def test_signup_creates_user_and_workspace(api_client: AsyncClient, db_ses
     mock_token_data = create_b2c_mock_token(firebase_uid, email, email_verified=True)
     
     # Mock Firebase token verification
-    with patch('core.utils.firebase.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('infrastructure.auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.post(
             "/api/b2c/auth/signup",
             json={
@@ -52,7 +52,7 @@ async def test_signup_requires_verified_email(api_client: AsyncClient, db_sessio
     firebase_uid = f"firebase-{uuid4().hex[:12]}"
     mock_token_data = create_b2c_mock_token(firebase_uid, email, email_verified=False)
     
-    with patch('core.utils.firebase.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('infrastructure.auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.post(
             "/api/b2c/auth/signup",
             json={"id_token": "mock_token"}
@@ -75,7 +75,7 @@ async def test_signup_prevents_duplicate_users(api_client: AsyncClient, db_sessi
     # Try to signup with same email
     mock_token_data = create_b2c_mock_token(existing_uid, existing_email, email_verified=True)
     
-    with patch('core.utils.firebase.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('infrastructure.auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.post(
             "/api/b2c/auth/signup",
             json={"id_token": "mock_token"}
@@ -100,7 +100,7 @@ async def test_login_existing_user(api_client: AsyncClient, db_session):
     # Login
     mock_token_data = create_b2c_mock_token(firebase_uid, email, email_verified=True)
     
-    with patch('core.utils.firebase.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('infrastructure.auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.post(
             "/api/b2c/auth/login",
             json={"id_token": "mock_token"}
@@ -122,7 +122,7 @@ async def test_login_creates_user_on_first_time(api_client: AsyncClient, db_sess
     firebase_uid = f"firebase-{uuid4().hex[:12]}"
     mock_token_data = create_b2c_mock_token(firebase_uid, email, email_verified=True)
     
-    with patch('core.utils.firebase.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
+    with patch('infrastructure.auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=mock_token_data)):
         response = await api_client.post(
             "/api/b2c/auth/login",
             json={"id_token": "mock_token"}

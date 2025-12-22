@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any
-from core.utils.firebase import firebase_auth_service
+from infrastructure.auth import firebase_auth_service
 
 
 # Bearer token scheme

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from core.config import settings
 from core.database import init_db, close_db, engine
-from core.utils.firebase import firebase_auth_service
+from infrastructure.auth import firebase_auth_service
 
 # Import logging
 from core.logging.config import setup_logging, get_logger

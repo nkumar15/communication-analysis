@@ -52,7 +52,7 @@ async def signup(
     Auto-creates personal workspace
     Requires verified Firebase ID token
     """
-    from core.utils.firebase import firebase_auth_service
+    from infrastructure.auth import firebase_auth_service
     
     # Verify Firebase token
     try:
@@ -105,7 +105,7 @@ async def login(
     
     Idempotent: Creates user+workspace on first login if needed
     """
-    from core.utils.firebase import firebase_auth_service
+    from infrastructure.auth import firebase_auth_service
     
     # Verify Firebase token
     try:

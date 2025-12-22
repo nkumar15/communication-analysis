@@ -34,7 +34,7 @@ class AuthService:
         from fastapi import HTTPException, status
         from core.config import settings
         from services.b2b.services.tenant_service import tenant_service
-        from core.utils.firebase import firebase_auth_service
+        from infrastructure.auth import firebase_auth_service
         import httpx
         
         logger.info("mobile_login_started", 

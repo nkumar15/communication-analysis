@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
     setup_observability(app, service_name="b2b-api", sqlalchemy_engine=engine)
     
     # Startup: Initialize Firebase
-    from core.utils.firebase import firebase_auth_service
+    from infrastructure.auth import firebase_auth_service
     firebase_auth_service.initialize()
 
     yield

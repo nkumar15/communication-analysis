@@ -15,7 +15,7 @@ from services.b2b.schemas.auth import (
 )
 from services.b2b.schemas.user import TeamMembership
 from services.b2b.services.auth_service import auth_service
-from core.utils.firebase import firebase_auth_service
+from infrastructure.auth import firebase_auth_service
 from core.middleware import get_current_user
 from core.database import get_db
 from core.logging import get_logger

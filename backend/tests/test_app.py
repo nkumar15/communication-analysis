@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from core.config import settings
 from core.database import init_db, close_db
-from core.utils.firebase import firebase_auth_service
+from infrastructure.auth import firebase_auth_service
 
 # Import ALL routers for testing
 from services.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles

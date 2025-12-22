@@ -259,7 +259,7 @@ async def join_tenant(
     
     This endpoint handles new users who just completed SSO login
     """
-    from core.utils.firebase import firebase_auth_service
+    from infrastructure.auth import firebase_auth_service
     
     # Bypass RLS to find invitation globally
     await rls_service.set_platform_admin_context(db)
