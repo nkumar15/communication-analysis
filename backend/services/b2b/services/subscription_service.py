@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 import logging
 
-from core.payment import PaymentProviderFactory
+from infrastructure.payment import PaymentProviderFactory
 from core.config import settings
 from services.b2b.models import (
     Subscription,
@@ -25,7 +25,7 @@ from services.b2b.models import (
 from services.b2b.models.user import UserModel
 from services.b2b.models.rbac import Role
 from services.b2b.services.coupon_service import B2BCouponService
-from core.email import email_service
+from infrastructure.email import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +289,7 @@ class SubscriptionService:
         logger.info(f"✅ Subscription activated: {subscription.id} (tier: {tier.value}, seats: {seat_count})")
         
         # Metric
-        from core.observability.metrics import increment_subscription_event
+        from infrastructure.monitoring.metrics import increment_subscription_event
         increment_subscription_event(event_type='subscription_activated', plan=tier.value)
         
         # Send confirmation email to tenant owner
@@ -422,7 +422,7 @@ class SubscriptionService:
             logger.info(f"Seat count updated: {subscription.id} ({old_seat_count} → {new_seat_count})")
             
             # Metric
-            from core.observability.metrics import increment_subscription_event
+            from infrastructure.monitoring.metrics import increment_subscription_event
             increment_subscription_event(event_type='seat_count_updated', plan=subscription.tier)
 
         
@@ -493,7 +493,7 @@ class SubscriptionService:
         await self.db.commit()
         
         # Metric
-        from core.observability.metrics import increment_subscription_event
+        from infrastructure.monitoring.metrics import increment_subscription_event
         increment_subscription_event(event_type='subscription_canceled', plan=subscription.tier)
         
         return subscription

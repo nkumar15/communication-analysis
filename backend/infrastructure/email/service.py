@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from core.email.providers import get_provider, EmailProvider
+from infrastructure.email.providers import get_provider, EmailProvider
 
 
 class EmailService:

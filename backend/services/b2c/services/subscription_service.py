@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, Union
 from datetime import datetime, timezone
 import logging
 
-from core.payment import PaymentProviderFactory
+from infrastructure.payment import PaymentProviderFactory
 from core.config import settings
 from services.b2c.models.subscription import Subscription, Invoice, PaymentMethod
 from services.b2c.models.subscription_plan import SubscriptionPlan

@@ -24,7 +24,7 @@ from services.b2b.schemas.invitation import (
     InvitationListResponse
 )
 from services.b2b.rbac import has_permission
-from core.email import email_service
+from infrastructure.email import email_service
 from core.config import settings
 from core.rls import rls_service
 from services.b2b.utils.csv_parser import BulkInviteCSVParser

@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from core.config import settings
 from core.utils import get_utc_now
-from core.email import email_service
+from infrastructure.email import email_service
 from core.utils.firebase import firebase_auth_service
 from core.constants import B2BRoleName
 from services.b2b.models import TenantModel, AuthProvider, InvitationModel

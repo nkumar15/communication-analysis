@@ -27,7 +27,7 @@ from services.b2c.services.coupon_service import (
     CouponMaxRedemptionsError,
     CouponNotApplicableError
 )
-from core.payment import PaymentProviderFactory
+from infrastructure.payment import PaymentProviderFactory
 from core.config import settings
 from pydantic import BaseModel
 

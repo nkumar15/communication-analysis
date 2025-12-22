@@ -12,7 +12,7 @@ import logging
 
 from services.b2c.models.subscription import B2CCoupon as Coupon, B2CCouponRedemption as CouponRedemption, Subscription
 from services.b2c.models.user import B2CUser
-from core.payment import PaymentProviderFactory
+from infrastructure.payment import PaymentProviderFactory
 from core.config import settings
 
 logger = logging.getLogger(__name__)

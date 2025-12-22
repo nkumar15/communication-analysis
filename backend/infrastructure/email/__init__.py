@@ -10,7 +10,7 @@ Configuration via EMAIL_PROVIDER env var:
 - console: Print to stdout only
 
 Example:
-    from core.email import email_service
+    from infrastructure.email import email_service
     
     email_service.send_activation_email(
         to_email="user@example.com",
@@ -19,8 +19,8 @@ Example:
         expires_at=datetime.now()
     )
 """
-from core.email.service import EmailService, email_service
-from core.email.providers import (
+from infrastructure.email.service import EmailService, email_service
+from infrastructure.email.providers import (
     EmailProvider,
     MailhogProvider,
     ResendProvider,

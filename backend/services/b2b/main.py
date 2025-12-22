@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from core.config import settings
 from core.database import init_db, engine
 from core.logging.config import setup_logging, get_logger
-from core.observability.config import setup_observability
+from infrastructure.monitoring.config import setup_observability
 from core.logging.middleware import LoggingMiddleware
 
 # Import B2B routers

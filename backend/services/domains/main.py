@@ -14,7 +14,7 @@ from core.utils.firebase import firebase_auth_service
 
 # Import logging
 from core.logging.config import setup_logging, get_logger
-from core.observability.config import setup_observability
+from infrastructure.monitoring.config import setup_observability
 from core.logging.middleware import LoggingMiddleware
 
 # Get logger for this module

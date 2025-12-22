@@ -85,7 +85,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
                 await rls_service.set_tenant_context(session, UUID(tenant_id))
             
             # Record pool metrics
-            from core.observability.metrics import record_db_pool_metrics
+            from infrastructure.monitoring.metrics import record_db_pool_metrics
             # Access underlying pool stats (async engine wraps sync pool)
             pool = engine.sync_engine.pool
             record_db_pool_metrics(pool.size(), pool.checkedout())
@@ -115,7 +115,7 @@ async def close_db():
 # Metrics Instrumentation
 from sqlalchemy import event
 import time
-from core.observability.metrics import record_db_query_duration
+from infrastructure.monitoring.metrics import record_db_query_duration
 
 @event.listens_for(engine.sync_engine, "before_cursor_execute")
 def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):

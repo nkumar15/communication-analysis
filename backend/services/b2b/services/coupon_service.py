@@ -17,7 +17,7 @@ from services.b2b.models import (
     B2BSubscription, 
     TenantModel
 )
-from core.payment import PaymentProviderFactory
+from infrastructure.payment import PaymentProviderFactory
 from core.config import settings
 
 logger = logging.getLogger(__name__)

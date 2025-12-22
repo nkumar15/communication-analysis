@@ -74,7 +74,7 @@ class AuthService:
                 response = await client.post(url, json=payload)
                 
                 if response.status_code != 200:
-                    from core.observability.metrics import increment_auth_failure
+                    from infrastructure.monitoring.metrics import increment_auth_failure
                     increment_auth_failure(provider_id)
                     
                     error_data = response.json()
@@ -126,7 +126,7 @@ class AuthService:
                 }
                 
         except httpx.RequestError as e:
-            from core.observability.metrics import increment_auth_failure
+            from infrastructure.monitoring.metrics import increment_auth_failure
             increment_auth_failure(provider_id)
             
             logger.error("gcip_network_error", error=str(e))
