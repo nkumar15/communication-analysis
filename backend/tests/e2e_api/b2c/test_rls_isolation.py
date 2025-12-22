@@ -20,7 +20,7 @@ from tests.conftest import (
 )
 from services.b2c.models.subscription import Subscription, Invoice, PaymentMethod, CouponRedemption, Coupon
 from services.b2c.models.workspace import Workspace
-from core.rls import rls_service
+from core.db.rls import rls_service
 
 
 # ============================================================================

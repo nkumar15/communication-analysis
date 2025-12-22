@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from uuid import UUID
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2b.rbac import require_permission
 from services.domains.projects.schemas.comments import CommentCreate, CommentUpdate, CommentResponse, CommentResponseWithReplies
 from services.domains.projects.services.comments import (

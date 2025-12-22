@@ -10,7 +10,7 @@ from sqlalchemy import select, text
 from typing import Dict, Any
 
 from core.middleware.auth import get_current_user
-from core.database import get_db, current_tenant_id
+from core.db.session import get_db, current_tenant_id
 from services.b2b.models import UserModel, Role
 
 
@@ -63,7 +63,7 @@ async def get_current_active_user(
     # 2. Set RLS Context
     # Now valid queries to private tables (users, teams) will work
     current_tenant_id.set(str(tenant.id))
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db, tenant.id)
 
     # 3. Lookup User (RLS Enabled)

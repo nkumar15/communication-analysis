@@ -13,7 +13,7 @@ from io import StringIO
 import csv
 from datetime import datetime, timezone
 
-from core.database import get_db
+from core.db.session import get_db
 from core.middleware import get_current_user
 from services.b2b.middleware import get_current_active_user
 from services.b2b.services.invitation_service import invitation_service
@@ -26,7 +26,7 @@ from services.b2b.schemas.invitation import (
 from services.b2b.rbac import has_permission
 from infrastructure.email import email_service
 from core.config import settings
-from core.rls import rls_service
+from core.db.rls import rls_service
 from services.b2b.utils.csv_parser import BulkInviteCSVParser
 from workers.b2b_worker.email_tasks import send_bulk_invitation_emails, send_invitation_email
 from services.b2b.models import UserModel

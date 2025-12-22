@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from datetime import datetime, timedelta, timezone
 import secrets
 
-from core.database import get_db
+from core.db.session import get_db
 from services.platform.middleware.platform_auth import verify_platform_admin, RequirePlatformPermission
 from services.platform.models import PlatformInvitation, InvitationStatus, PlatformRole
 

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from uuid import UUID
 from typing import List
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2b.middleware import get_current_active_user
 from services.b2b.rbac import has_permission, can_manage_team, is_team_manager
 from services.b2b.schemas.team import (

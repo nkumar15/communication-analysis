@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, TIMESTAMP, 
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.models.base import Base
+from core.db.base import Base
 
 class B2BCoupon(Base):
     __tablename__ = "coupons"

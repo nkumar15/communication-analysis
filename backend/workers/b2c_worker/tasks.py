@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 
 from workers.b2c_worker.celery_app import app
-from core.database import SessionLocal
+from core.db.session import SessionLocal
 
 from core.config import settings
 from services.b2c.models.user import B2CUser

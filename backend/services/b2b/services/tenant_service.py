@@ -204,7 +204,7 @@ class TenantService:
         """
         from fastapi import HTTPException, status
         from services.b2b.services.invitation_service import invitation_service
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         from datetime import datetime, timezone
         
         # Get tenant by activation token
@@ -305,7 +305,7 @@ class TenantService:
         from fastapi import HTTPException, status
         from services.b2b.services.invitation_service import invitation_service
         from services.b2b.services.user_service import user_service
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         from core.constants import B2BRoleName
         from datetime import datetime, timezone, timedelta
         from sqlalchemy import select
@@ -397,7 +397,7 @@ class TenantService:
         Returns dict with status, message, user_created
         """
         from services.b2b.services.invitation_service import invitation_service
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         from sqlalchemy import select
         from services.b2b.models import UserModel
         

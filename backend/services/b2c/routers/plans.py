@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from typing import List
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2c.models.subscription_plan import SubscriptionPlan
 from services.platform.schemas.plan_schemas import PlanResponse
 from datetime import datetime, timezone

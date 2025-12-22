@@ -1,4 +1,4 @@
-from core.models.base import Base
+from core.db.base import Base
 from sqlalchemy import Column, String, ForeignKey, text, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func

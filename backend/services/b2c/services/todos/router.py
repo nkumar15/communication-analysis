@@ -5,7 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2c.middleware.b2c_auth import get_current_b2c_user
 from services.b2c.services.todos.service import todo_service
 

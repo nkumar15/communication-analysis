@@ -1,4 +1,4 @@
-from core.models.base import Base, TimestampMixin
+from core.db.base import Base, TimestampMixin
 from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, text
 from sqlalchemy.dialects.postgresql import UUID
 import enum

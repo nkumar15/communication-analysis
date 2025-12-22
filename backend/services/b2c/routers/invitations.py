@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from uuid import UUID
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2c.middleware.b2c_auth import get_current_b2c_user
 from services.b2c.services.invitation_service import invitation_service
 from services.b2c.services.workspace_service import workspace_service
@@ -47,7 +47,7 @@ async def invite_user(
     Sends invitation email with acceptance link
     """
     try:
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_user_context(db, str(current_user['id']))
@@ -114,7 +114,7 @@ async def list_pending_invitations(
     Requires owner or admin role
     """
     try:
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_user_context(db, str(current_user['id']))
@@ -151,7 +151,7 @@ async def get_invitation(
     Used to display invitation details before acceptance
     """
     try:
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set platform admin context to bypass RLS for public invitation lookup
         await rls_service.set_platform_admin_context(db)
@@ -187,7 +187,7 @@ async def accept_invitation(
     Adds user as workspace member
     """
     try:
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_user_context(db, str(current_user['id']))
@@ -225,7 +225,7 @@ async def cancel_invitation(
     Only inviter or workspace admin/owner can cancel
     """
     try:
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_user_context(db, str(current_user['id']))
@@ -263,7 +263,7 @@ async def resend_invitation(
     Only inviter or workspace admin/owner
     """
     try:
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_user_context(db, str(current_user['id']))

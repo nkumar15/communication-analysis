@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2c.middleware.b2c_auth import get_current_b2c_user
 from services.b2c.services.workspace_service import workspace_service
 from services.b2c.services.auth_service import auth_service
@@ -89,7 +89,7 @@ async def create_workspace(
         from sqlalchemy import select
         from services.b2c.models.user import B2CUser
         from services.b2c.models.workspace import Workspace
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_user_context(db, str(current_user['id']))

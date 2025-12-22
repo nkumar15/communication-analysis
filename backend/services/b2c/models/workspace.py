@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, UUID, DateTime, text, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-from core.models.base import Base, TimestampMixin
+from core.db.base import Base, TimestampMixin
 import enum
 
 class WorkspaceType(str, enum.Enum):

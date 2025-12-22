@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, JSON, TIMESTAMP, ForeignKey, func, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
-from core.models.base import Base
+from core.db.base import Base
 
 class B2BSubscriptionPlan(Base):
     __tablename__ = "subscription_plans"

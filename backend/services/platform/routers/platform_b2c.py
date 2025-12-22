@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from pydantic import BaseModel
 
-from core.database import get_db
-from core.database import get_db
+from core.db.session import get_db
+from core.db.session import get_db
 from services.platform.middleware.platform_auth import verify_platform_admin
 from services.b2c.models.subscription_plan import SubscriptionPlan
 from services.platform.schemas.plan_schemas import PlanCreate, PlanResponse, PlanUpdate

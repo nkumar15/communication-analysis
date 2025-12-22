@@ -15,7 +15,7 @@ from services.b2c.models.subscription import Invoice, Subscription
 @pytest.mark.asyncio
 async def test_sync_invoice_with_periods(db_session):
     """Test syncing invoice with top-level period_start and period_end"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_platform_admin_context(db_session)
     
     # Mock data
@@ -52,7 +52,7 @@ async def test_sync_invoice_with_periods(db_session):
 @pytest.mark.asyncio
 async def test_sync_invoice_fallback_to_lines(db_session):
     """Test syncing invoice extracting period from lines"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_platform_admin_context(db_session)
     
     period_start = int(time.time())

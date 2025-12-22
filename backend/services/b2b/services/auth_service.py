@@ -282,7 +282,7 @@ class AuthService:
         from services.b2b.services.tenant_service import tenant_service
         from services.b2b.services.user_service import user_service
         from services.b2b.models import InvitationModel
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         from core.constants import B2BRoleName
         from services.b2b.rbac import get_user_permissions
         from services.b2b.models.team import Team

@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from core.config import settings
-from core.database import init_db, engine
+from core.db.session import init_db, engine
 from infrastructure.logging.config import setup_logging, get_logger
 from infrastructure.monitoring.config import setup_observability
 from infrastructure.logging.middleware import LoggingMiddleware

@@ -23,7 +23,7 @@ from sqlalchemy import select, or_
 @pytest_asyncio.fixture
 async def rls_service():
     """Provide RLS service for tests"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     return rls_service
 
 

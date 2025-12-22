@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import logging
 import stripe
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2b.middleware.b2b_auth import get_current_active_user
 from services.b2b.rbac.decorators import require_permission
 from services.b2b.services.subscription_service import SubscriptionService
@@ -381,7 +381,7 @@ async def stripe_webhook(
         invoice_service = InvoiceService(db)
         
         # Set platform admin context to bypass RLS for system operations (like B2C does)
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         await rls_service.set_platform_admin_context(db)
         
         if event_type == 'checkout.session.completed':

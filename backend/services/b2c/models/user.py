@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, UUID, DateTime, text, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from core.models.base import Base, TimestampMixin
+from core.db.base import Base, TimestampMixin
 
 class B2CUser(Base, TimestampMixin):
     """

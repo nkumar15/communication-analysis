@@ -75,7 +75,7 @@ async def test_b2c_stats_with_actual_data(
     db_session: AsyncSession
 ):
     """Test B2C stats endpoint returns correct counts when B2C data exists"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     
     # Create a B2C user and workspace
     email = f"b2cuser-{uuid4().hex[:8]}@test.com"
@@ -126,7 +126,7 @@ async def test_b2c_stats_bypasses_rls(
     This test ensures the SECURITY DEFINER function works correctly.
     Without it, platform admin would see 0 counts (RLS blocks access).
     """
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     
     # Create user A
     user_a = await create_b2c_user(
@@ -177,7 +177,7 @@ async def test_b2c_stats_excludes_soft_deleted(
     db_session: AsyncSession
 ):
     """Verify stats only count non-deleted B2C records"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     from datetime import datetime, timezone
     
     # Create user and workspace

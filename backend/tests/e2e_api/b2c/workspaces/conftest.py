@@ -15,7 +15,7 @@ from tests.conftest import (
 from services.b2c.models.workspace import Workspace, WorkspaceType
 from services.b2c.models.workspace_member import WorkspaceMember
 from services.b2c.models.workspace_invitation import WorkspaceInvitation
-from core.rls import rls_service
+from core.db.rls import rls_service
 
 
 @pytest_asyncio.fixture

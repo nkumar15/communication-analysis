@@ -8,7 +8,7 @@ from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, TIMESTAMP, 
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.models.base import Base
+from core.db.base import Base
 
 
 # ============================================================================

@@ -11,7 +11,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from services.b2b.models import UserModel, TenantModel, InvitationModel
-from core.rls import rls_service
+from core.db.rls import rls_service
 from core.constants import B2BRoleName
 from datetime import datetime, timedelta, timezone
 import secrets

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from core.config import settings
-from core.database import init_db, close_db
+from core.db.session import init_db, close_db
 from infrastructure.auth import firebase_auth_service
 
 # Import ALL routers for testing

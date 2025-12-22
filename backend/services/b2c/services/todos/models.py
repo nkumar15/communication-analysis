@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
-from core.models.base import Base, TimestampMixin
+from core.db.base import Base, TimestampMixin
 
 class B2CTodo(Base, TimestampMixin):
     """B2C Todo Item - Implements the Workspace Container Pattern"""

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Union, Dict, Any
 from uuid import UUID
 
-from core.database import get_db
+from core.db.session import get_db
 # from core.auth.jwt import get_current_active_user  # REMOVED: invalid module and unused
 from services.platform.middleware.platform_auth import verify_platform_admin
 

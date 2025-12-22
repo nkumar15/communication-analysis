@@ -11,7 +11,7 @@ from uuid import uuid4
 from unittest.mock import patch
 
 from services.b2b.models import TenantModel, UserModel, InvitationModel
-from core.rls import rls_service
+from core.db.rls import rls_service
 from core.constants import B2BRoleName
 from tests.conftest import (
     create_test_user,

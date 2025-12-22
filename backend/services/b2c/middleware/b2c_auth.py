@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from core.database import get_db
+from core.db.session import get_db
 from infrastructure.auth import firebase_auth_service
 from services.b2c.models.user import B2CUser
 from infrastructure.logging import get_logger
@@ -60,7 +60,7 @@ async def get_current_b2c_user(
         )
     
     # Set RLS context FIRST so we can query the user object
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_user_context(db, user_id)
     
     # Now fetch user details (RLS allowed)

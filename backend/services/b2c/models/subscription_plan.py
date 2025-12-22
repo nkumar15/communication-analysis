@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Text, DateTime, func, Integer
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from core.models.base import Base
+from core.db.base import Base
 
 class SubscriptionPlan(Base):
     """

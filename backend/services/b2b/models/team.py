@@ -1,4 +1,4 @@
-from core.models.base import Base, TimestampMixin, SoftDeleteMixin
+from core.db.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship

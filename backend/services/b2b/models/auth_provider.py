@@ -4,7 +4,7 @@ Auth Provider ORM Model for B2B Tenants
 Tracks authentication providers (OIDC, SAML, Google, Microsoft, etc.) 
 configured for each B2B tenant.
 """
-from core.models.base import Base, TimestampMixin, SoftDeleteMixin
+from core.db.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, ForeignKey, text, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship

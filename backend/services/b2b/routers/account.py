@@ -5,7 +5,7 @@ Manage tenant account settings (name, logo, etc.)
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2b.middleware import get_current_active_user
 from services.b2b.models import TenantModel
 from services.b2b.schemas.account import AccountSettingsResponse, AccountSettingsUpdate

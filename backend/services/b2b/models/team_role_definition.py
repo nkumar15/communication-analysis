@@ -8,7 +8,7 @@ from sqlalchemy import Column, String, Text, Boolean, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import text
 
-from core.models.base import Base, TimestampMixin
+from core.db.base import Base, TimestampMixin
 
 
 class TeamRoleDefinition(Base, TimestampMixin):

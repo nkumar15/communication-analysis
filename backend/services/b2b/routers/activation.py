@@ -17,7 +17,7 @@ from services.b2b.schemas.activation import (
     SSOSetupRequest,
     SSOSetupResponse
 )
-from core.database import get_db
+from core.db.session import get_db
 from core.middleware import get_current_user
 
 

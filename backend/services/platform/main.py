@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from core.config import settings
-from core.database import init_db, close_db, engine
+from core.db.session import init_db, close_db, engine
 from infrastructure.auth import firebase_auth_service
 
 # Import logging
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     # Startup: Initialize Observability (Tracing, Metrics)
-    # Note: Platform API currently uses sync DB for some parts and 'engine' from 'core.database'
+    # Note: Platform API currently uses sync DB for some parts and 'engine' from 'core.db.session'
     setup_observability(app, service_name="platform-api", sqlalchemy_engine=engine)
     
     firebase_auth_service.initialize()

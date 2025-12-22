@@ -88,7 +88,7 @@ class TestWorkspaceRLSIsolation:
         self, api_client: AsyncClient, workspace_owner, db_session
     ):
         """Verify RLS context is set on all API calls"""
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Set context for workspace_owner
         await rls_service.set_user_context(db_session, workspace_owner['user'].id)
@@ -118,7 +118,7 @@ class TestWorkspaceRLSIsolation:
         self, api_client: AsyncClient, workspace_with_members, workspace_owner, db_session
     ):
         """Users can only see members of workspaces they belong to"""
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # workspace_owner (not a member) cannot query workspace members
         await rls_service.set_user_context(db_session, workspace_owner['user'].id)
@@ -152,7 +152,7 @@ class TestWorkspaceRLSIsolation:
     ):
         """Users can only see invitations to their email or in their workspaces"""
         from services.b2c.models.workspace_invitation import WorkspaceInvitation
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # workspace_owner (not in workspace) cannot see invitation
         await rls_service.set_user_context(db_session, workspace_owner['user'].id)
@@ -191,7 +191,7 @@ class TestWorkspaceRLSIsolation:
         assert response.status_code == 204
         
         # Verify members are also deleted (CASCADE)
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         await rls_service.set_user_context(db_session, premium_workspace_owner['user'].id)
         
         result = await db_session.execute(

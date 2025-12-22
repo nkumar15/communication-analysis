@@ -3,7 +3,7 @@ Auth Provider ORM Model for Platform
 
 Tracks authentication providers configured for platform administrators.
 """
-from core.models.base import Base, TimestampMixin, SoftDeleteMixin
+from core.db.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, ForeignKey, text, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship

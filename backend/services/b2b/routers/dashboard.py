@@ -4,7 +4,7 @@ Dashboard Router - Role-aware dashboard statistics
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2b.middleware import get_current_active_user
 from services.b2b.schemas.dashboard import DashboardStats
 from services.b2b.services.dashboard_service import dashboard_service

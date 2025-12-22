@@ -11,7 +11,7 @@ from services.b2c.models.workspace_member import WorkspaceMember
 from services.b2c.models.user import B2CUser
 from services.b2c.services.quota_service import quota_service
 from infrastructure.logging import get_logger
-from core.rls import rls_service
+from core.db.rls import rls_service
 
 logger = get_logger(__name__)
 

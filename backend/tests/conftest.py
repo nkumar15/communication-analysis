@@ -18,8 +18,8 @@ import secrets
 
 # Import app components
 from tests.test_app import app  # Unified test app with all routers
-from core.database import get_db
-from core.models.base import Base
+from core.db.session import get_db
+from core.db.base import Base
 from core.config import settings
 from core.utils import get_utc_now
 
@@ -57,7 +57,7 @@ class TenantAwareSession:
         Note: SET LOCAL is transaction-scoped, so we re-set it for each execute()
         to handle cases where transactions have been committed/rolled back.
         """
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         await rls_service.set_tenant_context(self._session, self._tenant_id)
     
     async def execute(self, *args, **kwargs):
@@ -144,7 +144,7 @@ async def api_client(db_session):
         #
         # For B2C: The auth middleware SETS the context, and we need to PRESERVE it.
         # Check if context is already set (B2C case) and don't clear it.
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         from sqlalchemy import text
         
         # Check if RLS context is already set (B2C auth middleware sets it)
@@ -379,7 +379,7 @@ async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
         result = await db_session.execute(select(Team).where(Team.id == team_id))
         team = result.scalar_one()
     """
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
 
 
@@ -614,7 +614,7 @@ async def create_test_tenant(
     await db_session.refresh(tenant)
     
     # Set tenant context for RLS before inserting tenant-scoped data
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
     
     # Ensure RBAC seeds exist (Global Templates)
@@ -757,7 +757,7 @@ async def create_test_user(
     
     # Set RLS context for this user's tenant FIRST
     # This is CRITICAL because the role query below requires RLS context
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
     
     # Get role by slug (now with RLS context set)
@@ -795,7 +795,7 @@ async def create_test_invitation(
     from sqlalchemy import text
     
     # Set RLS context for invitation creation
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
     
     invitation = InvitationModel(

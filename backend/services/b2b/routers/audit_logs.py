@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import csv
 import io
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2b.rbac.decorators import require_permission, require_role
 from services.b2b.models.audit_log import AuditLog
 from services.b2b.schemas.audit_logs import AuditLogList, AuditLogResponse

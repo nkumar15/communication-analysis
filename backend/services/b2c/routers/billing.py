@@ -12,7 +12,7 @@ from typing import Optional
 import logging
 import stripe
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2c.middleware.b2c_auth import get_current_b2c_user
 from services.b2c.models.user import B2CUser
 from services.b2c.models.workspace import Workspace
@@ -395,7 +395,7 @@ async def stripe_webhook(
     """
     import stripe
     from core.config import settings
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     
     # Set platform admin context to bypass RLS for system operations
     await rls_service.set_platform_admin_context(db)

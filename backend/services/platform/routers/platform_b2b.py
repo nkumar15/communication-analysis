@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from core.database import get_db
+from core.db.session import get_db
 from core.config import settings
 from core.constants import PlatformRoleName
 from services.platform.middleware.platform_auth import verify_platform_admin, log_platform_action, RequirePlatformPermission
@@ -79,7 +79,7 @@ async def get_b2b_stats(
     _: dict = Depends(RequirePlatformPermission("tenants", "read"))
 ):
     """Get B2B platform statistics (enterprise tenants)"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_platform_admin_context(db)
     
     total_tenants = await db.scalar(
@@ -119,7 +119,7 @@ async def list_tenants(
     _: dict = Depends(RequirePlatformPermission("tenants", "read"))
 ):
     """List all B2B tenants with basic stats"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_platform_admin_context(db)
     
     query = select(TenantModel).where(TenantModel.deleted_at.is_(None))
@@ -238,7 +238,7 @@ async def impersonate_tenant_admin(
     """Generate impersonation token for a tenant's admin user"""
     import jwt
     from core.constants import B2BRoleName
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     
     await rls_service.set_platform_admin_context(db)
     
@@ -325,7 +325,7 @@ async def onboard_tenant(
 ):
     """Full B2B tenant onboarding workflow"""
     try:
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         await rls_service.set_platform_admin_context(db)
         
         result = await tenant_onboarding_service.onboard_tenant(
@@ -362,7 +362,7 @@ async def get_tenant_details(
     _: dict = Depends(RequirePlatformPermission("tenants", "read"))
 ):
     """Get detailed B2B tenant information"""
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_platform_admin_context(db)
     
     tenant = await db.get(TenantModel, tenant_id)

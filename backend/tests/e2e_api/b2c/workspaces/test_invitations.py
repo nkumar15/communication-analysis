@@ -97,7 +97,7 @@ class TestWorkspaceInvitations:
         """User can accept invitation with matching email"""
         # Create user with matching email
         from tests.conftest import create_b2c_user, create_b2c_mock_token, encode_mock_jwt
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         firebase_uid = f"firebase-{uuid4().hex[:12]}"
         user = await create_b2c_user(
@@ -158,7 +158,7 @@ class TestWorkspaceInvitations:
     ):
         """Expired invitations cannot be viewed or accepted"""
         from services.b2c.models.workspace_invitation import WorkspaceInvitation
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         await rls_service.set_user_context(db_session, premium_workspace_owner['user'].id)
         
@@ -198,7 +198,7 @@ class TestWorkspaceInvitations:
         # Verify invitation is soft deleted (As admin to bypass visibility restrictions)
         from sqlalchemy import select
         from services.b2c.models.workspace_invitation import WorkspaceInvitation
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         await rls_service.set_platform_admin_context(db_session)
         
@@ -228,7 +228,7 @@ class TestWorkspaceInvitations:
     ):
         """Cancelled invitations cannot be accepted"""
         from datetime import datetime
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         
         # Cancel invitation
         await rls_service.set_user_context(db_session, workspace_invitation['inviter']['user'].id)

@@ -10,7 +10,7 @@ import click
 # Add backend directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.database import AsyncSessionLocal
+from core.db.session import AsyncSessionLocal
 from infrastructure.auth import firebase_auth_service
 from services.platform.services.tenant_onboarding_service import tenant_onboarding_service
 
@@ -41,7 +41,7 @@ async def create_tenant_async(
     async with AsyncSessionLocal() as db:
         try:
             # Explicitly set platform admin context to ensure RLS bypass works
-            from core.rls import rls_service
+            from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             result = await tenant_onboarding_service.onboard_tenant(
@@ -82,7 +82,7 @@ async def create_local_async(
 
     async with AsyncSessionLocal() as db:
         try:
-            from core.rls import rls_service
+            from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             # Call service with optional ID params to skip external calls
@@ -248,7 +248,7 @@ async def resend_activation_async(tenant_id, domain):
     
     async with AsyncSessionLocal() as db:
         try:
-            from core.rls import rls_service
+            from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             # Find tenant by ID or domain

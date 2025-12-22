@@ -7,7 +7,7 @@ from functools import wraps
 from fastapi import HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.b2b.middleware import get_current_active_user
-from core.database import get_db
+from core.db.session import get_db
 from .permission_checker import has_permission, get_user_role_name
 
 

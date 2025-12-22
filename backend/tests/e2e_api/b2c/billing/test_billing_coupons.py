@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from services.b2c.models.subscription import CouponRedemption
-from core.rls import rls_service
+from core.db.rls import rls_service
 
 
 @pytest.mark.asyncio

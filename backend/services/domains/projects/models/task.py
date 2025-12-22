@@ -2,7 +2,7 @@
 from sqlalchemy import Column, String, Text, ForeignKey, Date, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from core.models.base import Base, TimestampMixin, SoftDeleteMixin
+from core.db.base import Base, TimestampMixin, SoftDeleteMixin
 
 
 class Task(Base, TimestampMixin, SoftDeleteMixin):

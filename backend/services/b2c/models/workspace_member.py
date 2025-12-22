@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, UUID, DateTime, ForeignKey, text
-from core.models.base import Base
+from core.db.base import Base
 
 class WorkspaceMember(Base):
     """

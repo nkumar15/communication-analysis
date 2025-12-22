@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 
-from core.database import get_db
+from core.db.session import get_db
 from services.platform.middleware.platform_auth import verify_platform_admin
 from services.platform.models import PlatformTenant, PlatformUser, PlatformRole
 

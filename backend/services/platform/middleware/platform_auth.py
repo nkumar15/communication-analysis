@@ -13,7 +13,7 @@ from sqlalchemy import select
 from infrastructure.auth import firebase_auth_service
 from services.platform.models import PlatformUser, PlatformRole, PlatformAuditLog
 from core.utils import get_utc_now
-from core.database import get_db
+from core.db.session import get_db
 from datetime import datetime
 from typing import Optional
 

@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
 
-from core.database import get_db
+from core.db.session import get_db
 from services.b2b.middleware import get_current_active_user
 from core.constants import B2BRoleName
 from services.b2b.services.auth_provider_service import auth_provider_service

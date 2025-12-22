@@ -14,7 +14,7 @@ from tests.conftest import (
     encode_mock_jwt
 )
 from services.b2c.models.subscription import Subscription, Coupon, CouponRedemption, Invoice
-from core.rls import rls_service
+from core.db.rls import rls_service
 
 
 @pytest_asyncio.fixture

@@ -6,7 +6,7 @@ from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
 
-from core.database import get_db
+from core.db.session import get_db
 from services.platform.middleware.platform_auth import verify_platform_admin, RequirePlatformPermission
 from services.platform.models import PlatformRole, PlatformPermission
 

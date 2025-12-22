@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 from services.b2c.models.subscription import Subscription
-from core.rls import rls_service
+from core.db.rls import rls_service
 
 
 @pytest.mark.asyncio

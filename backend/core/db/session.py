@@ -80,7 +80,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             tenant_id = current_tenant_id.get()
             if tenant_id:
                 # Set PostgreSQL session variable for RLS policies
-                from core.rls import rls_service
+                from core.db.rls import rls_service
                 from uuid import UUID
                 await rls_service.set_tenant_context(session, UUID(tenant_id))
             

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
-from core.models.base import Base
+from core.db.base import Base
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"

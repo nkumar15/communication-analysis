@@ -5,7 +5,7 @@ Background tasks for automated invoice generation, seat count updates, and email
 """
 from celery import shared_task
 from workers.b2b_worker.celery_app import celery_app
-from core.database import AsyncSessionLocal
+from core.db.session import AsyncSessionLocal
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
 from uuid import UUID

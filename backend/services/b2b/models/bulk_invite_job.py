@@ -10,7 +10,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
 
-from core.models.base import Base
+from core.db.base import Base
 
 
 class BulkInviteJob(Base):
