@@ -299,12 +299,12 @@ test: ## Run all tests
 
 test-coverage: ## Run tests with code coverage report
 	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=services --cov=core --cov-report=term-missing --cov-report=html:coverage_html
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=modules --cov=core --cov-report=term-missing --cov-report=html:coverage_html
 	@echo "$(GREEN)✓ Coverage report generated in backend/coverage_html/$(NC)"
 
 test-coverage-xml: ## Run tests with coverage (XML for CI)
 	@echo "$(BLUE)Running tests with coverage (XML)...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=services --cov=core --cov-report=xml:coverage.xml
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=modules --cov=core --cov-report=xml:coverage.xml
 	@echo "$(GREEN)✓ Coverage XML generated$(NC)"
 
 test-env: ## Validate environment configuration
@@ -360,7 +360,7 @@ sast-scan-containers: ## Run Trivy vulnerability scan on Docker images
 
 security-update-npm: ## Fix npm vulnerabilities identified by Trivy scan
 	@echo "$(BLUE)Applying security updates to npm packages...$(NC)"
-	@./scripts/security-update-npm.sh
+	@./ops/scripts/security-update-npm.sh
 	@echo "$(GREEN)✓ Security updates applied. Rebuild frontend with: docker-compose build frontend$(NC)"
 
 ##@ DAST (Dynamic Application Security Testing)

@@ -38,7 +38,7 @@ services:
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - postgres
-    command: uvicorn services.b2b.main:app --host 0.0.0.0 --port 9000 --reload
+    command: uvicorn modules.b2b.main:app --host 0.0.0.0 --port 9000 --reload
 
   # B2B Worker - Celery Background Tasks
   b2b-worker:
@@ -133,7 +133,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.b2b.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn modules.b2b.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Platform Microservice - Admin Operations
   platform-api:
@@ -162,7 +162,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.platform.main:app --host 0.0.0.0 --port 8001 --reload
+    command: uvicorn modules.platform.main:app --host 0.0.0.0 --port 8001 --reload
 
   # B2C Microservice - Workspace Management
   b2c-api:
@@ -191,7 +191,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.b2c.main:app --host 0.0.0.0 --port 8002 --reload
+    command: uvicorn modules.b2c.main:app --host 0.0.0.0 --port 8002 --reload
 
   #  Domain Microservice - Domain Logic
   domain-api:
@@ -220,7 +220,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.domains.main:app --host 0.0.0.0 --port 8003 --reload
+    command: uvicorn modules.domains.main:app --host 0.0.0.0 --port 8003 --reload
 
   # Redis - Message Broker for ARQ Background Tasks
   redis:
@@ -256,7 +256,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - b2b-api
       - platform-api
@@ -313,7 +313,7 @@ services:
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/consoles
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     restart: unless-stopped
 
   # Grafana - Metrics Visualization
@@ -327,7 +327,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
