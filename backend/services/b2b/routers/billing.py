@@ -430,6 +430,8 @@ async def stripe_webhook(
 # Billing Profile Endpoints
 # ============================================================================
 
+
+
 class BillingProfileResponse(BaseModel):
     tax_id: Optional[str] = None
     vat_number: Optional[str] = None
@@ -452,11 +454,26 @@ async def get_billing_profile(
     tenant = await db.get(TenantModel, tenant_id)
     if not tenant:
         raise HTTPException(404, "Tenant not found")
+    
+    # helper to extract address string from JSONB
+    addr_str = None
+    if tenant.billing_address:
+        if isinstance(tenant.billing_address, dict):
+             # Try to find common keys or return dumped string? 
+             # Let's assume we want a single string field 'text' or fallback
+             addr_str = tenant.billing_address.get('text', '') or tenant.billing_address.get('address', '')
+             if not addr_str and tenant.billing_address:
+                 # If dict is not empty but no key match, convert values to string? 
+                 # Or just return empty string to clear the error.
+                 # Let's return empty string if structure is unknown to allow user to overwrite in UI
+                 pass
+        elif isinstance(tenant.billing_address, str):
+            addr_str = tenant.billing_address
         
     return BillingProfileResponse(
         tax_id=tenant.tax_id,
         vat_number=tenant.vat_number,
-        billing_address=tenant.billing_address,
+        billing_address=addr_str,
         billing_email=tenant.billing_email
     )
 
@@ -475,14 +492,23 @@ async def update_billing_profile(
     # Update fields if provided (allow empty string to clear?)
     if payload.tax_id is not None: tenant.tax_id = payload.tax_id
     if payload.vat_number is not None: tenant.vat_number = payload.vat_number
-    if payload.billing_address is not None: tenant.billing_address = payload.billing_address
+    
+    if payload.billing_address is not None: 
+        # Store as structured JSON
+        tenant.billing_address = {"text": payload.billing_address}
+        
     if payload.billing_email is not None: tenant.billing_email = payload.billing_email
     
     await db.commit()
+    
+    addr_str = None
+    if tenant.billing_address and isinstance(tenant.billing_address, dict):
+        addr_str = tenant.billing_address.get('text')
+
     return BillingProfileResponse(
-         tax_id=tenant.tax_id,
+        tax_id=tenant.tax_id,
         vat_number=tenant.vat_number,
-        billing_address=tenant.billing_address,
+        billing_address=addr_str,
         billing_email=tenant.billing_email
     )
 
