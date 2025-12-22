@@ -380,9 +380,24 @@ const SubscriptionPage = () => {
                             </div>
                         </div>
                         <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#EFF6FF', borderLeft: '4px solid #3B82F6', borderRadius: '6px' }}>
-                            <span style={{ fontSize: '13px', color: '#1E40AF' }}>
+                            <span style={{ fontSize: '13px', color: '#1E40AF', display: 'block', marginBottom: '12px' }}>
                                 ℹ️ Payment method is managed securely via Stripe.
                             </span>
+                            <button
+                                onClick={handleManageBilling}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #3B82F6',
+                                    backgroundColor: 'white',
+                                    color: '#3B82F6',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Open Billing Portal
+                            </button>
                         </div>
                     </div>
                 ) : (
