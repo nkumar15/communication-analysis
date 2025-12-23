@@ -1,6 +1,8 @@
 import firebaseAuthService from '../firebase/authService';
 
-const API_BASE_URL = 'http://localhost:8000';
+// Use environment variable for production, empty string for dev/test (uses webpack proxy)
+// Set REACT_APP_API_URL in production to point to your backend
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 class ApiService {
     /**

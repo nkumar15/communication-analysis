@@ -997,49 +997,30 @@ async def async_page():
 async def authenticated_b2b_page(async_page, b2b_test_setup):
     """
     Fixture that provides an authenticated Async Playwright page for B2B.
-    It uses the LoginPage POM to handle authentication.
+    Uses mock JWT backdoor for fast, reliable testing without Firebase network calls.
     """
-    from firebase_admin import auth
     from .e2e_browser.pages.b2b.login_page import LoginPage
     
     # Allow overriding base URL for Docker environments
     base_url = os.getenv("BASE_URL", "http://localhost:3000")
     
-    user = b2b_test_setup["admin"]
-    tenant = b2b_test_setup["tenant"]
-    
-    # Mint Custom Token
-    custom_token = auth.create_custom_token(user.firebase_uid, developer_claims={
-        "tenant": tenant.firebase_tenant_id
-    }).decode('utf-8')
+    # Get the mock JWT token from the test setup
+    mock_jwt = b2b_test_setup["token"]
     
     # Use LoginPage POM
     login_page = LoginPage(async_page, base_url)
     await login_page.navigate()
     
-    # Inject token
-    await async_page.evaluate(f"localStorage.setItem('custom_token', '{custom_token}')")
+    # Use the POM's mock JWT login method (no Firebase network calls)
+    await login_page.login_with_mock_jwt(mock_jwt)
     
-    # Reload and wait for network to be idle (important for token processing)
-    await async_page.reload(wait_until="networkidle")
-    
-    # Wait for redirect to dashboard (can take time due to Firebase init + backend sync)
-    try:
-        await async_page.wait_for_url("**/dashboard", timeout=30000)
-    except:
-        # Debugging info
-        current_url = async_page.url
-        print(f"Current URL: {current_url}")
-        
+    # Verify we're no longer on login page
+    if "/login" in async_page.url:
+        # Still on login page - auth failed
+        error_msg = ""
         if await async_page.locator(".error-message").count() > 0:
-            error = await async_page.locator('.error-message').text_content()
-            print(f"Login Error: {error}")
+            error_msg = await async_page.locator('.error-message').text_content()
         
-        # Check if still on login page
-        page_content = await async_page.content()
-        if "Enterprise SSO Portal" in page_content:
-            print("Still on login page - token may not have processed")
-        
-        pytest.fail(f"Failed to redirect to dashboard after custom token injection. Current URL: {current_url}")
+        pytest.fail(f"Failed to redirect to dashboard after mock JWT injection. Current URL: {async_page.url}. Error: {error_msg}")
         
     return async_page

@@ -156,6 +156,13 @@ class FirebaseAuthService {
      * @param {boolean} forceRefresh - Force token refresh (useful after just signing in)
      */
     async getIdToken(forceRefresh = false) {
+        // E2E Test Backdoor: Return mock JWT if present
+        const e2eToken = sessionStorage.getItem('firebaseToken');
+        if (e2eToken && e2eToken.includes('mock_signature')) {
+            console.log('🧪 E2E: Returning mock JWT for API call');
+            return e2eToken;
+        }
+
         const user = this.auth.currentUser;
         if (!user) {
             console.error('❌ No current user when getting ID token');

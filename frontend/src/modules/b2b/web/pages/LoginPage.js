@@ -10,7 +10,22 @@ function LoginPage() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // E2E Test Backdoor (Same matches B2C implementation)
+        // E2E Test Backdoor #1: Mock JWT (NO Firebase - fastest)
+        const mockJWT = localStorage.getItem('e2e_mock_jwt');
+        if (mockJWT) {
+            console.log('🧪 E2E Backdoor: Found mock JWT, bypassing Firebase auth...');
+            localStorage.removeItem('e2e_mock_jwt');
+
+            // Store in sessionStorage for the auth service to use
+            sessionStorage.setItem('firebaseToken', mockJWT);
+            console.log('✅ E2E Backdoor: Mock JWT stored, navigating to dashboard...');
+
+            // Navigate immediately
+            navigate('/');
+            return;
+        }
+
+        // E2E Test Backdoor #2: Firebase Custom Token (requires network)
         const customToken = localStorage.getItem('custom_token');
         if (customToken) {
             console.log('🧪 E2E Backdoor: Found custom token, logging in...');

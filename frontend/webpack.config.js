@@ -82,6 +82,7 @@ module.exports = {
         hot: true,
         historyApiFallback: true,
         open: true,
+        allowedHosts: process.env.NODE_ENV === 'production' ? undefined : 'all',  // Allow Docker in dev only
         proxy: {
             '/api': {
                 target: PORTAL === 'b2c'
