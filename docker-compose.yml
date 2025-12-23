@@ -249,6 +249,63 @@ services:
       - "8025:8025" # Web UI
     restart: unless-stopped
 
+  # B2B Frontend - Web UI for Tenants
+  frontend-b2b:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: sso_frontend_b2b
+    environment:
+      - PORTAL=b2b
+      - REACT_APP_API_URL=http://b2b-api:8000
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Don't mount node_modules from host
+    depends_on:
+      - b2b-api
+    restart: unless-stopped
+
+  # B2C Frontend - Web UI for Workspaces
+  frontend-b2c:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: sso_frontend_b2c
+    environment:
+      - PORTAL=b2c
+      - REACT_APP_API_URL=http://b2c-api:8002
+      - NODE_ENV=development
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - b2c-api
+    restart: unless-stopped
+
+  # Platform Frontend - Admin UI
+  frontend-platform:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: sso_frontend_platform
+    environment:
+      - PORTAL=platform
+      - REACT_APP_API_URL=http://platform-api:8001
+      - NODE_ENV=development
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - platform-api
+    restart: unless-stopped
+
   # API Gateway - Routes requests to all microservices
   nginx:
     image: nginx:alpine
@@ -279,21 +336,18 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-      # Frontend (running on HOST machine) - use host.docker.internal
-      # Note: extra_hosts below makes this work on Linux
-      - FRONTEND_URL=http://host.docker.internal:3000
-      - FRONTEND_URL_B2B=http://host.docker.internal:3000
-      - FRONTEND_URL_B2C=http://host.docker.internal:3001
-      - FRONTEND_URL_PLATFORM=http://host.docker.internal:3002
-      - BASE_URL=http://host.docker.internal:3000
-    extra_hosts:
-      # Make host.docker.internal work on Linux (maps to host machine)
-      - "host.docker.internal:host-gateway"
+      # Frontend services (now in Docker) - use internal service names
+      - FRONTEND_URL=http://frontend-b2b:3000
+      - FRONTEND_URL_B2B=http://frontend-b2b:3000
+      - FRONTEND_URL_B2C=http://frontend-b2c:3001
+      - FRONTEND_URL_PLATFORM=http://frontend-platform:3002
+      - BASE_URL=http://frontend-b2b:3000
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - b2b-api
+      - frontend-b2b
     command: python -m pytest tests/e2e_browser -v
 
   # Jaeger - Distributed Tracing
