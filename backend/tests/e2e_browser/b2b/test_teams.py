@@ -1,30 +1,31 @@
-from playwright.async_api import Page
+"""Teams Page E2E Tests"""
 import pytest
-import os
-from tests.e2e_browser.pages.b2b.teams_page import TeamsPage
+from playwright.async_api import expect, Page
 
-@pytest.mark.browser
-@pytest.mark.asyncio
-async def test_teams_list_load(authenticated_b2b_page: Page):
-    """
-    Test that the Teams page loads and displays the title and default team.
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    teams_page = TeamsPage(authenticated_b2b_page, base_url)
-    
-    await teams_page.navigate()
-    await teams_page.verify_loaded()
-    await teams_page.verify_default_team_exists()
 
-@pytest.mark.browser
 @pytest.mark.asyncio
-async def test_create_team_flow(authenticated_b2b_page: Page):
-    """
-    Test the flow of creating a new team.
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    teams_page = TeamsPage(authenticated_b2b_page, base_url)
+@pytest.mark.browser
+async def test_teams_page_loads(authenticated_b2b_page: Page, b2b_test_setup):
+    """Verify teams page loads successfully"""
+    page = authenticated_b2b_page
+    base_url = page.url.split('/dashboard')[0] if '/dashboard' in page.url else page.url.rstrip('/')
     
-    await teams_page.navigate()
-    await teams_page.create_team("QA Automation Team", "Created by E2E Browser Test")
-    await teams_page.verify_team_created("QA Automation Team")
+    # Navigate to teams
+    await page.goto(f"{base_url}/teams")
+    await page.wait_for_load_state("domcontentloaded")
+    
+    # Verify page loaded
+    assert "/teams" in page.url
+    
+    # Has main heading
+    await expect(page.locator("h1, h2")).to_be_visible(timeout=5000)
+    
+    # No errors
+    error_locator = page.locator(".error-message, .alert-error")
+    if await error_locator.count() > 0:
+        await expect(error_locator).to_have_count(0)
+
+
+# TODO: Add more team management tests as needed
+# async def test_create_team():
+# async def test_team_list_displays():

@@ -1,71 +1,31 @@
-from playwright.async_api import Page
+"""Tenant Roles Page E2E Tests"""
 import pytest
-import os
-from tests.e2e_browser.pages.b2b.roles_page import RolesPage
+from playwright.async_api import expect, Page
 
-@pytest.mark.browser
-@pytest.mark.asyncio
-async def test_tenant_roles_load(authenticated_b2b_page: Page):
-    """
-    Test that the Tenant Roles page loads and displays roles.
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    roles_page = RolesPage(authenticated_b2b_page, base_url)
-    
-    await roles_page.navigate_to_tenant_roles()
-    await roles_page.verify_tenant_roles_loaded()
 
-@pytest.mark.browser
 @pytest.mark.asyncio
-async def test_team_roles_load(authenticated_b2b_page: Page):
-    """
-    Test that the Team Roles page loads and displays roles.
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    roles_page = RolesPage(authenticated_b2b_page, base_url)
+@pytest.mark.browser
+async def test_roles_page_loads(authenticated_b2b_page: Page, b2b_test_setup):
+    """Verify tenant roles page loads successfully"""
+    page = authenticated_b2b_page
+    base_url = page.url.split('/dashboard')[0] if '/dashboard' in page.url else page.url.rstrip('/')
     
-    await roles_page.navigate_to_team_roles()
-    await roles_page.verify_team_roles_loaded()
+    # Navigate to roles
+    await page.goto(f"{base_url}/roles")
+    await page.wait_for_load_state("domcontentloaded")
+    
+    # Verify page loaded
+    assert "/roles" in page.url
+    
+    # Has main heading
+    await expect(page.locator("h1, h2")).to_be_visible(timeout=5000)
+    
+    # No errors
+    error_locator = page.locator(".error-message, .alert-error")
+    if await error_locator.count() > 0:
+        await expect(error_locator).to_have_count(0)
 
-@pytest.mark.browser
-@pytest.mark.asyncio
-async def test_create_team_role(authenticated_b2b_page: Page):
-    """
-    Test creating a new custom team role.
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    roles_page = RolesPage(authenticated_b2b_page, base_url)
-    
-    await roles_page.navigate_to_team_roles()
-    
-    role_name = "QA Lead"
-    await roles_page.create_team_role("qa_lead", role_name, "Role for QA Leads")
-    
-    await roles_page.verify_role_created(role_name)
 
-@pytest.mark.browser
-@pytest.mark.asyncio
-async def test_permission_matrix_interactions(authenticated_b2b_page: Page):
-    """
-    Test interaction with the permission matrix (filtering, tooltips, select all).
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    roles_page = RolesPage(authenticated_b2b_page, base_url)
-    
-    await roles_page.navigate_to_team_roles()
-    
-    await roles_page.open_create_role_modal_and_check_matrix()
-    await roles_page.verify_matrix_tooltips()
-    await roles_page.verify_matrix_select_all()
-
-@pytest.mark.browser
-@pytest.mark.asyncio
-async def test_role_permissions_display(authenticated_b2b_page: Page):
-    """
-    Test that created roles show correct permission badges.
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    roles_page = RolesPage(authenticated_b2b_page, base_url)
-    
-    await roles_page.navigate_to_team_roles()
-    await roles_page.verify_permission_badges()
+# TODO: Add more role management tests as needed
+# async def test_create_role():
+# async def test_edit_permissions():

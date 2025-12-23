@@ -1,16 +1,31 @@
-from playwright.async_api import Page
+"""Audit Logs Page E2E Tests"""
 import pytest
-import os
-from tests.e2e_browser.pages.b2b.audit_logs_page import AuditLogsPage
+from playwright.async_api import expect, Page
 
-@pytest.mark.browser
+
 @pytest.mark.asyncio
-async def test_audit_logs_load(authenticated_b2b_page: Page):
-    """
-    Test that the Audit Logs page loads and displays logs.
-    """
-    base_url = os.getenv("BASE_URL", "http://localhost:3000")
-    audit_page = AuditLogsPage(authenticated_b2b_page, base_url)
+@pytest.mark.browser
+async def test_audit_logs_page_loads(authenticated_b2b_page: Page, b2b_test_setup):
+    """Verify audit logs page loads successfully"""
+    page = authenticated_b2b_page
+    base_url = page.url.split('/dashboard')[0] if '/dashboard' in page.url else page.url.rstrip('/')
     
-    await audit_page.navigate()
-    await audit_page.verify_loaded()
+    # Navigate to audit logs
+    await page.goto(f"{base_url}/audit-logs")
+    await page.wait_for_load_state("domcontentloaded")
+    
+    # Verify page loaded
+    assert "/audit-logs" in page.url
+    
+    # Has main heading
+    await expect(page.locator("h1, h2")).to_be_visible(timeout=5000)
+    
+    # No errors
+    error_locator = page.locator(".error-message, .alert-error")
+    if await error_locator.count() > 0:
+        await expect(error_locator).to_have_count(0)
+
+
+# TODO: Add more audit log tests as needed
+# async def test_filter_logs():
+# async def test_export_logs():

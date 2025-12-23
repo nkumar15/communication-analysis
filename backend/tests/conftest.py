@@ -1005,11 +1005,18 @@ async def authenticated_b2b_page(async_page, b2b_test_setup):
     base_url = os.getenv("BASE_URL", "http://localhost:3000")
     
     # Get the mock JWT token from the test setup
+    # CRITICAL: Commit test data so backend API (separate process) can see it
+    session = b2b_test_setup["session"]._session
+    await session.commit()
+
     mock_jwt = b2b_test_setup["token"]
     
     # Use LoginPage POM
     login_page = LoginPage(async_page, base_url)
     await login_page.navigate()
+    # Clear any previous auth state from browser
+    await async_page.context.clear_cookies()
+    await async_page.evaluate("() => { sessionStorage.clear(); localStorage.clear(); }")
     
     # Use the POM's mock JWT login method (no Firebase network calls)
     await login_page.login_with_mock_jwt(mock_jwt)
@@ -1024,3 +1031,8 @@ async def authenticated_b2b_page(async_page, b2b_test_setup):
         pytest.fail(f"Failed to redirect to dashboard after mock JWT injection. Current URL: {async_page.url}. Error: {error_msg}")
         
     return async_page
+
+    # Clear any previous auth state from browser
+    await async_page.context.clear_cookies()
+    await async_page.evaluate("() => { sessionStorage.clear(); localStorage.clear(); }")
+    

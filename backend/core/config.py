@@ -99,7 +99,7 @@ class Settings(BaseSettings):
     xendit_secret_key: Optional[str] = None
     
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8000,http://localhost:8001"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8000,http://localhost:8001,http://frontend-b2b:3000,http://frontend-b2c:3001,http://frontend-platform:3002"
     
     # Logging Configuration
     log_environment: str = "local"  # local, gcp, aws, production
