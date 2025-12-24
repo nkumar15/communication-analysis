@@ -113,6 +113,7 @@ class TenantAwareSession:
 @pytest_asyncio.fixture(scope="function")
 async def test_db_engine():
     """Create test database engine for session"""
+    print(f"\nDEBUG: Connecting to DB with URL: {TEST_DATABASE_URL}")
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_pre_ping=True)
     yield engine
     await engine.dispose()

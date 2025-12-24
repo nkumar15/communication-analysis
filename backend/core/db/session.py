@@ -11,12 +11,15 @@ from core.config import settings
 # Context variable to store current tenant ID for RLS
 current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
 
-# Convert postgres:// to postgresql+asyncpg://
+# Handle Database URLs robustly for Sync vs Async engines
 database_url = settings.database_url
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
-elif database_url.startswith("postgresql://"):
-    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+# 1. Prepare Async URL (Must have +asyncpg)
+if "postgresql+asyncpg://" not in database_url:
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 # Create async engine
 engine = create_async_engine(
@@ -40,10 +43,12 @@ AsyncSessionLocal = async_sessionmaker(
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+# 2. Prepare Sync URL (Must NOT have +asyncpg)
 sync_database_url = settings.database_url
-if sync_database_url.startswith("postgres://"):
+if "postgresql+asyncpg://" in sync_database_url:
+    sync_database_url = sync_database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+elif sync_database_url.startswith("postgres://"):
     sync_database_url = sync_database_url.replace("postgres://", "postgresql://", 1)
-# Already postgresql:// or similar, no need to add +asyncpg
 
 sync_engine = create_engine(
     sync_database_url,
