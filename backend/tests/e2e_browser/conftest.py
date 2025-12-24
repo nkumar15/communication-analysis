@@ -35,9 +35,35 @@ async def async_page():
     """
     from playwright.async_api import async_playwright
     
+    
     # Read environment variables for headed mode and slow motion
     headed = os.getenv("HEADED") == "1"
     slow_mo = 2000 if os.getenv("SLOW") == "1" else 0
+    
+    # Wait for frontend to be ready (Critical for Docker CI)
+    import httpx
+    import time
+    
+    async def wait_for_server(url: str, timeout: int = 60):
+        print(f"Waiting for {url} to be ready...")
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        print(f"Server {url} is ready!")
+                        return True
+            except Exception:
+                await asyncio.sleep(1)
+        raise TimeoutError(f"Server {url} did not become ready in {timeout} seconds")
+
+    # Only wait if we are in Docker (checking FRONTEND_URL distinct from default)
+    # or just always wait to be safe.
+    try:
+        await wait_for_server(FRONTEND_URL, timeout=45)
+    except TimeoutError:
+        print(f"WARNING: Frontend at {FRONTEND_URL} might not be ready. Proceeding anyway...")
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(
