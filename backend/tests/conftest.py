@@ -7,8 +7,14 @@ import os
 import os
 from dotenv import load_dotenv
 
-# Load .env file if it exists (crucial for local testing)
-load_dotenv()
+# Load .env.test if it exists (Priority 1)
+if os.path.exists(".env.test"):
+    print("DEBUG: Loading config from .env.test")
+    load_dotenv(".env.test", override=True)
+else:
+    # Fallback to .env (Priority 2)
+    print("DEBUG: Loading config from .env (fallback)")
+    load_dotenv(".env")
 
 import asyncio
 import pytest
@@ -29,7 +35,8 @@ from core.utils import get_utc_now
 
 
 # Test database URL (shared connection)
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")  
+# Test database URL (shared connection)
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", os.getenv("DATABASE_URL"))  
 
 
 
