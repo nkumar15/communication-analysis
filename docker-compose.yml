@@ -251,7 +251,7 @@ services:
 
   # B2B Frontend - Web UI for Tenants (E2E Testing Only)
   frontend-b2b:
-    profiles: ["e2e"]  # Only start for E2E tests
+    profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -271,7 +271,7 @@ services:
 
   # B2C Frontend - Web UI for Workspaces (E2E Testing Only)
   frontend-b2c:
-    profiles: ["e2e"]  # Only start for E2E tests
+    profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -291,7 +291,7 @@ services:
 
   # Platform Frontend - Admin UI (E2E Testing Only)
   frontend-platform:
-    profiles: ["e2e"]  # Only start for E2E tests
+    profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -325,6 +325,7 @@ services:
     restart: unless-stopped
 
   e2e-tests:
+    profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./backend
       dockerfile: Dockerfile
