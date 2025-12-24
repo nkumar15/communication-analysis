@@ -1076,3 +1076,43 @@ async def authenticated_b2c_page(async_page):
     
     return async_page
 
+
+
+# ============================================================================
+# Platform Test Fixtures (Browser E2E) - Simplified for Smoke Tests
+# ============================================================================
+
+@pytest_asyncio.fixture
+async def authenticated_platform_page(async_page):
+    """
+    Simplified Platform fixture - just inject mock JWT for page access tests.
+    Platform admin role for accessing super-admin pages.
+    """
+    base_url = os.getenv("FRONTEND_URL_PLATFORM", "http://localhost:3002")
+    
+    # Navigate to Platform app FIRST
+    await async_page.goto(base_url)
+    
+    # Clear browser state
+    await async_page.context.clear_cookies()
+    await async_page.evaluate("() => { sessionStorage.clear(); localStorage.clear(); }")
+    
+    # Create mock JWT for platform admin
+    mock_jwt = encode_mock_jwt(create_mock_firebase_token(
+        uid="platform-admin-smoke",
+        email="admin@platform.local"
+    ))
+    
+    # Inject mock JWT
+    await async_page.evaluate(f"""
+        () => {{
+            sessionStorage.setItem('firebaseToken', '{mock_jwt}');
+        }}
+    """)
+    
+    # Reload to pick up auth
+    await async_page.reload()
+    await async_page.wait_for_load_state("domcontentloaded")
+    
+    return async_page
+
