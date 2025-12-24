@@ -75,9 +75,7 @@ When you navigate around, codegen creates one large test with all actions. Inste
 cd backend
 
 # Record login + save state
-python -m playwright codegen \
-  --save-storage=auth.json \
-  http://localhost:3000/login
+python -m playwright codegen --save-storage=owner-auth.json http://localhost:3000/login
 ```
 
 **Actions to perform:**
