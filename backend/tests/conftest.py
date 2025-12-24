@@ -1036,3 +1036,43 @@ async def authenticated_b2b_page(async_page, b2b_test_setup):
     await async_page.context.clear_cookies()
     await async_page.evaluate("() => { sessionStorage.clear(); localStorage.clear(); }")
     
+
+
+# ============================================================================
+# B2C Test Fixtures (Browser E2E) - Simplified for Smoke Tests
+# ============================================================================
+
+@pytest_asyncio.fixture
+async def authenticated_b2c_page(async_page):
+    """
+    Simplified B2C fixture - just inject mock JWT for page access tests.
+    No database setup needed for basic smoke tests.
+    """
+    base_url = os.getenv("FRONTEND_URL_B2C", "http://localhost:3001")
+    
+    # Navigate to B2C app FIRST (can't clear storage on about:blank)
+    await async_page.goto(base_url)
+    
+    # Clear browser state
+    await async_page.context.clear_cookies()
+    await async_page.evaluate("() => { sessionStorage.clear(); localStorage.clear(); }")
+    
+    # Create a simple mock JWT (doesn't need real user in DB for page load tests)
+    mock_jwt = encode_mock_jwt(create_mock_firebase_token(
+        uid=f"b2c-smoke-{uuid4().hex[:8]}",
+        email=f"b2c-smoke-{uuid4().hex[:8]}@example.com"
+    ))
+    
+    # Inject mock JWT
+    await async_page.evaluate(f"""
+        () => {{
+            sessionStorage.setItem('firebaseToken', '{mock_jwt}');
+        }}
+    """)
+    
+    # Reload to pick up auth
+    await async_page.reload()
+    await async_page.wait_for_load_state("domcontentloaded")
+    
+    return async_page
+
