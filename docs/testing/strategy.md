@@ -68,40 +68,53 @@ We are following a phased approach to testing.
     - Tenant management (Create/List)
     - Cross-tenant impersonation security
 
-### ✅ Phase 4: Browser E2E Infrastructure (Completed & Enhanced)
-**Status**: Infrastructure complete, Domain-Driven Structure Implemented
+### ✅ Phase 4: Browser E2E Infrastructure (Completed - Production Ready)
+**Status**: ✅ 16/16 Tests Passing (100%)
 
-**Implemented**:
-- ✅ Playwright installed in Docker with system dependencies
-- ✅ `frontend` and `e2e-tests` services in docker-compose
-- ✅ Sync Playwright API (no async conflicts)
-- ✅ Firebase custom token authentication support (real Firebase, no mocks)
-- ✅ **Domain-Driven Directory Structure**: `platform/`, `b2b/`, `b2c/`
-- ✅ **Page Object Model (POM)**: `pages/` directory for reusable UI components
-- ✅ Test configuration via environment variables
+**Results**:
+- ✅ **B2B**: 8/8 tests passing (40s) - Dashboard, Users, Teams, Roles, Team Roles, Settings, Billing, Audit Logs
+- ✅ **B2C**: 5/5 tests passing (14s) - Dashboard, Workspaces, Projects, Subscription, Settings
+- ✅ **Platform**: 3/3 tests passing (12s) - Dashboard, Tenants, Plans
+- ✅ **Total**: 16 smoke tests in 66 seconds
 
-**Scope**:
-- `make test-browser` - Run all browser tests
-- `make test-browser-b2c` - Run B2C suite
+**Approach**: Simple page load tests (not complex CRUD workflows)
+- Async Playwright in Docker containers
+- Mock JWT authentication (no Firebase network calls)
+- Frontend containers controlled via Docker Compose profiles (only for E2E tests)
+- Page-based test organization with TODO markers for future expansion
+
+**Architecture**:
+```
+Frontend (Docker, E2E only)  →  API Calls  →  Backend (Docker)
+├─ frontend-b2b:3000         →              →  b2b-api:8000
+├─ frontend-b2c:3001         →              →  b2c-api:8002
+└─ frontend-platform:3002    →              →  platform-api:8001
+         ↑
+    Playwright Tests
+    (mock JWT auth)
+```
+
+**Commands**:
 - `make test-browser-b2b` - Run B2B suite
+- `make test-browser-b2c` - Run B2C suite
 - `make test-browser-platform` - Run Platform suite
-- `make test-browser-b2c HEADED=1` - Run with visible browser
-- Tests in `backend/tests/e2e_browser/`
-- Uses real Firebase GCIP authentication with custom tokens
+- `make test-browser-b2b HEADED=1` - Run with visible browser
+- `make test-browser-b2b SLOW=1` - Run in slow motion
 
 **Structure**:
 ```
 tests/e2e_browser/
-├── pages/                  # Page Object Models
-│   ├── base_page.py        # Shared logic
-│   ├── b2c/                # B2C Pages (Signup, Workspace)
-│   └── platform/           # Platform Pages (Login, Tenants)
-├── platform/               # Platform Admin Tests
-├── b2b/                    # B2B Tenant Tests
-└── b2c/                    # B2C Consumer Tests
+├── b2b/                    # 8 B2B page load tests
+├── b2c/                    # 5 B2C page load tests
+├── platform/               # 3 Platform page load tests
+├── pages/                  # Page Object Models (for future expansion)
+│   ├── b2b/
+│   ├── b2c/
+│   └── platform/
+└── conftest.py             # Auth fixtures (mock JWT)
 ```
 
-**Documentation**: See `backend/tests/e2e_browser/README.md`
+**Documentation**: See [`docs/testing/automated-browser.md`](./automated-browser.md) for complete guide
 
 ### 🔮 Phase 5: Granular RBAC Testing (In Progress)
 **Goal**: Verify complex permission matrices beyond simple roles.
