@@ -7,7 +7,7 @@ import os
 @pytest.mark.asyncio
 @pytest.mark.browser
 async def test_sso_login(async_page: Page):
-    """Test SSO login flow with popup"""
+    """Test SSO login flow with popup and profile verification"""
     from ..pages.b2b.login_page import LoginPage
     
     # Get credentials from environment
@@ -29,6 +29,32 @@ async def test_sso_login(async_page: Page):
     error_locator = async_page.locator(".error-message, .alert-error, [role='alert'][class*='error']")
     if await error_locator.count() > 0:
         await expect(error_locator).to_have_count(0)
+    
+    # Verify profile menu interactions (from original recording)
+    print("🔍 Verifying profile menu...")
+    
+    # Click profile button (should show user email)
+    profile_button = async_page.get_by_role("button", name=f"O {email} owner")
+    await profile_button.click()
+    print("✅ Clicked profile button")
+    
+    # Verify profile menu is visible with user info
+    await expect(async_page.get_by_text(email)).to_be_visible(timeout=3000)
+    print("✅ Profile menu visible with user email")
+    
+    # Click to view different parts of profile info
+    await async_page.get_by_text(email).nth(2).click()
+    print("✅ Clicked profile email")
+    
+    # Verify owner role is displayed
+    await async_page.get_by_text("owner", exact=True).nth(1).click()
+    print("✅ Verified owner role")
+    
+    # Close profile menu by clicking button again
+    await async_page.get_by_role("button", name=f"O {email} owner").click()
+    print("✅ Closed profile menu")
+    
+    print("✅ SSO login test completed successfully!")
 
 
 # TODO: Add more login-specific tests as needed
