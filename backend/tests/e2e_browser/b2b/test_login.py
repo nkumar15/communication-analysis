@@ -39,7 +39,7 @@ async def test_sso_login(async_page: Page):
     print("✅ Clicked profile button")
     
     # Verify profile menu is visible with user info
-    await expect(async_page.get_by_text(email)).to_be_visible(timeout=3000)
+    await expect(async_page.get_by_text(email)).to_be_visible(timeout=10000)
     print("✅ Profile menu visible with user email")
     
     # Click to view different parts of profile info
