@@ -15,6 +15,14 @@ class DashboardPage(AsyncBasePage):
         await expect(self.page.locator("h1")).to_contain_text("Dashboard")
         await expect(self.page.locator("body")).to_contain_text("Overview")
 
+    async def verify_heading_interactive(self):
+        """
+        Verify heading is interactive (matches recording: page.get_by_role("heading", name="Dashboard").click())
+        """
+        heading = self.page.get_by_role("heading", name="Dashboard")
+        await expect(heading).to_be_visible()
+        await heading.click()
+
     async def verify_stats_cards(self, count: int = 4):
         stats_cards = self.page.locator(".stats-card, [data-testid='stats-card']")
         await expect(stats_cards).to_have_count(count)

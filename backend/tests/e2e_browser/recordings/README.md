@@ -97,7 +97,7 @@ Now you can record each feature **starting from authenticated state**:
 ```bash
 # Start directly at Teams page, already logged in
 python -m playwright codegen \
-  --load-storage=auth.json \
+  --load-storage=owner-auth.json \
   --target python-async \
   http://localhost:3000/teams
 ```
@@ -119,10 +119,7 @@ python -m playwright codegen \
 **Example: Recording Billing Page**
 
 ```bash
-python -m playwright codegen \
-  --load-storage=auth.json \
-  --target python-async \
-  http://localhost:3000/settings/billing
+python -m playwright codegen --load-storage=owner-auth.json --target python-async http://localhost:3000/settings/billing
 ```
 
 **What to record:**
@@ -173,7 +170,7 @@ recordings/add_user_20251224.py
 
 ```bash
 # Record: Create role
-python -m playwright codegen --load-storage=auth.json http://localhost:3000/roles
+python -m playwright codegen --load-storage=owner-auth.json http://localhost:3000/roles
 # Actions: Click Add → Fill name → Set permissions → Save → Verify
 # Result: Small test focused on role creation
 ```
@@ -692,11 +689,117 @@ async def test_create_team(authenticated_b2b_page: Page, b2b_test_setup):
 
 ---
 
-## Questions?
+### Method 2: Full Journey Tests (No Fixtures)
+
+If you prefer to test the **entire flow** (Login → Dashboard → Feature) in every test, you don't need fixtures. You can just use environment variables.
+
+**When to use:**
+- You want to verify the *actual* login process in every test
+- You want your tests to be 100% self-contained
+- You are okay with tests taking longer (login takes ~5s extra per test)
+
+**How to implement:**
+
+1. **Get credentials from Env:**
+```python
+import os
+email = os.getenv("B2B_OWNER_EMAIL")
+password = os.getenv("B2B_OWNER_PASSWORD")
+```
+
+2. **Write the full flow:**
+```python
+async def test_feature_full_flow(async_page: Page):
+    # 1. Login
+    await async_page.goto("/login")
+    await async_page.fill("input[name='email']", email)
+    # ... handle popup ...
+    
+    # 2. Wait for Dash
+    await async_page.wait_for_url("**/dashboard")
+    
+    # 3. Perform Feature Actions
+    await async_page.goto("/roles")
+    # ...
+```
+
+**CI/CD Configuration:**
+This works perfectly in CI/CD. Just ensure your `docker-compose.yml` or CI pipeline passes these variables:
+- `B2B_OWNER_EMAIL`
+- `B2B_OWNER_PASSWORD`
+- `BASE_URL`
+
+Our `Makefile` and `docker-compose` already support passing these through!
+
 
 If you're unsure about what to record or how, just ask:
 - "Should I record the entire user onboarding flow or break it into steps?"
 - "What's the best way to record Stripe payment modal interactions?"
 - "How do I handle dropdowns/autocompletes in recordings?"
 
-I'm here to help!
+## Unified Testing Workflow (Local & CI/CD)
+
+This guide standardizes how to **Record**, **Integrate**, and **Run** tests across all environments.
+
+### 1. The Workflow Lifecycle
+
+| Stage | Activity | Environment | Command / Tool |
+|-------|----------|-------------|----------------|
+| **1. Record** | Capture user actions for a specific feature | Local Machine | `python -m playwright codegen` |
+| **2. Integrate**| Convert recording to reusable test file | Local IDE | Create `tests/e2e_browser/b2b/test_feature.py` |
+| **3. Verify** | Run just the new test to ensure it passes | Local Machine | `make test-browser-b2b TEST_PATH=...` |
+| **4. Automate** | Run all tests in continuous integration | Docker / CI | `make test-browser` |
+
+### 2. Integration Pattern: Recording → Test
+
+When you record using **Method 1 (Saved State)**, you skip the login steps. To achieve the same in your automated test, use the `authenticated_b2b_page` fixture.
+
+**Recording (Manual):**
+```bash
+# You load auth.json to skip login
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/roles
+```
+
+**Test Code (Automated):**
+```python
+# specific_test.py
+async def test_roles_action(authenticated_b2b_page: Page):
+    # Fixture automatically logs in (skips login UI)
+    page = authenticated_b2b_page 
+    
+    # Navigate directly to the page you recorded
+    await page.goto("http://localhost:3000/roles")
+    
+    # ... Paste your recorded actions here ...
+```
+
+### 3. Execution Guide (How to Run)
+
+Use these commands depending on your environment.
+
+| Goal | Environment | Recommended Command |
+|------|-------------|---------------------|
+| **Dev Loop** (Fast feedback) | **Local (Mac/Linux)** | `make test-browser-b2b TEST_PATH=tests/e2e_browser/b2b/test_roles.py HEADED=1 LOCAL=1` |
+| **Dev Loop** (Fast feedback) | **Local (Windows)** | `$env:HEADED="1"; python -m pytest tests/e2e_browser/b2b/test_roles.py -v -s` |
+| **Validation** (Pre-push) | **Docker (Local)** | `make test-browser-b2b TEST_PATH=tests/e2e_browser/b2b/test_roles.py` |
+| **CI/CD** (Automated) | **Docker (CI)** | `make test-browser` |
+
+**Key Differences:**
+- **Local:** Runs directly on your machine. Fastest. visible browser.
+- **Docker:** Runs inside container. Guarantees environment matches production. Headless by default.
+
+### 4. CI/CD Integration
+
+For your pipeline (GitHub Actions, Jenkins, etc.), simply use the Makefile target:
+
+```yaml
+# Example CI Step
+- name: Run E2E Browser Tests
+  run: make test-browser
+```
+
+This handles everything:
+1. Starts backend services
+2. Starts frontend (e2e profile)
+3. Runs all tests headless
+4. Cleans up
