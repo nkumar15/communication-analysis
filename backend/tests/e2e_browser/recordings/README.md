@@ -61,6 +61,239 @@ async def test_example():
 
 ---
 
+## Recording Strategy for Page-Specific Tests
+
+### Problem: Large Test Files from Navigation
+
+When you navigate around, codegen creates one large test with all actions. Instead, **record each page/feature in isolation**.
+
+### Solution: Record with Saved Authentication State
+
+#### Step 1: Save Authentication State Once
+
+```bash
+cd backend
+
+# Record login + save state
+python -m playwright codegen \
+  --save-storage=auth.json \
+  http://localhost:3000/login
+```
+
+**Actions to perform:**
+1. Enter email/password
+2. Click login
+3. Wait for dashboard to load
+4. Close browser (state is saved)
+
+This creates `auth.json` with cookies and localStorage.
+
+---
+
+#### Step 2: Record Each Page Separately
+
+Now you can record each feature **starting from authenticated state**:
+
+**Example: Recording Teams Page**
+
+```bash
+# Start directly at Teams page, already logged in
+python -m playwright codegen \
+  --load-storage=auth.json \
+  --target python-async \
+  http://localhost:3000/teams
+```
+
+**Benefits:**
+- ✅ Starts already authenticated
+- ✅ No login code in output
+- ✅ Focus only on Teams page actions
+- ✅ Smaller, focused test code
+
+**What to record:**
+1. Click "Add Team" button
+2. Fill team name
+3. Add members
+4. Submit
+5. Verify team appears
+6. **Stop recording (close browser)**
+
+**Example: Recording Billing Page**
+
+```bash
+python -m playwright codegen \
+  --load-storage=auth.json \
+  --target python-async \
+  http://localhost:3000/settings/billing
+```
+
+**What to record:**
+1. Click "Update Payment Method"
+2. (Stripe modal interactions)
+3. Verify update
+4. **Stop recording**
+
+---
+
+### Quick Recording Workflow
+
+For each test you want to create:
+
+**1. Decide what page/feature to test**
+   - Example: "Add new user"
+
+**2. Start codegen at that specific page**
+```bash
+python -m playwright codegen \
+  --load-storage=auth.json \
+  http://localhost:3000/users
+```
+
+**3. Perform ONLY that one feature**
+   - Click "Add User"
+   - Fill form
+   - Submit
+   - Verify user appears
+
+**4. Close browser immediately**
+   - Don't navigate elsewhere
+   - This keeps the recording focused
+
+**5. Save output to descriptive file**
+```bash
+# Copy generated code to:
+recordings/add_user_20251224.py
+```
+
+**6. Repeat for next feature**
+
+---
+
+### Examples of Focused Recordings
+
+#### ✅ Good: Focused on One Feature
+
+```bash
+# Record: Create role
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/roles
+# Actions: Click Add → Fill name → Set permissions → Save → Verify
+# Result: Small test focused on role creation
+```
+
+#### ❌ Bad: Full Navigation Flow
+
+```bash
+# Record: Login → Dashboard → Teams → Create team → Users → Create user → Settings
+# Result: One huge test with mixed concerns
+```
+
+---
+
+### Page-Specific Recording Checklist
+
+For each page you want to test, record separately:
+
+**Teams Page:**
+```bash
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/teams
+```
+- [ ] Add team
+- [ ] Edit team name
+- [ ] Delete team
+- [ ] Add member to team
+
+**Users Page:**
+```bash
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/users
+```
+- [ ] Add user
+- [ ] Change user role
+- [ ] Suspend user
+- [ ] Remove user
+
+**Billing Page:**
+```bash
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/settings/billing
+```
+- [ ] Update payment method
+- [ ] Change plan
+- [ ] View invoices
+
+**Roles Page:**
+```bash
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/roles
+```
+- [ ] Create custom role
+- [ ] Edit role permissions
+- [ ] Delete role
+
+---
+
+### Tips for Better Page-Specific Tests
+
+1. **One recording = One user action**
+   - "Add user" is one recording
+   - "Edit user" is a separate recording
+   - Don't mix them
+
+2. **Start at the specific page**
+   - Use exact URL: `/users`, `/teams`, `/settings/billing`
+   - Don't record navigation from dashboard
+
+3. **Stop immediately after verification**
+   - Add item → Verify it appears → **Close browser**
+   - Don't continue navigating
+
+4. **Use descriptive filenames**
+   ```
+   recordings/
+   ├── add_user_20251224.py
+   ├── edit_user_role_20251224.py
+   ├── create_team_20251224.py
+   ├── update_billing_20251224.py
+   ```
+
+5. **Save state for different user types**
+   ```bash
+   # Admin user
+   --save-storage=auth_admin.json
+   
+   # Regular user
+   --save-storage=auth_user.json
+   
+   # Owner
+   --save-storage=auth_owner.json
+   ```
+
+---
+
+### Updated Helper Commands
+
+```bash
+# FIRST TIME: Save auth state
+python -m playwright codegen --save-storage=auth.json http://localhost:3000/login
+
+# THEN: Record each feature separately
+
+# Teams
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/teams
+
+# Users  
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/users
+
+# Billing
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/settings/billing
+
+# Roles
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/roles
+
+# Settings
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/settings
+```
+
+
+---
+
 ### Method 2: Playwright Trace Viewer (Detailed Analysis)
 
 **Best for:** Understanding complex interactions, debugging failures
