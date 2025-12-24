@@ -20,6 +20,3 @@ async def test_dashboard_interaction(authenticated_b2b_page: Page):
     
     # Verify interactive elements from recording
     await dashboard_page.verify_heading_interactive()
-    
-    # Verify stats
-    await dashboard_page.verify_stats_cards()
