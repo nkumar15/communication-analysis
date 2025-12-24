@@ -113,8 +113,16 @@ class TenantAwareSession:
 @pytest_asyncio.fixture(scope="function")
 async def test_db_engine():
     """Create test database engine for session"""
-    print(f"\nDEBUG: Connecting to DB with URL: {TEST_DATABASE_URL}")
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_pre_ping=True)
+    url = TEST_DATABASE_URL
+    # Fail-safe: Ensure async driver is used
+    if "postgresql+asyncpg://" not in url:
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            
+    print(f"\nDEBUG: Connecting to DB with URL: {url}")
+    engine = create_async_engine(url, echo=False, pool_pre_ping=True)
     yield engine
     await engine.dispose()
 
