@@ -91,7 +91,7 @@ class LoginPage(AsyncBasePage):
         - Filling email on main page
         - Clicking "Continue with SSO" which opens a popup
         - Filling password in the popup window
-        - Waiting for popup to close after successful auth
+        - Waiting for authentication to complete
         - Verifying redirect to dashboard
         
         Args:
@@ -125,29 +125,35 @@ class LoginPage(AsyncBasePage):
         
         # Click continue/submit in popup
         await popup_page.get_by_role("button", name="Continue").click()
-        print("⏳ Submitted credentials, waiting for popup to close...")
-        
-        # Wait for popup to close (indicates auth completed)
-        try:
-            await popup_page.wait_for_event("close", timeout=10000)
-            print("✅ Popup closed - auth successful")
-        except Exception as e:
-            print(f"❌ Popup didn't close within timeout: {e}")
-            raise Exception(f"SSO popup didn't close. Auth may have failed. Popup URL: {popup_page.url}")
+        print("⏳ Submitted credentials, waiting for auth to complete...")
         
         # Wait for main page to navigate to dashboard
+        # Don't wait for popup to close - Firebase handles that asynchronously
         print("⏳ Waiting for redirect to dashboard...")
         try:
-            await self.page.wait_for_url("**/dashboard", timeout=10000)
+            await self.page.wait_for_url("**/dashboard", timeout=15000)
             print(f"✅ Successfully logged in! Current URL: {self.page.url}")
         except Exception as e:
             current_url = self.page.url
+            popup_url = popup_page.url if not popup_page.is_closed() else "closed"
             print(f"❌ Dashboard navigation failed: {e}")
-            print(f"Current URL: {current_url}")
+            print(f"Main page URL: {current_url}")
+            print(f"Popup URL: {popup_url}")
             
-            # Check for error messages on page
+            # Check for error messages on main page
             if await self.page.locator(".error-message").count() > 0:
                 error_text = await self.page.locator(".error-message").text_content()
-                print(f"❌ Error on page: {error_text}")
+                print(f"❌ Error on main page: {error_text}")
             
-            raise Exception(f"SSO login failed - didn't navigate to dashboard. Current URL: {current_url}")
+            # Check for error in popup
+            if not popup_page.is_closed() and await popup_page.locator(".error-message").count() > 0:
+                error_text = await popup_page.locator(".error-message").text_content()
+                print(f"❌ Error in popup: {error_text}")
+            
+            raise Exception(f"SSO login failed - didn't navigate to dashboard. Main URL: {current_url}, Popup: {popup_url}")
+        finally:
+            # Close popup if it's still open
+            if not popup_page.is_closed():
+                await popup_page.close()
+                print("✅ Closed popup window")
+
