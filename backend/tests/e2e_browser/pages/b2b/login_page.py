@@ -82,3 +82,72 @@ class LoginPage(AsyncBasePage):
         error_msg = self.page.locator(".error-message")
         await expect(error_msg).to_be_visible()
         await expect(error_msg).to_contain_text(error_text)
+    
+    async def login_with_sso(self, email: str, password: str):
+        """
+        Login via SSO popup flow (for tenant users with SAML/OIDC configured).
+        
+        This method handles the real SSO authentication flow including:
+        - Filling email on main page
+        - Clicking "Continue with SSO" which opens a popup
+        - Filling password in the popup window
+        - Waiting for popup to close after successful auth
+        - Verifying redirect to dashboard
+        
+        Args:
+            email: User email (e.g., owner@firstcompany.net)
+            password: User password
+        
+        Raises:
+            Exception: If login fails, popup doesn't appear, or dashboard redirect fails
+        """
+        print(f"🔐 Starting SSO login for: {email}")
+        
+        # Navigate to login page
+        await self.navigate()
+        
+        # Fill email address
+        await self.page.get_by_role("textbox", name="Email Address").fill(email)
+        print(f"✅ Filled email: {email}")
+        
+        # Click SSO button and wait for popup
+        print("⏳ Clicking 'Continue with SSO' and waiting for popup...")
+        async with self.page.expect_popup() as page1_info:
+            await self.page.get_by_role("button", name="Continue with SSO →").click()
+        
+        # Get the popup page
+        popup_page = await page1_info.value
+        print(f"✅ SSO popup opened: {popup_page.url}")
+        
+        # Fill credentials in popup
+        await popup_page.get_by_role("textbox", name="Password").fill(password)
+        print("✅ Filled password in popup")
+        
+        # Click continue/submit in popup
+        await popup_page.get_by_role("button", name="Continue").click()
+        print("⏳ Submitted credentials, waiting for popup to close...")
+        
+        # Wait for popup to close (indicates auth completed)
+        try:
+            await popup_page.wait_for_event("close", timeout=10000)
+            print("✅ Popup closed - auth successful")
+        except Exception as e:
+            print(f"❌ Popup didn't close within timeout: {e}")
+            raise Exception(f"SSO popup didn't close. Auth may have failed. Popup URL: {popup_page.url}")
+        
+        # Wait for main page to navigate to dashboard
+        print("⏳ Waiting for redirect to dashboard...")
+        try:
+            await self.page.wait_for_url("**/dashboard", timeout=10000)
+            print(f"✅ Successfully logged in! Current URL: {self.page.url}")
+        except Exception as e:
+            current_url = self.page.url
+            print(f"❌ Dashboard navigation failed: {e}")
+            print(f"Current URL: {current_url}")
+            
+            # Check for error messages on page
+            if await self.page.locator(".error-message").count() > 0:
+                error_text = await self.page.locator(".error-message").text_content()
+                print(f"❌ Error on page: {error_text}")
+            
+            raise Exception(f"SSO login failed - didn't navigate to dashboard. Current URL: {current_url}")

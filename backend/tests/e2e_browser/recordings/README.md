@@ -269,24 +269,24 @@ python -m playwright codegen --load-storage=auth.json http://localhost:3000/role
 
 ```bash
 # FIRST TIME: Save auth state
-python -m playwright codegen --save-storage=auth.json http://localhost:3000/login
+python -m playwright codegen --save-storage=auth.json http://localhost:3000/login --target python-async
 
 # THEN: Record each feature separately
 
 # Teams
-python -m playwright codegen --load-storage=auth.json http://localhost:3000/teams
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/teams --target python-async
 
 # Users  
-python -m playwright codegen --load-storage=auth.json http://localhost:3000/users
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/users --target python-async
 
 # Billing
-python -m playwright codegen --load-storage=auth.json http://localhost:3000/settings/billing
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/settings/billing --target python-async
 
 # Roles
-python -m playwright codegen --load-storage=auth.json http://localhost:3000/roles
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/roles --target python-async
 
 # Settings
-python -m playwright codegen --load-storage=auth.json http://localhost:3000/settings
+python -m playwright codegen --load-storage=auth.json http://localhost:3000/settings --target python-async
 ```
 
 
