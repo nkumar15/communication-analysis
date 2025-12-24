@@ -249,8 +249,9 @@ services:
       - "8025:8025" # Web UI
     restart: unless-stopped
 
-  # B2B Frontend - Web UI for Tenants
+  # B2B Frontend - Web UI for Tenants (E2E Testing Only)
   frontend-b2b:
+    profiles: ["e2e"]  # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -268,8 +269,9 @@ services:
       - b2b-api
     restart: unless-stopped
 
-  # B2C Frontend - Web UI for Workspaces
+  # B2C Frontend - Web UI for Workspaces (E2E Testing Only)
   frontend-b2c:
+    profiles: ["e2e"]  # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -287,8 +289,9 @@ services:
       - b2c-api
     restart: unless-stopped
 
-  # Platform Frontend - Admin UI
+  # Platform Frontend - Admin UI (E2E Testing Only)
   frontend-platform:
+    profiles: ["e2e"]  # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev

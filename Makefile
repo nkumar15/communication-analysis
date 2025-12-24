@@ -277,18 +277,24 @@ test-browser: ## Run E2E browser tests (Use LOCAL=1 to run locally)
 
 test-browser-b2c: ## Run B2C E2E browser tests (usage: make test-browser-b2c TEST_PATH=tests/e2e_browser/b2c/test_file.py)
 	@echo "$(BLUE)Running B2C E2E tests...$(NC)"
+	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
+	docker-compose --profile e2e up -d frontend-b2c
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
 	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2c/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 
 test-browser-b2b: ## Run B2B E2E browser tests (usage: make test-browser-b2b TEST_PATH=tests/e2e_browser/b2b/test_file.py)
 	@echo "$(BLUE)Running B2B E2E tests...$(NC)"
+	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
+	docker-compose --profile e2e up -d frontend-b2b
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
 	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2b/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 
 test-browser-platform: ## Run Platform E2E browser tests
 	@echo "$(BLUE)Running Platform E2E tests...$(NC)"
+	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
+	docker-compose --profile e2e up -d frontend-platform
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
 	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
