@@ -25,7 +25,14 @@ async def test_invitations_notifications(authenticated_b2b_page: Page, b2b_test_
     await page.click("button:has-text('Send Invitation')")
     
     # 3. Verify Invitation Success Notification
-    await expect(page.get_by_text(f"Invitation sent to {test_email}")).to_be_visible()
+    try:
+        await expect(page.get_by_text(f"Invitation sent to {test_email}")).to_be_visible()
+    except Exception:
+        # Check for error message
+        if await page.locator(".alert-error").is_visible():
+            text = await page.locator(".alert-error").inner_text()
+            raise AssertionError(f"Invitation failed with error: {text}")
+        raise
     
     # 4. Switch to Invitations Tab to see it
     await page.click("button:has-text('Pending Invitations')")

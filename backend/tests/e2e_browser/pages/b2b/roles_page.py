@@ -41,7 +41,17 @@ class RolesPage(AsyncBasePage):
         
         await self.page.click("button:has-text('Create Role')")
         # Wait for modal to close
-        await expect(self.page.locator(".modal")).not_to_be_visible()
+        try:
+            await expect(self.page.locator(".modal")).not_to_be_visible()
+        except Exception:
+            # If modal is still visible, check for error message
+            if await self.page.locator(".alert-error").is_visible():
+                error_text = await self.page.locator(".alert-error").inner_text()
+                raise AssertionError(f"Role creation failed with backend error: {error_text}")
+            elif await self.page.locator(".error").is_visible(): # System roles uses .error
+                error_text = await self.page.locator(".error").inner_text()
+                raise AssertionError(f"Role creation failed with backend error: {error_text}")
+            raise
 
     async def delete_role(self, display_name: str):
         # Setup dialog handler before action
