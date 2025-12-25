@@ -85,55 +85,16 @@ async def create_workspace(
     Auto-adds creator as owner
     """
     try:
-        # Get user to determine subscription tier
-        from sqlalchemy import select
-        from modules.b2c.models.user import B2CUser
-        from modules.b2c.models.workspace import Workspace
         from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_user_context(db, str(current_user['id']))
         
-        # Get user's personal workspace to check subscription
-        # Get user's personal workspace with subscription info
-        from sqlalchemy.orm import selectinload
-        from modules.b2c.models.subscription import Subscription
-        
-        result = await db.execute(
-            select(Workspace)
-            .options(selectinload(Workspace.subscription).selectinload(Subscription.plan))
-            .where(
-                Workspace.owner_id == current_user['id'],
-                Workspace.type == 'personal'
-            )
-        )
-        personal_workspace = result.scalar_one_or_none()
-        
-        if not personal_workspace:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Personal workspace not found"
-            )
-        
-        # Determine subscription tier dynamically
-        subscription_tier = 'free'
-        if personal_workspace.subscription and personal_workspace.subscription.status in ['active', 'trialing']:
-            if personal_workspace.subscription.plan:
-                subscription_tier = personal_workspace.subscription.plan.tier_key
-        
-        # Fallback to column if relation is missing but column is set (sanity check)
-        if subscription_tier == 'free' and personal_workspace.subscription_tier != 'free':
-             # Note: This technically trusts the column if sub is missing/inactive, 
-             # but we strictly want active subscription for features.
-             # So we actually prefer the relation.
-             pass
-        
-        # Create team workspace
+        # Create team workspace (subscription check handled in service)
         workspace = await workspace_service.create_team_workspace(
             db=db,
             name=request.name,
-            owner_id=UUID(str(current_user['id'])),
-            subscription_tier=subscription_tier
+            owner_id=UUID(str(current_user['id']))
         )
         
         await db.commit()

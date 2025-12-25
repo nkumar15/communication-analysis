@@ -161,57 +161,11 @@ async def get_subscription(
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found or access denied")
     
-    # Get subscription
+    # Get subscription details via service
     service = SubscriptionService(db)
-    subscription = await service.get_subscription(workspace)
+    subscription_details = await service.get_subscription_details(workspace)
     
-    if not subscription:
-        # Return free tier info
-        return SubscriptionResponse(
-            id="free",
-            workspace_id=workspace_id,
-            tier="free",
-            billing_interval="none",
-            status="active",
-            current_period_start=None,
-            current_period_end=None,
-            cancel_at_period_end=False,
-            amount_cents=0,
-            currency="USD"
-        )
-    
-    # Fetch payment method info from Stripe if card payment
-    payment_method_info = None
-    if subscription.status == 'active' and subscription.provider == 'stripe' and subscription.provider_subscription_id:
-        try:
-            if settings.stripe_secret_key:
-                stripe.api_key = settings.stripe_secret_key
-                stripe_sub = stripe.Subscription.retrieve(subscription.provider_subscription_id)
-                if stripe_sub.default_payment_method:
-                    pm = stripe.PaymentMethod.retrieve(stripe_sub.default_payment_method)
-                    if pm.type == 'card':
-                        payment_method_info = {
-                            'card_brand': pm.card.brand,
-                            'card_last4': pm.card.last4,
-                            'exp_month': pm.card.exp_month,
-                            'exp_year': pm.card.exp_year
-                        }
-        except Exception as e:
-            logger.warning(f"Failed to fetch payment method from Stripe: {e}")
-
-    return SubscriptionResponse(
-        id=str(subscription.id),
-        workspace_id=str(subscription.workspace_id),
-        tier=subscription.plan.tier_key if subscription.plan else "free",
-        billing_interval=subscription.billing_interval or "monthly",
-        status=subscription.status,
-        current_period_start=subscription.current_period_start.isoformat() if subscription.current_period_start else None,
-        current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None,
-        cancel_at_period_end=subscription.cancel_at_period_end or False,
-        amount_cents=subscription.amount_cents or 0,
-        currency=subscription.currency or "USD",
-        payment_method_info=payment_method_info
-    )
+    return SubscriptionResponse(**subscription_details)
 
 
 @router.post("/cancel")

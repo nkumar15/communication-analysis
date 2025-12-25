@@ -47,43 +47,23 @@ async def invite_user(
     Sends invitation email with acceptance link
     """
     try:
-        from core.db.rls import rls_service
-        
-        # Set RLS context
-        await rls_service.set_user_context(db, str(current_user['id']))
-        
-        invitation = await invitation_service.create_invitation(
+        invitation = await invitation_service.invite_user(
             db=db,
             workspace_id=UUID(workspace_id),
             email=request.email,
             role=request.role,
-            inviter_id=UUID(str(current_user['id']))
+            inviter_id=UUID(str(current_user['id'])),
+            inviter_name=current_user.get('display_name') or current_user.get('email')
         )
         
         await db.commit()
-        
-        # Send invitation email asynchronously (optional in tests)
-        try:
-            from workers.b2c_worker.tasks import send_workspace_invitation_email
-            
-            send_workspace_invitation_email.delay(
-                invitation_id=str(invitation.id),
-                invitation_token=invitation.invitation_token,
-                workspace_name=invitation.workspace.name,
-                inviter_name=current_user.get('display_name') or current_user.get('email'),
-                invitee_email=request.email,
-                role=invitation.role
-            )
-        except Exception as email_error:
-            # Email sending is non-critical - log but don't fail the request
-            logger.warning(f"Failed to send invitation email: {str(email_error)}")
         
         return {
             "id": str(invitation.id),
             "workspace_id": workspace_id,
             "email": invitation.email,
             "role": invitation.role,
-            "invitation_token": invitation.invitation_token,  # Temp: return for testing
+            "invitation_token": invitation.invitation_token,
             "expires_at": invitation.expires_at.isoformat(),
             "message": "Invitation created successfully"
         }
@@ -271,25 +251,11 @@ async def resend_invitation(
         invitation = await invitation_service.resend_invitation(
             db=db,
             invitation_id=UUID(invitation_id),
-            requester_id=UUID(str(current_user['id']))
+            requester_id=UUID(str(current_user['id'])),
+            requester_name=current_user.get('display_name') or current_user.get('email')
         )
         
         await db.commit()
-        
-        # Send email
-        try:
-            from workers.b2c_worker.tasks import send_workspace_invitation_email
-            
-            send_workspace_invitation_email.delay(
-                invitation_id=str(invitation.id),
-                invitation_token=invitation.invitation_token,
-                workspace_name=invitation.workspace.name,
-                inviter_name=current_user.get('display_name') or current_user.get('email'),
-                invitee_email=invitation.email,
-                role=invitation.role
-            )
-        except Exception as email_error:
-            logger.warning(f"Failed to resend invitation email: {str(email_error)}")
         
         return {
             "id": str(invitation.id),

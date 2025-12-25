@@ -506,16 +506,87 @@ class SubscriptionService:
         
         return subscription
     
-    async def get_subscription(self, workspace: Workspace) -> Optional[Subscription]:
+    async def get_subscription_details(self, workspace: Workspace) -> Dict[str, Any]:
         """
-        Get subscription for a workspace.
+        Get comprehensive subscription details for a workspace.
+        Enriches with payment method info if applicable.
         """
+        # Get subscription with plan relation
         result = await self.db.execute(
             select(Subscription)
             .where(Subscription.workspace_id == workspace.id)
             .options(selectinload(Subscription.plan))
         )
-        return result.scalar_one_or_none()
+        subscription = result.scalar_one_or_none()
+        
+        if not subscription:
+            # Return free tier info structure
+            return {
+                "id": "free",
+                "workspace_id": str(workspace.id),
+                "tier": "free",
+                "billing_interval": "none",
+                "status": "active",
+                "current_period_start": None,
+                "current_period_end": None,
+                "cancel_at_period_end": False,
+                "amount_cents": 0,
+                "currency": "USD",
+                "payment_method_info": None
+            }
+            
+        # Enrich with payment method from Stripe if applicable
+        payment_method_info = None
+        if subscription.status == 'active' and subscription.provider == 'stripe' and subscription.provider_subscription_id:
+            payment_method_info = await self._enrich_with_stripe_payment_method(subscription.provider_subscription_id)
+            
+        return {
+            "id": str(subscription.id),
+            "workspace_id": str(subscription.workspace_id),
+            "tier": subscription.plan.tier_key if subscription.plan else "free",
+            "billing_interval": subscription.billing_interval or "monthly",
+            "status": subscription.status,
+            "current_period_start": subscription.current_period_start.isoformat() if subscription.current_period_start else None,
+            "current_period_end": subscription.current_period_end.isoformat() if subscription.current_period_end else None,
+            "cancel_at_period_end": subscription.cancel_at_period_end or False,
+            "amount_cents": subscription.amount_cents or 0,
+            "currency": subscription.currency or "USD",
+            "payment_method_info": payment_method_info
+        }
+
+    async def _enrich_with_stripe_payment_method(self, stripe_subscription_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch default payment method details from Stripe.
+        """
+        import stripe
+        try:
+            if settings.stripe_secret_key:
+                stripe.api_key = settings.stripe_secret_key
+                # We could potentially move this to StripeProvider, but for now keeping it here as enrichment.
+                # Ideally, we should avoid direct stripe dependency here for cleaner architecture,
+                # but refactoring the whole provider interface for this one read-op might be overkill for this task.
+                
+                stripe_sub = await stripe.Subscription.retrieve_async(stripe_subscription_id)
+                if stripe_sub.default_payment_method:
+                    # Retrieve payment method
+                    # check if it is string or object (retrieve usually returns object but let's be safe if expanded)
+                    pm_id = stripe_sub.default_payment_method
+                    if isinstance(pm_id, dict):
+                         pm_id = pm_id.get('id')
+                         
+                    pm = await stripe.PaymentMethod.retrieve_async(pm_id)
+                    
+                    if pm.type == 'card':
+                        return {
+                            'card_brand': pm.card.brand,
+                            'card_last4': pm.card.last4,
+                            'exp_month': pm.card.exp_month,
+                            'exp_year': pm.card.exp_year
+                        }
+        except Exception as e:
+            logger.warning(f"Failed to fetch payment method from Stripe: {e}")
+        
+        return None
     
     async def create_customer_portal_session(
         self, 

@@ -23,8 +23,7 @@ class WorkspaceService:
         self,
         db: AsyncSession,
         name: str,
-        owner_id: UUID,
-        subscription_tier: str = 'free'
+        owner_id: UUID
     ) -> Workspace:
         """
         Create a new team workspace
@@ -37,6 +36,31 @@ class WorkspaceService:
         - Workspace record
         - Owner membership
         """
+        # Determine subscription tier from owner's personal workspace
+        from modules.b2c.models.subscription import Subscription
+        
+        result = await db.execute(
+            select(Workspace)
+            .options(selectinload(Workspace.subscription).selectinload(Subscription.plan))
+            .where(
+                Workspace.owner_id == owner_id,
+                Workspace.type == WorkspaceType.personal
+            )
+        )
+        personal_workspace = result.scalar_one_or_none()
+        
+        if not personal_workspace:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Personal workspace not found"
+            )
+        
+        subscription_tier = 'free'
+        if personal_workspace.subscription and personal_workspace.subscription.status in ['active', 'trialing']:
+            if personal_workspace.subscription.plan:
+                subscription_tier = personal_workspace.subscription.plan.tier_key
+        
+        
         # Check workspace quota
         can_create, limit_info = await quota_service.check_team_workspace_limit(
             db, str(owner_id), subscription_tier

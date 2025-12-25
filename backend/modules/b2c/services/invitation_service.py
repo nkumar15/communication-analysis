@@ -27,23 +27,22 @@ class InvitationService:
         """Generate unique invitation token"""
         return secrets.token_urlsafe(32)
     
-    async def create_invitation(
+    async def invite_user(
         self,
         db: AsyncSession,
         workspace_id: UUID,
         email: str,
         role: str,
-        inviter_id: UUID
+        inviter_id: UUID,
+        inviter_name: Optional[str] = None
     ) -> WorkspaceInvitation:
         """
-        Create workspace invitation
-        
-        Validates:
-        - Inviter has admin/owner permission
-        - User not already a member
-        - Email not already invited
-        - Workspace member limit not exceeded
+        Invite user to workspace.
+        Handles RLS, invitation creation, and email sending trigger.
         """
+        # Set RLS context
+        await rls_service.set_user_context(db, str(inviter_id))
+        
         # Verify inviter has permission (admin or owner)
         await workspace_service.verify_workspace_access(
             db, workspace_id, inviter_id, min_role='admin'
@@ -73,7 +72,7 @@ class InvitationService:
                     detail="User is already a member of this workspace"
                 )
         
-        # Check for existing pending invitation (not cancelled, not accepted)
+        # Check for existing pending invitation
         existing_invite_result = await db.execute(
             select(WorkspaceInvitation).where(
                 and_(
@@ -121,6 +120,21 @@ class InvitationService:
             .options(selectinload(WorkspaceInvitation.workspace))
         )
         invitation = result.scalar_one()
+        
+        # Trigger email task
+        try:
+            from workers.b2c_worker.tasks import send_workspace_invitation_email
+            
+            send_workspace_invitation_email.delay(
+                invitation_id=str(invitation.id),
+                invitation_token=invitation.invitation_token,
+                workspace_name=invitation.workspace.name,
+                inviter_name=inviter_name or "Someone", 
+                invitee_email=email,
+                role=invitation.role
+            )
+        except Exception as email_error:
+            logger.warning(f"Failed to trigger invitation email: {str(email_error)}")
         
         logger.info(
             "invitation_created",
@@ -237,10 +251,11 @@ class InvitationService:
         self,
         db: AsyncSession,
         invitation_id: UUID,
-        requester_id: UUID
+        requester_id: UUID,
+        requester_name: Optional[str] = None
     ) -> WorkspaceInvitation:
         """
-        Resend invitation (extend expiry if needed)
+        Resend invitation (extend expiry if needed) and trigger email.
         """
         # Get invitation
         from sqlalchemy.orm import selectinload
@@ -278,6 +293,21 @@ class InvitationService:
         # Extend expiry
         invitation.expires_at = datetime.now(timezone.utc) + timedelta(days=self.INVITATION_EXPIRY_DAYS)
         await db.flush()
+        
+        # Send email
+        try:
+            from workers.b2c_worker.tasks import send_workspace_invitation_email
+            
+            send_workspace_invitation_email.delay(
+                invitation_id=str(invitation.id),
+                invitation_token=invitation.invitation_token,
+                workspace_name=invitation.workspace.name,
+                inviter_name=requester_name or "Someone",
+                invitee_email=invitation.email,
+                role=invitation.role
+            )
+        except Exception as email_error:
+            logger.warning(f"Failed to resend invitation email: {str(email_error)}")
         
         return invitation
 
