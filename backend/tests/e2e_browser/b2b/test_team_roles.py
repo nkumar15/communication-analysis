@@ -16,7 +16,16 @@ async def test_team_roles_crud(authenticated_b2b_page: Page, b2b_test_setup):
     """
     roles_page = RolesPage(authenticated_b2b_page)
     timestamp = int(time.time())
-    role_name = f"test_role_{timestamp}" # must be lowercase for regex pattern
+    # Role name must match ^[a-z_]+$ (lowercase letters and underscores only, NO DIGITS)
+    # Using hex from uuid or similar, mapping digits to letters to be safe? 
+    # Or just a fixed prefix + short alpha string.
+    # Let's use a simple mapping or just "test_role_custom"
+    
+    unique_suffix = f"{timestamp}"
+    # Simple hack: map digits to letters a-j
+    alpha_suffix = "".join([chr(ord('a') + int(d)) for d in unique_suffix])
+    
+    role_name = f"test_role_{alpha_suffix}"
     display_name = f"Test Role {timestamp}"
     description = "Test description for team role"
     new_description = "Updated description for team role"

@@ -16,7 +16,11 @@ async def test_system_roles_crud(authenticated_b2b_page: Page, b2b_test_setup):
     """
     roles_page = RolesPage(authenticated_b2b_page)
     timestamp = int(time.time())
-    role_name = f"test_sys_role_{timestamp}"
+    
+    unique_suffix = f"{timestamp}"
+    alpha_suffix = "".join([chr(ord('a') + int(d)) for d in unique_suffix])
+    role_name = f"test_sys_role_{alpha_suffix}"
+    
     display_name = f"Test Role {timestamp}"
     description = "Test description for system role"
     new_description = "Updated description for system role"
