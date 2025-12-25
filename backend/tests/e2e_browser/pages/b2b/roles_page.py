@@ -32,7 +32,10 @@ class RolesPage(AsyncBasePage):
     async def create_role(self, name: str, display_name: str, desc: str, is_team_role: bool = False):
         button_text = "Create Custom Role" if is_team_role else "Create Role"
         # Handle the '+' prefix if present in UI text
-        await self.page.click(f"button:has-text('{button_text}')")
+        # await self.page.click(f"button:has-text('{button_text}')") 
+        # Use get_by_role for better reliability
+        await self.page.get_by_role("button", name=button_text).click()
+        
         await expect(self.page.locator(".modal")).to_be_visible()
         
         await self.page.fill("input[name='name']", name)
@@ -97,7 +100,17 @@ class RolesPage(AsyncBasePage):
         await expect(self.page.locator(".modal")).not_to_be_visible()
 
     async def verify_role_visible(self, display_name: str):
-        await expect(self.page.locator(f"text={display_name}")).to_be_visible()
+        # Avoid matching the success alert that contains the display name
+        # Team roles are h3 (cards), System roles are td (table) or similar
+        # Using .filter(has_not_class="alert") is tricky with generic locator.
+        # Better to target relevant structure.
+        
+        # Try finding it in a card OR table row, but NOT in an alert
+        # We can use css :not() pseudo-class if we knew structure better, 
+        # or just expect one of the specific containers.
+        await expect(
+            self.page.locator(f"h3:has-text('{display_name}'), tr:has-text('{display_name}')").first
+        ).to_be_visible()
 
     async def verify_success_message(self, text_fragment: str):
         # Allow partial match since messages vary, but check for green color via styling if possible, 

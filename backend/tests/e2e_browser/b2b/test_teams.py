@@ -46,7 +46,9 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
     await page.click(f"div:has-text('{team_name}')")
     
     # Wait for details page
-    await expect(page.locator("h1")).to_contain_text(team_name)
+    # h1 might match sidebar 'Teams' too. Use .first or main content logic.
+    # Assuming the page title is the main H1 we want.
+    await expect(page.locator("h1").filter(has_text=team_name)).to_be_visible()
     
     # Navigate back to teams for deletion test (if delete is on list) 
     # OR if delete is on details page, do it there.

@@ -46,7 +46,8 @@ async def test_invitations_notifications(authenticated_b2b_page: Page, b2b_test_
     
     # 4. Switch to Invitations Tab to see it
     await page.click("button:has-text('Pending Invitations')")
-    await expect(page.get_by_text(test_email)).to_be_visible()
+    # Use specific locator to avoid strict mode violation (alert vs table cell)
+    await expect(page.locator("td").filter(has_text=test_email).first).to_be_visible()
 
     # 5. Resend Invitation
     # Find row with email
