@@ -45,7 +45,7 @@ async def async_page(request):
         cli_headed = False
         
     headed = (os.getenv("HEADED") == "1") or cli_headed
-    slow_mo = 2000 if os.getenv("SLOW") == "1" else 0
+    slow_mo = 5000 if os.getenv("SLOW") == "1" else 0
     
     # Wait for frontend to be ready (Critical for Docker CI)
     import httpx
