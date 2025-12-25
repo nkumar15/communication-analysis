@@ -54,7 +54,7 @@ class RolesPage(AsyncBasePage):
             # Team roles modal submit button says "Create Role"
             pass
             
-        await self.page.click(f"button:has-text('{submit_text}')")
+        await self.page.click(f"form button:has-text('{submit_text}')")
         
         # Wait for modal to close
         try:
