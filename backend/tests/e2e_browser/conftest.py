@@ -1,7 +1,7 @@
-"""Browser E2E Test Fixtures"""
 import pytest
 import pytest_asyncio
 import os
+import asyncio
 from playwright.async_api import Page
 from uuid import uuid4
 

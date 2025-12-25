@@ -1,5 +1,6 @@
 """Settings Page E2E Tests"""
 import pytest
+import asyncio
 from playwright.async_api import expect, Page
 
 
