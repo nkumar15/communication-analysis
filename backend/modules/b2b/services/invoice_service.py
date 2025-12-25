@@ -291,17 +291,38 @@ class InvoiceService:
         Sync Stripe-generated invoice (for card mode subscriptions).
         Called from webhook handler.
         """
+        from core.db.rls import rls_service
+        
+        # Ensure platform admin context for querying across tenants
+        await rls_service.set_platform_admin_context(self.db)
+        
         provider_invoice_id = invoice_data['id']
         
-        # Find subscription
+        # Find subscription - check multiple possible locations in invoice data
         subscription = None
+        subscription_id_from_stripe = None
+        
+        # Try top-level subscription field first
         if invoice_data.get('subscription'):
+            subscription_id_from_stripe = invoice_data['subscription']
+        # Fall back to nested parent.subscription_details.subscription
+        elif invoice_data.get('parent', {}).get('subscription_details', {}).get('subscription'):
+            subscription_id_from_stripe = invoice_data['parent']['subscription_details']['subscription']
+        
+        if subscription_id_from_stripe:
+            logger.info(f"Looking for subscription with provider_subscription_id: {subscription_id_from_stripe}")
+            
             result = await self.db.execute(
                 select(Subscription).where(
-                    Subscription.provider_subscription_id == invoice_data['subscription']
+                    Subscription.provider_subscription_id == subscription_id_from_stripe
                 )
             )
             subscription = result.scalar_one_or_none()
+            
+            if subscription:
+                logger.info(f"✅ Found subscription: {subscription.id}, tenant: {subscription.tenant_id}")
+            else:
+                logger.error(f"❌ Subscription not found in database for provider_subscription_id: {subscription_id_from_stripe}")
         
         if not subscription:
             # Race condition: invoice.paid arrived before checkout.session.completed created the subscription

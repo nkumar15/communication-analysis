@@ -349,6 +349,8 @@ async def stripe_webhook(
             
         elif event_type == 'invoice.paid':
             logger.info(f"💰 Processing invoice payment...")
+            logger.info(f"Invoice data subscription field: {data.get('subscription')}")
+            logger.info(f"Invoice ID: {data.get('id')}")
             try:
                 # Sync Stripe invoice
                 await invoice_service.sync_stripe_invoice(data)
@@ -432,3 +434,6 @@ async def update_billing_profile(
     except ValueError as e:
         raise HTTPException(404, str(e))
 
+
+# ============================================================================
+# Invoices Endpoints  
