@@ -475,7 +475,339 @@ http://localhost:3000/activate/invalid-token-here
 
 ---
 
-## API Endpoints
+## B2B System Testing Guide
+
+Complete testing guide for the B2B multi-tenant SaaS platform.
+
+### Quick Start - Running B2B System
+
+**Start Backend Services:**
+```bash
+# Start all backend services (DB, APIs, workers, Redis, Mailhog)
+make up
+
+# Verify services are running
+docker ps | grep sso_
+```
+
+**Start Frontend:**
+```bash
+# B2B Portal (localhost:3000)
+make web-b2b
+
+# Or combined (backend + frontend)
+make dev-b2b
+```
+
+**Stop Services:**
+```bash
+# Stop backend
+make down
+
+# Stop frontend (Ctrl+C in terminal)
+```
+
+**Restart Services:**
+```bash
+# Restart all
+make restart
+
+# Restart specific service
+docker-compose restart b2b-api
+docker-compose restart b2b-worker
+```
+
+### API Testing
+
+#### 1. Run All B2B API Tests
+
+```bash
+# All B2B API tests
+docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/ -v
+
+# Specific test modules
+docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/test_auth.py -v
+docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/test_invitations.py -v
+docker-compose run --rm e2b-tests pytest tests/e2e_api/b2b/test_roles.py -v
+docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/test_billing.py -v
+```
+
+#### 2. Interactive API Testing (Swagger UI)
+
+```bash
+# Access Swagger documentation
+open http://localhost:8000/docs
+
+# B2B API endpoints
+open http://localhost:8000/api/b2b/
+
+# Platform API
+open http://localhost:8001/docs
+
+# B2C API
+open http://localhost:8002/docs
+```
+
+**Test with Authentication:**
+1. Create a test tenant: `make b2b-seed`
+2. Get Firebase auth token from browser DevTools (after login)
+3. Click "Authorize" in Swagger UI
+4. Enter: `Bearer YOUR_TOKEN_HERE`
+5. Test authenticated endpoints
+
+### Browser E2E Testing
+
+#### Local Browser Testing (Headed Mode)
+
+Run tests with visible browser for debugging:
+
+```bash
+# Run specific test file with visible browser
+make local-test-browser-b2b FILE=test_login.py
+
+# Run all B2B tests locally
+make local-test-browser-b2b
+
+# With custom headed/headless mode
+HEADED=1 make local-test-browser-b2b FILE=test_invitations.py
+```
+
+**When to use:**
+- Debugging test failures
+- Verifying UI behavior manually
+- Developing new tests
+
+#### Docker Browser Testing (Headless)
+
+Run tests in Docker for CI/CD compatibility:
+
+```bash
+# Build test image first (includes Playwright browsers)
+docker-compose build e2e-tests
+
+# Run all B2B browser tests
+make test-browser-b2b
+
+# Run specific test file
+make test-browser-b2b FILE=test_teams.py
+
+# Run all browser tests (B2B + B2C + Platform)
+make test-browser
+```
+
+**When to use:**
+- CI/CD pipelines
+- Verifying tests work in isolated environment
+- Final validation before deployment
+
+**Available Test Modules:**
+- `test_login.py` - SSO authentication flow
+- `test_dashboard.py` - Dashboard page rendering
+- `test_invitations.py` - User invitation and email workflow
+- `test_teams.py` - Team CRUD operations
+- `test_users.py` - User management
+- `test_roles.py` - RBAC role management (system + team roles)
+- `test_audit_logs.py` - Audit log display
+- `test_settings.py` - Tenant settings page
+- `test_billing.py` - Subscription and billing pages
+
+### Subscription & Billing Testing
+
+#### 1. Setup Stripe Test Environment
+
+```bash
+# Install Stripe CLI
+# https://stripe.com/docs/stripe-cli
+
+# Login to Stripe
+stripe login
+
+# Forward webhooks to local backend
+stripe listen --forward-to localhost:8000/api/b2b/billing/webhooks/stripe
+```
+
+#### 2. Test Subscription Upgrade
+
+**Manual Testing:**
+1. Login to B2B portal: `http://localhost:3000`
+2. Navigate to Subscription & Billing page
+3. Click "Upgrade to Professional"
+4. Use Stripe test card: `4242 4242 4242 4242`
+5. Complete checkout
+6. Verify subscription updated in UI
+7. Check webhook logs: `docker logs sso_b2b_api | grep webhook`
+
+**Verify in Database:**
+```bash
+# Check subscription status
+docker exec sso_postgres psql -U postgres -d sso_db -c \
+  "SELECT tier, status, stripe_subscription_id FROM b2b.subscriptions;"
+
+# Check invoices synced
+docker exec sso_postgres psql -U postgres -d sso_db -c \
+  "SELECT invoice_number, status, amount_due FROM b2b.invoices;"
+```
+
+#### 3. Test Invoice Sync
+
+```bash
+# Manually trigger invoice webhook resend
+stripe events resend evt_XXXXX
+
+# Check Mailhog for invoice emails
+open http://localhost:8025
+
+# Verify invoice appears in UI
+# Navigate to: Invoices page in B2B portal
+```
+
+**Common Test Scenarios:**
+- ✅ Upgrade from Starter to Professional
+- ✅ Invoice PDF download link works
+- ✅ Payment method details displayed
+- ✅ Billing details can be updated
+- ✅ Invoices list shows all past invoices
+
+### Email Testing (Mailhog)
+
+All emails are captured by Mailhog in development:
+
+```bash
+# Access Mailhog UI
+open http://localhost:8025
+
+# Check worker logs for email tasks
+docker logs sso_b2b_worker | grep -i email
+
+# Test invitation email flow
+# 1. Create invitation in UI
+# 2. Check Mailhog for email
+# 3. Click activation link in email
+```
+
+**Email Types to Test:**
+- User invitation emails
+- Activation emails
+- Stripe invoice emails (if webhook succeeds)
+
+### Debugging Common Issues
+
+#### Backend API Not Responding
+
+```bash
+# Check API logs
+docker logs sso_b2b_api --tail=100
+
+# Restart API
+docker-compose restart b2b-api
+
+# Check if API is accessible
+curl http://localhost:8000/health
+```
+
+#### Celery Worker Not Processing Tasks
+
+```bash
+# Check worker logs
+docker logs sso_b2b_worker --tail=50
+
+# Restart worker
+docker-compose restart b2b-worker
+
+# Verify Redis connection
+docker logs sso_redis
+```
+
+#### Emails Not Appearing in Mailhog
+
+```bash
+# Verify Mailhog is running
+docker ps | grep mailhog
+
+# Check worker logs for email task execution
+docker logs sso_b2b_worker | grep "send_invitation_email"
+
+# Restart Mailhog
+docker-compose restart mailhog
+```
+
+#### Stripe Webhooks Failing
+
+```bash
+# Check webhook logs
+docker logs sso_b2b_api | grep "webhook"
+
+# Verify Stripe CLI is forwarding
+# Should see: "webhook signing secret" in stripe listen output
+
+# Test webhook manually
+stripe events resend evt_XXXXX
+
+# Check webhook endpoint directly
+curl -X POST http://localhost:8000/api/b2b/billing/webhooks/stripe \
+  -H "Content-Type: application/json" \
+  -d '{"type": "ping"}'
+```
+
+#### Browser Tests Failing
+
+```bash
+# Rebuild E2E test image (picks up code changes)
+docker-compose build e2e-tests
+
+# Run in headed mode to see what's happening
+HEADED=1 make local-test-browser-b2b FILE=test_invitations.py
+
+# Check if frontend is accessible from Docker
+docker exec sso_b2b_api curl http://frontend-b2b:3000
+```
+
+### Testing Checklist for New Developers
+
+Before deploying or marking a feature complete:
+
+**Backend:**
+- [ ] All API tests pass: `make test-api-b2b`
+- [ ] Swagger UI accessible: `http://localhost:8000/docs`
+- [ ] Database migrations applied: `make migrate`
+- [ ] No errors in API logs: `docker logs sso_b2b_api`
+
+**Frontend:**
+- [ ] All browser E2E tests pass: `make test-browser-b2b`
+- [ ] UI renders correctly in browser
+- [ ] No console errors in DevTools
+- [ ] CORS headers configured correctly
+
+**Integration:**
+- [ ] Celery worker processing tasks: `docker logs sso_b2b_worker`
+- [ ] Emails captured in Mailhog: `http://localhost:8025`
+- [ ] Stripe webhooks succeeding (if billing feature)
+- [ ] Audit logs recording events
+
+**Security:**
+- [ ] Multi-tenant isolation working (users can't see other tenants' data)
+- [ ] RLS policies enforced on all queries
+- [ ] Authentication required for protected endpoints
+- [ ] RBAC permissions validated
+
+### Performance Testing
+
+```bash
+# Generate load with Apache Bench
+ab -n 1000 -c 10 http://localhost:8000/api/b2b/auth/me
+
+# Monitor with Prometheus
+open http://localhost:9090
+
+# View traces in Jaeger
+open http://localhost:16686
+
+# Check database query performance
+docker exec sso_postgres psql -U postgres -d sso_db -c \
+  "SELECT query, calls, total_time, mean_time FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10;"
+```
+
+### Testing Iteration Cycle
 
 ### Authentication
 
