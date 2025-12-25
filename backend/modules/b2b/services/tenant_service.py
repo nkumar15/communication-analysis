@@ -469,5 +469,106 @@ class TenantService:
         )
 
 
+    async def get_billing_profile(self, db: AsyncSession, tenant_id: UUID) -> dict:
+        """
+        Get tenant billing profile
+        """
+        tenant = await db.get(TenantModel, tenant_id)
+        if not tenant:
+            raise ValueError(f"Tenant {tenant_id} not found")
+        
+        # Helper to extract address string from JSONB
+        addr_str = None
+        if tenant.billing_address:
+            if isinstance(tenant.billing_address, dict):
+                 addr_str = tenant.billing_address.get('text', '') or tenant.billing_address.get('address', '')
+            elif isinstance(tenant.billing_address, str):
+                addr_str = tenant.billing_address
+        
+        return {
+            "tax_id": tenant.tax_id,
+            "vat_number": tenant.vat_number,
+            "billing_address": addr_str,
+            "billing_email": tenant.billing_email
+        }
+    
+    async def update_billing_profile(
+        self, 
+        db: AsyncSession, 
+        tenant_id: UUID, 
+        tax_id: Optional[str] = None,
+        vat_number: Optional[str] = None,
+        billing_address: Optional[str] = None,
+        billing_email: Optional[str] = None
+    ) -> dict:
+        """
+        Update tenant billing profile
+        """
+        tenant = await db.get(TenantModel, tenant_id)
+        if not tenant:
+            raise ValueError(f"Tenant {tenant_id} not found")
+        
+        if tax_id is not None: tenant.tax_id = tax_id
+        if vat_number is not None: tenant.vat_number = vat_number
+        
+        if billing_address is not None: 
+            # Store as structured JSON
+            tenant.billing_address = {"text": billing_address}
+            
+        if billing_email is not None: tenant.billing_email = billing_email
+        
+        await db.flush()
+        
+        return await self.get_billing_profile(db, tenant_id)
+
+    async def setup_initial_sso(
+        self,
+        db: AsyncSession,
+        activation_token: str,
+        provider_type: str,
+        provider_config: dict,
+        oidc_client_id: Optional[str] = None,
+        oidc_client_secret: Optional[str] = None,
+        oidc_issuer: Optional[str] = None,
+        saml_entity_id: Optional[str] = None,
+        saml_sso_url: Optional[str] = None
+    ) -> dict:
+        """
+        Setup initial SSO provider (moved from activation router)
+        """
+        from modules.b2b.services.auth_provider_service import auth_provider_service
+        
+        # 1. Validate Token to get Tenant
+        validation = await self.validate_activation_token(db, activation_token)
+        tenant_id = validation["tenant_id"]
+        
+        tenant = await db.get(TenantModel, tenant_id)
+        if not tenant:
+             raise ValueError("Tenant not found")
+             
+        if tenant.activation_status != 'pending':
+             raise ValueError("Tenant is not in pending activation state")
+
+        # 2. Setup Provider
+        provider = await auth_provider_service.setup_initial_provider(
+            db=db,
+            tenant_id=tenant_id,
+            firebase_tenant_id=tenant.firebase_tenant_id,
+            provider_type=provider_type,
+            provider_config=provider_config,
+            oidc_client_id=oidc_client_id,
+            oidc_client_secret=oidc_client_secret,
+            oidc_issuer=oidc_issuer,
+            saml_entity_id=saml_entity_id,
+            saml_sso_url=saml_sso_url
+        )
+        
+        return {
+            "success": True,
+            "provider_id": provider.provider_id,
+            "message": "SSO configured successfully"
+        }
+
+
 # Global tenant service instance
 tenant_service = TenantService()

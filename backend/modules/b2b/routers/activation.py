@@ -115,27 +115,11 @@ async def setup_sso(
     1. Validates activation token.
     2. Calls AuthProviderService to configure GCIP and create DB record.
     """
-    from modules.b2b.models import TenantModel
-    from modules.b2b.services.auth_provider_service import auth_provider_service
-    
-    # 1. Validate Token to get Tenant
-    validation = await tenant_service.validate_activation_token(db, request.activation_token)
-    tenant_id = validation["tenant_id"]
-    
-    # Get full tenant model for firebase_id
-    tenant = await db.get(TenantModel, tenant_id)
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-        
-    if tenant.activation_status != 'pending':
-         raise HTTPException(status_code=400, detail="Tenant is not in pending activation state")
-
-    # 2. Setup Provider
+    # Delegate to service
     try:
-        provider = await auth_provider_service.setup_initial_provider(
+        result = await tenant_service.setup_initial_sso(
             db=db,
-            tenant_id=tenant_id,
-            firebase_tenant_id=tenant.firebase_tenant_id,
+            activation_token=request.activation_token,
             provider_type=request.provider_type,
             provider_config=request.provider_config,
             oidc_client_id=request.oidc_client_id,
@@ -147,12 +131,11 @@ async def setup_sso(
         
         await db.commit()
         
-        return SSOSetupResponse(
-            success=True,
-            provider_id=provider.provider_id,
-            message="SSO configured successfully"
-        )
+        return SSOSetupResponse(**result)
         
+    except ValueError as e:
+        # Service raises ValueError for validation/logic errors
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

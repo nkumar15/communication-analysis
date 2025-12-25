@@ -17,6 +17,7 @@ from modules.b2b.middleware.b2b_auth import get_current_active_user
 from modules.b2b.rbac.decorators import require_permission
 from modules.b2b.services.subscription_service import SubscriptionService
 from modules.b2b.services.invoice_service import InvoiceService
+from modules.b2b.services.tenant_service import tenant_service
 from modules.b2b.models import SubscriptionTier, InvoiceStatus
 from core.config import settings
 
@@ -93,83 +94,24 @@ async def get_subscription(
     # current_user is a UserModel object with tenant_id attribute
     tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
     service = SubscriptionService(db)
-    subscription = await service.get_tenant_subscription(tenant_id)
     
-    if not subscription:
-        # Return default starter tier info
-        seat_count = await service.get_active_seat_count(tenant_id)
-        # Fetch starter plan for default pricing
-        plan = await service.get_plan_by_tier_key(SubscriptionTier.STARTER.value)
-        pricing = await service.calculate_seat_based_pricing(
-            plan,
-            seat_count,
-            'monthly'
-        )
-        
-        return SubscriptionResponse(
-            id="",
-            tenant_id=str(tenant_id),
-            tier="starter",
-            payment_mode="card",
-            status="active",
-            seat_count=seat_count,
-            base_price_cents=pricing['base_price_cents'],
-            per_seat_price_cents=pricing['per_seat_price_cents'],
-            total_amount_cents=pricing['total_amount_cents'],
-            currency="USD",
-            billing_interval="monthly",
-            current_period_start=None,
-            current_period_end=None,
-            payment_method_info=None
-        )
-    
-
-    # Fetch payment method info from Stripe if card payment
-    payment_method_info = None
-    if subscription.payment_mode == 'card' and subscription.provider_subscription_id:
-        try:
-            stripe_sub = stripe.Subscription.retrieve(subscription.provider_subscription_id)
-            
-            # 1. Check Subscription default payment method
-            pm_id = stripe_sub.default_payment_method
-            
-            # 2. If not on subscription, check Customer default payment method
-            if not pm_id and stripe_sub.customer:
-                customer = stripe.Customer.retrieve(stripe_sub.customer)
-                if customer.invoice_settings and customer.invoice_settings.default_payment_method:
-                    pm_id = customer.invoice_settings.default_payment_method
-            
-            if pm_id:
-                # Handle case where pm_id might be an object if expanded (unlikely here but safe)
-                if isinstance(pm_id, str):
-                    pm = stripe.PaymentMethod.retrieve(pm_id)
-                else:
-                    pm = pm_id
-                    
-                if pm.type == 'card':
-                    payment_method_info = {
-                        'card_brand': pm.card.brand,
-                        'card_last4': pm.card.last4,
-                        'exp_year': pm.card.exp_year
-                    }
-        except Exception as e:
-            logger.warning(f"Failed to fetch payment method from Stripe: {e}")
+    sub_data = await service.get_subscription_details(tenant_id)
     
     return SubscriptionResponse(
-        id=str(subscription.id),
-        tenant_id=str(subscription.tenant_id),
-        tier=subscription.tier,
-        payment_mode=subscription.payment_mode,
-        status=subscription.status,
-        seat_count=subscription.seat_count,
-        base_price_cents=subscription.base_price_cents,
-        per_seat_price_cents=subscription.per_seat_price_cents,
-        total_amount_cents=subscription.total_amount_cents,
-        currency=subscription.currency,
-        billing_interval=subscription.billing_interval,
-        current_period_start=subscription.current_period_start.isoformat() if subscription.current_period_start else None,
-        current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None,
-        payment_method_info=payment_method_info
+        id=sub_data['id'],
+        tenant_id=sub_data['tenant_id'],
+        tier=sub_data['tier'],
+        payment_mode=sub_data['payment_mode'],
+        status=sub_data['status'],
+        seat_count=sub_data['seat_count'],
+        base_price_cents=sub_data['base_price_cents'],
+        per_seat_price_cents=sub_data['per_seat_price_cents'],
+        total_amount_cents=sub_data['total_amount_cents'],
+        currency=sub_data['currency'],
+        billing_interval=sub_data['billing_interval'],
+        current_period_start=sub_data['current_period_start'],
+        current_period_end=sub_data['current_period_end'],
+        payment_method_info=sub_data['payment_method_info']
     )
 
 
@@ -449,33 +391,12 @@ async def get_billing_profile(
     current_user=require_permission("billing", "read"),
     db: AsyncSession = Depends(get_db)
 ):
-    from modules.b2b.models import TenantModel
     tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
-    tenant = await db.get(TenantModel, tenant_id)
-    if not tenant:
-        raise HTTPException(404, "Tenant not found")
-    
-    # helper to extract address string from JSONB
-    addr_str = None
-    if tenant.billing_address:
-        if isinstance(tenant.billing_address, dict):
-             # Try to find common keys or return dumped string? 
-             # Let's assume we want a single string field 'text' or fallback
-             addr_str = tenant.billing_address.get('text', '') or tenant.billing_address.get('address', '')
-             if not addr_str and tenant.billing_address:
-                 # If dict is not empty but no key match, convert values to string? 
-                 # Or just return empty string to clear the error.
-                 # Let's return empty string if structure is unknown to allow user to overwrite in UI
-                 pass
-        elif isinstance(tenant.billing_address, str):
-            addr_str = tenant.billing_address
-        
-    return BillingProfileResponse(
-        tax_id=tenant.tax_id,
-        vat_number=tenant.vat_number,
-        billing_address=addr_str,
-        billing_email=tenant.billing_email
-    )
+    try:
+        profile = await tenant_service.get_billing_profile(db, tenant_id)
+        return BillingProfileResponse(**profile)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 @router.patch("/profile", response_model=BillingProfileResponse)
 async def update_billing_profile(
@@ -483,32 +404,18 @@ async def update_billing_profile(
     current_user=require_permission("billing", "manage"),
     db: AsyncSession = Depends(get_db)
 ):
-    from modules.b2b.models import TenantModel
     tenant_id = current_user.tenant_id if hasattr(current_user, 'tenant_id') else current_user.get('tenant_id')
-    tenant = await db.get(TenantModel, tenant_id)
-    if not tenant:
-        raise HTTPException(404, "Tenant not found")
     
-    # Update fields if provided (allow empty string to clear?)
-    if payload.tax_id is not None: tenant.tax_id = payload.tax_id
-    if payload.vat_number is not None: tenant.vat_number = payload.vat_number
-    
-    if payload.billing_address is not None: 
-        # Store as structured JSON
-        tenant.billing_address = {"text": payload.billing_address}
-        
-    if payload.billing_email is not None: tenant.billing_email = payload.billing_email
-    
-    await db.commit()
-    
-    addr_str = None
-    if tenant.billing_address and isinstance(tenant.billing_address, dict):
-        addr_str = tenant.billing_address.get('text')
-
-    return BillingProfileResponse(
-        tax_id=tenant.tax_id,
-        vat_number=tenant.vat_number,
-        billing_address=addr_str,
-        billing_email=tenant.billing_email
-    )
+    try:
+        updated_profile = await tenant_service.update_billing_profile(
+            db=db,
+            tenant_id=tenant_id,
+            tax_id=payload.tax_id,
+            vat_number=payload.vat_number,
+            billing_address=payload.billing_address,
+            billing_email=payload.billing_email
+        )
+        return BillingProfileResponse(**updated_profile)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 

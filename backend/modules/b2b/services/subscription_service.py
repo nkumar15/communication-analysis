@@ -55,6 +55,98 @@ class SubscriptionService:
         )
         return result.scalar_one_or_none()
 
+    async def get_subscription_details(self, tenant_id: UUID) -> Dict[str, Any]:
+        """
+        Get comprehensive subscription details, including pricing and payment method info.
+        Returns default starter tier info if no subscription exists.
+        """
+        subscription = await self.get_tenant_subscription(tenant_id)
+        
+        if not subscription:
+            # Return default starter tier info
+            seat_count = await self.get_active_seat_count(tenant_id)
+            # Fetch starter plan for default pricing
+            plan = await self.get_plan_by_tier_key(SubscriptionTier.STARTER.value)
+            pricing = await self.calculate_seat_based_pricing(
+                plan,
+                seat_count,
+                'monthly'
+            )
+            
+            return {
+                "id": "",
+                "tenant_id": str(tenant_id),
+                "tier": "starter",
+                "payment_mode": "card",
+                "status": "active",
+                "seat_count": seat_count,
+                "base_price_cents": pricing['base_price_cents'],
+                "per_seat_price_cents": pricing['per_seat_price_cents'],
+                "total_amount_cents": pricing['total_amount_cents'],
+                "currency": "USD",
+                "billing_interval": "monthly",
+                "current_period_start": None,
+                "current_period_end": None,
+                "payment_method_info": None
+            }
+        
+        # Enrich with Stripe payment method info if applicable
+        payment_method_info = await self._enrich_with_stripe_payment_method(subscription)
+        
+        return {
+            "id": str(subscription.id),
+            "tenant_id": str(subscription.tenant_id),
+            "tier": subscription.tier,
+            "payment_mode": subscription.payment_mode,
+            "status": subscription.status,
+            "seat_count": subscription.seat_count,
+            "base_price_cents": subscription.base_price_cents,
+            "per_seat_price_cents": subscription.per_seat_price_cents,
+            "total_amount_cents": subscription.total_amount_cents,
+            "currency": subscription.currency,
+            "billing_interval": subscription.billing_interval,
+            "current_period_start": subscription.current_period_start.isoformat() if subscription.current_period_start else None,
+            "current_period_end": subscription.current_period_end.isoformat() if subscription.current_period_end else None,
+            "payment_method_info": payment_method_info
+        }
+
+    async def _enrich_with_stripe_payment_method(self, subscription: Subscription) -> Optional[Dict[str, Any]]:
+        """
+        Fetch default payment method details from Stripe.
+        """
+        import stripe
+        
+        if subscription.payment_mode != 'card' or not subscription.provider_subscription_id:
+            return None
+            
+        try:
+            stripe.api_key = settings.stripe_b2b_secret_key
+            
+            stripe_sub_obj = stripe.Subscription.retrieve(subscription.provider_subscription_id)
+            
+            pm_id = stripe_sub_obj.default_payment_method
+            
+            if not pm_id and stripe_sub_obj.customer:
+                 customer = stripe.Customer.retrieve(stripe_sub_obj.customer)
+                 if customer.invoice_settings and customer.invoice_settings.default_payment_method:
+                     pm_id = customer.invoice_settings.default_payment_method
+            
+            if pm_id:
+                if isinstance(pm_id, str):
+                    pm = stripe.PaymentMethod.retrieve(pm_id)
+                else:
+                    pm = pm_id
+                
+                if pm.type == 'card':
+                    return {
+                        'card_brand': pm.card.brand,
+                        'card_last4': pm.card.last4,
+                        'exp_year': pm.card.exp_year
+                    }
+        except Exception as e:
+            logger.warning(f"Failed to fetch payment method from Stripe: {e}")
+            
+        return None
 
     async def calculate_seat_based_pricing(
         self, 

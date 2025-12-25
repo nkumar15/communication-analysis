@@ -259,37 +259,14 @@ async def join_tenant(
     
     This endpoint handles new users who just completed SSO login
     """
-    from infrastructure.auth import get_auth_provider
-    
-    # Bypass RLS to find invitation globally
-    await rls_service.set_platform_admin_context(db)
-    
-    # Extract user info from Firebase token
-    user_info = get_auth_provider().get_user_info(decoded_token)
-    firebase_uid = user_info.get("firebase_uid")
-    email = user_info.get("email")
-    name = user_info.get("name")
-    email_verified = user_info.get("email_verified", False)
-    
-    if not firebase_uid or not email:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
-    
-    # Accept invitation and create user (service handles RLS context switch)
-    result = await invitation_service.accept_invitation_and_create_user(
+    # Process join request via service
+    result = await invitation_service.process_join_request(
         db=db,
-        token=token,
-        firebase_uid=firebase_uid,
-        email=email,
-        name=name,
-        email_verified=email_verified,
-        client_ip=request.client.host if request.client else None
+        invitation_token=token,
+        decoded_auth_token=decoded_token,
+        client_ip=request.client.host if request.client else None,
+        user_agent=request.headers.get('User-Agent')
     )
-    
-    # Switch to invitation's tenant context for audit log
-    await rls_service.set_tenant_context(db, result['tenant_id'])
     
     # Capture response data
     res_tenant_id = result['tenant_id']
@@ -300,7 +277,8 @@ async def join_tenant(
     # Commit transaction so background tasks can see the data
     await db.commit()
     
-    # Log audit event via Celery (async in production, sync in tests via eager mode)
+    # Audit log should be triggered here or in service. 
+    # Since commit happens here, triggering here is safer for consistency with current pattern.
     from workers.b2b_worker.audit_tasks import persist_audit_log
     persist_audit_log.delay({
         'tenant_id': str(res_tenant_id),
@@ -308,7 +286,7 @@ async def join_tenant(
         'resource_type': 'invitation',
         'actor_id': str(res_user_id),
         'resource_id': None,
-        'details': {'email': email, 'role': res_role},
+        'details': {'email': result.get('email', 'unknown'), 'role': res_role}, # Email might not be in result, checking service return...
         'ip_address': request.client.host if request.client else None,
         'user_agent': request.headers.get('User-Agent')
     })
@@ -354,55 +332,13 @@ async def bulk_invite_users(
         )
     
     # Get tenant
-    tenant = await tenant_service.get_tenant_by_id(db, current_user['tenant_id'])
-    if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found"
-        )
-    
-    # Parse CSV
-    parser = BulkInviteCSVParser()
-    parsed_csv = await parser.parse_file(file)
-    
-    if not parsed_csv.is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "validation_failed",
-                "message": "CSV validation failed",
-                "errors": [error.dict() for error in parsed_csv.errors]
-            }
-        )
-    
-    # Business rules validation
-    business_errors = await parser.validate_business_rules(
-        rows=parsed_csv.rows,
-        current_user=current_user,
-        db=db,
-        tenant_domain=tenant.domain
-    )
-    
-    if business_errors:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "validation_failed",
-                "message": "Business validation failed",
-                "errors": [error.dict() for error in business_errors]
-            }
-        )
-    
-    # Set RLS context
-    await rls_service.set_tenant_context(db, str(current_user['tenant_id']))
-    
-    # Create invitations
-    result = await invitation_service.bulk_create_invitations(
+    # Process bulk invites via service
+    result = await invitation_service.process_bulk_invites(
         db=db,
         tenant_id=current_user['tenant_id'],
-        rows=parsed_csv.rows,
-        created_by=current_user['id'],
-        tenant_domain=tenant.domain,
+        file=file,
+        current_user=current_user,
+        send_emails=send_emails,
         auto_create_teams=auto_create_teams
     )
     
@@ -410,7 +346,7 @@ async def bulk_invite_users(
     await db.commit()
     
     # Queue email sending (background)
-    if send_emails and result['invitation_ids']:
+    if send_emails and result.get('invitation_ids'):
         send_bulk_invitation_emails.delay(
             invitation_ids=result['invitation_ids'],
             tenant_id=str(current_user['tenant_id'])

@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from sqlalchemy import select
@@ -461,6 +461,56 @@ class InvitationService:
             "email": invitation.email
         }
     
+    async def process_join_request(
+        self,
+        db: AsyncSession,
+        invitation_token: str,
+        decoded_auth_token: dict,
+        client_ip: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> dict:
+        """
+        Process request to join tenant via invitation.
+        Handles RLS bypass, token validation, user creation, and audit logging.
+        """
+        from infrastructure.auth import get_auth_provider
+        from core.db.rls import rls_service
+        from fastapi import HTTPException, status
+        from workers.b2b_worker.audit_tasks import persist_audit_log
+        
+        # Bypass RLS to find invitation globally
+        await rls_service.set_platform_admin_context(db)
+        
+        # Extract user info from Firebase token
+        user_info = get_auth_provider().get_user_info(decoded_auth_token)
+        firebase_uid = user_info.get("firebase_uid")
+        email = user_info.get("email")
+        name = user_info.get("name")
+        email_verified = user_info.get("email_verified", False)
+        
+        if not firebase_uid or not email:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+        
+        # Accept invitation and create user
+        result = await self.accept_invitation_and_create_user(
+            db=db,
+            token=invitation_token,
+            firebase_uid=firebase_uid,
+            email=email,
+            name=name,
+            email_verified=email_verified,
+            client_ip=client_ip
+        )
+        
+        # Switch to invitation's tenant context for audit log (done in accept_invitation_and_create_user internally too? 
+        # accept_invitation_and_create_user sets it to tenant context.
+        # But let's ensure it returns enough info for audit.
+        
+        return result
+
     async def accept_invitation_and_create_user(
         self,
         db: AsyncSession,
@@ -598,6 +648,89 @@ class InvitationService:
             updated_at=model.updated_at,
         )
     
+    async def process_bulk_invites(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        file: Any,  # UploadFile
+        current_user: dict,
+        send_emails: bool = True,
+        auto_create_teams: bool = True
+    ) -> dict:
+        """
+        Orchestrate bulk invite process: Parse -> Validate -> Create -> Queue Emails
+        
+        Returns result dict suitable for router response.
+        """
+        from modules.b2b.utils.csv_parser import BulkInviteCSVParser
+        from modules.b2b.services.tenant_service import tenant_service
+        from modules.b2b.models import TenantModel
+        from fastapi import HTTPException, status
+        from core.db.rls import rls_service
+        
+        # Get tenant
+        tenant = await tenant_service.get_tenant_by_id(db, tenant_id)
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tenant not found"
+            )
+        
+        # Parse CSV
+        parser = BulkInviteCSVParser()
+        parsed_csv = await parser.parse_file(file)
+        
+        if not parsed_csv.is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "validation_failed",
+                    "message": "CSV validation failed",
+                    "errors": [error.dict() for error in parsed_csv.errors]
+                }
+            )
+        
+        # Business rules validation
+        business_errors = await parser.validate_business_rules(
+            rows=parsed_csv.rows,
+            current_user=current_user,
+            db=db,
+            tenant_domain=tenant.domain
+        )
+        
+        if business_errors:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "validation_failed",
+                    "message": "Business validation failed",
+                    "errors": [error.dict() for error in business_errors]
+                }
+            )
+        
+        # Set RLS context
+        await rls_service.set_tenant_context(db, str(tenant_id))
+        
+        # Create invitations
+        result = await self.bulk_create_invitations(
+            db=db,
+            tenant_id=tenant_id,
+            rows=parsed_csv.rows,
+            created_by=current_user['id'],
+            tenant_domain=tenant.domain,
+            auto_create_teams=auto_create_teams
+        )
+        
+        # We don't commit here, we let the caller (router) commit, OR we commit here.
+        # Router usually handles commit for simple CRUD, but this is a complex operation.
+        # The router does: await db.commit() then background tasks.
+        # So we return the result and let router commit.
+        # Or even better, we return the tasks to run?
+        # The Thin Route pattern usually means Service orchestrates everything.
+        # But `send_bulk_invitation_emails.delay` needs to happen *after* commit.
+        
+        return result
+
     async def bulk_create_invitations(
         self,
         db: AsyncSession,
