@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg17
     container_name: sso_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -401,7 +401,50 @@ services:
       - jaeger
     restart: unless-stopped
 
+  # Elasticsearch - Vector Store & Search Engine
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: sso_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # MinIO - Object Storage (S3 Compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: sso_minio
+    ports:
+      - "9000:9000" # API
+      - "9005:9001" # Console (mapped to 9005 to avoid conflict if any)
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   grafana_data:
+  es_data:
+    driver: local
+  minio_data:
+    driver: local

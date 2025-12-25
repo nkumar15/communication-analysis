@@ -46,13 +46,8 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     await init_db()
     
-    # Startup: Initialize Observability (Tracing, Metrics)
-    # We pass the engine for SQL instrumentation
-    # Startup: Initialize Observability (Tracing, Metrics)
-    # We pass the engine for SQL instrumentation
-    setup_observability(app, service_name="b2b-api", sqlalchemy_engine=engine)
-    
     # Startup: Initialize Firebase
+
     from infrastructure.auth import get_auth_provider
     get_auth_provider().initialize()
 
@@ -80,6 +75,11 @@ app.add_middleware(
 
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
+
+# Initialize Observability (Tracing, Metrics)
+# Must be done after app creation but before requests
+setup_observability(app, service_name="b2b-api", sqlalchemy_engine=engine)
+
 
 # Include routers
 app.include_router(auth.router)

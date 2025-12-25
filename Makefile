@@ -132,6 +132,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			sleep 5; \
 			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
+			$(MAKE) stop-web-all; \
 			;; \
 		*) echo "Cancelled."; ;; \
 	esac
@@ -162,9 +163,9 @@ b2c-seed-plans: ## Seed B2C subscription plans
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
-b2b-invite: ## Invite B2B Tenant (interactive)
+b2b-invite: ## Invite B2B Tenant (usage: make b2b-invite f=seed.json)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/data/seed_tenant_config.json)
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -203,6 +204,9 @@ web-platform: ## Start Platform portal (port 3002)
 
 web-all: ## Build all portals for production
 	cd frontend && npm run build:all
+
+stop-web-all:
+	docker-compose stop frontend-b2c frontend-b2b frontend-platform || true
 
 ##@ Development
 
