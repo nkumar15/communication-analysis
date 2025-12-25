@@ -299,6 +299,15 @@ test-browser-platform: ## Run Platform E2E browser tests
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
 	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 
+local-test-browser-b2b: ## Run B2B browser tests locally with venv (headed)
+	cd backend && .venv/bin/pytest tests/e2e_browser/b2b/ --headed -v
+
+local-test-browser-b2c: ## Run B2C browser tests locally with venv (headed)
+	cd backend && .venv/bin/pytest tests/e2e_browser/b2c/ --headed -v
+
+local-test-browser-platform: ## Run Platform browser tests locally with venv (headed)
+	cd backend && .venv/bin/pytest tests/e2e_browser/platform/ --headed -v
+
 test: ## Run all tests
 	@$(MAKE) test-api
 	@$(MAKE) test-browser
