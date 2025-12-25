@@ -27,17 +27,24 @@ def browser_context_args(browser_context_args):
 # ============================================================================
 
 @pytest_asyncio.fixture
-async def async_page():
+async def async_page(request):
     """
     Async Playwright page fixture for B2B tests.
     Creates a new browser context and page for each test.
-    Respects HEADED and SLOW environment variables.
+    Respects HEADED env var and --headed CLI flag.
+    SLOW env var controls slow_mo.
     """
     from playwright.async_api import async_playwright
     
     
     # Read environment variables for headed mode and slow motion
-    headed = os.getenv("HEADED") == "1"
+    # Respect both env var AND the standard --headed pytest flag
+    try:
+        cli_headed = request.config.getoption("--headed")
+    except (ValueError, AttributeError):
+        cli_headed = False
+        
+    headed = (os.getenv("HEADED") == "1") or cli_headed
     slow_mo = 2000 if os.getenv("SLOW") == "1" else 0
     
     # Wait for frontend to be ready (Critical for Docker CI)
