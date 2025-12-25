@@ -38,7 +38,11 @@ class RolesPage(AsyncBasePage):
         
         await self.page.get_by_role("button", name=button_name).click(force=True)
         
-        await expect(self.page.locator(".modal")).to_be_visible()
+        # Wait for modal to open
+        # Team Roles page uses .modal class
+        # System Roles page uses inline styles but has a form inside the modal
+        # Verification: Wait for the form to be visible, which is common to both
+        await expect(self.page.locator("form")).to_be_visible()
         
         await self.page.fill("input[name='name']", name)
         await self.page.fill("input[name='display_name']", display_name)
@@ -47,16 +51,14 @@ class RolesPage(AsyncBasePage):
         # Use dynamic submit button text
         submit_text = "Create Role"
         if is_team_role: 
-            # Team roles modal submit button says "Create Role" too? 
-            # Checked TeamRoleManagementPage.js: {saving ? 'Creating...' : 'Create Role'}
-            # But System Roles (RoleManagementPage.js): {creating ? 'Creating...' : 'Create Role'}
+            # Team roles modal submit button says "Create Role"
             pass
             
         await self.page.click(f"button:has-text('{submit_text}')")
         
         # Wait for modal to close
         try:
-            await expect(self.page.locator(".modal")).not_to_be_visible()
+            await expect(self.page.locator("form")).not_to_be_visible()
         except Exception:
             # If modal is still visible, check for error message
             if await self.page.locator(".alert-error").is_visible():

@@ -58,7 +58,7 @@ async def test_team_roles_crud(authenticated_b2b_page: Page, b2b_test_setup):
     
     # 4. Delete
     await roles_page.delete_role(display_name)
-    await roles_page.verify_success_message("deleted successfully")
+    # Success already verified in delete_role mechanism to ensure timing is caught
     
     # Verify deletion
     await expect(authenticated_b2b_page.locator(f"text={display_name}")).not_to_be_visible()

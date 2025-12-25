@@ -1,5 +1,6 @@
 """Teams Page E2E Tests"""
 import pytest
+import time
 from playwright.async_api import expect, Page
 
 
@@ -18,7 +19,8 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
     await expect(page.locator("h1").filter(has_text="Teams")).to_be_visible()
 
     # 2. Create Team
-    team_name = "Notification Test Team"
+    timestamp = int(time.time())
+    team_name = f"Notification Test Team {timestamp}"
     await page.click("button:has-text('Create Team')")
     
     # Fill form
@@ -41,9 +43,8 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
         await dialog.accept()
     page.on("dialog", handle_dialog)
 
-    # Click team to go to details (or find delete button if implemented on list)
-    # The current list implementation navigates to details on click
-    await page.click(f"div:has-text('{team_name}')")
+    # Click team to go to details (click the header explicitly)
+    await page.locator(f"h3:has-text('{team_name}')").click()
     
     # Wait for details page navigation
     await page.wait_for_url(f"**/b2b/teams/*")
