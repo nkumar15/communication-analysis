@@ -87,7 +87,7 @@ const TeamsPage = () => {
     }
 
     return (
-        <AdminLayout title="Teams" subtitle="Manage teams and their members">
+        <AdminLayout>
             <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
                 {/* Header with Create Button */}
                 <div style={{

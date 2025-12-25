@@ -263,6 +263,7 @@ const RoleManagementPage = () => {
                                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Name (Identifier)</label>
                                         <input
                                             type="text"
+                                            name="name"
                                             value={newRole.name}
                                             onChange={(e) => setNewRole({ ...newRole, name: e.target.value })}
                                             placeholder="e.g. field_manager"
@@ -274,6 +275,7 @@ const RoleManagementPage = () => {
                                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Display Name</label>
                                         <input
                                             type="text"
+                                            name="display_name"
                                             value={newRole.display_name}
                                             onChange={(e) => setNewRole({ ...newRole, display_name: e.target.value })}
                                             placeholder="e.g. Field Manager"
@@ -285,6 +287,7 @@ const RoleManagementPage = () => {
                                 <div style={{ marginBottom: '16px' }}>
                                     <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Description</label>
                                     <textarea
+                                        name="description"
                                         value={newRole.description}
                                         onChange={(e) => setNewRole({ ...newRole, description: e.target.value })}
                                         style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #D1D5DB' }}
