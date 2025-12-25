@@ -80,7 +80,7 @@ async def async_page():
         await browser.close()
 
 @pytest_asyncio.fixture
-async def authenticated_b2b_page(async_page, b2b_test_setup):
+async def authenticated_b2b_page(async_page: Page, b2b_test_setup):
     """
     Fixture that provides an authenticated Async Playwright page for B2B.
     Uses mock JWT backdoor for fast, reliable testing without Firebase network calls.
@@ -90,6 +90,10 @@ async def authenticated_b2b_page(async_page, b2b_test_setup):
     # Allow overriding base URL for Docker environments
     base_url = os.getenv("BASE_URL", "http://localhost:3000")
     
+    # Enable console logging for debugging
+    async_page.on("console", lambda msg: print(f"BROWSER CONSOLE: {msg.text}"))
+    async_page.on("pageerror", lambda exc: print(f"BROWSER ERROR: {exc}"))
+
     # Get the mock JWT token from the test setup
     # CRITICAL: Commit test data so backend API (separate process) can see it
     session = b2b_test_setup["session"]._session
