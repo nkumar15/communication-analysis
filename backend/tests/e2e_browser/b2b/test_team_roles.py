@@ -3,6 +3,7 @@ import pytest
 from playwright.async_api import expect, Page
 from tests.e2e_browser.pages.b2b.roles_page import RolesPage
 import time
+import asyncio
 
 @pytest.mark.asyncio
 @pytest.mark.browser
