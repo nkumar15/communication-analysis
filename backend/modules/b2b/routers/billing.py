@@ -349,14 +349,27 @@ async def stripe_webhook(
             
         elif event_type == 'invoice.paid':
             logger.info(f"💰 Processing invoice payment...")
-            # Sync Stripe invoice
-            await invoice_service.sync_stripe_invoice(data)
-            await db.commit()
+            try:
+                # Sync Stripe invoice
+                await invoice_service.sync_stripe_invoice(data)
+                await db.commit()
+            except ValueError as e:
+                # Subscription not found - race condition where invoice.paid arrived before checkout.session.completed
+                # Return 200 so Stripe will retry this webhook later
+                logger.warning(f"Skipping invoice sync (will retry): {e}")
+                await db.rollback()
+                return {"status": "deferred", "message": str(e)}
             
         elif event_type == 'invoice.payment_failed':
             logger.warning(f"⚠️ Processing payment failure...")
-            await invoice_service.sync_stripe_invoice(data)
-            await db.commit()
+            try:
+                await invoice_service.sync_stripe_invoice(data)
+                await db.commit()
+            except ValueError as e:
+                # Same race condition handling
+                logger.warning(f"Skipping invoice sync (will retry): {e}")
+                await db.rollback()
+                return {"status": "deferred", "message": str(e)}
             # TODO: Send payment failure notification
         else:
             logger.info(f"ℹ️ Unhandled event type: {event_type}")
