@@ -2,7 +2,20 @@ import firebaseAuthService from '../firebase/authService';
 
 // Use environment variable for production, empty string for dev/test (uses webpack proxy)
 // Set REACT_APP_API_URL in production to point to your backend
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+let envUrl = process.env.REACT_APP_API_URL || '';
+
+// Runtime Fix for Local Development:
+// If we are running on localhost (browser) but the API URL is set to an internal Docker hostname (b2b-api),
+// it means the environment variable is polluted. We should ignore it and use the proxy.
+if (typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost' &&
+    envUrl &&
+    (envUrl.includes('b2b-api') || envUrl.includes('b2c-api') || envUrl.includes('platform-api'))) {
+    console.warn('⚠️ b2bClient: Ignoring Docker internal URL on localhost. Using proxy instead.', envUrl);
+    envUrl = '';
+}
+
+const API_BASE_URL = envUrl;
 
 class ApiService {
     /**
@@ -328,8 +341,15 @@ class ApiService {
     async validateActivationToken(token) {
         const response = await fetch(`${API_BASE_URL}/api/b2b/activation/validate/${token}`);
         if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.detail || 'Invalid activation token');
+            const text = await response.text();
+            let errorMsg = 'Invalid activation token';
+            try {
+                const data = JSON.parse(text);
+                errorMsg = data.detail || errorMsg;
+            } catch (e) {
+                if (text) errorMsg = text;
+            }
+            throw new Error(errorMsg);
         }
         return response.json();
     }
@@ -341,8 +361,15 @@ class ApiService {
     async getActivationTenantInfo(tenantId) {
         const response = await fetch(`${API_BASE_URL}/api/b2b/activation/tenant-info/${tenantId}`);
         if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.detail || 'Failed to get tenant info');
+            const text = await response.text();
+            let errorMsg = 'Failed to get tenant info';
+            try {
+                const data = JSON.parse(text);
+                errorMsg = data.detail || errorMsg;
+            } catch (e) {
+                if (text) errorMsg = text;
+            }
+            throw new Error(errorMsg);
         }
         return response.json();
     }
@@ -360,8 +387,39 @@ class ApiService {
         });
 
         if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.detail || 'Activation failed');
+            const text = await response.text();
+            let errorMsg = 'Activation failed';
+            try {
+                const data = JSON.parse(text);
+                errorMsg = data.detail || errorMsg;
+            } catch (e) {
+                if (text) errorMsg = text;
+            }
+            throw new Error(errorMsg);
+        }
+        return response.json();
+    }
+
+    /**
+     * Setup SSO during activation
+     */
+    async setupActivationSSO(payload) {
+        const response = await fetch(`${API_BASE_URL}/api/b2b/activation/setup-sso`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            let errorMsg = 'SSO configuration failed';
+            try {
+                const data = JSON.parse(text);
+                errorMsg = data.detail || errorMsg;
+            } catch (e) {
+                if (text) errorMsg = text;
+            }
+            throw new Error(errorMsg);
         }
         return response.json();
     }
