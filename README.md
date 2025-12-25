@@ -66,12 +66,12 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[System Architecture](docs/architecture/system-architecture.md)**: Detailed component breakdown.
 - **[Security](docs/architecture/security.md)**: Security best practices and implementation details.
 - **[UI Design](docs/architecture/ui-design.md)**: Design system and reusable frontend components.
-- **[Domain APIs](docs/architecture/shared/domain-apis.md)**: Projects, Tasks, and Comments APIs.
+- **[Domain APIs](docs/architecture/b2b/domain-apis.md)**: Projects, Tasks, and Comments APIs.
 
 #### B2B Architecture
 - **[Authentication](docs/architecture/b2b/authentication.md)**: Authentication flow,tenant status validation, and RLS context.
 - **[Authorization & RBAC](docs/architecture/b2b/authorization.md)**: Permission system, role templates, and tenant/user access control.
-- **[Multi-Tenant Isolation](docs/architecture/b2b/multi-tenant-isolation.md)**: RLS implementation and tenant data isolation.
+- **[Multi-Tenant Isolation](docs/architecture/shared/multi-tenant-isolation.md)**: RLS implementation and tenant data isolation.
 - **[Tenant Onboarding Flow](docs/architecture/b2b/tenant-onboarding-flow.md)**: Complete onboarding sequence from platform admin invite to activation.
 - **[Subscription & Billing](docs/architecture/b2b/subscription.md)**: Pricing engine, payment flows, Stripe integration, and invoice management.
 

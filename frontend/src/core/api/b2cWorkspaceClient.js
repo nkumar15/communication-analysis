@@ -21,6 +21,33 @@ class B2CWorkspaceClient {
         };
     }
 
+    /**
+     * Sync user to database after Firebase authentication
+     * Creates user and personal workspace if they don't exist
+     * Returns user and workspaces info
+     */
+    async syncUser() {
+        const token = await firebaseAuthService.getIdToken(true); // Force refresh
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/b2c/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id_token: token }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to sync user');
+        }
+
+        return response.json();
+    }
+
     // ============================================================================
     // Billing
     // ============================================================================

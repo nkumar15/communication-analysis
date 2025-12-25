@@ -51,6 +51,11 @@ const InvitationAcceptPage = () => {
         setError('');
 
         try {
+            // CRITICAL: Sync user to database first (creates user if doesn't exist)
+            // This prevents "User not found" error when accepting invitation
+            await b2cWorkspaceClient.syncUser();
+
+            // Now accept invitation
             await b2cWorkspaceClient.acceptInvitation(token);
             alert('Successfully joined workspace!');
             navigate('/workspaces');

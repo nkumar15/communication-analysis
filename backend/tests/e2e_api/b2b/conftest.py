@@ -346,48 +346,26 @@ async def professional_subscription(db_session, b2b_tenant):
         SubscriptionStatus
     )
     from datetime import datetime, timedelta, timezone
-    from sqlalchemy import select
     from core.db.rls import rls_service
     
     await rls_service.set_tenant_context(db_session, b2b_tenant.id)
     
-    # Check if subscription already exists (from migration seed)
-    result = await db_session.execute(
-        select(B2BSubscription).where(B2BSubscription.tenant_id == b2b_tenant.id)
+    # Always create a fresh subscription for each test
+    subscription = B2BSubscription(
+        tenant_id=b2b_tenant.id,
+        tier=SubscriptionTier.PROFESSIONAL.value,
+        payment_mode=PaymentMode.CARD.value,
+        status=SubscriptionStatus.ACTIVE.value,
+        seat_count=5,
+        base_price_cents=5000,  # $50
+        per_seat_price_cents=2000,  # $20
+        total_amount_cents=15000,  # $50 + ($20 * 5) = $150
+        billing_interval='monthly',
+        currency='USD',
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=30)
     )
-    subscription = result.scalar_one_or_none()
-    
-    if subscription:
-        # Update existing subscription to professional tier
-        subscription.tier = SubscriptionTier.PROFESSIONAL.value
-        subscription.payment_mode = PaymentMode.CARD.value
-        subscription.status = SubscriptionStatus.ACTIVE.value
-        subscription.seat_count = 5
-        subscription.base_price_cents = 5000  # $50
-        subscription.per_seat_price_cents = 2000  # $20
-        subscription.total_amount_cents = 15000  # $50 + ($20 * 5) = $150
-        subscription.billing_interval = 'monthly'
-        subscription.currency = 'USD'
-        subscription.current_period_start = datetime.now(timezone.utc)
-        subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
-    else:
-        # Create new subscription
-        subscription = B2BSubscription(
-            tenant_id=b2b_tenant.id,
-            tier=SubscriptionTier.PROFESSIONAL.value,
-            payment_mode=PaymentMode.CARD.value,
-            status=SubscriptionStatus.ACTIVE.value,
-            seat_count=5,
-            base_price_cents=5000,  # $50
-            per_seat_price_cents=2000,  # $20
-            total_amount_cents=15000,  # $50 + ($20 * 5) = $150
-            billing_interval='monthly',
-            currency='USD',
-            current_period_start=datetime.now(timezone.utc),
-            current_period_end=datetime.now(timezone.utc) + timedelta(days=30)
-        )
-        db_session.add(subscription)
-    
+    db_session.add(subscription)
     await db_session.flush()
     return subscription
 
@@ -401,44 +379,24 @@ async def enterprise_subscription(db_session, b2b_tenant):
         PaymentMode,
         SubscriptionStatus
     )
-    from sqlalchemy import select
     from core.db.rls import rls_service
     
     await rls_service.set_tenant_context(db_session, b2b_tenant.id)
     
-    # Check if subscription already exists (from migration seed)
-    result = await db_session.execute(
-        select(B2BSubscription).where(B2BSubscription.tenant_id == b2b_tenant.id)
+    # Always create a fresh subscription for each test
+    subscription = B2BSubscription(
+        tenant_id=b2b_tenant.id,
+        tier=SubscriptionTier.ENTERPRISE.value,
+        payment_mode=PaymentMode.INVOICE.value,
+        status=SubscriptionStatus.ACTIVE.value,
+        seat_count=20,
+        base_price_cents=20000,  # $200
+        per_seat_price_cents=5000,  # $50
+        total_amount_cents=120000,  # $200 + ($50 * 20) = $1200
+        billing_interval='monthly',
+        currency='USD'
     )
-    subscription = result.scalar_one_or_none()
-    
-    if subscription:
-        # Update existing subscription to enterprise tier
-        subscription.tier = SubscriptionTier.ENTERPRISE.value
-        subscription.payment_mode = PaymentMode.INVOICE.value
-        subscription.status = SubscriptionStatus.ACTIVE.value
-        subscription.seat_count = 20
-        subscription.base_price_cents = 20000  # $200
-        subscription.per_seat_price_cents = 5000  # $50
-        subscription.total_amount_cents = 120000  # $200 + ($50 * 20) = $1200
-        subscription.billing_interval = 'monthly'
-        subscription.currency = 'USD'
-    else:
-        # Create new subscription
-        subscription = B2BSubscription(
-            tenant_id=b2b_tenant.id,
-            tier=SubscriptionTier.ENTERPRISE.value,
-            payment_mode=PaymentMode.INVOICE.value,
-            status=SubscriptionStatus.ACTIVE.value,
-            seat_count=20,
-            base_price_cents=20000,  # $200
-            per_seat_price_cents=5000,  # $50
-            total_amount_cents=120000,  # $200 + ($50 * 20) = $1200
-            billing_interval='monthly',
-            currency='USD'
-        )
-        db_session.add(subscription)
-    
+    db_session.add(subscription)
     await db_session.flush()
     return subscription
 
