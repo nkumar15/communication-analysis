@@ -11,6 +11,7 @@ const TeamsPage = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newTeamName, setNewTeamName] = useState('');
     const [newTeamDesc, setNewTeamDesc] = useState('');
@@ -43,6 +44,8 @@ const TeamsPage = () => {
     const handleCreateTeam = async (e) => {
         e.preventDefault();
         setCreating(true);
+        setError('');
+        setSuccess('');
         try {
             await teamApi.createTeam({
                 name: newTeamName,
@@ -51,6 +54,7 @@ const TeamsPage = () => {
             setShowCreateModal(false);
             setNewTeamName('');
             setNewTeamDesc('');
+            setSuccess('Team created successfully');
             loadData();
         } catch (err) {
             setError(err.message || 'Failed to create team');
@@ -63,8 +67,11 @@ const TeamsPage = () => {
         if (!window.confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
             return;
         }
+        setError('');
+        setSuccess('');
         try {
             await teamApi.deleteTeam(teamId);
+            setSuccess('Team deleted successfully');
             loadData();
         } catch (err) {
             setError(err.message || 'Failed to delete team');
@@ -135,6 +142,22 @@ const TeamsPage = () => {
                         fontSize: '14px'
                     }}>
                         ❌ {error}
+                    </div>
+                )}
+
+                {/* Success Message */}
+                {success && (
+                    <div style={{
+                        marginBottom: '24px',
+                        padding: '12px 16px',
+                        backgroundColor: '#D1FAE5',
+                        border: '1px solid #6EE7B7',
+                        borderLeft: '4px solid #10B981',
+                        borderRadius: '6px',
+                        color: '#065F46',
+                        fontSize: '14px'
+                    }}>
+                        ✅ {success}
                     </div>
                 )}
 
