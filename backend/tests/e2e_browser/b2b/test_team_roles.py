@@ -16,8 +16,8 @@ async def test_team_roles_crud(authenticated_b2b_page: Page, b2b_test_setup):
     """
     roles_page = RolesPage(authenticated_b2b_page)
     timestamp = int(time.time())
-    role_name = f"TestTeamRole_{timestamp}"
-    display_name = f"Test Team Role {timestamp}"
+    role_name = f"test_role_{timestamp}" # must be lowercase for regex pattern
+    display_name = f"Test Role {timestamp}"
     description = "Test description for team role"
     new_description = "Updated description for team role"
 
