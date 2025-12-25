@@ -818,6 +818,7 @@ const InvitationsPage = () => {
                                     </label>
                                     <input
                                         type="email"
+                                        name="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="colleague@yourcompany.com"

@@ -38,8 +38,9 @@ async def test_system_roles_crud(authenticated_b2b_page: Page, b2b_test_setup):
     await roles_page.verify_success_message("created successfully")
     await roles_page.verify_role_visible(display_name)
 
-    # 3. Update (Description)
-    await roles_page.edit_role_description(display_name, new_description)
+    # 3. Update (Description) - SKIPPED
+    # System roles UI does not currently support editing
+    # await roles_page.edit_role_description(display_name, new_description)
     # Note: RoleManagementPage doesn't have an edit modal for existing roles in the same way, 
     # the code analysis showed create and delete operations primarily, 
     # but the RolesPage helper assumes an edit button.

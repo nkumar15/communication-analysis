@@ -33,12 +33,14 @@ class LoginPage(AsyncBasePage):
         # Navigate directly to dashboard
         await self.page.goto(f"{self.base_url}/dashboard")
         
-        # Wait for dashboard to load
+        # Wait for dashboard to load (verify URL)
         try:
-            await self.page.wait_for_load_state("networkidle", timeout=5000)
+            # Replaced brittle networkidle check with simple URL verification
+            # Background requests shouldn't fail the test
+            await self.page.wait_for_url("**/dashboard", timeout=5000)
             print(f"✅ Navigated to dashboard: {self.page.url}")
         except Exception as e:
-            print(f"⚠️ Dashboard load failed after 5s: {e}")
+            print(f"⚠️ Dashboard verify failed after 5s: {e}")
             print(f"❌ Current URL: {self.page.url}")
             
             # Check for error messages or redirects

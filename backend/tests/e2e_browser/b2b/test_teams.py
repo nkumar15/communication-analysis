@@ -11,7 +11,9 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
     base_url = page.url.split('/dashboard')[0] if '/dashboard' in page.url else page.url.rstrip('/')
     
     # 1. Navigate to Teams
+    # 1. Navigate to Teams
     await page.goto(f"{base_url}/teams")
+    await page.wait_for_url("**/teams")
     await expect(page.locator("h1")).to_contain_text("Teams")
 
     # 2. Create Team

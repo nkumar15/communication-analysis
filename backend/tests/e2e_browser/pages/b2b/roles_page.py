@@ -59,7 +59,17 @@ class RolesPage(AsyncBasePage):
             parent = self.page.locator(f"tr:has-text('{display_name}')")
             await parent.locator("button:has-text('Delete')").click()
         
+        # Confirm dialog
+        
         # Verify gone
+        # Wait for success message first to ensure backend processed it
+        # This prevents checking for invisibility before the list re-fetches
+        try:
+            await expect(self.page.locator(".alert-success").or_(self.page.locator("text=successfully"))).to_be_visible(timeout=5000)
+        except:
+            # If notification is missed/too fast, proceed to check checks
+            pass
+
         await expect(self.page.locator(f"text={display_name}")).not_to_be_visible()
     
     async def edit_role_description(self, display_name: str, new_desc: str):
