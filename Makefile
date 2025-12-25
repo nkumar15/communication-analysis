@@ -281,7 +281,8 @@ test-browser-b2c: ## Run B2C E2E browser tests (usage: make test-browser-b2c TES
 	docker-compose --profile e2e up -d frontend-b2c
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2c/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
+	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2c/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-b2c && exit 1)
+	docker-compose stop frontend-b2c
 
 test-browser-b2b: ## Run B2B E2E browser tests (usage: make test-browser-b2b TEST_PATH=tests/e2e_browser/b2b/test_file.py)
 	@echo "$(BLUE)Running B2B E2E tests...$(NC)"
@@ -289,7 +290,8 @@ test-browser-b2b: ## Run B2B E2E browser tests (usage: make test-browser-b2b TES
 	docker-compose --profile e2e up -d frontend-b2b
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2b/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
+	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2b/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-b2b && exit 1)
+	docker-compose stop frontend-b2b
 
 test-browser-platform: ## Run Platform E2E browser tests
 	@echo "$(BLUE)Running Platform E2E tests...$(NC)"
@@ -297,7 +299,8 @@ test-browser-platform: ## Run Platform E2E browser tests
 	docker-compose --profile e2e up -d frontend-platform
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
+	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-platform && exit 1)
+	docker-compose stop frontend-platform
 
 local-test-browser-b2b: ## Run B2B browser tests locally with venv (headed)
 	cd backend && .venv/bin/pytest tests/e2e_browser/b2b/ --headed -v

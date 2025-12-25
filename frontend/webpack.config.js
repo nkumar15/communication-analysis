@@ -73,7 +73,9 @@ module.exports = {
             defaults: false
         }),
         new webpack.DefinePlugin({
-            'process.env.PORTAL': JSON.stringify(PORTAL)
+            'process.env.PORTAL': JSON.stringify(PORTAL),
+            // Explicitly define API URL to ensure system/docker env vars take precedence over .env file
+            'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL)
         })
     ],
     devServer: {

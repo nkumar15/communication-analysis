@@ -258,7 +258,7 @@ services:
     environment:
       - PORTAL=b2b
       - REACT_APP_API_URL=http://b2b-api:8000
-      - NODE_ENV=development
+      - NODE_ENV=production
     ports:
       - "3000:3000"
     volumes:
@@ -267,6 +267,7 @@ services:
     depends_on:
       - b2b-api
     restart: unless-stopped
+    command: sh -c "npm run build:b2b && npx -y serve -s dist/b2b -l 3000"
 
   # B2C Frontend - Web UI for Workspaces (E2E Testing Only)
   frontend-b2c:
@@ -278,7 +279,7 @@ services:
     environment:
       - PORTAL=b2c
       - REACT_APP_API_URL=http://b2c-api:8002
-      - NODE_ENV=development
+      - NODE_ENV=production
     ports:
       - "3001:3001"
     volumes:
@@ -287,6 +288,7 @@ services:
     depends_on:
       - b2c-api
     restart: unless-stopped
+    command: sh -c "npm run build:b2c && npx -y serve -s dist/b2c -l 3001"
 
   # Platform Frontend - Admin UI (E2E Testing Only)
   frontend-platform:
@@ -298,7 +300,7 @@ services:
     environment:
       - PORTAL=platform
       - REACT_APP_API_URL=http://platform-api:8001
-      - NODE_ENV=development
+      - NODE_ENV=production
     ports:
       - "3002:3002"
     volumes:
@@ -307,6 +309,7 @@ services:
     depends_on:
       - platform-api
     restart: unless-stopped
+    command: sh -c "npm run build:platform && npx -y serve -s dist/platform -l 3002"
 
   # API Gateway - Routes requests to all microservices
   nginx:
