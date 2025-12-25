@@ -32,6 +32,12 @@ async def test_invitations_notifications(authenticated_b2b_page: Page, b2b_test_
     await expect(page.locator("h2:has-text('Invite User')")).to_be_visible()
     await page.fill("input[name='email']", test_email)
     
+    # Select a role (required field) - use first available non-disabled role
+    # The default should be 'member' but let's explicitly select it
+    role_select = page.locator("select[name='role']").first
+    if await role_select.is_visible():
+        await role_select.select_option(index=0)
+    
     # Submit
     await page.click("form button:has-text('Send Invitation')")
     

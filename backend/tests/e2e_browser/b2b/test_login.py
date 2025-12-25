@@ -5,6 +5,7 @@ from playwright.async_api import expect, Page
 import os
 
 
+@pytest.mark.skip(reason="SSO login with Firebase popup requires manual testing - use authenticated_b2b_page fixture for automated tests")
 @pytest.mark.asyncio
 @pytest.mark.browser
 async def test_sso_login(async_page: Page):

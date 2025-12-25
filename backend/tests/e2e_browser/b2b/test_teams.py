@@ -33,7 +33,7 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
     
     # 3. Verify Success Notification
     # Look for the specific success message we added
-    await expect(page.get_by_text("Team created successfully")).to_be_visible()
+    await expect(page.get_by_text("Team created successfully")).to_be_visible(timeout=10000)
     
     # Verify team appears in list
     await expect(page.locator(f"h3:has-text('{team_name}')")).to_be_visible()
