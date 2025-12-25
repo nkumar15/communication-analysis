@@ -329,10 +329,14 @@ class CouponService:
             description=description
         )
         
-        # 1. Create Stripe Coupon (optional in test mode)
+            # 1. Create Stripe Coupon (optional in test mode)
         try:
+            # Stripe restriction: 'forever' duration is only allowed with percent_off coupons
+            # For fixed_amount, use 'once' or 'repeating'
+            duration = 'forever' if discount_type == 'percentage' else 'once'
+            
             stripe_data = await self.provider.create_coupon(
-                duration='forever',
+                duration=duration,
                 name=f"{code} ({description or 'B2C Coupon'})",
                 percent_off=float(discount_percent) if discount_percent else None,
                 amount_off=discount_amount_cents,

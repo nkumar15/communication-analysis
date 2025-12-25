@@ -25,13 +25,107 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 import secrets
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import app components
-from tests.test_app import app  # Unified test app with all routers
-from core.db.session import get_db
+from core.db.session import get_db, init_db, close_db
 from core.db.base import Base
 from core.config import settings
 from core.utils import get_utc_now
+from infrastructure.auth import get_auth_provider
+
+# Import ALL routers for testing
+from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
+from modules.domains.projects.routers import projects, tasks, comments
+from modules.platform.routers import platform, platform_b2b, platform_b2c
+from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
+from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
+
+# B2C billing router requires stripe - import conditionally
+try:
+    from modules.b2c.routers import billing as b2c_billing
+    HAS_B2C_BILLING = True
+except ImportError:
+    HAS_B2C_BILLING = False
+
+
+# ============================================================================
+# Unified Test App (combines all microservice routers)
+# ============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    print("🧪 Starting unified test app...")
+    await init_db()
+    get_auth_provider().initialize()
+    print("✓ Test app ready")
+    
+    yield
+    
+    # Shutdown
+    await close_db()
+
+
+# Create unified test app
+app = FastAPI(
+    title="Unified Test API",
+    description="Test-only app with all microservice routers combined",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include ALL routers
+app.include_router(auth.router)
+app.include_router(activation.router)
+app.include_router(invitations.router)  # B2B invitations
+app.include_router(users.router)
+app.include_router(roles.router)  # B2B roles
+app.include_router(teams.router)
+app.include_router(team_roles.router)  # B2B team roles
+app.include_router(account.router)
+app.include_router(audit_logs.router)
+app.include_router(billing.router)  # B2B billing
+app.include_router(sso_settings.router)  # SSO settings
+app.include_router(projects.router)
+app.include_router(tasks.router)
+app.include_router(comments.router)
+app.include_router(platform.router)
+app.include_router(platform_b2b.router)
+app.include_router(platform_b2c.router)
+app.include_router(platform_roles.router)  # Platform roles management
+app.include_router(platform_invitations.router)  # Platform invitations
+app.include_router(platform_billing.router)
+app.include_router(b2c_auth.router)
+app.include_router(b2c_workspaces.router)
+app.include_router(b2c_invitations.router)
+
+# Include B2C billing router if stripe is available
+if HAS_B2C_BILLING:
+    app.include_router(b2c_billing.router)
+
+
+@app.get("/")
+async def root():
+    return {"service": "unified-test-app", "note": "For testing only"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": "test"}
+
 
 
 # Test database URL (shared connection)
