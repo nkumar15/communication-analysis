@@ -29,7 +29,7 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
     await page.fill("textarea[name='team-desc']", "Testing notifications")
     
     # Submit
-    await page.click("button[type='submit']")
+    await page.click("form button[type='submit']")
     
     # 3. Verify Success Notification
     # Look for the specific success message we added

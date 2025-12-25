@@ -53,6 +53,12 @@ class RolesPage(AsyncBasePage):
         if is_team_role: 
             # Team roles modal submit button says "Create Role"
             pass
+        else:
+            # System roles require a template.
+            # We select the first available template if any.
+            # Check if template select exists
+            if await self.page.locator("select[name='template_id']").is_visible():
+                await self.page.select_option("select[name='template_id']", index=0)
             
         await self.page.click(f"form button:has-text('{submit_text}')")
         

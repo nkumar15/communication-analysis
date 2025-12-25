@@ -33,7 +33,7 @@ async def test_invitations_notifications(authenticated_b2b_page: Page, b2b_test_
     await page.fill("input[name='email']", test_email)
     
     # Submit
-    await page.click("button:has-text('Send Invitation')")
+    await page.click("form button:has-text('Send Invitation')")
     
     # 3. Verify Invitation Success Notification
     try:
