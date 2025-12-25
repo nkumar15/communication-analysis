@@ -145,6 +145,29 @@ async def authenticated_b2c_page(async_page):
     
     base_url = os.getenv("FRONTEND_URL_B2C", "http://localhost:3001")
     
+    # Wait for B2C frontend to be ready
+    import httpx
+    import time
+    
+    async def wait_for_server(url: str, timeout: int = 60):
+        print(f"Waiting for {url} to be ready...")
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        print(f"Server {url} is ready!")
+                        return True
+            except Exception:
+                await asyncio.sleep(1)
+        raise TimeoutError(f"Server {url} did not become ready in {timeout} seconds")
+    
+    try:
+        await wait_for_server(base_url, timeout=45)
+    except TimeoutError:
+        print(f"WARNING: Frontend at {base_url} might not be ready. Proceeding anyway...")
+    
     # Navigate to B2C app FIRST (can't clear storage on about:blank)
     await async_page.goto(base_url)
     
@@ -165,8 +188,8 @@ async def authenticated_b2c_page(async_page):
         }}
     """)
     
-    # Reload to pick up auth
-    await async_page.reload()
+    # Navigate to dashboard to pick up auth
+    await async_page.goto(base_url)
     await async_page.wait_for_load_state("domcontentloaded")
     
     return async_page
