@@ -216,6 +216,21 @@ class ApiService {
         return response.json();
     }
 
+    // Generic PATCH request with auth headers
+    async patch(path, data) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`PATCH ${path} failed: ${response.status} - ${error}`);
+        }
+        return response.json();
+    }
+
     // Generic DELETE request with auth headers
     async delete(path) {
         const headers = await this.getAuthHeaders();
