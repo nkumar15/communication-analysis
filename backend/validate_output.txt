@@ -1,0 +1,18 @@
+=== Starting RAG Ingestion Validation ===
+Created sample file: sample_earnings.txt
+Simulating Tenant ID: 231291fb-33a3-4f96-80bb-4697cb0c5fdb
+Generating embeddings:   0%|          | 0/1 [00:00<?, ?it/s]Generating embeddings: 100%|██████████| 1/1 [00:00<00:00, 10.71it/s]
+2025-12-25 14:21:18,716 - INFO - HEAD http://elasticsearch:9200/rag_documents [status:200 duration:0.008s]
+2025-12-25 14:21:18,761 - INFO - PUT http://elasticsearch:9200/_bulk?refresh=true [status:200 duration:0.043s]
+2025-12-25 14:21:18,763 - INFO - Ingested 1 chunks successfully
+
+=== Ingestion Result ===
+{'status': 'success', 'file_path': 'sample_earnings.txt', 'chunks': 1, 'tenant_id': '231291fb-33a3-4f96-80bb-4697cb0c5fdb', 'source': 'local'}
+
+SUCCESS: Pipeline ran end-to-end!
+Cleaned up sample file.
+2025-12-25 14:21:19,598 - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x7f32b9895700>
+2025-12-25 14:21:19,598 - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x7f32b79a2e10>, 45612.920945313)])']
+connector: <aiohttp.connector.TCPConnector object at 0x7f32b7980140>

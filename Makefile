@@ -47,7 +47,7 @@ status: ## Show status of all services and configuration
 
 up: ## Start all backend services (frontend runs locally)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker nginx mailhog prometheus grafana jaeger
+	docker-compose up -d postgres elasticsearch minio b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
 	@echo "Email UI:     http://localhost:8025 (Mailhog)"

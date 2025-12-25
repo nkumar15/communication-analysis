@@ -18,8 +18,10 @@ RUN apt-get update && apt-get install -y \
 # Install uv for fast package management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user and cache directory
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/cache/huggingface && \
+    chown -R appuser:appuser /app
 
 # ==========================================
 # 2. Builder Stage (Dependency Caching)

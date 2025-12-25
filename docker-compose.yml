@@ -207,17 +207,23 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - EMAIL_PROVIDER=mailhog
       - MAILHOG_HOST=mailhog
+      - HF_HOME=/app/cache/huggingface
     ports:
       - "8003:8003"
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+      - hf_cache:/app/cache/huggingface
     depends_on:
       postgres:
         condition: service_healthy
       jaeger:
         condition: service_started
       redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     command: uvicorn modules.domains.main:app --host 0.0.0.0 --port 8003 --reload
 
@@ -447,4 +453,6 @@ volumes:
   es_data:
     driver: local
   minio_data:
+    driver: local
+  hf_cache:
     driver: local

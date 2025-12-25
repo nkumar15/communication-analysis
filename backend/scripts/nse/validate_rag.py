@@ -6,6 +6,9 @@ from uuid import uuid4
 # Add backend to path
 sys.path.append(os.getcwd())
 
+# Set Mock LLM for validation to avoid API Key requirement
+os.environ["LLM_PROVIDER"] = "mock"
+
 from modules.domains.nse.services.rag_service import rag_service
 
 async def main():

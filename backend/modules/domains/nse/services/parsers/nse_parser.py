@@ -3,17 +3,20 @@ from llama_index.core.node_parser import NodeParser
 from llama_index.core.schema import BaseNode, Document, TextNode
 from llama_index.core.node_parser import SentenceSplitter
 
+from llama_index.core.bridge.pydantic import Field, PrivateAttr
+
 class NSEEarningsParser(NodeParser):
     """
     Parser specialized for NSE Earnings Reports and Transcripts.
     Phase 1: Wrapper around SentenceSplitter (Passthrough)
     Phase 2: Will implement specific logic for Tables (PDFPlumber) and Dialogues.
     """
+    chunk_size: int = Field(default=1024, description="Chunk size")
+    chunk_overlap: int = Field(default=20, description="Chunk overlap")
+    _splitter: SentenceSplitter = PrivateAttr()
     
-    def __init__(self, chunk_size: int = 1024, chunk_overlap: int = 20):
-        super().__init__()
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+    def __init__(self, chunk_size: int = 1024, chunk_overlap: int = 20, **kwargs):
+        super().__init__(chunk_size=chunk_size, chunk_overlap=chunk_overlap, **kwargs)
         # Default splitting logic for Phase 1
         self._splitter = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 

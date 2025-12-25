@@ -15,7 +15,11 @@ class LLMFactory:
         provider = os.getenv("LLM_PROVIDER", "openai").lower()
         model = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
         
-        if provider == "openai":
+        if provider == "mock":
+            from llama_index.core.llms import MockLLM
+            return MockLLM()
+
+        elif provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is required for OpenAI provider")
