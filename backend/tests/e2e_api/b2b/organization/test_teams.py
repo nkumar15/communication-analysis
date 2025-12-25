@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import uuid4
 
-from services.b2b.models import Team, TeamMember
+from modules.b2b.models import Team, TeamMember
 from tests.conftest import (
     create_test_user,
     create_test_tenant,

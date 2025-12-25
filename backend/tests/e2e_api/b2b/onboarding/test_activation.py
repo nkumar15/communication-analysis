@@ -10,8 +10,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from services.b2b.models import UserModel, TenantModel, InvitationModel
-from core.rls import rls_service
+from modules.b2b.models import UserModel, TenantModel, InvitationModel
+from core.db.rls import rls_service
 from core.constants import B2BRoleName
 from datetime import datetime, timedelta, timezone
 import secrets
@@ -45,8 +45,8 @@ class TestActivationFlow:
         platform_admin_token = platform_admin_setup["token"]
         
         # Mock Firebase interactions for onboarding
-        with patch('services.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant, \
-             patch('services.platform.services.tenant_onboarding_service.configure_oidc_provider') as mock_config_oidc:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant, \
+             patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.configure_oidc_provider') as mock_config_oidc:
             
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
             mock_config_oidc.return_value = "oidc.test"

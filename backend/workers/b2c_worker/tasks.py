@@ -9,12 +9,12 @@ from typing import Dict, Any
 import logging
 
 from workers.b2c_worker.celery_app import app
-from core.database import SessionLocal
+from core.db.session import SessionLocal
 
 from core.config import settings
-from services.b2c.models.user import B2CUser
-from services.b2c.models.subscription import Subscription
-from services.b2c.models.workspace import Workspace
+from modules.b2c.models.user import B2CUser
+from modules.b2c.models.subscription import Subscription
+from modules.b2c.models.workspace import Workspace
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def send_payment_failure_email(self, user_id: str, workspace_id: str, grace_peri
     Send email notification when payment fails.
     """
     try:
-        from core.email.service import email_service
+        from infrastructure.email.service import email_service
         
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
@@ -93,7 +93,7 @@ def send_subscription_canceled_email(self, user_id: str, workspace_id: str, reas
     Send email when subscription is canceled.
     """
     try:
-        from core.email.service import email_service
+        from infrastructure.email.service import email_service
 
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
@@ -141,7 +141,7 @@ def send_subscription_activated_email(self, user_id: str, workspace_id: str):
     Send welcome email when subscription is activated.
     """
     try:
-        from core.email.service import email_service
+        from infrastructure.email.service import email_service
 
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
@@ -189,8 +189,8 @@ def send_invoice_payment_succeeded_email(self, user_id: str, invoice_id: str):
     Send receipt email when invoice is paid.
     """
     try:
-        from services.b2c.models.subscription import Invoice
-        from core.email.service import email_service
+        from modules.b2c.models.subscription import Invoice
+        from infrastructure.email.service import email_service
         
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         invoice = self.db.query(Invoice).filter(Invoice.id == invoice_id).first()
@@ -234,7 +234,7 @@ def send_grace_period_expiring_email(self, user_id: str, workspace_id: str, days
     Send reminder email when grace period is expiring.
     """
     try:
-        from core.email.service import email_service
+        from infrastructure.email.service import email_service
         
         user = self.db.query(B2CUser).filter(B2CUser.id == user_id).first()
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
@@ -285,7 +285,7 @@ def send_workspace_invitation_email(
     Send workspace invitation email.
     """
     try:
-        from core.email.service import email_service
+        from infrastructure.email.service import email_service
         
         b2c_frontend_url = settings.frontend_url_b2c or settings.frontend_url
         invitation_url = f"{b2c_frontend_url}/invite/{invitation_token}"
@@ -328,7 +328,7 @@ def downgrade_workspace_to_free(self, workspace_id: str, reason: str):
     Downgrade workspace to free tier (background cleanup).
     """
     try:
-        from services.b2c.middleware.subscription_guard import downgrade_to_free_tier
+        from modules.b2c.middleware.subscription_guard import downgrade_to_free_tier
         
         workspace = self.db.query(Workspace).filter(Workspace.id == workspace_id).first()
         

@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import uuid4
 from core.constants import B2BRoleName
-from services.b2b.models.rbac import Role
-from services.b2b.models import TenantModel, UserModel
+from modules.b2b.models.rbac import Role
+from modules.b2b.models import TenantModel, UserModel
 from tests.conftest import create_test_tenant, create_mock_firebase_token, encode_mock_jwt
 # Import platform_admin_setup from existing test file
 

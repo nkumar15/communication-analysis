@@ -7,7 +7,7 @@ import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
-from services.b2b.models import (
+from modules.b2b.models import (
     Subscription,
     Invoice,
     SubscriptionTier,
@@ -15,7 +15,7 @@ from services.b2b.models import (
     SubscriptionStatus,
     InvoiceStatus
 )
-from services.b2b.services.invoice_service import InvoiceService
+from modules.b2b.services.invoice_service import InvoiceService
 
 
 pytestmark = pytest.mark.asyncio
@@ -27,10 +27,10 @@ class TestInvoiceGeneration:
     async def test_auto_generate_monthly_invoice(
         self,
         db_session,
-        b2b_tenant,
-        rls_service
+        b2b_tenant
     ):
         """Test automatic monthly invoice generation"""
+        from core.db.rls import rls_service
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
         
         # Create subscription
@@ -75,10 +75,10 @@ class TestInvoiceGeneration:
     async def test_invoice_number_format(
         self,
         db_session,
-        b2b_tenant,
-        rls_service
+        b2b_tenant
     ):
         """Test invoice number format: INV-YYYYMM-TENANTID"""
+        from core.db.rls import rls_service
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
         
         subscription = Subscription(
@@ -113,11 +113,11 @@ class TestInvoiceListing:
     async def test_list_invoices_by_status(
         self,
         db_session,
-        b2b_tenant,
-        rls_service
+        b2b_tenant
     ):
         """Test filtering invoices by status"""
         import secrets
+        from core.db.rls import rls_service
         
         # Ensure RLS context is set BEFORE creating any data
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
@@ -205,12 +205,12 @@ class TestInvoicePayment:
     async def test_mark_invoice_as_paid(
         self,
         db_session,
-        b2b_tenant,
-        rls_service
+        b2b_tenant
     ):
         """Test marking invoice as paid by platform admin"""
         import secrets
         from uuid import uuid4
+        from core.db.rls import rls_service
         
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
         
@@ -273,11 +273,11 @@ class TestInvoicePayment:
     async def test_get_overdue_invoices(
         self,
         db_session,
-        b2b_tenant,
-        rls_service
+        b2b_tenant
     ):
         """Test querying overdue invoices for a tenant"""
         import secrets
+        from core.db.rls import rls_service
         
         # Create overdue invoice for tenant1
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)

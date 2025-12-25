@@ -275,23 +275,41 @@ test-browser: ## Run E2E browser tests (Use LOCAL=1 to run locally)
 	$(TEST_CMD) tests/e2e_browser/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
 	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
 
-test-browser-b2c: ## Run B2C E2E browser tests
+test-browser-b2c: ## Run B2C E2E browser tests (usage: make test-browser-b2c TEST_PATH=tests/e2e_browser/b2c/test_file.py)
 	@echo "$(BLUE)Running B2C E2E tests...$(NC)"
+	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
+	docker-compose --profile e2e up -d frontend-b2c
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) tests/e2e_browser/b2c/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
+	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2c/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-b2c && exit 1)
+	docker-compose stop frontend-b2c
 
-test-browser-b2b: ## Run B2B E2E browser tests
+test-browser-b2b: ## Run B2B E2E browser tests (usage: make test-browser-b2b TEST_PATH=tests/e2e_browser/b2b/test_file.py)
 	@echo "$(BLUE)Running B2B E2E tests...$(NC)"
+	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
+	docker-compose --profile e2e up -d frontend-b2b
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) tests/e2e_browser/b2b/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
+	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2b/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-b2b && exit 1)
+	docker-compose stop frontend-b2b
 
 test-browser-platform: ## Run Platform E2E browser tests
 	@echo "$(BLUE)Running Platform E2E tests...$(NC)"
+	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
+	docker-compose --profile e2e up -d frontend-platform
 	$(PROVISION_BACKEND)
 	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
+	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-platform && exit 1)
+	docker-compose stop frontend-platform
+
+local-test-browser-b2b: ## Run B2B browser tests locally with venv (headed)
+	cd backend && .venv/bin/pytest tests/e2e_browser/b2b/ --headed -v
+
+local-test-browser-b2c: ## Run B2C browser tests locally with venv (headed)
+	cd backend && .venv/bin/pytest tests/e2e_browser/b2c/ --headed -v
+
+local-test-browser-platform: ## Run Platform browser tests locally with venv (headed)
+	cd backend && .venv/bin/pytest tests/e2e_browser/platform/ --headed -v
 
 test: ## Run all tests
 	@$(MAKE) test-api
@@ -299,12 +317,12 @@ test: ## Run all tests
 
 test-coverage: ## Run tests with code coverage report
 	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=services --cov=core --cov-report=term-missing --cov-report=html:coverage_html
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=modules --cov=core --cov-report=term-missing --cov-report=html:coverage_html
 	@echo "$(GREEN)✓ Coverage report generated in backend/coverage_html/$(NC)"
 
 test-coverage-xml: ## Run tests with coverage (XML for CI)
 	@echo "$(BLUE)Running tests with coverage (XML)...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=services --cov=core --cov-report=xml:coverage.xml
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=modules --cov=core --cov-report=xml:coverage.xml
 	@echo "$(GREEN)✓ Coverage XML generated$(NC)"
 
 test-env: ## Validate environment configuration
@@ -360,7 +378,7 @@ sast-scan-containers: ## Run Trivy vulnerability scan on Docker images
 
 security-update-npm: ## Fix npm vulnerabilities identified by Trivy scan
 	@echo "$(BLUE)Applying security updates to npm packages...$(NC)"
-	@./scripts/security-update-npm.sh
+	@./ops/scripts/security-update-npm.sh
 	@echo "$(GREEN)✓ Security updates applied. Rebuild frontend with: docker-compose build frontend$(NC)"
 
 ##@ DAST (Dynamic Application Security Testing)

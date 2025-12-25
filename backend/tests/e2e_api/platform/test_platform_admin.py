@@ -6,10 +6,10 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from services.platform.models import PlatformUser, PlatformRole
+from modules.platform.models import PlatformUser, PlatformRole
 from core.constants import PlatformRoleName, B2BRoleName
-from services.b2b.models import TenantModel
-from services.b2b.models.rbac import Role
+from modules.b2b.models import TenantModel
+from modules.b2b.models.rbac import Role
 from core.config import settings
 
 from tests.conftest import (
@@ -152,7 +152,7 @@ class TestPlatformAdmin:
         
         # Verify in DB
         # Verify tenant was created
-        from services.b2b.models import TenantModel
+        from modules.b2b.models import TenantModel
         result = await db_session.execute(
             select(TenantModel).where(TenantModel.domain == test_domain)
         )

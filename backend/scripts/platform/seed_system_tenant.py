@@ -21,8 +21,8 @@ from sqlalchemy.orm import sessionmaker
 # Add backend directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.platform.models import PlatformTenant, PlatformRole
-from services.platform.models.auth_provider import PlatformAuthProvider
+from modules.platform.models import PlatformTenant, PlatformRole
+from modules.platform.models.auth_provider import PlatformAuthProvider
 from core.config import settings
 
 async def seed_platform_system(

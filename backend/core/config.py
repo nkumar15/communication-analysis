@@ -18,6 +18,16 @@ class Settings(BaseSettings):
     firebase_api_key: Optional[str] = None # Web API Key for client-side emulation
     firebase_credentials_path: Optional[str] = None
     
+    # Auth Provider (firebase, keycloak, auth0, etc.)
+    # Controls both runtime authentication and tenant provisioning
+    auth_provider: str = "firebase"
+    
+    # Monitoring Provider (prometheus, datadog, none)
+    monitoring_provider: str = "prometheus"
+    
+    # Tracing Provider (otlp, console, none)
+    tracing_provider: str = "otlp"
+    
     # URLs
     frontend_url: str
     frontend_url_b2c: Optional[str] = None  # B2C frontend (port 3001), falls back to frontend_url
@@ -89,7 +99,7 @@ class Settings(BaseSettings):
     xendit_secret_key: Optional[str] = None
     
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8000,http://localhost:8001"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8000,http://localhost:8001,http://frontend-b2b:3000,http://frontend-b2c:3001,http://frontend-platform:3002"
     
     # Logging Configuration
     log_environment: str = "local"  # local, gcp, aws, production
@@ -133,6 +143,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 
 settings = Settings()

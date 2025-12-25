@@ -21,9 +21,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from services.platform.models import PlatformTenant, PlatformRole, PlatformUser
+from modules.platform.models import PlatformTenant, PlatformRole, PlatformUser
 from core.config import settings
-from core.utils.firebase import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 import firebase_admin
 from firebase_admin import auth, tenant_mgt
 
@@ -40,7 +40,7 @@ async def create_platform_admin(email: str, name: str = None, role_name: str = "
     print(f"   Role: {role_name}")
     
     # Initialize Firebase
-    firebase_auth_service.initialize()
+    get_auth_provider().initialize()
     
     # Setup database connection
     db_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")

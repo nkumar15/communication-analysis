@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
 from unittest.mock import patch
 
-from services.b2b.models import TenantModel, UserModel, InvitationModel
-from core.rls import rls_service
+from modules.b2b.models import TenantModel, UserModel, InvitationModel
+from core.db.rls import rls_service
 from core.constants import B2BRoleName
 from tests.conftest import (
     create_test_user,
@@ -53,8 +53,8 @@ class TestCompleteOnboardingJourney:
         # STEP 1-2: Platform Admin Onboards Tenant
         # ====================
         
-        with patch('services.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant, \
-             patch('services.platform.services.tenant_onboarding_service.configure_oidc_provider') as mock_config_oidc:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant, \
+             patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.configure_oidc_provider') as mock_config_oidc:
             
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
             mock_config_oidc.return_value = "oidc.test"
@@ -210,7 +210,7 @@ class TestCompleteOnboardingJourney:
         # Query database for invitation token (not returned in API response)
         await rls_service.set_tenant_context(db_session, tenant.id)
         from sqlalchemy import select
-        from services.b2b.models import InvitationModel
+        from modules.b2b.models import InvitationModel
         
         invitation_result = await db_session.execute(
             select(InvitationModel).where(InvitationModel.id == invitation_id)

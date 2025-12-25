@@ -5,8 +5,6 @@ import { Button } from '../../../../core/components/Button';
 import firebaseAuthService from '../../../../core/firebase/authService';
 import api from '../../../../core/api/b2bClient';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
 const ActivationPage = () => {
     const { token } = useParams();
     const navigate = useNavigate();
@@ -31,14 +29,7 @@ const ActivationPage = () => {
     const validateToken = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/validate/${token}`);
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.detail || 'Invalid activation token');
-            }
-
-            const data = await response.json();
+            const data = await api.validateActivationToken(token);
             setTenantInfo(data);
             setStep('welcome');
         } catch (err) {
@@ -72,18 +63,7 @@ const ActivationPage = () => {
                 oidc_issuer: ssoConfig.oidc_issuer
             };
 
-            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/setup-sso`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.detail || 'SSO configuration failed');
-            }
-
-            const data = await response.json();
+            const data = await api.setupActivationSSO(payload);
             console.log('✅ SSO configured:', data);
 
             // Proceed to SSO login
@@ -104,8 +84,7 @@ const ActivationPage = () => {
             setStep('sso-login');
 
             // Get Firebase tenant info
-            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/tenant-info/${tenantInfo.tenant_id}`);
-            const config = await response.json();
+            const config = await api.getActivationTenantInfo(tenantInfo.tenant_id);
 
             console.log('🔐 Initiating SSO with:', config);
 
@@ -145,22 +124,7 @@ const ActivationPage = () => {
             setIsActivating(true);
             setLoading(true);
 
-            const headers = await api.getAuthHeaders();
-            const response = await fetch(`${API_BASE_URL}/api/b2b/activation/complete`, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ activation_token: token }),
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.detail || 'Activation failed');
-            }
-
-            const data = await response.json();
+            const data = await api.completeActivation(token);
             console.log('✅ Activation complete:', data);
 
             // ✅ Navigate immediately (no setTimeout)

@@ -6,7 +6,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from services.b2b.models import InvitationModel, TenantModel, UserModel
+from modules.b2b.models import InvitationModel, TenantModel, UserModel
 from core.config import settings
 from core.constants import B2BRoleName
 from uuid import UUID
@@ -191,7 +191,7 @@ class TestInvitationFlow:
         assert response.json()["message"] == "Successfully joined tenant"
         
         # Verify audit trail
-        from services.b2b.models import InvitationModel
+        from modules.b2b.models import InvitationModel
         from sqlalchemy import select
         from tests.conftest import set_tenant_context
         
@@ -289,7 +289,7 @@ class TestInvitationFlow:
         db_session: AsyncSession
     ):
         """Admin can invite user with team assignment"""
-        from services.b2b.models import Team
+        from modules.b2b.models import Team
         
         # Setup: Create tenant, admin, and team
         tenant = await create_test_tenant(db_session)
@@ -357,7 +357,7 @@ class TestInvitationFlow:
         db_session: AsyncSession
     ):
         """User accepting invitation is auto-added to specified team with team role"""
-        from services.b2b.models import Team, TeamMember
+        from modules.b2b.models import Team, TeamMember
         
         # Setup
         tenant = await create_test_tenant(db_session)
@@ -436,7 +436,7 @@ class TestInvitationFlow:
         db_session: AsyncSession
     ):
         """User invited without team assignment is added to default team"""
-        from services.b2b.models import Team, TeamMember
+        from modules.b2b.models import Team, TeamMember
         
         # Setup - create_test_tenant already creates a default team
         tenant = await create_test_tenant(db_session)
@@ -502,7 +502,7 @@ class TestInvitationFlow:
         db_session: AsyncSession
     ):
         """Accepted invitation assigns the CORRECT role (Regression Fix)"""
-        from services.b2b.models import Role
+        from modules.b2b.models import Role
         
         # Setup
         tenant = await create_test_tenant(db_session)

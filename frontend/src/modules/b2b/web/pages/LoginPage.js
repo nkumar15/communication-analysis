@@ -10,6 +10,49 @@ function LoginPage() {
     const navigate = useNavigate();
 
     useEffect(() => {
+        // E2E Test Backdoor #1: Mock JWT (NO Firebase - fastest)
+        const mockJWT = localStorage.getItem('e2e_mock_jwt');
+        if (mockJWT) {
+            console.log('🧪 E2E Backdoor: Found mock JWT, bypassing Firebase auth...');
+            localStorage.removeItem('e2e_mock_jwt');
+
+            // Store in sessionStorage for the auth service to use
+            sessionStorage.setItem('firebaseToken', mockJWT);
+            console.log('✅ E2E Backdoor: Mock JWT stored, navigating to dashboard...');
+
+            // Navigate immediately
+            navigate('/');
+            return;
+        }
+
+        // E2E Test Backdoor #2: Firebase Custom Token (requires network)
+        const customToken = localStorage.getItem('custom_token');
+        if (customToken) {
+            console.log('🧪 E2E Backdoor: Found custom token, logging in...');
+            localStorage.removeItem('custom_token');
+            setLoading(true);
+
+            // Auto-login with custom token
+            firebaseAuthService.signInWithCustomToken(customToken)
+                .then(async (result) => {
+                    // Get ID token directly from the result
+                    console.log('🔍 Backdoor: Getting ID token for backend sync...');
+                    await result.user.getIdToken();
+
+                    // Sync user
+                    await apiService.syncUser();
+                    console.log('✅ Backdoor: User synced with backend');
+
+                    navigate('/');
+                })
+                .catch((e) => {
+                    console.error('E2E Backdoor failed', e);
+                    setError(e.message);
+                    setLoading(false);
+                });
+            return;
+        }
+
         // Check if user is already authenticated
         const checkAuth = async () => {
             const user = firebaseAuthService.getCurrentUser();

@@ -10,9 +10,9 @@ import click
 # Add backend directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.database import AsyncSessionLocal
-from core.utils.firebase import firebase_auth_service
-from services.platform.services.tenant_onboarding_service import tenant_onboarding_service
+from core.db.session import AsyncSessionLocal
+from infrastructure.auth import get_auth_provider
+from modules.platform.services.tenant_onboarding_service import tenant_onboarding_service
 
 
 @click.group()
@@ -41,7 +41,7 @@ async def create_tenant_async(
     async with AsyncSessionLocal() as db:
         try:
             # Explicitly set platform admin context to ensure RLS bypass works
-            from core.rls import rls_service
+            from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             result = await tenant_onboarding_service.onboard_tenant(
@@ -82,7 +82,7 @@ async def create_local_async(
 
     async with AsyncSessionLocal() as db:
         try:
-            from core.rls import rls_service
+            from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             # Call service with optional ID params to skip external calls
@@ -128,7 +128,7 @@ def list_tenants(domain):
 
 async def list_tenants_async(domain):
     """List tenants"""
-    from services.b2b.models import TenantModel
+    from modules.b2b.models import TenantModel
     from sqlalchemy import select
     
     async with AsyncSessionLocal() as db:
@@ -163,9 +163,9 @@ def setup_sso(token, provider_type, client_id, client_secret, issuer):
 
 async def setup_sso_async(token, provider_type, client_id, client_secret, issuer):
     """Async SSO setup logic"""
-    from services.b2b.services.tenant_service import tenant_service
-    from services.b2b.services.auth_provider_service import auth_provider_service
-    from services.b2b.models import TenantModel
+    from modules.b2b.services.tenant_service import tenant_service
+    from modules.b2b.services.auth_provider_service import auth_provider_service
+    from modules.b2b.models import TenantModel
     
     click.echo(f"🔧 Configuring SSO for token: {token[:10]}...")
     
@@ -242,13 +242,13 @@ def resend_activation(tenant_id, domain):
 
 async def resend_activation_async(tenant_id, domain):
     """Resend activation email"""
-    from services.b2b.models import TenantModel
+    from modules.b2b.models import TenantModel
     from sqlalchemy import select
     from uuid import UUID
     
     async with AsyncSessionLocal() as db:
         try:
-            from core.rls import rls_service
+            from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
             # Find tenant by ID or domain

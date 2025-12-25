@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 from uuid import uuid4
-from services.b2b.services.invoice_service import InvoiceService
-from services.b2b.models import Subscription, Invoice
+from modules.b2b.services.invoice_service import InvoiceService
+from modules.b2b.models import Subscription, Invoice
 
 @pytest.mark.asyncio
 async def test_sync_stripe_invoice_with_missing_dates():

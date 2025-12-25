@@ -475,35 +475,45 @@ const InvitationsPage = () => {
                         </select>
                     </div>
 
-                    {/* Alerts */}
+                    {/* Error Message */}
                     {error && (
-                        <div style={{
-                            margin: '0 24px 16px 24px',
-                            padding: '12px 16px',
+                        <div className="alert alert-error" style={{
+                            maxWidth: '800px',
+                            margin: '0 auto 24px auto',
+                            padding: '16px',
+                            borderRadius: '8px',
                             backgroundColor: '#FEE2E2',
-                            border: '1px solid #FCA5A5',
-                            borderRadius: '6px',
-                            color: '#991B1B',
-                            fontSize: '14px'
+                            color: '#B91C1C',
+                            border: '1px solid #FECACA',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
                         }}>
+                            <span>⚠️</span>
                             {error}
-                        </div>
-                    )}
-                    {success && (
-                        <div style={{
-                            margin: '0 24px 16px 24px',
-                            padding: '12px 16px',
-                            backgroundColor: '#D1FAE5',
-                            border: '1px solid #6EE7B7',
-                            borderRadius: '6px',
-                            color: '#065F46',
-                            fontSize: '14px'
-                        }}>
-                            {success}
+                            <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}>×</button>
                         </div>
                     )}
 
-                    {/* Users Table */}
+                    {/* Success Message */}
+                    {success && (
+                        <div className="alert alert-success" style={{
+                            maxWidth: '800px',
+                            margin: '0 auto 24px auto',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            backgroundColor: '#DCFCE7',
+                            color: '#15803D',
+                            border: '1px solid #BBF7D0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                        }}>
+                            <span>✅</span>
+                            {success}
+                            <button onClick={() => setSuccess(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}>×</button>
+                        </div>
+                    )}    {/* Users Table */}
                     {activeTab === 'users' && (
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -818,6 +828,7 @@ const InvitationsPage = () => {
                                     </label>
                                     <input
                                         type="email"
+                                        name="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="colleague@yourcompany.com"

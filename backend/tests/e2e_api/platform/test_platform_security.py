@@ -6,7 +6,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.constants import B2BRoleName
-from services.platform.models import PlatformUser, PlatformRole
+from modules.platform.models import PlatformUser, PlatformRole
 from core.config import settings
 
 from tests.conftest import (

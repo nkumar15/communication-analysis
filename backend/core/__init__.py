@@ -7,34 +7,35 @@ This package uses a dual import strategy during migration:
 - Allows gradual migration of routers to use core.*
 """
 
-# Config and Database (already copied to core/)
+# Config
 from core.config import settings, Settings
-from core.database import (
+
+# Database
+from core.db import (
     get_db,
     init_db,
     close_db,
     engine,
     AsyncSessionLocal,
     current_tenant_id,
+    Base,
+    rls_service
 )
 
-# Middleware (shared token decode)
-from core.middleware import (
-    get_current_user,
-)
+# Middleware
+from core.middleware import get_current_user
 
 __all__ = [
-    # Config
     "settings",
     "Settings",
-    # Database
     "get_db",
     "init_db",
     "close_db",
     "engine",
     "AsyncSessionLocal",
     "current_tenant_id",
-    # Middleware
+    "Base",
+    "rls_service",
     "get_current_user",
 ]
 

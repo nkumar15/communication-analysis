@@ -7,15 +7,15 @@ from unittest.mock import patch, AsyncMock
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from services.b2c.models.subscription import CouponRedemption
-from core.rls import rls_service
+from modules.b2c.models.subscription import CouponRedemption
+from core.db.rls import rls_service
 
 
 @pytest.mark.asyncio
 async def test_validate_active_coupon(api_client: AsyncClient, b2c_billing_user, active_coupon):
     """Test validating an active coupon"""
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/coupons/validate",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -38,7 +38,7 @@ async def test_validate_active_coupon(api_client: AsyncClient, b2c_billing_user,
 async def test_validate_expired_coupon(api_client: AsyncClient, b2c_billing_user, expired_coupon):
     """Test validating an expired coupon"""
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/coupons/validate",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -53,7 +53,7 @@ async def test_validate_expired_coupon(api_client: AsyncClient, b2c_billing_user
 async def test_validate_nonexistent_coupon(api_client: AsyncClient, b2c_billing_user):
     """Test validating a coupon that doesn't exist"""
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/coupons/validate",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -66,7 +66,7 @@ async def test_validate_nonexistent_coupon(api_client: AsyncClient, b2c_billing_
 @pytest.mark.asyncio
 async def test_validate_coupon_wrong_tier(api_client: AsyncClient, b2c_billing_user, db_session):
     """Test coupon not applicable to tier"""
-    from services.b2c.models.subscription import Coupon
+    from modules.b2c.models.subscription import Coupon
     
     # Set RLS context for test
     await rls_service.set_user_context(db_session, b2c_billing_user['user'].id)
@@ -87,7 +87,7 @@ async def test_validate_coupon_wrong_tier(api_client: AsyncClient, b2c_billing_u
     db_session.add(coupon)
     await db_session.flush()
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/coupons/validate",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -115,7 +115,7 @@ async def test_coupon_already_redeemed(api_client: AsyncClient, b2c_billing_user
     db_session.add(redemption)
     await db_session.commit()
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/coupons/validate",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -129,7 +129,7 @@ async def test_coupon_already_redeemed(api_client: AsyncClient, b2c_billing_user
 @pytest.mark.asyncio
 async def test_coupon_max_redemptions_reached(api_client: AsyncClient, b2c_billing_user, db_session):
     """Test coupon at max redemptions limit"""
-    from services.b2c.models.subscription import Coupon
+    from modules.b2c.models.subscription import Coupon
     
     # Set RLS context for test
     await rls_service.set_user_context(db_session, b2c_billing_user['user'].id)
@@ -150,7 +150,7 @@ async def test_coupon_max_redemptions_reached(api_client: AsyncClient, b2c_billi
     db_session.add(coupon)
     await db_session.flush()
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.post(
             "/api/b2c/billing/coupons/validate",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"},
@@ -166,7 +166,7 @@ async def test_coupon_max_redemptions_reached(api_client: AsyncClient, b2c_billi
 async def test_get_available_coupons(api_client: AsyncClient, b2c_billing_user, active_coupon):
     """Test getting list of available coupons"""
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.get(
             "/api/b2c/billing/coupons/available?tier=premium",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}
@@ -194,7 +194,7 @@ async def test_get_my_redemptions(api_client: AsyncClient, b2c_billing_user, act
     db_session.add(redemption)
     await db_session.commit()
     
-    with patch('services.b2c.middleware.b2c_auth.firebase_auth_service.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
+    with patch('infrastructure.auth.firebase.FirebaseAuthProvider.verify_id_token', new=AsyncMock(return_value=b2c_billing_user["mock_token_data"])):
         response = await api_client.get(
             "/api/b2c/billing/coupons/my-redemptions",
             headers={"Authorization": f"Bearer {b2c_billing_user['auth_token']}"}

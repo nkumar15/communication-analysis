@@ -5,7 +5,7 @@ import asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-from services.b2b.models.audit_log import AuditLog
+from modules.b2b.models.audit_log import AuditLog
 from tests.conftest import create_test_tenant, create_test_user, create_mock_firebase_token, encode_mock_jwt
 from datetime import datetime, timedelta
 
@@ -44,7 +44,7 @@ async def b2b_test_data(db_session):
     
     # Cleanup
     # We need to delete the tenant which cascades to users and audit logs
-    from services.b2b.models import TenantModel
+    from modules.b2b.models import TenantModel
     await db_session.execute(
         select(TenantModel).where(TenantModel.id == tenant.id)
     )

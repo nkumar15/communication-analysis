@@ -11,10 +11,17 @@ const RoleManagementPage = () => {
     const [actions, setActions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [newRole, setNewRole] = useState({ name: '', display_name: '', description: '', template_id: '' });
-    const [selectedPermissions, setSelectedPermissions] = useState({}); // { "resourceId-actionId": true }
+
     const [creating, setCreating] = useState(false);
+    const [newRole, setNewRole] = useState({
+        name: '',
+        display_name: '',
+        description: '',
+        template_id: ''
+    });
+    const [selectedPermissions, setSelectedPermissions] = useState({});
 
     useEffect(() => {
         fetchData();
@@ -22,6 +29,7 @@ const RoleManagementPage = () => {
 
     const fetchData = async () => {
         try {
+            setLoading(true);
             const [rolesData, templatesData, resourcesData, actionsData] = await Promise.all([
                 apiService.getRoles(),
                 apiService.getRoleTemplates(),
@@ -31,52 +39,43 @@ const RoleManagementPage = () => {
             setRoles(rolesData);
             setTemplates(templatesData);
             setResources(resourcesData);
-            // actionsData is { resources: [], actions: [] } or just [] depending on endpoint evolution
-            // Handle both structure for backwards compatibility
-            if (Array.isArray(actionsData)) {
-                setActions(actionsData);
-            } else if (actionsData && Array.isArray(actionsData.actions)) {
-                setActions(actionsData.actions);
-            } else {
-                setActions([]);
-            }
+            setActions(actionsData.actions || []);
         } catch (e) {
             console.error('Failed to fetch data', e);
-            setError('Unable to load roles');
+            setError('Failed to load role data');
         } finally {
             setLoading(false);
         }
     };
 
     const handleTemplateChange = (templateId) => {
+        const template = templates.find(t => t.id === templateId);
         setNewRole({ ...newRole, template_id: templateId });
 
-        if (!templateId) {
-            setSelectedPermissions({});
-            return;
-        }
-
-        const template = templates.find(t => t.id === templateId);
-        if (template) {
+        // Pre-fill permissions based on template
+        if (template && template.permissions) {
             const newPerms = {};
             template.permissions.forEach(p => {
-                // Map template permission names to IDs
                 const resource = resources.find(r => r.name === p.resource);
+                const actionList = p.actions || [];
+
                 if (resource) {
-                    p.actions.forEach(actionName => {
+                    actionList.forEach(actionName => {
                         const action = actions.find(a => a.name === actionName);
                         if (action) {
-                            newPerms[`${resource.id}___${action.id}`] = true; // Use ___ as delimiter to avoid UUID conflicts
+                            newPerms[`${resource.id}___${action.id}`] = true;
                         }
                     });
                 }
             });
             setSelectedPermissions(newPerms);
+        } else {
+            setSelectedPermissions({});
         }
     };
 
     const handlePermissionChange = (resourceId, actionId) => {
-        const key = `${resourceId}___${actionId}`; // Use ___ as delimiter
+        const key = `${resourceId}___${actionId}`;
         setSelectedPermissions(prev => ({
             ...prev,
             [key]: !prev[key]
@@ -86,14 +85,23 @@ const RoleManagementPage = () => {
     const handleCreateRole = async (e) => {
         e.preventDefault();
         setCreating(true);
+        setError(null);
+        setSuccess(null);
         try {
+            // ... logic
             // Convert selectedPermissions map to list of objects
             const permissionsList = Object.keys(selectedPermissions)
                 .filter(key => selectedPermissions[key])
                 .map(key => {
-                    const [resourceId, actionId] = key.split('___'); // Split on ___ delimiter
+                    const parts = key.split('___');
+                    if (parts.length !== 2) return null;
+                    const [resourceId, actionId] = parts;
+                    if (!resourceId || resourceId === 'undefined' || !actionId || actionId === 'undefined') {
+                        return null;
+                    }
                     return { resource_id: resourceId, action_id: actionId };
-                });
+                })
+                .filter(Boolean);
 
             const roleData = {
                 ...newRole,
@@ -105,10 +113,12 @@ const RoleManagementPage = () => {
             setShowCreateModal(false);
             setNewRole({ name: '', display_name: '', description: '', template_id: '' });
             setSelectedPermissions({});
+            setSuccess(`Role "${newRole.display_name}" created successfully`);
             fetchData(); // Refresh list
+            setTimeout(() => setSuccess(null), 3000);
         } catch (e) {
             console.error('Failed to create role', e);
-            alert('Failed to create role: ' + e.message);
+            setError('Failed to create role: ' + e.message);
         } finally {
             setCreating(false);
         }
@@ -116,12 +126,16 @@ const RoleManagementPage = () => {
 
     const handleDeleteRole = async (roleId) => {
         if (!window.confirm('Are you sure you want to delete this role?')) return;
+        setError(null);
+        setSuccess(null);
         try {
             await apiService.deleteRole(roleId);
+            setSuccess('Role deleted successfully');
             fetchData(); // Refresh list
+            setTimeout(() => setSuccess(null), 3000);
         } catch (e) {
             console.error('Failed to delete role', e);
-            alert('Failed to delete role: ' + e.message);
+            setError('Failed to delete role: ' + e.message);
         }
     };
 
@@ -132,11 +146,19 @@ const RoleManagementPage = () => {
             </div>
         </AdminLayout>
     );
-    if (error) return <div className="error">{error}</div>;
 
     return (
         <AdminLayout title="Role Management" subtitle="Manage user roles and permissions">
             <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+
+                {error && <div className="error" style={{ marginBottom: '16px', color: '#DC2626', backgroundColor: '#FEE2E2', padding: '12px', borderRadius: '8px' }}>{error}</div>}
+
+                {success && (
+                    <div className="success" style={{ marginBottom: '16px', color: '#16A34A', backgroundColor: '#DCFCE7', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {success}
+                        <button onClick={() => setSuccess(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '16px' }}>×</button>
+                    </div>
+                )}
 
                 <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-end' }}>
                     <button
@@ -241,6 +263,7 @@ const RoleManagementPage = () => {
                                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Name (Identifier)</label>
                                         <input
                                             type="text"
+                                            name="name"
                                             value={newRole.name}
                                             onChange={(e) => setNewRole({ ...newRole, name: e.target.value })}
                                             placeholder="e.g. field_manager"
@@ -252,6 +275,7 @@ const RoleManagementPage = () => {
                                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Display Name</label>
                                         <input
                                             type="text"
+                                            name="display_name"
                                             value={newRole.display_name}
                                             onChange={(e) => setNewRole({ ...newRole, display_name: e.target.value })}
                                             placeholder="e.g. Field Manager"
@@ -263,6 +287,7 @@ const RoleManagementPage = () => {
                                 <div style={{ marginBottom: '16px' }}>
                                     <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Description</label>
                                     <textarea
+                                        name="description"
                                         value={newRole.description}
                                         onChange={(e) => setNewRole({ ...newRole, description: e.target.value })}
                                         style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #D1D5DB' }}

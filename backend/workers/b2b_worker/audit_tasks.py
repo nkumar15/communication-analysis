@@ -6,7 +6,7 @@ Uses ThreadPoolExecutor to run async code in a separate thread.
 """
 
 from workers.b2b_worker.celery_app import celery_app
-from core.database import AsyncSessionLocal
+from core.db.session import AsyncSessionLocal
 import asyncio
 import logging
 from uuid import UUID
@@ -67,8 +67,8 @@ def persist_audit_log(self, audit_data: dict):
 
 async def _persist_audit_log_async(audit_data: dict, db):
     """Async implementation of persist_audit_log using injected session"""
-    from services.b2b.models import AuditLog
-    from core.rls import rls_service
+    from modules.b2b.models import AuditLog
+    from core.db.rls import rls_service
     
     try:
         # Convert string UUIDs back to UUID objects

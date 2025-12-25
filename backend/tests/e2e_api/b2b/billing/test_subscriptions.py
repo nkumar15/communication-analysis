@@ -7,7 +7,7 @@ import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
-from services.b2b.models import (
+from modules.b2b.models import (
     Subscription,
     Invoice,
     SubscriptionTier,
@@ -23,9 +23,9 @@ pytestmark = pytest.mark.asyncio
 class TestSubscriptionAPI:
     """Test subscription endpoints"""
     
-    async def test_get_subscription_starter_default(self, client, b2b_tenant, b2b_tenant_owner_token):
+    async def test_get_subscription_starter_default(self, api_client, b2b_tenant, b2b_tenant_owner_token):
         """Test getting starter tier subscription (default)"""
-        response = await client.get(
+        response = await api_client.get(
             "/api/b2b/billing/subscription",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -37,9 +37,9 @@ class TestSubscriptionAPI:
         assert "seat_count" in data
         assert data["seat_count"] >= 1
     
-    async def test_create_checkout_professional(self, client, b2b_tenant, b2b_tenant_owner_token):
+    async def test_create_checkout_professional(self, api_client, b2b_tenant, b2b_tenant_owner_token):
         """Test creating checkout session for professional tier"""
-        response = await client.post(
+        response = await api_client.post(
             "/api/b2b/billing/checkout",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"},
             json={
@@ -65,9 +65,9 @@ class TestSubscriptionAPI:
         assert pricing["base_price_cents"] == 500000  # $5,000
         assert pricing["per_seat_price_cents"] == 200000  # $2,000
     
-    async def test_create_checkout_starter_fails(self, client, b2b_tenant_owner_token):
+    async def test_create_checkout_starter_fails(self, api_client, b2b_tenant_owner_token):
         """Test that starter tier cannot be purchased (it's free)"""
-        response = await client.post(
+        response = await api_client.post(
             "/api/b2b/billing/checkout",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"},
             json={
@@ -83,9 +83,9 @@ class TestSubscriptionAPI:
 class TestInvoiceAPI:
     """Test invoice endpoints"""
     
-    async def test_list_invoices_empty(self, client, b2b_tenant_owner_token):
+    async def test_list_invoices_empty(self, api_client, b2b_tenant_owner_token):
         """Test listing invoices when none exist"""
-        response = await client.get(
+        response = await api_client.get(
             "/api/b2b/billing/invoices",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -97,14 +97,14 @@ class TestInvoiceAPI:
     
     async def test_list_invoices_with_data(
         self, 
-        client, 
+        api_client, 
         db_session, 
         b2b_tenant, 
-        b2b_tenant_owner_token,
-        rls_service
+        b2b_tenant_owner_token
     ):
         """Test listing invoices with RLS enforcement"""
         import secrets
+        from core.db.rls import rls_service
         
         # Set RLS context
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
@@ -146,7 +146,7 @@ class TestInvoiceAPI:
         
         
         # Test API
-        response = await client.get(
+        response = await api_client.get(
             "/api/b2b/billing/invoices",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -162,16 +162,16 @@ class TestInvoiceAPI:
     
     async def test_invoice_rls_isolation(
         self,
-        client,
+        api_client,
         db_session,
         b2b_tenant,
         b2b_tenant2,
-        b2b_tenant_owner_token,
-        rls_service
+        b2b_tenant_owner_token
     ):
         """Test that tenants cannot access other tenants' invoices"""
         import secrets
         from sqlalchemy import select
+        from core.db.rls import rls_service
         
         # Create invoice for tenant2
         await rls_service.set_tenant_context(db_session, b2b_tenant2.id)
@@ -213,7 +213,7 @@ class TestInvoiceAPI:
         await db_session.commit()
         
         # Try to access from tenant1
-        response = await client.get(
+        response = await api_client.get(
             "/api/b2b/billing/invoices",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -229,14 +229,14 @@ class TestSeatCountCalculation:
     
     async def test_seat_count_from_active_users(
         self,
-        client,
+        api_client,
         db_session,
         b2b_tenant,
-        b2b_tenant_owner_token,
-        rls_service
+        b2b_tenant_owner_token
     ):
         """Test that seat count reflects active users"""
-        from services.b2b.models.user import UserModel
+        from modules.b2b.models.user import UserModel
+        from core.db.rls import rls_service
         
         await rls_service.set_tenant_context(db_session, b2b_tenant.id)
         
@@ -254,7 +254,7 @@ class TestSeatCountCalculation:
         await db_session.commit()
         
         # Get subscription - should show 4 seats
-        response = await client.get(
+        response = await api_client.get(
             "/api/b2b/billing/subscription",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )

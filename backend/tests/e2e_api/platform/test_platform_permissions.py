@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from services.platform.middleware.platform_auth import RequirePlatformPermission
+from modules.platform.middleware.platform_auth import RequirePlatformPermission
 
 # We need to mock the verify_platform_admin dependency to return specific permissions
 # or create a user with specific permissions in the DB.

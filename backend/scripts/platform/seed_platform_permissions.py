@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from services.platform.models import PlatformRole, PlatformPermission
+from modules.platform.models import PlatformRole, PlatformPermission
 from core.config import settings
 
 import yaml

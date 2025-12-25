@@ -11,11 +11,11 @@ class TestTeamRolePermissionMatrix:
     @pytest.mark.asyncio
     async def test_team_roles_resources_excludes_system_resources(
         self,
-        client: AsyncClient,
+        api_client: AsyncClient,
         b2b_tenant_owner_token: str
     ):
         """GET /api/b2b/team-roles/resources only returns non-system resources"""
-        response = await client.get(
+        response = await api_client.get(
             "/api/b2b/team-roles/resources",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -44,18 +44,18 @@ class TestTeamRolePermissionMatrix:
     @pytest.mark.asyncio
     async def test_team_vs_tenant_role_resources_comparison(
         self,
-        client: AsyncClient,
+        api_client: AsyncClient,
         b2b_tenant_owner_token: str
     ):
         """Team role resources should be subset of tenant role resources"""
         # Get team role resources
-        team_response = await client.get(
+        team_response = await api_client.get(
             "/api/b2b/team-roles/resources",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
         
         # Get all resources (for tenant roles)
-        all_response = await client.get(
+        all_response = await api_client.get(
             "/api/b2b/roles/resources/all",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -78,11 +78,11 @@ class TestTeamRolePermissionMatrix:
     @pytest.mark.asyncio
     async def test_team_roles_actions_endpoint_filters_resources(
         self,
-        client: AsyncClient,
+        api_client: AsyncClient,
         b2b_tenant_owner_token: str
     ):
         """GET /api/b2b/team-roles/actions returns filtered resources"""
-        response = await client.get(
+        response = await api_client.get(
             "/api/b2b/team-roles/actions",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -109,12 +109,12 @@ class TestTeamRolePermissionMatrix:
     @pytest.mark.asyncio
     async def test_create_team_role_with_permissions_array(
         self,
-        client: AsyncClient,
+        api_client: AsyncClient,
         b2b_tenant_owner_token: str
     ):
         """POST /api/b2b/team-roles with permissions array"""
         # First, get available resources to build valid permissions
-        resources_response = await client.get(
+        resources_response = await api_client.get(
             "/api/b2b/team-roles/resources",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -125,7 +125,7 @@ class TestTeamRolePermissionMatrix:
             pytest.skip("No team resources available for testing")
         
         # Get actions
-        actions_response = await client.get(
+        actions_response = await api_client.get(
             "/api/b2b/team-roles/actions",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -145,7 +145,7 @@ class TestTeamRolePermissionMatrix:
             "permissions": permissions
         }
         
-        response = await client.post(
+        response = await api_client.post(
             "/api/b2b/team-roles",
             json=payload,
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
@@ -162,7 +162,7 @@ class TestTeamRolePermissionMatrix:
     @pytest.mark.asyncio
     async def test_cannot_create_team_role_with_system_resource_permission(
         self,
-        client: AsyncClient,
+        api_client: AsyncClient,
         b2b_tenant_owner_token: str
     ):
         """Team roles should not allow system resource permissions"""
@@ -176,7 +176,7 @@ class TestTeamRolePermissionMatrix:
             ]
         }
         
-        response = await client.post(
+        response = await api_client.post(
             "/api/b2b/team-roles",
             json=payload,
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
@@ -191,7 +191,7 @@ class TestTeamRolePermissionMatrix:
     @pytest.mark.asyncio  
     async def test_update_team_role_permissions(
         self,
-        client: AsyncClient,
+        api_client: AsyncClient,
         b2b_tenant_owner_token: str
     ):
         """PUT /api/b2b/team-roles/{id} updates permissions"""
@@ -202,7 +202,7 @@ class TestTeamRolePermissionMatrix:
             "permissions": []
         }
         
-        create_response = await client.post(
+        create_response = await api_client.post(
             "/api/b2b/team-roles",
             json=create_payload,
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
@@ -213,7 +213,7 @@ class TestTeamRolePermissionMatrix:
         role_id = role['id']
         
         # Get available resources
-        resources_response = await client.get(
+        resources_response = await api_client.get(
             "/api/b2b/team-roles/resources",
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
         )
@@ -231,7 +231,7 @@ class TestTeamRolePermissionMatrix:
             "permissions": new_permissions
         }
         
-        update_response = await client.put(
+        update_response = await api_client.put(
             f"/api/b2b/team-roles/{role_id}",
             json=update_payload,
             headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}

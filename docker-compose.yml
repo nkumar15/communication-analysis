@@ -38,7 +38,7 @@ services:
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - postgres
-    command: uvicorn services.b2b.main:app --host 0.0.0.0 --port 9000 --reload
+    command: uvicorn modules.b2b.main:app --host 0.0.0.0 --port 9000 --reload
 
   # B2B Worker - Celery Background Tasks
   b2b-worker:
@@ -50,7 +50,6 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - EMAIL_PROVIDER=mailhog
@@ -133,7 +132,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.b2b.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn modules.b2b.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Platform Microservice - Admin Operations
   platform-api:
@@ -162,7 +161,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.platform.main:app --host 0.0.0.0 --port 8001 --reload
+    command: uvicorn modules.platform.main:app --host 0.0.0.0 --port 8001 --reload
 
   # B2C Microservice - Workspace Management
   b2c-api:
@@ -191,7 +190,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.b2c.main:app --host 0.0.0.0 --port 8002 --reload
+    command: uvicorn modules.b2c.main:app --host 0.0.0.0 --port 8002 --reload
 
   #  Domain Microservice - Domain Logic
   domain-api:
@@ -220,7 +219,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    command: uvicorn services.domains.main:app --host 0.0.0.0 --port 8003 --reload
+    command: uvicorn modules.domains.main:app --host 0.0.0.0 --port 8003 --reload
 
   # Redis - Message Broker for ARQ Background Tasks
   redis:
@@ -249,6 +248,69 @@ services:
       - "8025:8025" # Web UI
     restart: unless-stopped
 
+  # B2B Frontend - Web UI for Tenants (E2E Testing Only)
+  frontend-b2b:
+    profiles: [ "e2e" ] # Only start for E2E tests
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: sso_frontend_b2b
+    environment:
+      - PORTAL=b2b
+      - REACT_APP_API_URL=http://b2b-api:8000
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Don't mount node_modules from host
+    depends_on:
+      - b2b-api
+    restart: unless-stopped
+    command: sh -c "npm run build:b2b && npx -y serve -s dist/b2b -l 3000"
+
+  # B2C Frontend - Web UI for Workspaces (E2E Testing Only)
+  frontend-b2c:
+    profiles: [ "e2e" ] # Only start for E2E tests
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: sso_frontend_b2c
+    environment:
+      - PORTAL=b2c
+      - REACT_APP_API_URL=http://b2c-api:8002
+      - NODE_ENV=production
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - b2c-api
+    restart: unless-stopped
+    command: sh -c "npm run build:b2c && npx -y serve -s dist/b2c -l 3001"
+
+  # Platform Frontend - Admin UI (E2E Testing Only)
+  frontend-platform:
+    profiles: [ "e2e" ] # Only start for E2E tests
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: sso_frontend_platform
+    environment:
+      - PORTAL=platform
+      - REACT_APP_API_URL=http://platform-api:8001
+      - NODE_ENV=production
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - platform-api
+    restart: unless-stopped
+    command: sh -c "npm run build:platform && npx -y serve -s dist/platform -l 3002"
+
   # API Gateway - Routes requests to all microservices
   nginx:
     image: nginx:alpine
@@ -256,7 +318,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - b2b-api
       - platform-api
@@ -265,6 +327,7 @@ services:
     restart: unless-stopped
 
   e2e-tests:
+    profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -273,20 +336,24 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      # Backend services (running in Docker) - use internal service names
       - TEST_DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - FRONTEND_URL=http://frontend:3000
-      - FRONTEND_URL_B2B=http://frontend:3000
-      - FRONTEND_URL_B2C=http://frontend:3001
-      - FRONTEND_URL_PLATFORM=http://frontend:3002
       - API_URL=http://b2b-api:8000
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      # Frontend services (now in Docker) - use internal service names
+      - FRONTEND_URL=http://frontend-b2b:3000
+      - FRONTEND_URL_B2B=http://frontend-b2b:3000
+      - FRONTEND_URL_B2C=http://frontend-b2c:3001
+      - FRONTEND_URL_PLATFORM=http://frontend-platform:3002
+      - BASE_URL=http://frontend-b2b:3000
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - b2b-api
+      - frontend-b2b
     command: python -m pytest tests/e2e_browser -v
 
   # Jaeger - Distributed Tracing
@@ -313,7 +380,7 @@ services:
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/consoles
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     restart: unless-stopped
 
   # Grafana - Metrics Visualization
@@ -327,7 +394,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
@@ -338,5 +405,3 @@ volumes:
   postgres_data:
   redis_data:
   grafana_data:
-
-

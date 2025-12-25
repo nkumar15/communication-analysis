@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any
-from core.utils.firebase import firebase_auth_service
+from infrastructure.auth import get_auth_provider
 
 
 # Bearer token scheme
@@ -12,7 +12,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
 ) -> Dict[str, Any]:
     """
-    Get current user from Firebase ID token
+    Get current user from ID token (via generic AuthProvider)
     
     Args:
         credentials: Bearer token from Authorization header
@@ -31,8 +31,9 @@ async def get_current_user(
         )
     
     try:
-        # Verify Firebase ID token
-        decoded_token = await firebase_auth_service.verify_id_token(credentials.credentials)
+        # Verify ID token via generic provider
+        auth_provider = get_auth_provider()
+        decoded_token = await auth_provider.verify_id_token(credentials.credentials)
         return decoded_token
     except ValueError as e:
         raise HTTPException(

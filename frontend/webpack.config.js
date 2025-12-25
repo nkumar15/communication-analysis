@@ -73,14 +73,18 @@ module.exports = {
             defaults: false
         }),
         new webpack.DefinePlugin({
-            'process.env.PORTAL': JSON.stringify(PORTAL)
+            'process.env.PORTAL': JSON.stringify(PORTAL),
+            // Explicitly define API URL to ensure system/docker env vars take precedence over .env file
+            'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL)
         })
     ],
     devServer: {
+        host: '0.0.0.0',  // Bind to all interfaces (allows Docker access)
         port: PORTAL === 'b2c' ? 3001 : PORTAL === 'platform' ? 3002 : 3000,
         hot: true,
         historyApiFallback: true,
         open: true,
+        allowedHosts: process.env.NODE_ENV === 'production' ? undefined : 'all',  // Allow Docker in dev only
         proxy: {
             '/api': {
                 target: PORTAL === 'b2c'

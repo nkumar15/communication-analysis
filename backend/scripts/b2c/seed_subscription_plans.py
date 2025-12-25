@@ -15,8 +15,8 @@ from sqlalchemy.orm.attributes import flag_modified
 backend_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from core.database import database_url
-from services.b2c.models.subscription_plan import SubscriptionPlan
+from core.db.session import database_url
+from modules.b2c.models.subscription_plan import SubscriptionPlan
 
 YAML_DIR = Path(__file__).parent / "data"
 

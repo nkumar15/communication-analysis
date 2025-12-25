@@ -115,7 +115,7 @@ class TestWorkspaceMemberManagement:
         
         # Verify member removed
         from sqlalchemy import select
-        from services.b2c.models.workspace_member import WorkspaceMember
+        from modules.b2c.models.workspace_member import WorkspaceMember
         result = await db_session.execute(
             select(WorkspaceMember).where(
                 WorkspaceMember.workspace_id == workspace_with_members['workspace'].id,
@@ -210,7 +210,7 @@ class TestWorkspaceMemberManagement:
         workspace_id = str(workspace_with_members['workspace'].id)
         
         # Suspend member directly in DB to setup state
-        from services.b2c.models.workspace_member import WorkspaceMember
+        from modules.b2c.models.workspace_member import WorkspaceMember
         from sqlalchemy import select, update
         
         stmt = (

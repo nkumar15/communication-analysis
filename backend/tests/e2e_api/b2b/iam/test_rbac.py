@@ -9,7 +9,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from uuid import uuid4
-from services.b2b.models import Role, RolePermission, UserModel
+from modules.b2b.models import Role, RolePermission, UserModel
 from core.constants import B2BRoleName
 from tests.conftest import (
     create_test_user,

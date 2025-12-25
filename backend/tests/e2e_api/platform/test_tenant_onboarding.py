@@ -3,8 +3,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
 
-from services.b2b.models import TenantModel, AuthProvider
-from services.b2b.services.invitation_service import invitation_service
+from modules.b2b.models import TenantModel, AuthProvider
+from modules.b2b.services.invitation_service import invitation_service
 from core.constants import B2BRoleName
 from unittest.mock import patch, MagicMock
 
@@ -18,7 +18,7 @@ class TestTenantOnboarding:
         platform_admin_token = platform_admin_setup["token"]
         
         # Mock Firebase interactions
-        with patch('services.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant:
             
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
             
@@ -77,14 +77,14 @@ class TestTenantOnboarding:
             assert auth_provider is None # Should be empty now
             
             # Check Default Team
-            from services.b2b.models import Team
+            from modules.b2b.models import Team
             default_team = await db_session.scalar(
                 select(Team).where(Team.tenant_id == tenant_id).where(Team.is_default == True)
             )
             assert default_team is not None
             
             # Check Admin Invitation
-            from services.b2b.models import InvitationModel
+            from modules.b2b.models import InvitationModel
             invitation = await db_session.scalar(
                 select(InvitationModel)
                 .where(InvitationModel.tenant_id == tenant_id)
@@ -99,7 +99,7 @@ class TestTenantOnboarding:
         platform_admin_token = platform_admin_setup["token"]
         
         # Mock Firebase interactions
-        with patch('services.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant:
             
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
 
@@ -139,7 +139,7 @@ class TestTenantOnboarding:
         platform_admin_token = platform_admin_setup["token"]
         
         # Mock Firebase interactions - still needed for creation inside on-boarding
-        with patch('services.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant:
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
 
             # Create tenant
@@ -184,7 +184,7 @@ class TestTenantOnboarding:
         platform_admin_token = platform_admin_setup["token"]
         
         # Mock Firebase interactions - needed for creation
-        with patch('services.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant:
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
 
             # Create tenant
@@ -220,7 +220,7 @@ class TestTenantOnboarding:
         platform_admin_token = platform_admin_setup["token"]
         
         # 1. Create a pending tenant (Mock Firebase creation)
-        with patch('services.platform.services.tenant_onboarding_service.create_firebase_tenant') as mock_create_tenant:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant:
             mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
             
             domain = f"test-sso-setup-{uuid4().hex[:8]}.com"
@@ -241,7 +241,7 @@ class TestTenantOnboarding:
             tenant_id = data["tenant_id"]
 
         # 2. Call Setup SSO Endpoint (Mock configure_oidc_provider)
-        with patch('scripts.core.firebase_admin_cli.configure_oidc_provider') as mock_config_oidc:
+        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.configure_oidc_provider') as mock_config_oidc:
             mock_config_oidc.return_value = "oidc.generic-provider"
             
             sso_payload = {

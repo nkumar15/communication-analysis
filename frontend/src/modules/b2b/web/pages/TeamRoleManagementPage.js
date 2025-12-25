@@ -9,17 +9,19 @@ const TeamRoleManagementPage = () => {
     const [teamRoles, setTeamRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedRole, setSelectedRole] = useState(null);
+    const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         display_name: '',
         description: '',
-        permissions: [],  // Array of 'resource:action' strings
+        permissions: [],
         is_default: false
     });
-    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         fetchTeamRoles();
@@ -31,11 +33,24 @@ const TeamRoleManagementPage = () => {
             const data = await apiService.get('/api/b2b/team-roles');
             setTeamRoles(data);
         } catch (e) {
-            console.error('Failed to fetch team roles', e);
-            setError('Unable to load team roles');
+            console.error('Failed to fetch roles', e);
+            setError('Failed to load team roles');
         } finally {
             setLoading(false);
         }
+    };
+
+    const getPermissionBadges = (role) => {
+        if (!role.permissions) return [];
+        return role.permissions.map(p => {
+            let label = `${p.resource}:${p.action}`;
+            let color = 'gray';
+            if (p.action === 'read') color = 'blue';
+            if (p.action === 'write') color = 'yellow';
+            if (p.action === 'delete') color = 'red';
+            if (p.action === 'admin') color = 'purple';
+            return { label, color };
+        });
     };
 
     const resetForm = () => {
@@ -46,6 +61,8 @@ const TeamRoleManagementPage = () => {
             permissions: [],
             is_default: false
         });
+        setError(null);
+        setSuccess(null);
     };
 
     const handleOpenCreate = () => {
@@ -54,37 +71,35 @@ const TeamRoleManagementPage = () => {
     };
 
     const handleOpenEdit = (role) => {
-        setSelectedRole(role);
-        // Convert role.permissions from array of objects to array of strings
-        // Handle format: {resource: "x", actions: ["y", "z"]} -> ["x:y", "x:z"]
-        const permissionStrings = [];
-        for (const p of role.permissions || []) {
-            if (typeof p === 'string') {
-                permissionStrings.push(p);
-            } else if (p.resource && p.actions) {
-                // Expand actions array
-                for (const action of p.actions) {
-                    permissionStrings.push(`${p.resource}:${action}`);
-                }
-            } else if (p.resource && p.action) {
-                permissionStrings.push(`${p.resource}:${p.action}`);
-            }
-        }
+        resetForm();
+        const perms = role.permissions ? role.permissions.map(p => `${p.resource}:${p.action}`) : [];
 
         setFormData({
             name: role.name,
             display_name: role.display_name,
             description: role.description || '',
-            permissions: permissionStrings,
-            is_default: role.is_default
+            permissions: perms,
+            is_default: role.is_default || false
         });
+        setSelectedRole(role);
         setShowEditModal(true);
+    };
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
     };
 
     const handleCreate = async (e) => {
         e.preventDefault();
         setSaving(true);
+        setError(null);
+        setSuccess(null);
         try {
+            // ... (construct payload)
             // Convert permissions from ["resource:action"] to [{resource: "x", action: "y"}]
             const permissionsPayload = formData.permissions.map(p => {
                 const [resource, action] = p.split(':');
@@ -99,7 +114,10 @@ const TeamRoleManagementPage = () => {
             await apiService.post('/api/b2b/team-roles', payload);
             setShowCreateModal(false);
             resetForm();
+            setSuccess(`Role "${formData.display_name}" created successfully`);
             fetchTeamRoles();
+            // Clear success after 3 seconds
+            setTimeout(() => setSuccess(null), 3000);
         } catch (e) {
             console.error('Failed to create team role', e);
             setError(e.response?.data?.detail || 'Failed to create team role');
@@ -112,7 +130,10 @@ const TeamRoleManagementPage = () => {
         e.preventDefault();
         if (!selectedRole) return;
         setSaving(true);
+        setError(null);
+        setSuccess(null);
         try {
+            // ... (construct updateData)
             // Convert permissions from ["resource:action"] to [{resource: "x", action: "y"}]
             const permissionsPayload = formData.permissions.map(p => {
                 const [resource, action] = p.split(':');
@@ -125,11 +146,14 @@ const TeamRoleManagementPage = () => {
                 permissions: permissionsPayload,
                 is_default: formData.is_default
             };
+
             await apiService.put(`/api/b2b/team-roles/${selectedRole.id}`, updateData);
             setShowEditModal(false);
             setSelectedRole(null);
             resetForm();
+            setSuccess(`Role "${formData.display_name}" updated successfully`);
             fetchTeamRoles();
+            setTimeout(() => setSuccess(null), 3000);
         } catch (e) {
             console.error('Failed to update team role', e);
             setError(e.response?.data?.detail || 'Failed to update team role');
@@ -146,61 +170,25 @@ const TeamRoleManagementPage = () => {
         if (!window.confirm(`Delete role "${role.display_name}"? This cannot be undone.`)) {
             return;
         }
+        setError(null);
+        setSuccess(null);
         try {
             await apiService.delete(`/api/b2b/team-roles/${role.id}`);
+            setSuccess(`Role "${role.display_name}" deleted successfully`);
             fetchTeamRoles();
+            setTimeout(() => setSuccess(null), 3000);
         } catch (e) {
             console.error('Failed to delete team role', e);
             setError(e.response?.data?.detail || 'Failed to delete team role');
         }
     };
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
-
-    const getPermissionBadges = (role) => {
-        // Show first 5 permissions as badges
-        const permissions = role.permissions || [];
-        const badges = [];
-
-        for (const p of permissions) {
-            // Handle different formats:
-            if (typeof p === 'string') {
-                // Format: "resource:action"
-                badges.push({ label: p, color: 'blue' });
-            } else if (p && p.resource && p.actions) {
-                // Format: {resource: "x", actions: ["y", "z"]}
-                for (const action of p.actions) {
-                    badges.push({ label: `${p.resource}:${action}`, color: 'blue' });
-                }
-            } else if (p && p.resource && p.action) {
-                // Format: {resource: "x", action: "y"}
-                badges.push({ label: `${p.resource}:${p.action}`, color: 'blue' });
-            }
-
-            // Stop if we have 5 badges
-            if (badges.length >= 5) break;
-        }
-
-        return badges.slice(0, 5);
-    };
-
-    if (loading) {
-        return (
-            <AdminLayout>
-                <DashboardSkeleton />
-            </AdminLayout>
-        );
-    }
+    // ...
 
     return (
         <AdminLayout>
             <div className="team-role-management">
+                {/* ... Header ... */}
                 <div className="page-header">
                     <div>
                         <h1>Team Roles</h1>
@@ -220,7 +208,16 @@ const TeamRoleManagementPage = () => {
                     </div>
                 )}
 
+                {success && (
+                    <div className="alert alert-success">
+                        {success}
+                        <button onClick={() => setSuccess(null)}>×</button>
+                    </div>
+                )}
+
                 <div className="roles-grid">
+                    {/* ... */}
+
                     {teamRoles.map(role => (
                         <div key={role.id} className={`role-card ${role.is_system ? 'system-role' : ''}`}>
                             <div className="role-header">
@@ -655,6 +652,10 @@ const TeamRoleManagementPage = () => {
                 .alert-error {
                     background: #fee2e2;
                     color: #dc2626;
+                }
+                .alert-success {
+                    background: #dcfce7;
+                    color: #16a34a;
                 }
                 .alert button {
                     background: none;

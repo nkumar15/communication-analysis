@@ -4,7 +4,17 @@ Pytest configuration and shared fixtures for E2E testing - SIMPLIFIED VERSION
 import os
 
 # Set TESTING flag BEFORE importing app (enables Celery eager mode for sync task execution)
-os.environ['TESTING'] = 'true'
+import os
+from dotenv import load_dotenv
+
+# Load .env.test if it exists (Priority 1)
+if os.path.exists(".env.test"):
+    print("DEBUG: Loading config from .env.test")
+    load_dotenv(".env.test", override=True)
+else:
+    # Fallback to .env (Priority 2)
+    print("DEBUG: Loading config from .env (fallback)")
+    load_dotenv(".env")
 
 import asyncio
 import pytest
@@ -15,17 +25,112 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 import secrets
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import app components
-from tests.test_app import app  # Unified test app with all routers
-from core.database import get_db
-from core.models.base import Base
+from core.db.session import get_db, init_db, close_db
+from core.db.base import Base
 from core.config import settings
 from core.utils import get_utc_now
+from infrastructure.auth import get_auth_provider
+
+# Import ALL routers for testing
+from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
+from modules.domains.projects.routers import projects, tasks, comments
+from modules.platform.routers import platform, platform_b2b, platform_b2c
+from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
+from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
+
+# B2C billing router requires stripe - import conditionally
+try:
+    from modules.b2c.routers import billing as b2c_billing
+    HAS_B2C_BILLING = True
+except ImportError:
+    HAS_B2C_BILLING = False
+
+
+# ============================================================================
+# Unified Test App (combines all microservice routers)
+# ============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    print("🧪 Starting unified test app...")
+    await init_db()
+    get_auth_provider().initialize()
+    print("✓ Test app ready")
+    
+    yield
+    
+    # Shutdown
+    await close_db()
+
+
+# Create unified test app
+app = FastAPI(
+    title="Unified Test API",
+    description="Test-only app with all microservice routers combined",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include ALL routers
+app.include_router(auth.router)
+app.include_router(activation.router)
+app.include_router(invitations.router)  # B2B invitations
+app.include_router(users.router)
+app.include_router(roles.router)  # B2B roles
+app.include_router(teams.router)
+app.include_router(team_roles.router)  # B2B team roles
+app.include_router(account.router)
+app.include_router(audit_logs.router)
+app.include_router(billing.router)  # B2B billing
+app.include_router(sso_settings.router)  # SSO settings
+app.include_router(projects.router)
+app.include_router(tasks.router)
+app.include_router(comments.router)
+app.include_router(platform.router)
+app.include_router(platform_b2b.router)
+app.include_router(platform_b2c.router)
+app.include_router(platform_roles.router)  # Platform roles management
+app.include_router(platform_invitations.router)  # Platform invitations
+app.include_router(platform_billing.router)
+app.include_router(b2c_auth.router)
+app.include_router(b2c_workspaces.router)
+app.include_router(b2c_invitations.router)
+
+# Include B2C billing router if stripe is available
+if HAS_B2C_BILLING:
+    app.include_router(b2c_billing.router)
+
+
+@app.get("/")
+async def root():
+    return {"service": "unified-test-app", "note": "For testing only"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": "test"}
+
 
 
 # Test database URL (shared connection)
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")  
+# Test database URL (shared connection)
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", os.getenv("DATABASE_URL"))  
 
 
 
@@ -57,7 +162,7 @@ class TenantAwareSession:
         Note: SET LOCAL is transaction-scoped, so we re-set it for each execute()
         to handle cases where transactions have been committed/rolled back.
         """
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         await rls_service.set_tenant_context(self._session, self._tenant_id)
     
     async def execute(self, *args, **kwargs):
@@ -109,7 +214,16 @@ class TenantAwareSession:
 @pytest_asyncio.fixture(scope="function")
 async def test_db_engine():
     """Create test database engine for session"""
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_pre_ping=True)
+    url = TEST_DATABASE_URL
+    # Fail-safe: Ensure async driver is used
+    if "postgresql+asyncpg://" not in url:
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            
+    print(f"\nDEBUG: Connecting to DB with URL: {url}")
+    engine = create_async_engine(url, echo=False, pool_pre_ping=True)
     yield engine
     await engine.dispose()
 
@@ -144,7 +258,7 @@ async def api_client(db_session):
         #
         # For B2C: The auth middleware SETS the context, and we need to PRESERVE it.
         # Check if context is already set (B2C case) and don't clear it.
-        from core.rls import rls_service
+        from core.db.rls import rls_service
         from sqlalchemy import text
         
         # Check if RLS context is already set (B2C auth middleware sets it)
@@ -166,11 +280,11 @@ async def api_client(db_session):
     
     # Override auth dependency to verify mock tokens
     from core.middleware.auth import get_current_user, bearer_scheme
-    from services.b2b.middleware.b2b_auth import get_current_active_user
+    from modules.b2b.middleware.b2b_auth import get_current_active_user
     from fastapi import Depends, HTTPException, status
     from fastapi.security import HTTPAuthorizationCredentials
-    from services.b2b.models.user import UserModel
-    from services.b2b.models.rbac import Role
+    from modules.b2b.models.user import UserModel
+    from modules.b2b.models.rbac import Role
     from sqlalchemy import select
     import json 
     import base64
@@ -207,7 +321,7 @@ async def api_client(db_session):
     app.dependency_overrides[get_current_user] = override_get_current_user
     
     # Override B2C auth dependency for B2C endpoints
-    from services.b2c.middleware.b2c_auth import get_current_b2c_user
+    from modules.b2c.middleware.b2c_auth import get_current_b2c_user
     
     async def override_get_current_b2c_user(
         credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
@@ -236,7 +350,7 @@ async def api_client(db_session):
             firebase_uid = payload.get("uid")
             
             # Look up actual B2C user by firebase_uid to get UUID and set RLS
-            from services.b2c.models.user import B2CUser
+            from modules.b2c.models.user import B2CUser
             from sqlalchemy import text
             
             # Use SECURITY DEFINER function to lookup user (bypasses RLS)
@@ -296,7 +410,7 @@ async def api_client(db_session):
 async def platform_admin_setup(db_session: AsyncSession):
     """Setup System Tenant, Platform Admin Role, and User"""
     from sqlalchemy import select
-    from services.platform.models import PlatformTenant, PlatformRole, PlatformUser
+    from modules.platform.models import PlatformTenant, PlatformRole, PlatformUser
     from core.constants import PlatformRoleName
     
     # Generate unique identifiers for this test run
@@ -379,7 +493,7 @@ async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
         result = await db_session.execute(select(Team).where(Team.id == team_id))
         team = result.scalar_one()
     """
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
 
 
@@ -507,8 +621,8 @@ def create_auth_headers(user, tenant=None):
 
 async def ensure_rbac_seeds(db_session: AsyncSession):
     """Ensure basic RBAC data (Resources, Actions, Templates) exists"""
-    from services.b2b.models.rbac import Resource, Action
-    from services.b2b.models.role_template import RoleTemplate
+    from modules.b2b.models.rbac import Resource, Action
+    from modules.b2b.models.role_template import RoleTemplate
     from sqlalchemy import select
     from core.constants import B2BRoleName
 
@@ -596,7 +710,7 @@ async def create_test_tenant(
     activation_status: str = "active"
 ):
     """Create a test tenant"""
-    from services.b2b.models import TenantModel
+    from modules.b2b.models import TenantModel
     from sqlalchemy import text
     
     if domain == "test.com":
@@ -614,18 +728,18 @@ async def create_test_tenant(
     await db_session.refresh(tenant)
     
     # Set tenant context for RLS before inserting tenant-scoped data
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
     
     # Ensure RBAC seeds exist (Global Templates)
     await ensure_rbac_seeds(db_session)
     
     # Seed roles for this tenant using RoleTemplateService
-    from services.b2b.services.role_template_service import role_template_service
+    from modules.b2b.services.role_template_service import role_template_service
     await role_template_service.seed_tenant_roles(db_session, tenant.id)
 
     # Create default team
-    from services.b2b.services.team_service import create_team
+    from modules.b2b.services.team_service import create_team
     await create_team(
         db=db_session,
         tenant_id=tenant.id,
@@ -643,7 +757,7 @@ async def create_platform_tenant(
     firebase_tenant_id: str = None
 ):
     """Create the platform tenant (singleton) - Idempotent"""
-    from services.platform.models import PlatformTenant, PlatformRole
+    from modules.platform.models import PlatformTenant, PlatformRole
     from sqlalchemy import select
     
     # Check if exists (singleton)
@@ -698,7 +812,7 @@ async def create_platform_user(
     platform_tenant_id: UUID = None  # Optional for backward compatibility
 ):
     """Create a platform user - Idempotent"""
-    from services.platform.models import PlatformUser, PlatformRole, PlatformTenant
+    from modules.platform.models import PlatformUser, PlatformRole, PlatformTenant
     from sqlalchemy import select
     
     # Get or create platform tenant if not provided
@@ -751,13 +865,13 @@ async def create_test_user(
     name: str = None
 ):
     """Create a test user"""
-    from services.b2b.models import UserModel
-    from services.b2b.models.rbac import Role
+    from modules.b2b.models import UserModel
+    from modules.b2b.models.rbac import Role
     from sqlalchemy import select, text
     
     # Set RLS context for this user's tenant FIRST
     # This is CRITICAL because the role query below requires RLS context
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
     
     # Get role by slug (now with RLS context set)
@@ -791,11 +905,11 @@ async def create_test_invitation(
     team_role: str = None   # NEW: Optional team role
 ):
     """Create a test invitation"""
-    from services.b2b.models import InvitationModel
+    from modules.b2b.models import InvitationModel
     from sqlalchemy import text
     
     # Set RLS context for invitation creation
-    from core.rls import rls_service
+    from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant_id)
     
     invitation = InvitationModel(
@@ -825,7 +939,7 @@ async def create_b2c_user(
     display_name: str = None
 ):
     """Create a B2C user for testing"""
-    from services.b2c.models.user import B2CUser
+    from modules.b2c.models.user import B2CUser
     from sqlalchemy import text
     
     if not firebase_uid:
@@ -858,8 +972,8 @@ async def create_b2c_workspace(
     subscription_tier: str = 'free'
 ):
     """Create a B2C workspace for testing"""
-    from services.b2c.models.workspace import Workspace, WorkspaceType
-    from services.b2c.models.workspace_member import WorkspaceMember
+    from modules.b2c.models.workspace import Workspace, WorkspaceType
+    from modules.b2c.models.workspace_member import WorkspaceMember
     from sqlalchemy import text
     
     # Set user context to owner to allow workspace creation
@@ -920,7 +1034,7 @@ async def create_auth_provider(
     config_data: dict = None
 ):
     """Create an auth provider for testing SSO"""
-    from services.b2b.models.auth_provider import AuthProvider
+    from modules.b2b.models.auth_provider import AuthProvider
     from sqlalchemy import select
     
     # Default provider_id if not provided
@@ -961,3 +1075,4 @@ async def create_auth_provider(
     await db_session.refresh(provider)
     
     return provider
+

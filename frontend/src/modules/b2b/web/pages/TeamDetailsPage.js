@@ -171,7 +171,7 @@ const TeamDetailsPage = () => {
     }
 
     return (
-        <AdminLayout title={team.name} subtitle={team.description || 'Team details and members'}>
+        <AdminLayout>
             <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
                 {/* Back Button */}
                 <button

@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.append('/app')
 
 from core.config import settings
-from services.b2b.models.subscription_plan import B2BSubscriptionPlan
+from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
 
 def load_plans_from_yaml():
     yaml_path = os.path.join(os.path.dirname(__file__), 'data/subscription_plans.yaml')
