@@ -73,35 +73,65 @@ def send_invitation_email(self, invitation_id: str, tenant_id: str):
 
 async def _send_invitation_email_async(invitation_id: str, tenant_id: str, db):
     """Async implementation of send_invitation_email using injected session"""
+    import time
+    
     try:
         from modules.b2b.models import InvitationModel
         from infrastructure.email import email_service
+        from core.db.rls import rls_service
         
-        # Fetch invitation with tenant data
-        result = await db.execute(
-            select(InvitationModel)
-            .options(selectinload(InvitationModel.tenant))
-            .where(InvitationModel.id == invitation_id)
-        )
-        invitation = result.scalar_one_or_none()
+        # Set RLS context for tenant - CRITICAL for querying B2B tables
+        await rls_service.set_tenant_context(db, tenant_id)
         
-        if not invitation:
-            logger.warning(f"Invitation {invitation_id} not found")
+        # Retry logic to handle race condition where commit hasn't propagated yet
+        invitation = None
+        max_retries = 3
+        retry_delay = 0.5  # Start with 500ms
+        
+        for attempt in range(max_retries):
+            # Fetch invitation with tenant data
+            result = await db.execute(
+                select(InvitationModel)
+                .options(selectinload(InvitationModel.tenant))
+                .where(InvitationModel.id == invitation_id)
+            )
+            invitation = result.scalar_one_or_none()
+            
+            if invitation:
+                break
+            
+            if attempt < max_retries - 1:
+                logger.warning(
+                    f"Invitation {invitation_id} not found on attempt {attempt + 1}/{max_retries}, "
+                    f"retrying in {retry_delay}s..."
+                )
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                logger.warning(f"Invitation {invitation_id} not found after {max_retries} attempts")
             return
+        
+        logger.info(f"✅ Invitation {invitation_id} found, sending email to {invitation.email}")
         
         # In test mode, we might want to skip actual sending if not mocked?
         # But User asked for verification. We rely on mocks or allow it if safe.
         # Assuming email_service handles dev/test mode or we mock it in tests.
         
-        # Send email via Resend
-        await email_service.send_invitation_email(
-            to_email=invitation.email,
-            invitation_token=invitation.invitation_token,
-            tenant_name=invitation.tenant.name,
-            expires_at=invitation.expires_at
-        )
-        
-        logger.info(f"✅ Invitation email sent to {invitation.email}")
+        # Send email via Resend  
+        try:
+            result = await email_service.send_invitation_email(
+                to_email=invitation.email,
+                invitation_token=invitation.invitation_token,
+                tenant_name=invitation.tenant.name,
+                expires_at=invitation.expires_at
+            )
+            
+            if result:
+                logger.info(f"✅ Invitation email sent to {invitation.email}")
+            else:
+                logger.error(f"❌ Email send returned False for {invitation.email}")
+        except Exception as e:
+            logger.error(f"❌ Exception while sending invitation email: {e}", exc_info=True)
         
     except Exception as e:
         logger.error(f"❌ Failed to send invitation email: {e}")
