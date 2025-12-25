@@ -83,9 +83,10 @@ async def test_system_roles_crud(authenticated_b2b_page: Page, b2b_test_setup):
     # So System Roles CANNOT be edited currently.
     # I will remove the edit step from `test_system_roles.py`.
     
-    # 4. Delete
+    
+    # 3. Delete
     await roles_page.delete_role(display_name)
-    await roles_page.verify_success_message("deleted successfully")
+    # Success verified inside delete_role to catch it before it disappears
     
     # Verify deletion
     await expect(authenticated_b2b_page.locator(f"text={display_name}")).not_to_be_visible()

@@ -45,9 +45,19 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
     # The current list implementation navigates to details on click
     await page.click(f"div:has-text('{team_name}')")
     
-    # Wait for details page
-    # h1 might match sidebar 'Teams' too. Use .first or main content logic.
-    # Assuming the page title is the main H1 we want.
+    # Wait for details page navigation
+    await page.wait_for_url(f"**/b2b/teams/*")
+    
+    # H1 contains emoji "🏢 Team Name". Just check for text containment in "main" area if possible, 
+    # but since H1 is unique enough, relax strictness or expect the emoji.
+    # The error said: resolved to 2 elements: 1) Sidebar "Teams" 2) Header "Teams".
+    # By clicking, we go to details. Sidebar "Teams" is still there. 
+    # Header should be "🏢 TeamName".
+    # Using .first might pick the wrong one.
+    # We should exclude the sidebar. Sidebar usually inside nav or aside.
+    # Let's try matching the exact text if we know it (Team Name).
+    # Since H1 text is "🏢 <Name>", "has_text" should work if it matches.
+    
     await expect(page.locator("h1").filter(has_text=team_name)).to_be_visible()
     
     # Navigate back to teams for deletion test (if delete is on list) 

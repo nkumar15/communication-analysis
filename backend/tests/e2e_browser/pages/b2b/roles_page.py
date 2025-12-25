@@ -30,11 +30,13 @@ class RolesPage(AsyncBasePage):
 
     # Generic CRUD Helpers
     async def create_role(self, name: str, display_name: str, desc: str, is_team_role: bool = False):
-        button_text = "Create Custom Role" if is_team_role else "Create Role"
-        # Handle the '+' prefix if present in UI text
-        # await self.page.click(f"button:has-text('{button_text}')") 
-        # Use get_by_role for better reliability
-        await self.page.get_by_role("button", name=button_text).click()
+        # Team roles button has "+ " prefix
+        button_name = "+ Create Custom Role" if is_team_role else "Create Role"
+        
+        # Use simple get_by_role with name. Playwright often matches partial, or we use exact string.
+        # "Create Role" (system) vs "+ Create Custom Role" (team)
+        
+        await self.page.get_by_role("button", name=button_name).click(force=True)
         
         await expect(self.page.locator(".modal")).to_be_visible()
         
@@ -42,7 +44,16 @@ class RolesPage(AsyncBasePage):
         await self.page.fill("input[name='display_name']", display_name)
         await self.page.fill("textarea[name='description']", desc)
         
-        await self.page.click("button:has-text('Create Role')")
+        # Use dynamic submit button text
+        submit_text = "Create Role"
+        if is_team_role: 
+            # Team roles modal submit button says "Create Role" too? 
+            # Checked TeamRoleManagementPage.js: {saving ? 'Creating...' : 'Create Role'}
+            # But System Roles (RoleManagementPage.js): {creating ? 'Creating...' : 'Create Role'}
+            pass
+            
+        await self.page.click(f"button:has-text('{submit_text}')")
+        
         # Wait for modal to close
         try:
             await expect(self.page.locator(".modal")).not_to_be_visible()
@@ -51,7 +62,8 @@ class RolesPage(AsyncBasePage):
             if await self.page.locator(".alert-error").is_visible():
                 error_text = await self.page.locator(".alert-error").inner_text()
                 raise AssertionError(f"Role creation failed with backend error: {error_text}")
-            elif await self.page.locator(".error").is_visible(): # System roles uses .error
+            # System roles might use .error class in a div
+            elif await self.page.locator(".error").is_visible(): 
                 error_text = await self.page.locator(".error").inner_text()
                 raise AssertionError(f"Role creation failed with backend error: {error_text}")
             raise
@@ -64,25 +76,20 @@ class RolesPage(AsyncBasePage):
         self.page.on("dialog", handle_dialog)
 
         # Find the row or card for the role
-        # Team roles are in cards (.role-card), System roles in table (tr)
         if await self.page.locator(f".role-card:has-text('{display_name}')").count() > 0:
             parent = self.page.locator(f".role-card:has-text('{display_name}')")
-            await parent.locator("button:has-text('Delete')").click()
+            # Force click to avoid hover/overlay issues
+            await parent.locator("button:has-text('Delete')").click(force=True)
         else:
             parent = self.page.locator(f"tr:has-text('{display_name}')")
-            await parent.locator("button:has-text('Delete')").click()
-        
-        # Confirm dialog
+            await parent.locator("button:has-text('Delete')").click(force=True)
         
         # Verify gone
-        # Wait for success message first to ensure backend processed it
-        # This prevents checking for invisibility before the list re-fetches
-        try:
-            await expect(self.page.locator(".alert-success").or_(self.page.locator("text=successfully"))).to_be_visible(timeout=5000)
-        except:
-            # If notification is missed/too fast, proceed to check checks
-            pass
+        # Wait for success message explicitly. Do NOT swallow error.
+        # Check for either alert-success OR system role inline success style (which text matches 'successfully')
+        await expect(self.page.locator(".alert-success").or_(self.page.locator("text=successfully"))).to_be_visible(timeout=5000)
 
+        # Then verify item is gone
         await expect(self.page.locator(f"text={display_name}")).not_to_be_visible()
     
     async def edit_role_description(self, display_name: str, new_desc: str):
