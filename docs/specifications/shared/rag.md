@@ -4,6 +4,7 @@
 **Last Updated:** December 24, 2025  
 **Status:** Draft - Planning Phase  
 **Architecture:** Elasticsearch + PostgreSQL
+**Implementation Plan:** [Detailed Roadmap](rag-implementation-plan.md)
 
 ---
 
