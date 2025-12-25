@@ -13,8 +13,18 @@ async def test_invitations_notifications(authenticated_b2b_page: Page, b2b_test_
     await page.goto(f"{base_url}/invitations")
     await expect(page.locator("h1")).to_contain_text("User & Invitation Management")
 
+    # Get tenant domain from UI to ensure valid email
+    # Usually displayed in header or we can try to extract from error if needed, 
+    # but better to assume standard format or get from setup if available.
+    # The setup object has 'tenant_id'. 
+    # Let's try to find a valid domain. 
+    # In test environment, the backend fixture creates a tenant.
+    # b2b_test_setup['tenant'] is available.
+    tenant = b2b_test_setup['tenant']
+    domain = tenant.domain if hasattr(tenant, 'domain') else "example.com"
+    
     # 2. Invite User
-    test_email = "test.invite.success@example.com"
+    test_email = f"test.invite@{domain}"
     await page.click("button:has-text('Invite User')")
     
     # Fill modal

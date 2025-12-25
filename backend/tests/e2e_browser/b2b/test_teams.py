@@ -15,7 +15,7 @@ async def test_teams_crud_and_notifications(authenticated_b2b_page: Page, b2b_te
     await page.goto(f"{base_url}/b2b/teams")
     print(f"DEBUG: Page URL after goto: {page.url}")
     await page.wait_for_url("**/b2b/teams")
-    await expect(page.locator("h1")).to_contain_text("Teams")
+    await expect(page.locator("h1").filter(has_text="Teams")).to_be_visible()
 
     # 2. Create Team
     team_name = "Notification Test Team"
