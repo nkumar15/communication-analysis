@@ -1,82 +1,142 @@
 [
   {
-    "id": "tcs_q2_fy24_transcript_fact_0",
-    "query": "Sample Fact Question 0 for tcs_q2_fy24_transcript?",
-    "expected_output": "Sample Fact Answer 0",
-    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 0",
-    "source_doc": "tcs_q2_fy24_transcript.txt",
-    "type": "fact"
+    "input": "What was the total income for Tata Consultancy Services Limited on a consolidated basis for the quarter ended September 30, 2025?",
+    "expected_output": "The total income for the quarter ended September 30, 2025, was $₹66,666$ crore[cite: 71]. This includes revenue from operations of $₹65,799$ crore and other income of $₹867$ crore[cite: 71].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "tcs_q2_fy24_transcript_fact_1",
-    "query": "Sample Fact Question 1 for tcs_q2_fy24_transcript?",
-    "expected_output": "Sample Fact Answer 1",
-    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 1",
-    "source_doc": "tcs_q2_fy24_transcript.txt",
-    "type": "fact"
+    "input": "How much did TCS spend on employee benefit expenses on a consolidated basis in Q2 FY26, and how does this compare to Q2 FY25?",
+    "expected_output": "In Q2 FY26 (quarter ended September 30, 2025), employee benefit expenses were $₹38,606$ crore[cite: 71]. In the same quarter of the previous year (Q2 FY25 ended September 30, 2024), they were $₹36,654$ crore, representing an increase of $₹1,952$ crore[cite: 71].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "tcs_q2_fy24_transcript_fact_2",
-    "query": "Sample Fact Question 2 for tcs_q2_fy24_transcript?",
-    "expected_output": "Sample Fact Answer 2",
-    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 2",
-    "source_doc": "tcs_q2_fy24_transcript.txt",
-    "type": "fact"
+    "input": "Identify the 'Exceptional item' and its impact on the consolidated profit before tax for the quarter ended September 30, 2025.",
+    "expected_output": "The exceptional item refers to re-structuring expenses amounting to $₹1,135$ crore[cite: 71, 79]. This reduced the consolidated 'PROFIT BEFORE EXCEPTIONAL ITEM AND TAX' of $₹17,203$ crore to a 'PROFIT BEFORE TAX' of $₹16,068$ crore[cite: 71].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "tcs_q2_fy24_transcript_fact_3",
-    "query": "Sample Fact Question 3 for tcs_q2_fy24_transcript?",
-    "expected_output": "Sample Fact Answer 3",
-    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 3",
-    "source_doc": "tcs_q2_fy24_transcript.txt",
-    "type": "fact"
+    "input": "Which business segment had the highest segment result (operating profit) in Q2 FY26, and what was the amount?",
+    "expected_output": "The Banking, Financial Services and Insurance (BFSI) segment had the highest segment result of $₹6,818$ crore for the quarter ended September 30, 2025[cite: 74].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "tcs_q2_fy24_transcript_fact_4",
-    "query": "Sample Fact Question 4 for tcs_q2_fy24_transcript?",
-    "expected_output": "Sample Fact Answer 4",
-    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 4",
-    "source_doc": "tcs_q2_fy24_transcript.txt",
-    "type": "fact"
+    "input": "What interim dividend did the Board of Directors declare in October 2025, and what was the total dividend percentage?",
+    "expected_output": "The Board of Directors declared an interim dividend of $₹11.00$ per equity share at its meeting held on October 9, 2025[cite: 90]. The total equity dividend percentage for the three months ended September 30, 2025, is $1,100\\%$[cite: 71].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "reliance_q2_fy24_presentation_fact_0",
-    "query": "Sample Fact Question 0 for reliance_q2_fy24_presentation?",
-    "expected_output": "Sample Fact Answer 0",
-    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 0",
-    "source_doc": "reliance_q2_fy24_presentation.txt",
-    "type": "fact"
+    "input": "Provide the consolidated Earnings Per Share (EPS) for the quarter ended September 30, 2025.",
+    "expected_output": "The basic and diluted Earnings Per Share (EPS) for the quarter ended September 30, 2025, was $₹33.37$[cite: 71].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "reliance_q2_fy24_presentation_fact_1",
-    "query": "Sample Fact Question 1 for reliance_q2_fy24_presentation?",
-    "expected_output": "Sample Fact Answer 1",
-    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 1",
-    "source_doc": "reliance_q2_fy24_presentation.txt",
-    "type": "fact"
+    "input": "What was the total value of current assets on the consolidated balance sheet as of September 30, 2025?",
+    "expected_output": "The total current assets as of September 30, 2025, were $₹1,34,499$ crore[cite: 80].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "reliance_q2_fy24_presentation_fact_2",
-    "query": "Sample Fact Question 2 for reliance_q2_fy24_presentation?",
-    "expected_output": "Sample Fact Answer 2",
-    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 2",
-    "source_doc": "reliance_q2_fy24_presentation.txt",
-    "type": "fact"
+    "input": "Compare the 'Communication, Media and Technology' segment revenue for Q2 FY26 with Q2 FY25.",
+    "expected_output": "The revenue for the Communication, Media and Technology segment in Q2 FY26 was $₹9,802$ crore, which is a decrease from $₹12,088$ crore in the quarter ended September 30, 2024 (Q2 FY25)[cite: 74].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "reliance_q2_fy24_presentation_fact_3",
-    "query": "Sample Fact Question 3 for reliance_q2_fy24_presentation?",
-    "expected_output": "Sample Fact Answer 3",
-    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 3",
-    "source_doc": "reliance_q2_fy24_presentation.txt",
-    "type": "fact"
+    "input": "What was the net cash flow generated from operating activities for the six months ended September 30, 2025, on a consolidated basis?",
+    "expected_output": "The net cash flow generated from operating activities for the six months ended September 30, 2025, was $₹24,944$ crore[cite: 98].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   },
   {
-    "id": "reliance_q2_fy24_presentation_fact_4",
-    "query": "Sample Fact Question 4 for reliance_q2_fy24_presentation?",
-    "expected_output": "Sample Fact Answer 4",
-    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 4",
-    "source_doc": "reliance_q2_fy24_presentation.txt",
-    "type": "fact"
+    "input": "State the standalone revenue from operations and profit for the period for the quarter ended September 30, 2025.",
+    "expected_output": "For the quarter ended September 30, 2025, the standalone revenue from operations was $₹54,531$ crore and the standalone profit for the period was $₹11,828$ crore[cite: 108].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "What were the 'Unallocable expenses' mentioned in the segment information for Q2 FY26, and why did they increase significantly?",
+    "expected_output": "Unallocable expenses for Q2 FY26 were $₹2,777$ crore[cite: 74]. This is a significant increase from $₹1,428$ crore in Q2 FY25 (September 30, 2024), largely because it includes re-structuring expenses of $₹1,135$ crore[cite: 74, 79].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "What was the total equity attributable to the shareholders of the Company as of September 30, 2025, on a consolidated basis?",
+    "expected_output": "The equity attributable to shareholders of the Company was $₹1,06,415$ crore as of September 30, 2025[cite: 80].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "How much was paid as dividend during the six months ended September 30, 2025, according to the consolidated cash flow statement?",
+    "expected_output": "According to the consolidated statement of cash flows, $₹14,834$ crore was paid as dividends during the six months ended September 30, 2025[cite: 100].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "What was the amount of 'Billed Trade Receivables' under current assets as of September 30, 2025, on a consolidated basis?",
+    "expected_output": "The billed trade receivables under current assets were $₹54,182$ crore as of September 30, 2025[cite: 80].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "According to the segment results, what was the operating income for the six months ended September 30, 2025?",
+    "expected_output": "The consolidated operating income for the six months ended September 30, 2025, was $₹30,520$ crore[cite: 74].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "What was the standalone profit before tax for the quarter ended September 30, 2025, and how much re-structuring expense was factored in?",
+    "expected_output": "The standalone profit before tax was $₹15,244$ crore for Q2 FY26, which includes a re-structuring expense (exceptional item) of $₹850$ crore[cite: 108].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "Identify the consolidated cash and cash equivalents balance at the end of the period (September 30, 2025).",
+    "expected_output": "The consolidated cash and cash equivalents balance at the end of the period, September 30, 2025, was $₹6,358$ crore[cite: 100].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "What was the segment revenue for 'Life Sciences and Healthcare' for the three months ended September 30, 2025?",
+    "expected_output": "The segment revenue for Life Sciences and Healthcare was $₹6,884$ crore for the three months ended September 30, 2025[cite: 74].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "How much was the consolidated current tax expense for the quarter ended September 30, 2025?",
+    "expected_output": "The consolidated current tax expense for the quarter ended September 30, 2025, was $₹3,969$ crore[cite: 71].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
+  },
+  {
+    "input": "What were the total reserves (including Non-controlling interests) as of March 31, 2025?",
+    "expected_output": "The total reserves (including Non-controlling interests) as of March 31, 2025, were $₹95,409$ crore[cite: 71].",
+    "context": [
+      "tcs_q2_fy26_results.pdf"
+    ]
   }
 ]
