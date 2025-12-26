@@ -26,7 +26,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Baseline (Naive)** | 2025-12-26 | **100%** | **100%** | **66.7%** | gpt-5-nano | text-embedding-3-small |
 | **Exp 1: Table Parser** | 2025-12-26 | **100%** | **100%** | **100%** | Fixed Recall failure via Markdown Tables |
-| **Exp 2: Hybrid Search** | *Pending* | - | - | - | Linear Combination (BM25 + kNN). |
+| **Exp 2: Hybrid Search** | 2025-12-26 | **100%** | **100%** | **100%** | Client-Side RRF (BM25 + kNN). |
 | **Exp 3: Reranking** | *Pending* | - | - | - | Cross-Encoder Reranker (ColBERT/BGE). |
 
 ## 4. Qualitative Analysis
@@ -44,3 +44,7 @@
     *   **Win**: Successfully answered *"How much did TCS spend on employee benefit expenses?"*.
     *   **Why**: The parser extracted the P&L table as a distinct node. The standard text chunking did not mangle the row `Employee benefit expenses | 38,606`.
     *   **Metdata**: Added `table_rows` and `table_columns` to nodes, allowing future filtering.
+*   **Exp 2 (Hybrid Search)**:
+    *   **Win**: Added **Robustness** via Keyword Layout.
+    *   **Why**: While vectors are great for concepts ("expenses"), they fail on exact matches like weird acronyms or IDs. Hybrid guarantees that if the user searches for a specific Table Header string, BM25 finds it even if the embedding is weak.
+    *   **Engineering**: Implemented **Client-Side RRF** to bypass ES Platinum license. This ensures we get state-of-the-art ranking (Reciprocal Rank Fusion) without paying for Enterprise licenses.

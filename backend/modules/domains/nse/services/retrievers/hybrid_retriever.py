@@ -29,7 +29,8 @@ class TenantAwareHybridRetriever(BaseRetriever):
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """
-        Async retrieval implementation.
+        Async retrieval implementation using Client-Side RRF (Reciprocal Rank Fusion).
+        This bypasses Elasticsearch license restrictions for server-side RRF.
         """
         if not self._tenant_id:
             raise ValueError("Tenant ID is required for TenantAwareHybridRetriever")
@@ -37,85 +38,83 @@ class TenantAwareHybridRetriever(BaseRetriever):
         query_text = query_bundle.query_str
         query_embedding = await self._embed_model.aget_query_embedding(query_text)
         
-        # Construct Hybrid Query with RRF
-        # Note: Elasticsearch 8.8+ supports 'rrf' in 'retriever' or 'rank' param.
-        # We use the 'sub_searches' or 'hybrid' approach depending on version.
-        # The documentation example used:
-        # { "query": { "bool": ... }, "knn": ... , "rank": { "rrf": ... } } 
-        # But 'rank' is for 8.14+? 
-        # Standard approach for 8.12+ (which we use):
-        # use 'retriever' parameter OR 'knn' + 'query' and 'rank'.
+        # 1. Execute Parallel Searches (BM25 and kNN)
         
-        # Let's use the standard "knn" + "query" composition which is supported well.
-        
-        # License Issue: RRF requires Platinum license.
-        # Fallback: Linear Combination (Standard Hybrid).
-        # Elastic 8.x sums the scores of 'knn' and 'query' if both are present.
-        
-        es_query = {
+        # A. Keyword Search (BM25)
+        bm25_query = {
             "query": {
                 "bool": {
-                    "must": [
-                        {
-                            "match": {
-                                "content": {
-                                    "query": query_text,
-                                    "boost": 0.5 # Weight for Keyword
-                                }
-                            }
-                        }
-                    ],
-                    "filter": [
-                        {"term": {"metadata.tenant_id.keyword": self._tenant_id}}
-                    ]
+                    "must": [{"match": {"content": query_text}}],
+                    "filter": [{"term": {"metadata.tenant_id.keyword": self._tenant_id}}]
                 }
             },
+            "size": 50, # Fetch more candidates for fusion
+            "_source": ["content", "metadata", "id", "document_id"]
+        }
+
+        # B. Vector Search (kNN)
+        knn_query = {
             "knn": {
                 "field": "embedding",
                 "query_vector": query_embedding,
-                "k": self._top_k,
-                "num_candidates": 50,
-                "filter": {
-                    "term": {"metadata.tenant_id.keyword": self._tenant_id}
-                },
-                "boost": 0.5 # Weight for Vector
+                "k": 50, # Fetch more candidates for fusion
+                "num_candidates": 100,
+                "filter": {"term": {"metadata.tenant_id.keyword": self._tenant_id}}
             },
-            # Removed "rank": {"rrf": ...} due to license non-compliance
-            "size": self._top_k,
+            "size": 50,
             "_source": ["content", "metadata", "id", "document_id"]
         }
         
-        try:
-            response = await self._client.search(
-                index=self._index_name,
-                body=es_query
+        import asyncio
+        # Execute both requests concurrently
+        responses = await asyncio.gather(
+            self._client.search(index=self._index_name, body=bm25_query),
+            self._client.search(index=self._index_name, body=knn_query)
+        )
+        
+        bm25_hits = responses[0].get("hits", {}).get("hits", [])
+        knn_hits = responses[1].get("hits", {}).get("hits", [])
+        
+        # 2. Perform Reciprocal Rank Fusion (RRF) in Python
+        # Formula: score = 1.0 / (k + rank)
+        rrf_k = 60
+        doc_scores = {}
+        doc_data = {}
+        
+        # Process BM25 Ranks
+        for rank, hit in enumerate(bm25_hits):
+            doc_id = hit["_id"]
+            doc_data[doc_id] = hit
+            doc_scores[doc_id] = doc_scores.get(doc_id, 0.0) + (1.0 / (rrf_k + rank + 1))
+            
+        # Process kNN Ranks
+        for rank, hit in enumerate(knn_hits):
+            doc_id = hit["_id"]
+            # If doc not in BM25 results, add it
+            if doc_id not in doc_data:
+                doc_data[doc_id] = hit
+            doc_scores[doc_id] = doc_scores.get(doc_id, 0.0) + (1.0 / (rrf_k + rank + 1))
+            
+        # 3. Sort and Form Nodes
+        sorted_doc_ids = sorted(doc_scores.keys(), key=lambda x: doc_scores[x], reverse=True)[:self._top_k]
+        
+        nodes = []
+        for doc_id in sorted_doc_ids:
+            hit = doc_data[doc_id]
+            source = hit.get("_source", {})
+            score = doc_scores[doc_id]
+            
+            content = source.get("content", "")
+            metadata = source.get("metadata", {})
+            
+            node = TextNode(
+                text=content,
+                metadata=metadata,
+                id_=hit["_id"],
             )
+            nodes.append(NodeWithScore(node=node, score=score))
             
-            nodes = []
-            hits = response.get("hits", {}).get("hits", [])
-            for hit in hits:
-                source = hit.get("_source", {})
-                score = hit.get("_score") or hit.get("_rank_score", 0.0) # RRF provides _rank_score?
-                # In RRF, score is null in hits, but sort logic handles it.
-                # Actually ES returns a score from RRF if configured.
-                
-                content = source.get("content", "")
-                metadata = source.get("metadata", {})
-                
-                # Reconstruct TextNode
-                # Elastic source might not have 'id' at top level if LlamaIndex indexed it in a specific way.
-                # Usually metadata['doc_id'] or the ES _id is the node ID.
-                node = TextNode(
-                    text=content,
-                    metadata=metadata,
-                    id_=hit["_id"], # Use the ES document ID as the Node ID
-                )
-                nodes.append(NodeWithScore(node=node, score=score or 0.0))
-                
-            return nodes
-            
-        finally:
-            await self._client.close()
+        return nodes
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """Sync wrapper fallback (should generally not be used in our async app)"""
