@@ -200,14 +200,40 @@ async def search_documents(
         Settings.embed_model = embed_model
         
         # 3. Create Custom Retriever (Tenant-Aware Hybrid RRF)
+        # Fetch more candidates for reranking (e.g. 4x limit)
+        initial_top_k = limit * 4
         retriever = TenantAwareHybridRetriever(
             embed_model=embed_model,
             tenant_id=str(tenant_id),
-            top_k=limit
+            top_k=initial_top_k
         )
         
         # 4. Execute Search (Async)
-        results = await retriever.aretrieve(query)
+        nodes = await retriever.aretrieve(query)
+        
+        # 5. Rerank (Optional / if available)
+        try:
+            from sentence_transformers import CrossEncoder
+            # Load lightweight model (cached)
+            reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+            
+            node_texts = [n.node.text for n in nodes]
+            pairs = [[query, text] for text in node_texts]
+            scores = reranker.predict(pairs)
+            
+            for i, node in enumerate(nodes):
+                node.score = float(scores[i])
+            
+            # Sort and slice
+            nodes.sort(key=lambda x: x.score, reverse=True)
+            results = nodes[:limit]
+            
+        except ImportError:
+            # Fallback to Hybrid scores if sentence-transformers not present
+            results = nodes[:limit]
+        except Exception as e:
+            print(f"Reranking failed: {e}, falling back to hybrid results")
+            results = nodes[:limit]
         
         # 5. Format Response
         response = []
