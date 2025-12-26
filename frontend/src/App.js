@@ -117,10 +117,18 @@ function App() {
                 />
 
                 <Route
-                    path="/rag"
+                    path="/b2b/c/nse/rag"
                     element={
                         <ProtectedRoute>
-                            <RagKnowledgeBasePage />
+                            <RagKnowledgeBasePage domain="nse" />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/b2b/c/enron/rag"
+                    element={
+                        <ProtectedRoute>
+                            <RagKnowledgeBasePage domain="enron" />
                         </ProtectedRoute>
                     }
                 />

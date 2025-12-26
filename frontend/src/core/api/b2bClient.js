@@ -449,12 +449,12 @@ class ApiService {
     /**
      * RAG: Upload Document
      */
-    async uploadRagDocument(formData) {
+    async uploadRagDocument(domain, formData) {
         // Use raw fetch for multipart/form-data to let browser set boundary
         const headers = await this.getAuthHeaders();
         delete headers['Content-Type']; // Let browser set it
 
-        const response = await fetch(`${API_BASE_URL}/api/domain/rag/upload`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/upload`, {
             method: 'POST',
             headers,
             body: formData
@@ -470,71 +470,45 @@ class ApiService {
     /**
      * RAG: Get Job Status
      */
-    async getRagStatus(jobId) {
+    async getRagStatus(domain, jobId) {
         // Uses generic GET which adds auth headers
         // Pointing to domain API, which might need specialized handling if URLs differ,
         // but typically mapped via nginx/proxy. Assuming same gateway.
         // If domain-api is separate, we might need a full URL interaction or proxy tweak.
         // Assuming /api/domain maps correctly.
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/domain/rag/status/${jobId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/status/${jobId}`, {
             method: 'GET',
             headers
         });
-        if (!response.ok) {
-            const text = await response.text();
-            throw new Error(`Get status failed: ${response.status} - ${text}`);
-        }
-        return response.json();
+        return this.handleResponse(response);
     }
 
     /**
      * RAG: Search
      */
-    async searchRag(query, tenantId) {
-        const formData = new FormData();
-        formData.append('query', query);
-        formData.append('tenant_id', tenantId);
-
+    async searchRag(domain, query) {
         const headers = await this.getAuthHeaders();
-        delete headers['Content-Type'];
-
-        const response = await fetch(`${API_BASE_URL}/api/domain/rag/search`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/search`, {
             method: 'POST',
             headers,
-            body: formData
+            body: JSON.stringify({ query })
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            let errorMessage = errorText;
-            try {
-                const errorJson = JSON.parse(errorText);
-                console.error("Search Error JSON", errorJson);
-                errorMessage = errorJson.detail || errorJson.message || errorText;
-            } catch (e) { }
-            throw new Error(`Search failed: ${response.status} - ${errorMessage}`);
-        }
-        return response.json();
+        return this.handleResponse(response);
     }
 
     /**
      * RAG: List Documents
      */
-    async getDocuments(tenantId) {
-        // GET with query param ?tenant_id=...
-        // Domain API requires explicit tenant_id currently as per router implementation
+    async listRagDocuments(domain) {
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/domain/rag/documents?tenant_id=${tenantId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/documents`, {
             method: 'GET',
             headers
         });
-
-        if (!response.ok) {
-            throw new Error(`Failed to list documents: ${response.status}`);
-        }
-        return response.json();
+        return this.handleResponse(response);
     }
 }
 
 export default new ApiService();
+

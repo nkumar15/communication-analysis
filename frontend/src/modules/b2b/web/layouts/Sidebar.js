@@ -26,7 +26,8 @@ const Sidebar = () => {
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
 
         // RAG Knowledge Base
-        { id: 'rag', label: 'Knowledge Base', icon: '🧠', path: '/rag', feature: 'rag_documents' },
+        { id: 'rag-nse', label: 'NSE Earnings', icon: '📈', path: '/b2b/c/nse/rag', feature: 'rag_nse' },
+        { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron/rag', feature: 'rag_enron' },
 
         // Configuration
         { id: 'roles', label: 'Tenant Roles', icon: '🛡️', path: '/roles', feature: 'roles' },
