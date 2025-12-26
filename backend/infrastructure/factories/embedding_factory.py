@@ -9,30 +9,23 @@ class EmbeddingFactory:
     def get_embedding_model() -> "BaseEmbedding":
         """
         Returns a configured LlamaIndex Embedding model instance.
-        Default: HuggingFace (BAAI/bge-small-en-v1.5)
+        Default: OpenAI (text-embedding-3-small)
         """
-        provider = os.getenv("EMBEDDING_PROVIDER", "huggingface").lower()
-        model_name = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+        provider = os.getenv("EMBEDDING_PROVIDER", "openai").lower()
+        model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
         
-        if provider == "huggingface":
-            # Runs locally/in-container
-            from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-            # Use /tmp for reliable write permissions in restricted containers
-            cache = os.getenv("HF_HOME") or "/tmp/huggingface_cache"
-            # If HF_HOME fails with permission error, we force tmp
-            if cache.startswith("/app/cache"): 
-                 cache = "/tmp/huggingface_cache"
-            return HuggingFaceEmbedding(model_name=model_name, cache_folder=cache)
-            
-        elif provider == "openai":
+        if provider == "openai":
             from llama_index.embeddings.openai import OpenAIEmbedding
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is required for OpenAI provider")
             return OpenAIEmbedding(model=model_name, api_key=api_key)
-            
-        # elif provider == "vertex":
-        #     return VertexTextEmbedding(model_name=model_name, project=os.getenv("GOOGLE_PROJECT_ID"))
+
+        elif provider == "ollama":
+            from llama_index.embeddings.ollama import OllamaEmbedding
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+            # For Docker to talk to host Ollama, use host.docker.internal usually
+            return OllamaEmbedding(model_name=model_name, base_url=base_url)
             
         else:
             raise ValueError(f"Unsupported Embedding provider: {provider}")

@@ -27,6 +27,10 @@ celery_app.conf.update(
     result_expires=86400, # 24 hours
     task_acks_late=True,
     task_reject_on_worker_lost=True,
+    task_default_queue='domain', # Isolate domain tasks
+    task_routes={
+        'domain.ingest_document': {'queue': 'domain'},
+    }
 )
 
 if __name__ == '__main__':

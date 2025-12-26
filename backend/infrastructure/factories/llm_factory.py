@@ -12,7 +12,7 @@ class LLMFactory:
         Default: OpenAI
         """
         provider = os.getenv("LLM_PROVIDER", "openai").lower()
-        model = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
+        model = os.getenv("LLM_MODEL", "gpt-5-nano")
         
         if provider == "mock":
             from llama_index.core.llms import MockLLM
@@ -28,9 +28,10 @@ class LLMFactory:
         # elif provider == "vertex":
         #     return Vertex(model=model, project=settings.google_project_id)
             
-        # elif provider == "ollama":
-        #     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        #     return Ollama(model=model, base_url=base_url)
+        elif provider == "ollama":
+            from llama_index.llms.ollama import Ollama
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+            return Ollama(model=model, base_url=base_url, request_timeout=300.0)
             
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

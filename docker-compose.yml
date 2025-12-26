@@ -207,6 +207,9 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - EMAIL_PROVIDER=mailhog
       - MAILHOG_HOST=mailhog
+      - LLM_PROVIDER=openai
+      - EMBEDDING_PROVIDER=openai
+      - EMBEDDING_MODEL=text-embedding-3-small
       - HF_HOME=/app/cache/huggingface
     ports:
       - "8003:8003"
@@ -257,6 +260,7 @@ services:
       - redis
       - minio
       - elasticsearch
+    command: celery -A workers.domain_worker.celery_app worker --loglevel=info -Q domain
 
   # Redis - Message Broker for ARQ Background Tasks
   redis:

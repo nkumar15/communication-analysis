@@ -129,7 +129,7 @@ async def upload_document(
         }
     }
     
-    celery_producer.send_task("domain.ingest_document", args=[payload])
+    celery_producer.send_task("domain.ingest_document", args=[payload], queue="domain")
     
     return {
         "status": "pending",
