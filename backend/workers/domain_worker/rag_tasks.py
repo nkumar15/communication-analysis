@@ -113,12 +113,31 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
     rag_doc = None
     if job_id:
         # Find document by job_id
-        # Note: job_id is unique enough? Or filter by tenant validation.
         stmt = select(RagDocument).where(RagDocument.job_id == job_id)
         result = await db.execute(stmt)
         rag_doc = result.scalars().first()
         
         if rag_doc:
+            # Check for duplicate content before processing
+            content_hash = payload.get('content_hash')
+            if content_hash:
+                # Look for existing completed document with same hash
+                duplicate_check = select(RagDocument).where(
+                    RagDocument.tenant_id == tenant_id,
+                    RagDocument.content_hash == content_hash,
+                    RagDocument.status == "completed"
+                )
+                duplicate_result = await db.execute(duplicate_check)
+                existing_doc = duplicate_result.scalars().first()
+                
+                if existing_doc:
+                    logger.info(f"Duplicate content detected (hash: {content_hash[:8]}...). Skipping re-embedding.")
+                    rag_doc.status = "completed"
+                    rag_doc.chunk_count = existing_doc.chunk_count
+                    rag_doc.error_message = f"Duplicate of document {existing_doc.id}"
+                    await db.commit()
+                    return  # Skip processing
+            
             rag_doc.status = "processing"
             await db.commit()
             # CRITICAL: RLS context (SET LOCAL) is lost after commit. Re-apply it for subsequent updates.
