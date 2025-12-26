@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize RagService (Lazy load happens on first access inside methods if needed)
 # However, importing the class is fine.
-rag_service = RagService()
+# Global import is fine, but instance shouldn't be global if it holds loop state
+# from modules.domains.nse.services.rag_service import RagService 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60, name="domain.ingest_document")
 def ingest_document_task(self, payload: Dict[str, Any]):
@@ -26,9 +27,16 @@ def ingest_document_task(self, payload: Dict[str, Any]):
     """
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from core.config import settings
+    # Import locally to avoid module-level side effects if any, though not strictly necessary
     
     # Run in thread with NEW event loop
     def _thread_runner():
+        import asyncio
+        import nest_asyncio
+        
+        # Apply nest_asyncio to allow re-entrant loops (LlamaIndex often needs this)
+        nest_asyncio.apply()
+        
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -56,8 +64,12 @@ def ingest_document_task(self, payload: Dict[str, Any]):
             AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
             
             try:
+                # Instantiate RagService HERE so it attaches to the CURRENT loop
+                from modules.domains.nse.services.rag_service import RagService
+                rag_service = RagService()
+                
                 async with AsyncSessionLocal() as db:
-                    await _ingest_async(payload, db)
+                    await _ingest_async(payload, db, rag_service)
             finally:
                 await engine.dispose()
                 
@@ -75,7 +87,7 @@ def ingest_document_task(self, payload: Dict[str, Any]):
         # But retrying might be better first.
         raise self.retry(exc=exc)
 
-async def _ingest_async(payload: Dict[str, Any], db):
+async def _ingest_async(payload: Dict[str, Any], db, rag_service):
     from modules.b2b.models.rag_document import RagDocument
     from core.db.rls import rls_service
     from sqlalchemy import select

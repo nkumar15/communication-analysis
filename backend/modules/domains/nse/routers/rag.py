@@ -181,8 +181,8 @@ async def search_documents(
     try:
         from infrastructure.factories.vector_store_factory import VectorStoreFactory
         from infrastructure.factories.embedding_factory import EmbeddingFactory
-        from llama_index.core import VectorStoreIndex, Settings
-        from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
+        from llama_index.core import Settings
+        from modules.domains.nse.services.retrievers.hybrid_retriever import TenantAwareHybridRetriever
     except ImportError:
          raise HTTPException(
              status_code=501, 
@@ -192,25 +192,22 @@ async def search_documents(
     try:
         # 1. Initialize Components (Lazy load)
         embed_model = EmbeddingFactory.get_embedding_model()
-        vector_store = VectorStoreFactory.get_vector_store(index_name="rag_documents")
+        # vector_store not needed for HybridRetriever as it uses direct ES client, 
+        # but factory usage ensures env vars are checked if we wanted to use standard store.
+        # HybridRetriever initializes its own AsyncElasticsearch client based on env.
         
-        # 2. Setup Index
+        # 2. Setup Settings (Optional but good practice)
         Settings.embed_model = embed_model
         
-        index = VectorStoreIndex.from_vector_store(vector_store=vector_store, embed_model=embed_model)
-        
-        # 3. Create Retriever
-        filters = MetadataFilters(
-            filters=[ExactMatchFilter(key="tenant_id", value=str(tenant_id))]
+        # 3. Create Custom Retriever (Tenant-Aware Hybrid RRF)
+        retriever = TenantAwareHybridRetriever(
+            embed_model=embed_model,
+            tenant_id=str(tenant_id),
+            top_k=limit
         )
         
-        retriever = index.as_retriever(
-            similarity_top_k=limit, 
-            filters=filters
-        )
-        
-        # 4. Execute Search
-        results = retriever.retrieve(query)
+        # 4. Execute Search (Async)
+        results = await retriever.aretrieve(query)
         
         # 5. Format Response
         response = []

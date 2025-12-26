@@ -1,0 +1,82 @@
+[
+  {
+    "id": "tcs_q2_fy24_transcript_fact_0",
+    "query": "Sample Fact Question 0 for tcs_q2_fy24_transcript?",
+    "expected_output": "Sample Fact Answer 0",
+    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 0",
+    "source_doc": "tcs_q2_fy24_transcript.txt",
+    "type": "fact"
+  },
+  {
+    "id": "tcs_q2_fy24_transcript_fact_1",
+    "query": "Sample Fact Question 1 for tcs_q2_fy24_transcript?",
+    "expected_output": "Sample Fact Answer 1",
+    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 1",
+    "source_doc": "tcs_q2_fy24_transcript.txt",
+    "type": "fact"
+  },
+  {
+    "id": "tcs_q2_fy24_transcript_fact_2",
+    "query": "Sample Fact Question 2 for tcs_q2_fy24_transcript?",
+    "expected_output": "Sample Fact Answer 2",
+    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 2",
+    "source_doc": "tcs_q2_fy24_transcript.txt",
+    "type": "fact"
+  },
+  {
+    "id": "tcs_q2_fy24_transcript_fact_3",
+    "query": "Sample Fact Question 3 for tcs_q2_fy24_transcript?",
+    "expected_output": "Sample Fact Answer 3",
+    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 3",
+    "source_doc": "tcs_q2_fy24_transcript.txt",
+    "type": "fact"
+  },
+  {
+    "id": "tcs_q2_fy24_transcript_fact_4",
+    "query": "Sample Fact Question 4 for tcs_q2_fy24_transcript?",
+    "expected_output": "Sample Fact Answer 4",
+    "context": "Excerpt from tcs_q2_fy24_transcript.txt page 4",
+    "source_doc": "tcs_q2_fy24_transcript.txt",
+    "type": "fact"
+  },
+  {
+    "id": "reliance_q2_fy24_presentation_fact_0",
+    "query": "Sample Fact Question 0 for reliance_q2_fy24_presentation?",
+    "expected_output": "Sample Fact Answer 0",
+    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 0",
+    "source_doc": "reliance_q2_fy24_presentation.txt",
+    "type": "fact"
+  },
+  {
+    "id": "reliance_q2_fy24_presentation_fact_1",
+    "query": "Sample Fact Question 1 for reliance_q2_fy24_presentation?",
+    "expected_output": "Sample Fact Answer 1",
+    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 1",
+    "source_doc": "reliance_q2_fy24_presentation.txt",
+    "type": "fact"
+  },
+  {
+    "id": "reliance_q2_fy24_presentation_fact_2",
+    "query": "Sample Fact Question 2 for reliance_q2_fy24_presentation?",
+    "expected_output": "Sample Fact Answer 2",
+    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 2",
+    "source_doc": "reliance_q2_fy24_presentation.txt",
+    "type": "fact"
+  },
+  {
+    "id": "reliance_q2_fy24_presentation_fact_3",
+    "query": "Sample Fact Question 3 for reliance_q2_fy24_presentation?",
+    "expected_output": "Sample Fact Answer 3",
+    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 3",
+    "source_doc": "reliance_q2_fy24_presentation.txt",
+    "type": "fact"
+  },
+  {
+    "id": "reliance_q2_fy24_presentation_fact_4",
+    "query": "Sample Fact Question 4 for reliance_q2_fy24_presentation?",
+    "expected_output": "Sample Fact Answer 4",
+    "context": "Excerpt from reliance_q2_fy24_presentation.txt page 4",
+    "source_doc": "reliance_q2_fy24_presentation.txt",
+    "type": "fact"
+  }
+]
