@@ -1,10 +1,12 @@
 import os
-from llama_index.core.base.embeddings.base import BaseEmbedding
-# from llama_index.embeddings.vertex import VertexTextEmbedding
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from llama_index.core.base.embeddings.base import BaseEmbedding
 
 class EmbeddingFactory:
     @staticmethod
-    def get_embedding_model() -> BaseEmbedding:
+    def get_embedding_model() -> "BaseEmbedding":
         """
         Returns a configured LlamaIndex Embedding model instance.
         Default: HuggingFace (BAAI/bge-small-en-v1.5)

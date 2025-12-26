@@ -26,6 +26,7 @@ from modules.domains.projects.routers import (
     tasks_router,
     comments_router
 )
+from modules.domains.nse.routers.rag import router as rag_router
 
 
 @asynccontextmanager
@@ -86,6 +87,7 @@ setup_observability(app, service_name="domain-api", sqlalchemy_engine=engine)
 app.include_router(projects_router)
 app.include_router(tasks_router)
 app.include_router(comments_router)
+app.include_router(rag_router)
 
 
 @app.get("/")

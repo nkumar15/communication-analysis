@@ -1,13 +1,12 @@
 import os
-from llama_index.core.llms import LLM
-from llama_index.llms.openai import OpenAI
-# from llama_index.llms.vertex import Vertex  # Uncomment when Vertex dependency added
-# from llama_index.llms.ollama import Ollama # Uncomment when Ollama dependency added
-from core.config import settings
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from llama_index.core.llms import LLM
 
 class LLMFactory:
     @staticmethod
-    def get_llm() -> LLM:
+    def get_llm() -> "LLM":
         """
         Returns a configured LlamaIndex LLM instance based on environment configuration.
         Default: OpenAI
@@ -20,6 +19,7 @@ class LLMFactory:
             return MockLLM()
 
         elif provider == "openai":
+            from llama_index.llms.openai import OpenAI
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is required for OpenAI provider")

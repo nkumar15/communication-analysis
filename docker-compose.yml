@@ -227,6 +227,36 @@ services:
         condition: service_healthy
     command: uvicorn modules.domains.main:app --host 0.0.0.0 --port 8003 --reload
 
+  domain-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: sso_domain_worker
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_SECURE=False
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - LLM_PROVIDER=mock
+      - EMBEDDING_PROVIDER=huggingface
+      - HF_HOME=/app/cache/huggingface
+      - PYTHONPATH=/app
+    volumes:
+      - ./backend:/app
+      - hf_cache:/app/cache/huggingface
+    depends_on:
+      - postgres
+      - redis
+      - minio
+      - elasticsearch
+
   # Redis - Message Broker for ARQ Background Tasks
   redis:
     image: redis:7-alpine

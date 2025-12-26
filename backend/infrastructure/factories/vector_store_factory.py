@@ -1,12 +1,14 @@
 import os
-from llama_index.core.vector_stores.types import VectorStore
-# from llama_index.vector_stores.elasticsearch import ElasticsearchStore
-# from llama_index.vector_stores.postgres import PGVectorStore
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from llama_index.core.vector_stores.types import VectorStore
+
 # Using deferred imports to avoid hard crashes if dependencies missing during dev
 
 class VectorStoreFactory:
     @staticmethod
-    def get_vector_store(index_name: str) -> VectorStore:
+    def get_vector_store(index_name: str) -> "VectorStore":
         """
         Returns a configured LlamaIndex VectorStore instance.
         Default: Elasticsearch
