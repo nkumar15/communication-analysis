@@ -447,6 +447,23 @@ class ApiService {
     }
 
     /**
+     * Helper to handle response and parse JSON
+     */
+    async handleResponse(response) {
+        if (!response.ok) {
+            const error = await response.text();
+            try {
+                const jsonError = JSON.parse(error);
+                throw new Error(jsonError.detail || `API Request Failed: ${response.status}`);
+            } catch (e) {
+                if (e.message.includes('API Request Failed')) throw e;
+                throw new Error(`API Request Failed: ${response.status} - ${error}`);
+            }
+        }
+        return response.json();
+    }
+
+    /**
      * RAG: Upload Document
      */
     async uploadRagDocument(domain, formData) {
@@ -462,7 +479,12 @@ class ApiService {
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Upload failed: ${response.status} - ${error}`);
+            try {
+                const jsonError = JSON.parse(error);
+                throw new Error(jsonError.detail || `Upload failed: ${response.status}`);
+            } catch (e) {
+                throw new Error(`Upload failed: ${response.status} - ${error}`);
+            }
         }
         return response.json();
     }
@@ -471,11 +493,6 @@ class ApiService {
      * RAG: Get Job Status
      */
     async getRagStatus(domain, jobId) {
-        // Uses generic GET which adds auth headers
-        // Pointing to domain API, which might need specialized handling if URLs differ,
-        // but typically mapped via nginx/proxy. Assuming same gateway.
-        // If domain-api is separate, we might need a full URL interaction or proxy tweak.
-        // Assuming /api/domain maps correctly.
         const headers = await this.getAuthHeaders();
         const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/status/${jobId}`, {
             method: 'GET',
@@ -489,10 +506,19 @@ class ApiService {
      */
     async searchRag(domain, query) {
         const headers = await this.getAuthHeaders();
+        // Backend expects Form data for search
+        delete headers['Content-Type']; // Let fetch set correct content type for FormData/URLSearchParams if needed, or set explicitly for x-www-form-urlencoded
+
+        const formData = new URLSearchParams();
+        formData.append('query', query);
+
         const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/search`, {
             method: 'POST',
-            headers,
-            body: JSON.stringify({ query })
+            headers: {
+                ...headers,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData
         });
         return this.handleResponse(response);
     }

@@ -104,7 +104,9 @@ export const useAuth = () => {
             security: 'security:read',
             reports: 'reports:read',
             analytics: 'analytics:read',
-            rag_documents: 'rag_documents:read'
+            rag_documents: 'rag_documents:read',
+            rag_nse: 'rag_nse:read',
+            rag_enron: 'rag_enron:read'
         };
 
         const requiredPermission = featurePermissions[feature];

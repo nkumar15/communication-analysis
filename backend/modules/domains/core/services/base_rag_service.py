@@ -143,4 +143,31 @@ class BaseRagService(ABC):
         # Ideally we'd move the HybridRetriever logic here or into a factory too.
         # For now, we'll keep the advanced retriever logic in the specific service 
         # or refactor it next.
-        pass
+        return 
+
+    async def close(self):
+        """
+        Cleanup resources (clients, sessions) to avoid warnings/leaks.
+        """
+        # Close Vector Store Client
+        if self.vector_store:
+            # Check for close/aclose methods on vector_store or its client
+            if hasattr(self.vector_store, "close"):
+                try:
+                    res = self.vector_store.close()
+                    if hasattr(res, "__await__"):
+                        await res
+                except Exception as e:
+                    logger.warning(f"Error closing vector_store: {e}")
+            
+            # Check for client inside vector store (common in ElasticsearchStore)
+            if hasattr(self.vector_store, "client"):
+                client = getattr(self.vector_store, "client")
+                if hasattr(client, "close"):
+                    try:
+                        res = client.close()
+                        if hasattr(res, "__await__"):
+                            await res
+                    except Exception as e:
+                        logger.warning(f"Error closing vector_store client: {e}")
+

@@ -38,14 +38,25 @@ import {
     ContentCopy,
     Menu as MenuIcon,
     ChevronLeft as ChevronLeftIcon,
+    ChevronRight as ChevronRightIcon,
     Close as CloseIcon,
-    Refresh as RefreshIcon
+    Refresh as RefreshIcon,
+    Schedule as ScheduleIcon
 } from '@mui/icons-material';
 import b2bClient from '../../../../core/api/b2bClient';
 import useAuth from '../../../../core/hooks/useAuth';
+import AdminLayout from '../layouts/AdminLayout';
 
 const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
+    const pageTitles = {
+        nse: { title: 'NSE Earnings Analysis', subtitle: 'Search and analyze earnings call transcripts' },
+        enron: { title: 'Enron Email Corpus', subtitle: 'Search and analyze email communications' }
+    };
+    const { title, subtitle } = pageTitles[domain] || { title: 'Knowledge Base', subtitle: 'Domain Knowledge Base' };
+
     const { user, loading: authLoading } = useAuth();
+
+
 
     // Search State
     const [query, setQuery] = useState('');
@@ -135,16 +146,16 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         navigator.clipboard.writeText(text);
     };
 
-    const fetchDocuments = async () => {
+    const fetchDocuments = async (showLoading = true) => {
         try {
-            setLoadingDocs(true);
+            if (showLoading) setLoadingDocs(true);
             const docs = await b2bClient.listRagDocuments(domain);
             setDocuments(docs || []);
         } catch (error) {
             console.error("Failed to load documents", error);
             setDocuments([]);
         } finally {
-            setLoadingDocs(false);
+            if (showLoading) setLoadingDocs(false);
         }
     };
 
@@ -158,7 +169,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
     // Polling for documents update (e.g. status changes)
     useEffect(() => {
         if (!user) return;
-        const interval = setInterval(fetchDocuments, 10000); // Poll every 10s for general list updates
+        const interval = setInterval(() => fetchDocuments(false), 10000); // Poll every 10s for general list updates (silent)
         return () => clearInterval(interval);
     }, [user, domain]);
 
@@ -177,7 +188,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                         ? `✅ Completed! ${statusData.chunks || 0} chunks.`
                         : `❌ Failed: ${statusData.error || 'Unknown error'}`
                     );
-                    fetchDocuments();
+                    fetchDocuments(false); // Update list silently
 
                     if (statusData.status === 'completed') {
                         setTimeout(() => {
@@ -217,8 +228,14 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         }
     };
 
-    const handleUpload = async (e) => {
-        e.preventDefault();
+    const handleFileSelect = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setFile(e.target.files[0]);
+            setUploadStatus(''); // Reset status
+        }
+    };
+
+    const handleUpload = async () => {
         if (!file) return;
 
         setUploading(true);
@@ -234,8 +251,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         } catch (error) {
             console.error("Upload failed", error);
             setUploadStatus(`❌ Error: ${error.message}`);
-        } finally {
-            setUploading(false);
+            setUploading(false); // Only stop uploading state on error, otherwise polling takes over
         }
     };
 
@@ -249,356 +265,353 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
     };
 
     return (
-        <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: '#f4f6f8' }}>
-            {/* Main Content Area */}
-            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-
-                {/* Header */}
-                <Paper elevation={0} sx={{ p: 3, borderBottom: '1px solid #e0e0e0', bgcolor: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                        <Typography variant="h5" fontWeight="600" color="#1a2027">
-                            {domain === 'nse' ? 'NSE Knowledge Base' : 'Enron Knowledge Base'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Semantic Search & RAG Intelligence
-                        </Typography>
+        <AdminLayout title={title} subtitle={subtitle}>
+            {domain === 'enron' ? (
+                <Box
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="center"
+                    justifyContent="center"
+                    height="calc(100vh - 100px)"
+                    p={3}
+                    textAlign="center"
+                >
+                    <Box sx={{ bgcolor: 'action.hover', borderRadius: '50%', p: 4, mb: 3 }}>
+                        <ScheduleIcon sx={{ fontSize: 64, color: 'text.secondary', opacity: 0.5 }} />
                     </Box>
-                    <Box>
-                        <Button
-                            variant="outlined"
-                            startIcon={sidebarCollapsed ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-                            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                            sx={{ mr: 2 }}
-                        >
-                            {sidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<CloudUploadIcon />}
-                            onClick={() => setUploadDrawerOpen(true)}
-                            sx={{ bgcolor: '#4F46E5', '&:hover': { bgcolor: '#4338CA' } }}
-                        >
-                            Upload Document
-                        </Button>
-                    </Box>
-                </Paper>
+                    <Typography variant="h4" color="text.primary" gutterBottom fontWeight="600">
+                        Coming Soon
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" maxWidth={500}>
+                        The Enron Email Corpus knowledge base is currently under construction.
+                        We are processing the dataset and preparing the indexes.
+                    </Typography>
+                </Box>
+            ) : (
+                <Box display="flex" height="calc(100vh - 80px)">
+                    {/* Search Pane */}
+                    <Box flex={1} display="flex" flexDirection="column" sx={{ borderRight: '1px solid #e0e0e0' }}>
 
-                <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                    {/* Search Area */}
-                    <Container maxWidth="xl" sx={{ flexGrow: 1, overflowY: 'auto', p: 4, pb: 10 }}>
                         {/* Search Bar */}
                         <Paper
-                            elevation={3}
-                            component="form"
-                            onSubmit={handleSearch}
+                            elevation={0}
                             sx={{
-                                p: '2px 4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                maxWidth: '900px',
-                                mx: 'auto',
-                                mb: 4,
-                                borderRadius: '12px',
-                                border: '1px solid #e0e0e0'
+                                p: 3,
+                                borderBottom: '1px solid #e0e0e0',
+                                bgcolor: 'white',
+                                zIndex: 1
                             }}
                         >
-                            <InputAdornment position="start" sx={{ pl: 2 }}>
-                                <SearchIcon color="action" />
-                            </InputAdornment>
-                            <TextField
-                                sx={{ ml: 1, flex: 1 }}
-                                placeholder={`Ask a question about ${domain.toUpperCase()} data...`}
-                                variant="standard"
-                                InputProps={{ disableUnderline: true }}
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                            />
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                sx={{ m: 1, borderRadius: '8px', bgcolor: '#4F46E5', textTransform: 'none' }}
-                                disabled={searching}
-                            >
-                                {searching ? 'Searching...' : 'Search'}
-                            </Button>
+                            <form onSubmit={handleSearch}>
+                                <TextField
+                                    fullWidth
+                                    placeholder={`Search ${domain === 'nse' ? 'earnings calls' : 'emails'}... (e.g., "${domain === 'nse' ? 'revenue growth guidance' : 'risk management issues'}")`}
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon color="action" />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: searching && <CircularProgress size={20} />,
+                                        sx: { borderRadius: 2, bgcolor: '#f8fafc' }
+                                    }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            '& fieldset': { borderColor: '#e2e8f0' },
+                                            '&:hover fieldset': { borderColor: '#cbd5e1' },
+                                            '&.Mui-focused fieldset': { borderColor: '#6366f1' }
+                                        }
+                                    }}
+                                />
+                            </form>
+                            {searchError && (
+                                <Alert severity="error" sx={{ mt: 2 }}>
+                                    {searchError}
+                                </Alert>
+                            )}
                         </Paper>
 
-                        {searchError && (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                                <Alert severity="error" sx={{ maxWidth: '900px', width: '100%' }}>{searchError}</Alert>
-                            </Box>
-                        )}
-
-                        {/* Search Results */}
-                        {query && (
-                            <Box sx={{ mb: 4, maxWidth: '900px', width: '100%', mx: 'auto' }}>
-                                <Typography variant="h6" gutterBottom>Search Results</Typography>
-
-                                {searching && !searchResults.length && (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                                        <CircularProgress />
-                                    </Box>
-                                )}
-
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    {searchResults.map((result, idx) => {
-                                        const cleanedText = sanitizeText(result.text);
-                                        const isTable = isTableContent(cleanedText);
-                                        const tableData = isTable ? parseTable(result.text) : null; // Use raw text for table parse if sanitize breaks structure
-
-                                        return (
-                                            <Card key={idx} variant="outlined">
-                                                <CardContent>
-                                                    <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                                                        <Box flex={1}>
-                                                            <Typography variant="h6" component="div" gutterBottom>
-                                                                📄 {result.metadata?.filename || result.metadata?.source || 'Document'}
-                                                                {result.metadata?.page && ` • Page ${result.metadata.page}`}
-                                                            </Typography>
-                                                            <Box display="flex" gap={1} mb={1}>
-                                                                <Chip
-                                                                    label={`${formatRelevance(result.score)} match`}
-                                                                    color="success"
-                                                                    size="small"
-                                                                />
-                                                                {result.metadata?.section && (
-                                                                    <Chip label={result.metadata.section} size="small" variant="outlined" />
-                                                                )}
-                                                            </Box>
-                                                        </Box>
-                                                        <Tooltip title="Copy to clipboard">
-                                                            <IconButton size="small" onClick={() => copyToClipboard(cleanedText)}>
-                                                                <ContentCopy fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Box>
-
-                                                    {tableData ? (
-                                                        <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 400 }}>
-                                                            <Table size="small">
-                                                                <TableHead>
-                                                                    <TableRow>
-                                                                        {tableData.headers.map((header, i) => (
-                                                                            <TableCell key={i} sx={{ fontWeight: 'bold' }}>{header}</TableCell>
-                                                                        ))}
-                                                                    </TableRow>
-                                                                </TableHead>
-                                                                <TableBody>
-                                                                    {tableData.rows.map((row, i) => (
-                                                                        <TableRow key={i}>
-                                                                            {row.map((cell, j) => (
-                                                                                <TableCell key={j}>{cell}</TableCell>
-                                                                            ))}
-                                                                        </TableRow>
-                                                                    ))}
-                                                                </TableBody>
-                                                            </Table>
-                                                        </TableContainer>
-                                                    ) : (
-                                                        <Typography
-                                                            variant="body2"
-                                                            sx={{
-                                                                mt: 2,
-                                                                whiteSpace: 'pre-wrap',
-                                                                fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
-                                                                backgroundColor: '#f8f9fa',
-                                                                padding: 2,
-                                                                borderRadius: 1,
-                                                                maxHeight: 400,
-                                                                overflow: 'auto',
-                                                                lineHeight: 1.6,
-                                                                fontSize: '0.85rem',
-                                                                border: '1px solid #eee'
-                                                            }}
-                                                        >
-                                                            {cleanedText}
-                                                        </Typography>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-                                        );
-                                    })}
-                                </Box>
-                            </Box>
-                        )}
-
-                        {!searching && searchResults.length === 0 && !searchError && query && (
-                            <Typography color="text.secondary" align="center" sx={{ mt: 4 }}>No results found.</Typography>
-                        )}
-
-                        {/* Empty state when no search and no documents */}
-                        {!query && documents.length === 0 && !loadingDocs && (
-                            <Box sx={{ maxWidth: '900px', textAlign: 'center', p: 4, mx: 'auto' }}>
-                                <Typography variant="h5" color="text.secondary" gutterBottom>
-                                    Welcome to your Knowledge Base
-                                </Typography>
-                                <Typography color="text.secondary" paragraph>
-                                    Upload PDF documents to get started. You can query financial reports, transcripts, and more.
-                                </Typography>
-                                <Button
-                                    variant="outlined"
-                                    startIcon={<CloudUploadIcon />}
-                                    onClick={() => setUploadDrawerOpen(true)}
+                        {/* Search Results Area */}
+                        <Box
+                            sx={{
+                                flex: 1,
+                                overflowY: 'auto',
+                                bgcolor: '#f8fafc',
+                                p: 3
+                            }}
+                        >
+                            {!searching && searchResults.length === 0 && !query && (
+                                <Box
+                                    display="flex"
+                                    flexDirection="column"
+                                    alignItems="center"
+                                    justifyContent="center"
+                                    height="100%"
+                                    color="text.secondary"
                                 >
-                                    Upload your first document
-                                </Button>
-                            </Box>
-                        )}
-                    </Container>
-
-                    {/* Sidebar for Documents */}
-                    <Collapse orientation="horizontal" in={!sidebarCollapsed} collapsedSize={0}>
-                        <Paper
-                            elevation={4}
-                            sx={{
-                                width: '320px',
-                                borderLeft: '1px solid #e0e0e0',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                height: '100%',
-                                bgcolor: 'white'
-                            }}
-                        >
-                            <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', bgcolor: '#f9fafb' }}>
-                                <Box display="flex" justifyContent="space-between" alignItems="center">
-                                    <Typography variant="subtitle1" fontWeight="600">
-                                        Documents ({documents.length})
+                                    <SearchIcon sx={{ fontSize: 64, opacity: 0.2, mb: 2 }} />
+                                    <Typography variant="h6" color="text.secondary">
+                                        Ready to search
                                     </Typography>
-                                    <Tooltip title="Refresh List">
-                                        <IconButton size="small" onClick={fetchDocuments}>
-                                            <RefreshIcon fontSize="small" />
-                                        </IconButton>
-                                    </Tooltip>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Enter a query above to search through indexed documents.
+                                    </Typography>
                                 </Box>
-                            </Box>
+                            )}
 
-                            <List sx={{ flexGrow: 1, overflowY: 'auto' }}>
-                                {loadingDocs ? (
-                                    <Box display="flex" justifyContent="center" p={4}>
-                                        <CircularProgress size={24} />
-                                    </Box>
-                                ) : (
-                                    documents.map((doc, index) => (
-                                        <React.Fragment key={index}>
-                                            <ListItem alignItems="flex-start">
-                                                <ListItemIcon sx={{ minWidth: 36, mt: 0.5 }}>
-                                                    <DescriptionIcon color={doc.status === 'completed' ? 'primary' : 'disabled'} fontSize="small" />
-                                                </ListItemIcon>
-                                                <ListItemText
-                                                    primary={
-                                                        <Typography variant="body2" fontWeight="500" noWrap title={doc.filename}>
-                                                            {doc.filename}
-                                                        </Typography>
-                                                    }
-                                                    secondary={
-                                                        <Box display="flex" flexDirection="column" gap={0.5} mt={0.5}>
-                                                            <Box display="flex" alignItems="center" gap={1}>
-                                                                <Chip
-                                                                    label={doc.status}
-                                                                    size="small"
-                                                                    color={getStatusColor(doc.status)}
-                                                                    variant="outlined"
-                                                                    sx={{ height: 20, fontSize: '0.7rem' }}
-                                                                />
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    {new Date(doc.created_at).toLocaleDateString()}
-                                                                </Typography>
-                                                            </Box>
-                                                            {doc.error_message && (
-                                                                <Typography variant="caption" color="error" sx={{ lineHeight: 1.2 }}>
-                                                                    {doc.error_message}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    }
+                            {searching && (
+                                <Box sx={{ p: 4, textAlign: 'center' }}>
+                                    <CircularProgress />
+                                    <Typography sx={{ mt: 2, color: 'text.secondary' }}>
+                                        Searching context...
+                                    </Typography>
+                                </Box>
+                            )}
+
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {searchResults.map((result, index) => (
+                                    <Card key={index} elevation={0} sx={{ border: '1px solid #e2e8f0' }}>
+                                        <CardContent>
+                                            <Box display="flex" justifyContent="space-between" mb={1}>
+                                                <Typography variant="subtitle2" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <DescriptionIcon fontSize="small" />
+                                                    {result.metadata?.filename || 'Unknown Document'}
+                                                </Typography>
+                                                <Chip
+                                                    label={`Score: ${(result.score * 100).toFixed(1)}%`}
+                                                    size="small"
+                                                    color={result.score > 0.7 ? 'success' : 'default'}
+                                                    variant="outlined"
                                                 />
-                                            </ListItem>
-                                            <Divider component="li" />
-                                        </React.Fragment>
-                                    ))
-                                )}
-                                {!loadingDocs && documents.length === 0 && (
-                                    <Box p={3} textAlign="center">
-                                        <Typography variant="body2" color="text.secondary">
-                                            No documents yet.
-                                        </Typography>
-                                    </Box>
-                                )}
-                            </List>
-                        </Paper>
-                    </Collapse>
-                </Box>
-            </Box>
-
-            {/* Upload Drawer */}
-            <Drawer
-                anchor="right"
-                open={uploadDrawerOpen}
-                onClose={() => !uploading && setUploadDrawerOpen(false)}
-            >
-                <Box sx={{ width: 400, p: 3 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                        <Typography variant="h6">Upload Document</Typography>
-                        <IconButton onClick={() => setUploadDrawerOpen(false)} disabled={uploading}>
-                            <CloseIcon />
-                        </IconButton>
-                    </Box>
-
-                    <Box
-                        sx={{
-                            border: '2px dashed #e0e0e0',
-                            borderRadius: 2,
-                            p: 4,
-                            textAlign: 'center',
-                            bgcolor: '#fafafa',
-                            mb: 3,
-                            cursor: uploading ? 'default' : 'pointer',
-                            '&:hover': { bgcolor: uploading ? '#fafafa' : '#f0f0f0' }
-                        }}
-                        component="label"
-                    >
-                        <input
-                            type="file"
-                            hidden
-                            accept=".pdf,.txt,.md"
-                            onChange={handleUpload}
-                            disabled={uploading}
-                        />
-                        <CloudUploadIcon sx={{ fontSize: 48, color: '#bdbdbd', mb: 2 }} />
-                        <Typography color="text.secondary">
-                            Click to upload PDF, TXT, or MD
-                            <br />
-                            <Typography variant="caption" display="block" mt={1}>
-                                Max size: 20MB
-                            </Typography>
-                        </Typography>
-                    </Box>
-
-                    {uploading && (
-                        <Box mb={3}>
-                            <LinearProgress sx={{ mb: 1 }} />
-                            <Typography variant="caption" color="text.secondary">
-                                {uploadStatus}
-                            </Typography>
+                                            </Box>
+                                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155' }}>
+                                                {result.text}
+                                            </Typography>
+                                            <Box mt={2}>
+                                                <Button
+                                                    size="small"
+                                                    startIcon={<ContentCopy />}
+                                                    onClick={() => navigator.clipboard.writeText(result.text)}
+                                                    sx={{ color: 'text.secondary' }}
+                                                >
+                                                    Copy Context
+                                                </Button>
+                                            </Box>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </Box>
                         </Box>
-                    )}
-
-                    {!uploading && uploadStatus && (
-                        <Alert severity={uploadStatus.includes('Error') || uploadStatus.includes('Failed') ? 'error' : 'success'} sx={{ mb: 3 }}>
-                            {uploadStatus}
-                        </Alert>
-                    )}
-
-                    <Box mt={4}>
-                        <Alert severity="info" icon={<ScheduleIcon fontSize="inherit" />}>
-                            <strong>Processing takes time.</strong>
-                            <br />
-                            Uploaded documents are queued for background processing (embedding & indexing). This usually takes 10-20 seconds per page.
-                        </Alert>
                     </Box>
+
+                    {/* Right Panel: Documents & Upload */}
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            width: sidebarCollapsed ? 60 : 380,
+                            borderLeft: '1px solid #e0e0e0',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            bgcolor: 'white',
+                            transition: 'width 0.3s ease',
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <Box p={sidebarCollapsed ? 1 : 2} borderBottom="1px solid #e0e0e0" display="flex" justifyContent="space-between" alignItems="center" flexDirection={sidebarCollapsed ? 'column' : 'row'}>
+                            {!sidebarCollapsed && (
+                                <>
+                                    <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                                        Knowledge Base
+                                    </Typography>
+                                    <Box>
+                                        <Tooltip title="Refresh List">
+                                            <IconButton size="small" onClick={() => fetchDocuments(true)}>
+                                                <RefreshIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Collapse Sidebar">
+                                            <IconButton size="small" onClick={() => setSidebarCollapsed(true)}>
+                                                <ChevronRightIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </Box>
+                                </>
+                            )}
+
+                            {sidebarCollapsed && (
+                                <Tooltip title="Expand Sidebar">
+                                    <IconButton size="small" onClick={() => setSidebarCollapsed(false)}>
+                                        <ChevronLeftIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                        </Box>
+
+                        {!sidebarCollapsed && (
+                            <>
+                                {/* Document List */}
+                                <Box flex={1} overflow="auto">
+                                    {loadingDocs ? (
+                                        <Box p={3} textAlign="center">
+                                            <CircularProgress size={24} />
+                                        </Box>
+                                    ) : documents.length === 0 ? (
+                                        <Box p={4} textAlign="center" color="text.secondary">
+                                            <Typography variant="body2">No documents yet.</Typography>
+                                        </Box>
+                                    ) : (
+                                        <List disablePadding>
+                                            {documents.map((doc) => (
+                                                <React.Fragment key={doc.id}>
+                                                    <ListItem
+                                                        alignItems="flex-start"
+                                                        secondaryAction={
+                                                            <Tooltip title={doc.status}>
+                                                                {doc.status === 'completed' ? (
+                                                                    <CheckCircleIcon color="success" fontSize="small" />
+                                                                ) : doc.status === 'failed' ? (
+                                                                    <ErrorIcon color="error" fontSize="small" />
+                                                                ) : (
+                                                                    <CircularProgress size={16} />
+                                                                )}
+                                                            </Tooltip>
+                                                        }
+                                                    >
+                                                        <ListItemIcon sx={{ minWidth: 36, mt: 0.5 }}>
+                                                            <DescriptionIcon fontSize="small" />
+                                                        </ListItemIcon>
+                                                        <ListItemText
+                                                            primary={
+                                                                <Typography variant="body2" noWrap title={doc.filename}>
+                                                                    {doc.filename}
+                                                                </Typography>
+                                                            }
+                                                            secondary={
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {new Date(doc.created_at).toLocaleDateString()} • {doc.chunks_count || 0} chunks
+                                                                </Typography>
+                                                            }
+                                                        />
+                                                    </ListItem>
+                                                    <Divider component="li" />
+                                                </React.Fragment>
+                                            ))}
+                                        </List>
+                                    )}
+                                </Box>
+
+                                {/* Upload Section (Collapsible) */}
+                                <Box borderTop="1px solid #e0e0e0" bgcolor="#f8fafc">
+                                    <Collapse in={uploadDrawerOpen}>
+                                        <Box p={3}>
+                                            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                                                <Typography variant="subtitle1" fontWeight="600">Upload Document</Typography>
+                                                <IconButton size="small" onClick={() => setUploadDrawerOpen(false)}>
+                                                    <CloseIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
+
+                                            <Typography variant="caption" color="text.secondary" paragraph display="block">
+                                                Upload PDFs or text files to index them for the {domain} knowledge base.
+                                            </Typography>
+
+                                            <Box
+                                                border={1}
+                                                borderColor={uploading ? 'grey.300' : 'primary.main'}
+                                                borderStyle="dashed"
+                                                borderRadius={2}
+                                                p={2}
+                                                sx={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: uploading ? 'default' : 'pointer',
+                                                    bgcolor: uploading ? 'action.hover' : 'background.paper',
+                                                    '&:hover': { bgcolor: uploading ? 'action.hover' : 'action.hover' },
+                                                    transition: 'background-color 0.2s',
+                                                    minHeight: '120px'
+                                                }}
+                                                component="label"
+                                            >
+                                                <input
+                                                    type="file"
+                                                    style={{ display: 'none' }}
+                                                    accept=".pdf,.txt,.md"
+                                                    onChange={handleFileSelect}
+                                                    disabled={uploading}
+                                                />
+                                                {file ? (
+                                                    <>
+                                                        <DescriptionIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
+                                                        <Typography variant="body2" color="text.primary" fontWeight="500" noWrap sx={{ maxWidth: '100%' }}>
+                                                            {file.name}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {(file.size / 1024).toFixed(1)} KB
+                                                        </Typography>
+                                                        <Typography variant="caption" color="primary" sx={{ mt: 1 }}>
+                                                            Click to change
+                                                        </Typography>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <CloudUploadIcon color={uploading ? 'disabled' : 'primary'} sx={{ fontSize: 32, mb: 1 }} />
+                                                        <Typography variant="caption" color={uploading ? 'text.secondary' : 'primary'} align="center">
+                                                            {uploading ? 'Uploading...' : 'Click to select file'}
+                                                        </Typography>
+                                                    </>
+                                                )}
+                                            </Box>
+
+                                            <Box mt={2} mb={1}>
+                                                <Button
+                                                    variant="contained"
+                                                    fullWidth
+                                                    size="small"
+                                                    onClick={handleUpload}
+                                                    disabled={!file || uploading}
+                                                    startIcon={uploading ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />}
+                                                >
+                                                    {uploading ? 'Ingesting...' : 'Start Ingestion'}
+                                                </Button>
+                                            </Box>
+
+                                            {uploadStatus && (
+                                                <Box mt={2}>
+                                                    <Alert
+                                                        severity={getStatusColor(uploadStatus.includes('Error') || uploadStatus.includes('Failed') ? 'failed' : uploadStatus.includes('Processing') ? 'processing' : 'success')}
+                                                        icon={uploadStatus.includes('Processing') ? <CircularProgress size={16} /> : undefined}
+                                                        sx={{ '& .MuiAlert-message': { fontSize: '0.75rem' } }}
+                                                    >
+                                                        {uploadStatus}
+                                                    </Alert>
+                                                </Box>
+                                            )}
+                                        </Box>
+                                    </Collapse>
+
+                                    {!uploadDrawerOpen && (
+                                        <Box p={2}>
+                                            <Button
+                                                variant="outlined"
+                                                fullWidth
+                                                startIcon={<CloudUploadIcon />}
+                                                onClick={() => setUploadDrawerOpen(true)}
+                                            >
+                                                Upload Document
+                                            </Button>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </>
+                        )}
+                    </Paper>
                 </Box>
-            </Drawer>
-        </Box>
+            )}
+        </AdminLayout>
     );
 };
 

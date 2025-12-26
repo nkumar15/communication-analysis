@@ -71,6 +71,8 @@ def ingest_document_task(self, payload: Dict[str, Any]):
                 async with AsyncSessionLocal() as db:
                     await _ingest_async(payload, db, rag_service)
             finally:
+                if 'rag_service' in locals():
+                    await rag_service.close()
                 await engine.dispose()
                 
         try:

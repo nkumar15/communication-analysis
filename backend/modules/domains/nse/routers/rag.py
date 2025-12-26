@@ -11,32 +11,30 @@ from core.db.rls import rls_service
 from core.config import settings
 from infrastructure.factories.storage_factory import StorageFactory
 from modules.b2b.models.rag_document import RagDocument
+from modules.b2b.models.tenant import TenantModel
+from modules.b2b.middleware.b2b_auth import get_current_active_user
 
 # Generic Celery instance for producing tasks
 from celery import Celery
 celery_producer = Celery('api_producer', broker=settings.celery_broker_url_resolved)
 
 router = APIRouter(
-    prefix="/api/domain/rag",
+    prefix="/api/domain/{domain}/rag",
     tags=["RAG"],
     responses={404: {"description": "Not found"}},
 )
 
 @router.post("/upload")
 async def upload_document(
+    domain: str,
     file: UploadFile = File(...),
     company_name: Optional[str] = Form(None),
     report_type: Optional[str] = Form(None),
     financial_period: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
-    # RLS/Auth dependencies would go here (e.g. current_user or tenant_id from context)
-    # Asking for tenant_id in Form for simplicity in Phase 2 if auth isn't fully mocked yet
-    # But usually we extract from token. Assuming tenant_id is available in RLS/Context.
-    # For now, let's inject tenant_id via Form or Headers for dev testing if needed,
-    # or rely on `rls_service.get_current_tenant_id` if auth middleware ran.
-    # We'll use a specific Form field for dev purpose as auth provider might be mocked.
-    tenant_id: str = Form(...) 
+    current_user: dict = Depends(get_current_active_user)
 ):
+    tenant_id = str(current_user.get('tenant_id'))
     """
     Upload a document for RAG ingestion.
     1. Hashing
@@ -140,10 +138,12 @@ async def upload_document(
 
 @router.get("/status/{job_id}")
 async def get_ingestion_status(
+    domain: str,
     job_id: str, 
-    tenant_id: str, # Required for RLS
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_active_user)
 ):
+    tenant_id = str(current_user.get('tenant_id'))
     """Check status of an ingestion job"""
     try:
         tenant_uuid = uuid.UUID(tenant_id)
@@ -168,11 +168,13 @@ async def get_ingestion_status(
 
 @router.post("/search")
 async def search_documents(
+    domain: str,
     query: str = Form(...),
-    tenant_id: str = Form(...),
     limit: int = Form(5),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_active_user)
 ):
+    tenant_id = str(current_user.get('tenant_id'))
     """
     Search ingested documents.
     NOTE: This endpoint requires 'llama-index' and embedding models, which might
@@ -276,9 +278,11 @@ async def search_documents(
 
 @router.get("/documents")
 async def list_documents(
-    tenant_id: str,
-    db: AsyncSession = Depends(get_db)
+    domain: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_active_user)
 ):
+    tenant_id = str(current_user.get('tenant_id'))
     """List all RAG documents for a tenant"""
     try:
         tenant_uuid = uuid.UUID(tenant_id)
