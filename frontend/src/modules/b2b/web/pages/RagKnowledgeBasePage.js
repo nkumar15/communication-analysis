@@ -311,7 +311,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                     InputProps={{
                                         startAdornment: (
                                             <InputAdornment position="start">
-                                                <SearchIcon color="action" />
+                                                <SearchIcon sx={{ color: 'text.secondary' }} />
                                             </InputAdornment>
                                         ),
                                         endAdornment: searching && <CircularProgress size={20} />,
@@ -371,37 +371,51 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                             )}
 
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {searchResults.map((result, index) => (
-                                    <Card key={index} elevation={0} sx={{ border: '1px solid #e2e8f0' }}>
-                                        <CardContent>
-                                            <Box display="flex" justifyContent="space-between" mb={1}>
-                                                <Typography variant="subtitle2" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <DescriptionIcon fontSize="small" />
-                                                    {result.metadata?.filename || 'Unknown Document'}
+                                {searchResults.map((result, index) => {
+                                    // Normalize score using sigmoid for display
+                                    const sigmoid = (x) => 1 / (1 + Math.exp(-x));
+                                    const normalizedScore = sigmoid(result.score);
+
+                                    return (
+                                        <Card key={index} elevation={0} sx={{ border: '1px solid #e2e8f0' }}>
+                                            <CardContent>
+                                                <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                                                    <Box>
+                                                        <Typography variant="subtitle2" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <DescriptionIcon fontSize="small" />
+                                                            {result.metadata?.filename || result.metadata?.file_name || result.metadata?.source || 'Unknown Document'}
+                                                        </Typography>
+                                                        {result.metadata?.page_label && (
+                                                            <Typography variant="caption" color="text.secondary" sx={{ ml: 3.5 }}>
+                                                                Page: {result.metadata.page_label}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                    <Box display="flex" alignItems="center" gap={1}>
+                                                        <Chip
+                                                            label={`Score: ${(normalizedScore * 100).toFixed(1)}%`}
+                                                            size="small"
+                                                            color={normalizedScore > 0.7 ? 'success' : normalizedScore > 0.5 ? 'warning' : 'default'}
+                                                            variant="outlined"
+                                                        />
+                                                        <Tooltip title="Copy Context">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => navigator.clipboard.writeText(result.text)}
+                                                                sx={{ color: 'text.secondary' }}
+                                                            >
+                                                                <ContentCopy fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Box>
+                                                </Box>
+                                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155' }}>
+                                                    {result.text}
                                                 </Typography>
-                                                <Chip
-                                                    label={`Score: ${(result.score * 100).toFixed(1)}%`}
-                                                    size="small"
-                                                    color={result.score > 0.7 ? 'success' : 'default'}
-                                                    variant="outlined"
-                                                />
-                                            </Box>
-                                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155' }}>
-                                                {result.text}
-                                            </Typography>
-                                            <Box mt={2}>
-                                                <Button
-                                                    size="small"
-                                                    startIcon={<ContentCopy />}
-                                                    onClick={() => navigator.clipboard.writeText(result.text)}
-                                                    sx={{ color: 'text.secondary' }}
-                                                >
-                                                    Copy Context
-                                                </Button>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
                             </Box>
                         </Box>
                     </Box>
