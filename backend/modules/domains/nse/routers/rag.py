@@ -223,3 +223,32 @@ async def search_documents(
         # Log the full error
         print(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/documents")
+async def list_documents(
+    tenant_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """List all RAG documents for a tenant"""
+    try:
+        tenant_uuid = uuid.UUID(tenant_id)
+        # Verify tenant access (simple check or RLS context)
+        await rls_service.set_tenant_context(db, tenant_uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid tenant_id")
+
+    stmt = select(RagDocument).where(RagDocument.tenant_id == tenant_uuid).order_by(RagDocument.created_at.desc())
+    result = await db.execute(stmt)
+    docs = result.scalars().all()
+
+    return [
+        {
+            "id": str(d.id),
+            "filename": d.filename,
+            "status": d.status,
+            "created_at": d.created_at,
+            "file_size_bytes": d.file_size_bytes,
+            "job_id": d.job_id
+        }
+        for d in docs
+    ]

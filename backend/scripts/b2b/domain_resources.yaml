@@ -21,3 +21,9 @@ resources:
     category: Domain
     description: Task comments and discussions
     is_system_resource: false
+
+  - name: rag_documents
+    display_name: RAG Knowledge Base
+    category: Domain
+    description: RAG Document Management (Upload, Search, Track)
+    is_system_resource: false

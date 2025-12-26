@@ -41,7 +41,8 @@ async def main():
     print(f"Created sample file: {file_path}")
     
     # 2. Run Ingestion
-    tenant_id = uuid4()
+    # tenant_id = uuid4()
+    tenant_id = "05b51fa4-45f4-50c2-b3f4-4c122000347b" # User's First Company Tenant ID
     print(f"Simulating Tenant ID: {tenant_id}")
     
     try:

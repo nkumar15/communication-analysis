@@ -10,6 +10,8 @@ domain_permissions:
       actions: [read, write, delete]
     - resource: comments
       actions: [read, write, delete]
+    - resource: rag_documents
+      actions: [read, write, delete]
 
   team_contributor:
     - resource: projects
@@ -17,6 +19,8 @@ domain_permissions:
     - resource: tasks
       actions: [read, write]
     - resource: comments
+      actions: [read, write, delete]
+    - resource: rag_documents
       actions: [read, write, delete]
 
   team_reader:
@@ -26,3 +30,6 @@ domain_permissions:
       actions: [read]
     - resource: comments
       actions: [read]
+    - resource: rag_documents
+      actions: [read]      
+    # No RAG access for team_reader

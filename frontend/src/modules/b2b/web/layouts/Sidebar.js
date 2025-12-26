@@ -25,6 +25,9 @@ const Sidebar = () => {
         { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
 
+        // RAG Knowledge Base
+        { id: 'rag', label: 'Knowledge Base', icon: '🧠', path: '/rag', feature: 'rag_documents' },
+
         // Configuration
         { id: 'roles', label: 'Tenant Roles', icon: '🛡️', path: '/roles', feature: 'roles' },
         { id: 'team-roles', label: 'Team Roles', icon: '🎯', path: '/team-roles', feature: 'roles' }
