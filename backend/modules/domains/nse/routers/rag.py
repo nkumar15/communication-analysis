@@ -235,7 +235,31 @@ async def search_documents(
             print(f"Reranking failed: {e}, falling back to hybrid results")
             results = nodes[:limit]
         
-        # 5. Format Response
+        # 6. Deduplicate by text content
+        seen_texts = set()
+        deduplicated = []
+        for node_with_score in results:
+            # Normalize text for comparison
+            text = node_with_score.node.text if hasattr(node_with_score, 'node') else node_with_score.text
+            normalized = text.strip().lower()
+            if normalized not in seen_texts:
+                seen_texts.add(normalized)
+                deduplicated.append(node_with_score)
+        
+        # If we filtered too many, fetch more unique results from original candidates
+        if len(deduplicated) < limit and len(nodes) > len(results):
+            for node_with_score in nodes[len(results):]:
+                if len(deduplicated) >= limit:
+                    break
+                text = node_with_score.node.text if hasattr(node_with_score, 'node') else node_with_score.text
+                normalized = text.strip().lower()
+                if normalized not in seen_texts:
+                    seen_texts.add(normalized)
+                    deduplicated.append(node_with_score)
+        
+        results = deduplicated[:limit]
+        
+        # 7. Format Response
         response = []
         for node in results:
             response.append({
