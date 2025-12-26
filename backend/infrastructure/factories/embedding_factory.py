@@ -17,7 +17,12 @@ class EmbeddingFactory:
         if provider == "huggingface":
             # Runs locally/in-container
             from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-            return HuggingFaceEmbedding(model_name=model_name)
+            # Use /tmp for reliable write permissions in restricted containers
+            cache = os.getenv("HF_HOME") or "/tmp/huggingface_cache"
+            # If HF_HOME fails with permission error, we force tmp
+            if cache.startswith("/app/cache"): 
+                 cache = "/tmp/huggingface_cache"
+            return HuggingFaceEmbedding(model_name=model_name, cache_folder=cache)
             
         elif provider == "openai":
             from llama_index.embeddings.openai import OpenAIEmbedding

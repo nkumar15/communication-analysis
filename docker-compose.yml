@@ -244,8 +244,9 @@ services:
       - MINIO_ROOT_PASSWORD=minioadmin
       - MINIO_SECURE=False
       - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - LLM_PROVIDER=mock
-      - EMBEDDING_PROVIDER=huggingface
+      - LLM_PROVIDER=openai
+      - EMBEDDING_PROVIDER=openai
+      - EMBEDDING_MODEL=text-embedding-3-small
       - HF_HOME=/app/cache/huggingface
       - PYTHONPATH=/app
     volumes:

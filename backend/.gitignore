@@ -64,3 +64,11 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# DeepEval & RAG
+.deepeval/
+result.txt
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
