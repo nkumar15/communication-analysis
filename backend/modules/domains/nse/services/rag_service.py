@@ -20,12 +20,13 @@ class RagService:
     Uses generic factories for infrastructure and NSE-specific parser.
     """
     
-    def __init__(self):
+    def __init__(self, index_name: str = "rag_documents"):
         # Lazy initialization
         self.llm = None
         self.embed_model = None
         self.vector_store = None
         self.storage_client = None
+        self.index_name = index_name
 
     def _ensure_initialized(self):
         """Initialize components if not already done"""
@@ -33,8 +34,8 @@ class RagService:
             self.llm = LLMFactory.get_llm()
             self.embed_model = EmbeddingFactory.get_embedding_model()
             
-            # Use 'rag_documents' index/table. 
-            self.vector_store = VectorStoreFactory.get_vector_store(index_name="rag_documents")
+            # Use configured index name
+            self.vector_store = VectorStoreFactory.get_vector_store(index_name=self.index_name)
             self.storage_client = StorageFactory.get_storage_client()
             
             # Setup Global LlamaIndex Settings

@@ -59,8 +59,9 @@ class NSEEarningsParser(NodeParser):
 
     def _parse_pdf(self, doc: Document) -> List[BaseNode]:
         """
-        Parse PDF using pdfplumber to extract tables and text.
-        Returns a list of TextNodes, with tables as Markdown.
+        Parse PDF using pdfplumber to extract text and tables separately.
+        Standard text is chunked via SentenceSplitter.
+        Tables are preserved as distinct TextNodes to maintain structure.
         """
         import pdfplumber
         
@@ -69,41 +70,57 @@ class NSEEarningsParser(NodeParser):
             return self._splitter.get_nodes_from_documents([doc])
 
         nodes = []
-        full_text = ""
         
         try:
             with pdfplumber.open(file_path) as pdf:
                 for page in pdf.pages:
-                    # Extract tables
-                    tables = page.extract_tables()
+                    # 1. Extract and Process Text
+                    # We accept that extract_text might still include some table gibberish, 
+                    # but we rely on the Table Node to provide the clean version.
+                    # A robust solution would use crop() to exclude tables, but that's complex.
                     text = page.extract_text() or ""
                     
-                    # If tables exist, convert to markdown
+                    if text.strip():
+                        # Create temporary doc for this page's text and split it
+                        page_doc = Document(text=text, metadata=doc.metadata)
+                        page_text_nodes = self._splitter.get_nodes_from_documents([page_doc])
+                        nodes.extend(page_text_nodes)
+
+                    # 2. Extract and Process Tables
+                    tables = page.extract_tables()
                     if tables:
                         for table in tables:
-                            # Basic Markdown Table conversion
                             # Filter None/Empty values
-                            cleaned_table = [[str(cell or "").replace("\n", " ") for cell in row] for row in table]
-                            if not cleaned_table:
+                            cleaned_table = [[str(cell or "").replace("\n", " ").strip() for cell in row] for row in table]
+                            
+                            # Skip empty or trivial tables
+                            if not cleaned_table or not any(any(c for c in row) for row in cleaned_table):
                                 continue
                                 
-                            # Create Header
+                            # Convert to Markdown
                             headers = cleaned_table[0]
-                            markdown_table = f"\n\n| {' | '.join(headers)} |\n| {' | '.join(['---']*len(headers))} |\n"
+                            # Heuristic: If header is empty or likely data, treat as headerless? 
+                            # For now standard markdown.
+                            
+                            markdown_table = f"\n| {' | '.join(headers)} |\n| {' | '.join(['---']*len(headers))} |\n"
                             for row in cleaned_table[1:]:
                                 markdown_table += f"| {' | '.join(row)} |\n"
-                            markdown_table += "\n"
                             
-                            # Append table to text (naive placement at end of page text, 
-                            # ideally we replace the area, but typical for RAG just appending works for context)
-                            text += markdown_table
-                    
-                    full_text += text + "\n\n"
-                    
-            # Now split the enriched text
-            # Create a temporary document with the new full_text
-            temp_doc = Document(text=full_text, metadata=doc.metadata)
-            return self._splitter.get_nodes_from_documents([temp_doc])
+                            # Create a distinct Node for this table
+                            # We emphasize it's a table in metadata for potential future filtering
+                            table_node = TextNode(
+                                text=markdown_table, 
+                                metadata={
+                                    **doc.metadata, 
+                                    "is_table": True, 
+                                    "page_number": page.page_number,
+                                    "table_rows": len(cleaned_table),
+                                    "table_columns": len(headers)
+                                }
+                            )
+                            nodes.append(table_node)
+                            
+            return nodes
             
         except Exception as e:
             # Fallback if pdfplumber fails
