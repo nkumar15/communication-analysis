@@ -59,13 +59,24 @@ async def run_baseline_evaluation():
     # Validation Tenant ID (Neeraj's Workspace)
     tenant_id = "05b51fa4-45f4-50c2-b3f4-4c122000347b" 
     
-    # Initialize Hybrid Retriever
-    # Using top_k=5 to match API default
+    # Experiment #9: Reranking
+    # 1. Fetch more candidates (top_k=20)
+    # 2. Rerank to top_k=10
     retriever = TenantAwareHybridRetriever(
         embed_model=embed_model,
         tenant_id=tenant_id,
-        top_k=5
+        top_k=20 
     )
+
+    # Initialize Reranker
+    try:
+        from sentence_transformers import CrossEncoder
+        print("Initializing CrossEncoder Reranker...")
+        reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    except ImportError:
+        print("Error: sentence_transformers not found. Please install it.")
+        return
+
     
     test_cases = []
     
@@ -80,6 +91,21 @@ async def run_baseline_evaluation():
         try:
             # Execute Retrieval
             nodes = await retriever.aretrieve(query)
+            
+            # --- RERANKING START ---
+            node_texts = [n.node.text for n in nodes]
+            pairs = [[query, text] for text in node_texts]
+            scores = reranker.predict(pairs)
+            
+            for i, node in enumerate(nodes):
+                node.score = float(scores[i])
+            
+            # Sort by new score
+            nodes.sort(key=lambda x: x.score, reverse=True)
+            
+            # Keep top 10 after reranking
+            nodes = nodes[:10]
+            # --- RERANKING END ---
             
             # Synthesize Answer 
             from llama_index.llms.openai import OpenAI
@@ -120,29 +146,38 @@ async def run_baseline_evaluation():
     # Use DeepEval's default model (GPT-4o) for metrics
     # Reliable, proven, worth the cost for evaluation quality
 
-    # Metrics (using default GPT-4o)
-    faithfulness = FaithfulnessMetric(threshold=0.5) 
-    answer_relevancy = AnswerRelevancyMetric(threshold=0.5)
-    contextual_recall = ContextualRecallMetric(threshold=0.5)
+    # Metrics (using gpt-4o-mini for higher rate limits and lower cost)
+    faithfulness = FaithfulnessMetric(threshold=0.5, model="gpt-4o-mini") 
+    answer_relevancy = AnswerRelevancyMetric(threshold=0.5, model="gpt-4o-mini")
+    contextual_recall = ContextualRecallMetric(threshold=0.5, model="gpt-4o-mini")
     
     
-    # Configure rate limiting to avoid hitting OpenAI's 30K TPM limit
-    from deepeval.evaluate import AsyncConfig
+    # Run evaluation sequentially to strictly control concurrency and avoid rate limits
+    print("Running evaluation strictly sequentially...")
+    test_results = []
     
-    async_config = AsyncConfig(
-        throttle_value=20,  # 20 second delay between test cases to avoid rate limits
-        max_concurrent=1   # Max 2 concurrent evaluations
-    )
+    import time
     
-    # Run evaluation with rate limit controls
-    eval_result = evaluate(
-        test_cases=test_cases,
-        metrics=[faithfulness, answer_relevancy, contextual_recall],
-        async_config=async_config
-    )
-    
-    # Extract test results from EvaluationResult object
-    test_results = eval_result.test_results
+    for i, test_case in enumerate(test_cases):
+        print(f"\n--- Processing Test Case {i+1}/{len(test_cases)} ---")
+        try:
+            # Evaluate single case
+            eval_result = evaluate(
+                test_cases=[test_case],
+                metrics=[faithfulness, answer_relevancy, contextual_recall]
+            )
+            test_results.extend(eval_result.test_results)
+            
+            # Simple delay between cases to allow token bucket to refill
+            print("Waiting 5s to respect rate limits...")
+            time.sleep(5)
+            
+        except Exception as e:
+            print(f"Error evaluating case {i+1}: {e}")
+            # Continue to next case despite error
+            continue
+
+    print(f"\n--- Evaluation Complete: {len(test_results)} test cases processed ---")
     print(f"\n--- Evaluation Complete: {len(test_results)} test cases processed ---")
     
     # Calculate average scores
@@ -169,10 +204,12 @@ async def run_baseline_evaluation():
     log_entry = {
         "timestamp": datetime.datetime.now().isoformat(),
         "config": {
-            "eval_model": "gemini-1.5-flash",
+            "eval_model": "gpt-4o-mini",
             "rag_model": "gpt-5-nano",
             "embedding": "text-embedding-3-small", 
-            "top_k": 5,
+            "retriever_top_k": 20,
+            "reranker": "ms-marco-MiniLM-L-6-v2",
+            "final_top_k": 10,
             "dataset_size": len(test_cases)
         },
         "metrics": {
