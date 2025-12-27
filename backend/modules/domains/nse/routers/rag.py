@@ -215,24 +215,25 @@ async def search_documents(
         
         # 5. Rerank (Optional / if available)
         try:
-            from sentence_transformers import CrossEncoder
-            # Load lightweight model (cached)
-            reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+            from infrastructure.factories.reranker_factory import RerankerFactory
             
             node_texts = [n.node.text for n in nodes]
-            pairs = [[query, text] for text in node_texts]
-            scores = reranker.predict(pairs)
-            
-            for i, node in enumerate(nodes):
-                node.score = float(scores[i])
-            
-            # Sort and slice
-            nodes.sort(key=lambda x: x.score, reverse=True)
-            results = nodes[:limit]
-            
-        except ImportError:
-            # Fallback to Hybrid scores if sentence-transformers not present
-            results = nodes[:limit]
+            if node_texts:
+                # Rerank and get top results
+                reranked_results = RerankerFactory.predict(query, node_texts, top_k=limit)
+                
+                # Reconstruct sorted node list
+                # reranked_results is list of (original_index, score)
+                sorted_nodes = []
+                for idx, score in reranked_results:
+                    node = nodes[idx]
+                    node.score = float(score)
+                    sorted_nodes.append(node)
+                
+                results = sorted_nodes
+            else:
+                results = []
+                
         except Exception as e:
             print(f"Reranking failed: {e}, falling back to hybrid results")
             results = nodes[:limit]
