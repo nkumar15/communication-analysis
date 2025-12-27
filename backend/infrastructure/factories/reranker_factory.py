@@ -41,7 +41,14 @@ class RerankerFactory:
             
         pairs = [[query, doc] for doc in documents]
         try:
+            # Check if model output requires sigmoid (CrossEncoder default for some models is logits)
+            # ms-marco-MiniLM-L-6-v2 returns logits.
+            import numpy as np
             scores = model.predict(pairs)
+            
+            # Apply Sigmoid: 1 / (1 + exp(-x))
+            scores = 1 / (1 + np.exp(-scores))
+            
             # Create list of (original_index, score)
             results = list(enumerate(scores))
             # Sort by score desc

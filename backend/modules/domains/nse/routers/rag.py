@@ -242,6 +242,10 @@ async def search_documents(
         seen_texts = set()
         deduplicated = []
         for node_with_score in results:
+            if node_with_score.score < 0.25:
+                # Filter out low confidence results (Hard Negatives)
+                continue
+                
             # Normalize text for comparison
             text = node_with_score.node.text if hasattr(node_with_score, 'node') else node_with_score.text
             normalized = text.strip().lower()
@@ -254,6 +258,11 @@ async def search_documents(
             for node_with_score in nodes[len(results):]:
                 if len(deduplicated) >= limit:
                     break
+                
+                # Check score again (if relying on hybrid score, it's not prob, but decent proxy)
+                # But Reranking is better. If reranker failed, we might use raw hybrid scores.
+                # Assuming reranker worked.
+                
                 text = node_with_score.node.text if hasattr(node_with_score, 'node') else node_with_score.text
                 normalized = text.strip().lower()
                 if normalized not in seen_texts:
@@ -262,16 +271,50 @@ async def search_documents(
         
         results = deduplicated[:limit]
         
-        # 7. Format Response
-        response = []
+        # 7. Generate Answer (Synthesize) using Experiment 13 Strategy
+        answer = "I could not find enough relevant information to answer your question."
+        if results:
+            try:
+                from infrastructure.factories.llm_factory import LLMFactory
+                # Use gpt-4o-mini (or whatever is configured as DEFAULT_LLM, ensuring it's strong enough)
+                # Ideally we want 'gpt-4o-mini' explicitly as per Exp 13.
+                # LLMFactory defaults to settings.LLM_MODEL which should be set to gpt-4o-mini or similar.
+                llm = LLMFactory.get_llm() 
+                
+                context_str = "\n\n".join([f"Source ({r.metadata.get('source', 'Unknown')}): {r.text}" for r in results])
+                
+                # Grounding Prompt (Exp 13)
+                prompt = (
+                    "You are a strict financial analyst. Follow these steps:\n"
+                    "1. Read the provided Context carefully.\n"
+                    "2. Extract exact quotes from the Context that answer the Question.\n"
+                    "3. If no relevant quotes are found, say 'I don't know'.\n"
+                    "4. Write your final Answer based ONLY on the extracted quotes.\n\n"
+                    f"Context:\n{context_str}\n\n"
+                    f"Question: {query}\n\n"
+                    "Answer:"
+                )
+                
+                response_gen = await llm.acomplete(prompt)
+                answer = response_gen.text
+            except Exception as e:
+                print(f"Generation failed: {e}")
+                answer = "Error generating answer."
+
+        # 8. Format Response
+        response_data = []
         for node in results:
-            response.append({
+            response_data.append({
                 "text": node.text,
                 "score": node.score,
                 "metadata": node.metadata
             })
             
-        return {"results": response}
+        return {
+            "answer": answer,
+            "results": response_data,
+            "count": len(results)
+        }
     except Exception as e:
         # Log the full error
         print(f"Search failed: {e}")
