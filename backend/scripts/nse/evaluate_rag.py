@@ -109,14 +109,27 @@ async def run_baseline_evaluation():
             
             # Synthesize Answer 
             from llama_index.llms.openai import OpenAI
-            # Using gpt-5-nano as requested. 
-            # We initialize with a valid model to pass validation, then override.
-            # Explicitly set temperature=1.0 as some reasoning/nano models reject <1.0
-            llm = OpenAI(model="gpt-4", temperature=1.0) 
-            llm.model = "gpt-5-nano" 
+            # Experiment 13: Strong Model + Strong Prompt
+            # Testing if gpt-4o-mini can perfect the Grounding strategy
+            llm = OpenAI(model="gpt-4o-mini", temperature=0.0) 
             
             context_str = "\n\n".join([n.text for n in nodes])
-            prompt = f"Context:\n{context_str}\n\nQuestion: {query}\nAnswer:"
+            # Experiment 12 & 13: CoT/Grounding Prompt for Faithfulness
+            # Strategy: Force the model to cite evidence FIRST, then answer. 
+            # This "Grounding" helps small models focus on context vs internal knowledge.
+            
+            # Use gpt-5-nano (already set above)
+            
+            prompt = (
+                "You are a strict financial analyst. Follow these steps:\n"
+                "1. Read the provided Context carefully.\n"
+                "2. Extract exact quotes from the Context that answer the Question.\n"
+                "3. If no relevant quotes are found, say 'I don't know'.\n"
+                "4. Write your final Answer based ONLY on the extracted quotes.\n\n"
+                f"Context:\n{context_str}\n\n"
+                f"Question: {query}\n"
+                "Answer:"
+            )
             response = llm.complete(prompt)
             actual_output = response.text
             
@@ -205,8 +218,9 @@ async def run_baseline_evaluation():
         "timestamp": datetime.datetime.now().isoformat(),
         "config": {
             "eval_model": "gpt-4o-mini",
-            "rag_model": "gpt-5-nano",
-            "embedding": "text-embedding-3-small", 
+            "rag_model": "gpt-4o-mini",
+            "prompt_strategy": "grounding_cot",
+            "embedding": "text-embedding-3-small",  
             "retriever_top_k": 20,
             "reranker": "ms-marco-MiniLM-L-6-v2",
             "final_top_k": 10,

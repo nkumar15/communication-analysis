@@ -30,6 +30,10 @@ Example: `experiment_v1_004_top_k_10`
 | 7 | expr7_v1_hybrid_search | Re-run BM25+Vector on v1 | - | - | - | $0.33 | Queued | ⏸️ |
 | 8 | expr8_v1_table_chunking | Table markdown preservation | - | - | - | $0.33 | Queued | ⏸️ |
 | 9 | expr9_v1_reranking | Rerank top 20→10 (Cross-Encoder) | 47% | 96% | 90% | $0.05 | 2025-12-27 | ⚠️ Mixed |
+| 10 | expr10_v1_generator_tuning | Generator: gpt-5-nano → gpt-4o-mini | 39% | 100% | 90% | $0.05 | 2025-12-27 | ❌ Failed |
+| 11 | expr11_v1_custom_prompt | Strict QA Prompt + gpt-5-nano | 63% | 80% | 90% | $0.05 | 2025-12-27 | ⚠️ improved |
+| 12 | expr12_v1_grounding_cot | Grounding Prompt (Quote-First) + gpt-5-nano | 67% | 78% | 94% | $0.05 | 2025-12-27 | ⚠️ improved |
+| 13 | expr13_v1_strong_model_strong_prompt | gpt-4o-mini + Grounding Prompt | 87.5% | 75% | 93.8% | $0.20 | 2025-12-27 | 🏆 SUCCESS |
 
 ---
 
@@ -51,10 +55,13 @@ Example: `experiment_v1_004_top_k_10`
 
 ## Next Experiment
 
-**Experiment #10: Generator Upgrade? / Prompt Tuning?**
-- **Analysis**: recall is high (90%) but Faithfulness low (47%). Generator (gpt-5-nano) might be hallucinating.
-- **Hypothesis**: Better prompt or stronger model (gpt-4o-mini) for generation will fix Faithfulness.
-- **ID**: `expr10_v1_generator_tuning`
+**Conclusion (v1 Experiments)**
+- **Winning Config**: Experiment #13
+    - **Retrieval**: Hybrid (Bm25+Vector) `top_k=20` -> Rerank (CrossEncoder) `top_k=10`
+    - **Generation**: `gpt-4o-mini` with Grounding CoT Prompt
+    - **Metrics**: Faithfulness **87.5%**, Recall **93.8%**
+- **Recommendation**: Deploy this configuration to Production.
+
 
 ---
 

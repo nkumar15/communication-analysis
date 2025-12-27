@@ -105,5 +105,76 @@
       "answer_relevancy": 0.9625,
       "contextual_recall": 0.9
     }
+  },
+  {
+    "timestamp": "2025-12-27T10:12:33.137130",
+    "config": {
+      "eval_model": "gpt-4o-mini",
+      "rag_model": "gpt-4o-mini",
+      "embedding": "text-embedding-3-small",
+      "retriever_top_k": 20,
+      "reranker": "ms-marco-MiniLM-L-6-v2",
+      "final_top_k": 10,
+      "dataset_size": 10
+    },
+    "metrics": {
+      "faithfulness": 0.3862433862433863,
+      "answer_relevancy": 1.0,
+      "contextual_recall": 0.9012345679012346
+    }
+  },
+  {
+    "timestamp": "2025-12-27T10:28:06.872734",
+    "config": {
+      "eval_model": "gpt-4o-mini",
+      "rag_model": "gpt-5-nano",
+      "prompt_strategy": "strict_qa",
+      "embedding": "text-embedding-3-small",
+      "retriever_top_k": 20,
+      "reranker": "ms-marco-MiniLM-L-6-v2",
+      "final_top_k": 10,
+      "dataset_size": 10
+    },
+    "metrics": {
+      "faithfulness": 0.6333333333333333,
+      "answer_relevancy": 0.8,
+      "contextual_recall": 0.9
+    }
+  },
+  {
+    "timestamp": "2025-12-27T10:41:51.582454",
+    "config": {
+      "eval_model": "gpt-4o-mini",
+      "rag_model": "gpt-5-nano",
+      "prompt_strategy": "grounding_cot",
+      "embedding": "text-embedding-3-small",
+      "retriever_top_k": 20,
+      "reranker": "ms-marco-MiniLM-L-6-v2",
+      "final_top_k": 10,
+      "dataset_size": 10
+    },
+    "metrics": {
+      "faithfulness": 0.6666666666666666,
+      "answer_relevancy": 0.7777777777777778,
+      "contextual_recall": 0.9444444444444444
+    }
+  },
+  {
+    "timestamp": "2025-12-27T10:54:56.029346",
+    "config": {
+      "eval_model": "gpt-4o-mini",
+      "rag_model": "gpt-4o-mini",
+      "prompt_strategy": "grounding_cot",
+      "embedding": "text-embedding-3-small",
+      "retriever_top_k": 20,
+      "reranker": "ms-marco-MiniLM-L-6-v2",
+      "final_top_k": 10,
+      "dataset_size": 10
+    },
+    "metrics": {
+      "faithfulness": 0.875,
+      "answer_relevancy": 0.75,
+      "contextual_recall": 0.9375
+    }
   }
 ]
