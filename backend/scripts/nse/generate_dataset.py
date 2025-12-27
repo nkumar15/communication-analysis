@@ -25,6 +25,7 @@ SCRIPT_DIR = Path(__file__).parent
 TEST_DATA_DIR = SCRIPT_DIR / "data/raw/test"
 DATASET_OUTPUT_DIR = SCRIPT_DIR / "data/dataset"
 OUTPUT_FILE = DATASET_OUTPUT_DIR / "gold_dataset.json"
+MANUAL_DATASET_FILE = DATASET_OUTPUT_DIR / "manual_dataset.json"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -94,51 +95,86 @@ async def generate_dataset():
     # 3. Generate Questions with Custom Prompt
     # We force the LLM to focus on HARD NUMBERS and FINANCIAL METRICS
     question_gen_query = (
-        "You are a strict financial analyst. Your task is to generate 2 specific questions "
+        "You are a strict financial analyst. Your task is to generate 3 specific questions "
         "based strictly on the provided context, which contains financial tables and text.\n"
         "RULES:\n"
         "1. Focus on specific numbers (Revenue, EBITDA, Margins, Growth Rates).\n"
         "2. Do NOT ask generic questions like 'What is the company name?'.\n"
         "3. Ask comparison questions if data allows (e.g., 'Compare Q2 FY26 vs Q1 FY26').\n"
         "4. The context may contain Markdown tables. Parse them to ask precise questions.\n"
+        "5. GENERATE 1 HARD NEGATIVE: Ask a question that sounds plausible for a financial report "
+        "but is explicitly NOT answerable from the context (e.g., future stock price, unauthorized gossip, or data from a different quarter not present).\n"
         "\n"
         "Context:\n"
         "{context_str}\n"
         "\n"
-        "Questions:"
+        "Output the questions as a numbered list:"
     )
 
     logger.info("Generating HIGH QUALITY synthetic questions...")
     
-    # Process first 10 pages where results usually are
-    data_generator = DatasetGenerator(
-        nodes[:10], 
-        llm=llm,
-        num_questions_per_chunk=2,
-        question_gen_query=question_gen_query
-    )
-    
-    questions = await data_generator.agenerate_questions_from_nodes(num=10)
-    logger.info(f"Generated {len(questions)} questions.")
-
-    # 4. Generate Answers
     dataset = []
-    for q in questions:
-        # Ask LLM to answer using its own logic + context (implicit)
-        # We emphasize formatting in the answer prompt
-        response = llm.complete(
-            f"Question: {q}\n"
-            f"Context: (Assume access to TCS Q2 FY26 Results)\n"
-            f"Answer: Provide a precise financial answer with numbers."
+    
+    # Process first 10 pages where results usually are
+    # Iterate node by node to maintain context for the Answer Generator
+    for node in nodes[:10]:
+        # Generate questions for this specific node
+        data_generator = DatasetGenerator(
+            [node], 
+            llm=llm,
+            num_questions_per_chunk=3,
+            question_gen_query=question_gen_query
         )
         
-        dataset.append({
-            "input": q,
-            "expected_output": response.text,
-            "context": ["(Context derived from TCS Q2 FY26 PDF)"] 
-        })
-        
-    # Save
+        try:
+            questions = await data_generator.agenerate_questions_from_nodes(num=1)
+        except Exception as e:
+            logger.error(f"Failed to generate questions for a node: {e}")
+            continue
+
+        for q in questions:
+            # Clean and Filter Question
+            q_clean = q.strip()
+            # Filter out headers or garbage
+            if len(q_clean) < 15: # "Questions:" is 10 chars, but valid questions are usually longer
+                logger.info(f"Skipping short/invalid question: '{q_clean}'")
+                continue
+            if q_clean.lower().startswith("questions:"):
+                logger.info(f"Skipping header question: '{q_clean}'")
+                continue
+                
+            # Ask LLM to answer using the SPECIFIC NODE TEXT as context
+            # We explicitly inject the node text now.
+            try:
+                response = llm.complete(
+                    f"Context:\n{node.text}\n\n"
+                    f"Question: {q_clean}\n"
+                    f"Answer: Provide a precise financial answer with numbers based ONLY on the context above."
+                )
+                
+                dataset.append({
+                    "input": q_clean,
+                    "expected_output": response.text,
+                    "context": [node.text] 
+                })
+            except Exception as e:
+                logger.error(f"Failed to generate answer for question '{q_clean}': {e}")
+            
+        # Label Hard Negatives via heuristic (if expected output says 'not mentioned' or 'I cannot')
+        # We leave this as is in the dataset for now.
+
+    # 5. Merge Manual Dataset
+
+    # 5. Merge Manual Dataset
+    if MANUAL_DATASET_FILE.exists():
+        logger.info(f"Merging manual dataset from {MANUAL_DATASET_FILE}...")
+        try:
+            with open(MANUAL_DATASET_FILE, "r") as f:
+                manual_data = json.load(f)
+                dataset.extend(manual_data)
+                logger.info(f"Added {len(manual_data)} manual questions.")
+        except Exception as e:
+            logger.error(f"Failed to load manual dataset: {e}")
     with open(OUTPUT_FILE, "w") as f:
         json.dump(dataset, f, indent=2)
     

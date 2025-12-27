@@ -25,43 +25,16 @@ except ImportError as e:
 from deepeval import evaluate
 from deepeval.metrics import FaithfulnessMetric, AnswerRelevancyMetric, ContextualRecallMetric
 from deepeval.test_case import LLMTestCase
+from pydantic import BaseModel
 
 # Configuration
 SCRIPT_DIR = Path(__file__).parent
 DATASET_FILE = SCRIPT_DIR / "data/dataset/gold_dataset.json"
+LOG_FILE = SCRIPT_DIR / "data/experiment_logs.json"
 
-from deepeval.models import DeepEvalBaseLLM
-
-class GPT5Nano(DeepEvalBaseLLM):
-    def __init__(self):
-        self.model_name = "gpt-5-nano"
-
-    def load_model(self):
-        return self.model_name
-
-    def generate(self, prompt: str) -> str:
-        from openai import OpenAI
-        client = OpenAI()
-        response = client.chat.completions.create(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1.0
-        )
-        return response.choices[0].message.content
-
-    async def a_generate(self, prompt: str) -> str:
-        from openai import AsyncOpenAI
-        
-        client = AsyncOpenAI()
-        response = await client.chat.completions.create(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1.0
-        )
-        return response.choices[0].message.content
-        
-    def get_model_name(self):
-        return self.model_name
+# Using GPT-4o for evaluation metrics - reliable and proven
+# Keep gpt-5-nano for RAG generation (cost-effective)
+# Evaluation runs infrequently so GPT-4o cost is acceptable
 
 async def run_baseline_evaluation():
     print("--- Starting Baseline RAG Evaluation (Direct Retriever) ---")
@@ -73,8 +46,8 @@ async def run_baseline_evaluation():
         
     with open(DATASET_FILE, "r") as f:
         gold_data = json.load(f)
-    print(f"Loaded {len(gold_data)} test cases. Subsampling top 3 for rapid baseline.")
-    gold_data = gold_data[:3] # baseline speedup
+    print(f"Loaded {len(gold_data)} test cases. Running FULL evaluation.")
+    # gold_data = gold_data[:1]  # Uncomment to test with 1 case
     sys.stdout.flush()
 
     # 2. Initialize Retriever Components
@@ -144,21 +117,85 @@ async def run_baseline_evaluation():
 
     print(f"Running DeepEval on {len(test_cases)} cases...")
     
-    # Initialize Custom LLM for Metrics
-    eval_llm = GPT5Nano()
+    # Use DeepEval's default model (GPT-4o) for metrics
+    # Reliable, proven, worth the cost for evaluation quality
 
-    # Metrics
-    faithfulness = FaithfulnessMetric(threshold=0.5, model=eval_llm) 
-    relevancy = AnswerRelevancyMetric(threshold=0.5, model=eval_llm)
-    recall = ContextualRecallMetric(threshold=0.5, model=eval_llm)
+    # Metrics (using default GPT-4o)
+    faithfulness = FaithfulnessMetric(threshold=0.5) 
+    answer_relevancy = AnswerRelevancyMetric(threshold=0.5)
+    contextual_recall = ContextualRecallMetric(threshold=0.5)
     
-    # Run
-    results = evaluate(
-        test_cases=test_cases,
-        metrics=[faithfulness, relevancy, recall]
+    
+    # Configure rate limiting to avoid hitting OpenAI's 30K TPM limit
+    from deepeval.evaluate import AsyncConfig
+    
+    async_config = AsyncConfig(
+        throttle_value=20,  # 20 second delay between test cases to avoid rate limits
+        max_concurrent=1   # Max 2 concurrent evaluations
     )
-    print("\n--- Results ---")
-    print(results)
+    
+    # Run evaluation with rate limit controls
+    eval_result = evaluate(
+        test_cases=test_cases,
+        metrics=[faithfulness, answer_relevancy, contextual_recall],
+        async_config=async_config
+    )
+    
+    # Extract test results from EvaluationResult object
+    test_results = eval_result.test_results
+    print(f"\n--- Evaluation Complete: {len(test_results)} test cases processed ---")
+    
+    # Calculate average scores
+    faithfulness_scores = []
+    relevancy_scores = []
+    recall_scores = []
+
+    for test_result in test_results:
+        for metric_data in test_result.metrics_data:
+            metric_name = metric_data.name
+            if "Faithfulness" in metric_name:
+                faithfulness_scores.append(metric_data.score)
+            elif "Answer Relevancy" in metric_name:
+                relevancy_scores.append(metric_data.score)
+            elif "Contextual Recall" in metric_name:
+                recall_scores.append(metric_data.score)
+
+    avg_faithfulness = sum(faithfulness_scores) / len(faithfulness_scores) if faithfulness_scores else 0
+    avg_relevancy = sum(relevancy_scores) / len(relevancy_scores) if relevancy_scores else 0
+    avg_recall = sum(recall_scores) / len(recall_scores) if recall_scores else 0
+
+    # 5. Log Results
+    import datetime
+    log_entry = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "config": {
+            "eval_model": "gemini-1.5-flash",
+            "rag_model": "gpt-5-nano",
+            "embedding": "text-embedding-3-small", 
+            "top_k": 5,
+            "dataset_size": len(test_cases)
+        },
+        "metrics": {
+            "faithfulness": avg_faithfulness,
+            "answer_relevancy": avg_relevancy,
+            "contextual_recall": avg_recall
+        }
+    }
+    
+    try:
+        if LOG_FILE.exists():
+            with open(LOG_FILE, "r") as f:
+                logs = json.load(f)
+        else:
+            logs = []
+            
+        logs.append(log_entry)
+        
+        with open(LOG_FILE, "w") as f:
+            json.dump(logs, f, indent=2)
+        print(f"✓ Results logged to {LOG_FILE}")
+    except Exception as e:
+        print(f"Failed to log results: {e}")
 
 if __name__ == "__main__":
     asyncio.run(run_baseline_evaluation())
