@@ -13,7 +13,7 @@ class RagService(BaseRagService):
     Extends BaseRagService to provide NSE-specific parser and configuration.
     """
     
-    def __init__(self, index_name: str = "rag_documents"):
+    def __init__(self, index_name: str = "nse_rag_documents"):
         super().__init__()
         self._index_name = index_name
 

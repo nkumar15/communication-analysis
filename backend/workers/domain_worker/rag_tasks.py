@@ -94,6 +94,8 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
     from core.db.rls import rls_service
     from sqlalchemy import select
     
+    from core.config import settings
+    
     tenant_id_str = payload.get('tenant_id')
     file_path = payload.get('file_path')
     job_id = payload.get('job_id')
@@ -109,9 +111,6 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
     await rls_service.set_tenant_context(db, tenant_id)
     
     # Update Status to PROCESSING
-    # We update the RagDocument record which should already exist (created by API)
-    # API should generate 'job_id' and save it to DB, or we query by job_id.
-    
     rag_doc = None
     if job_id:
         # Find document by job_id
@@ -122,7 +121,9 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
         if rag_doc:
             # Check for duplicate content before processing
             content_hash = payload.get('content_hash')
-            if content_hash:
+            force_reingest = settings.rag_skip_deduplication
+            
+            if content_hash and not force_reingest:
                 # Look for existing completed document with same hash
                 duplicate_check = select(RagDocument).where(
                     RagDocument.tenant_id == tenant_id,

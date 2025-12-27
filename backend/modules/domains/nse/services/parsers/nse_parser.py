@@ -1,3 +1,4 @@
+import logging
 from typing import List, Sequence, Optional, Dict, Any
 import re
 from pathlib import Path
@@ -6,6 +7,8 @@ from llama_index.core.node_parser import NodeParser
 from llama_index.core.schema import BaseNode, Document, TextNode
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
+
+logger = logging.getLogger(__name__)
 
 class NSEEarningsParser(NodeParser):
     """
@@ -88,43 +91,67 @@ class NSEEarningsParser(NodeParser):
 
                     # 2. Extract and Process Tables
                     tables = page.extract_tables()
+                    
+                    # Fallback: If no tables found, try text-based strategy (whitespace)
+                    if not tables:
+                         logger.debug(f"[NSE Parser] Page {page.page_number}: No tables found with default strategy. Retrying with text strategy...")
+                         tables = page.extract_tables(table_settings={
+                             "vertical_strategy": "text", 
+                             "horizontal_strategy": "text",
+                             "snap_tolerance": 3,
+                         })
+
+                    logger.info(f"[NSE Parser] Page {page.page_number}: Found {len(tables)} tables")
+                    
                     if tables:
-                        for table in tables:
-                            # Filter None/Empty values
-                            cleaned_table = [[str(cell or "").replace("\n", " ").strip() for cell in row] for row in table]
-                            
-                            # Skip empty or trivial tables
-                            if not cleaned_table or not any(any(c for c in row) for row in cleaned_table):
-                                continue
-                                
-                            # Convert to Markdown
+                        # Strategy Change: Merge primary table into the first TextNode of the page.
+                        # This ensures the node that ranks well (due to text content) also carries the UI payload.
+                        
+                        # We process the first table as the "Main" table for this page/chunk
+                        table = tables[0]
+                        
+                        cleaned_table = [[str(cell or "").replace("\n", " ").strip() for cell in row] for row in table]
+                        
+                        # Skip if empty
+                        if cleaned_table and any(any(c for c in row) for row in cleaned_table):
                             headers = cleaned_table[0]
-                            # Heuristic: If header is empty or likely data, treat as headerless? 
-                            # For now standard markdown.
                             
+                            # Create Markdown for searchability
                             markdown_table = f"\n| {' | '.join(headers)} |\n| {' | '.join(['---']*len(headers))} |\n"
                             for row in cleaned_table[1:]:
                                 markdown_table += f"| {' | '.join(row)} |\n"
-                            
-                            # Create a distinct Node for this table
-                            # We emphasize it's a table in metadata for potential future filtering
-                            table_node = TextNode(
-                                text=markdown_table, 
-                                metadata={
-                                    **doc.metadata, 
-                                    "is_table": True, 
-                                    "page_number": page.page_number,
+                                
+                            if page_text_nodes:
+                                target_node = page_text_nodes[0]
+                                logger.info(f"[NSE Parser] Merging Table {0} into TextNode {target_node.node_id[:8]}...")
+                                
+                                # Enrich Metadata
+                                target_node.metadata.update({
+                                    "is_table": True,
                                     "table_rows": len(cleaned_table),
-                                    "table_columns": len(headers)
-                                }
-                            )
-                            nodes.append(table_node)
+                                    "table_columns": len(headers),
+                                    "table_json": {
+                                        "headers": headers,
+                                        "rows": cleaned_table[1:]
+                                    }
+                                })
+                                
+                                # Append Markdown to text to ensure table structure is indexed
+                                # We prepend a separator
+                                target_node.text += f"\n\n--- TABLE DATA ---\n{markdown_table}"
+                                
+                        # If there are more tables, we could append them as text or log them.
+                        # For now, focusing on the primary table per page avoids UI complexity.
+                        if len(tables) > 1:
+                            logger.debug(f"[NSE Parser] Page {page.page_number} has {len(tables)-1} extra tables, skipping JSON for them.")
+                            
+            return nodes
                             
             return nodes
             
         except Exception as e:
             # Fallback if pdfplumber fails
-            print(f"Error parsing PDF with pdfplumber: {e}")
+            logger.error(f"Error parsing PDF with pdfplumber: {e}")
             return self._splitter.get_nodes_from_documents([doc])
 
     def _parse_transcript(self, doc: Document) -> List[BaseNode]:

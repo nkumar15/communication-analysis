@@ -55,6 +55,49 @@ class BaseRagService(ABC):
             Settings.llm = self.llm
             Settings.embed_model = self.embed_model
 
+    async def _delete_existing_documents(self, tenant_id: UUID, content_hash: str):
+        """
+        Delete existing documents from Vector Store to prevent duplication.
+        Uses content_hash to reliably identify exact duplicates even if filename differs.
+        """
+        if not self.vector_store:
+            return
+
+        try:
+            # Check for ElasticsearchStore
+            # We check class name string to avoid importing if not needed, or try/except
+            if "ElasticsearchStore" in self.vector_store.__class__.__name__:
+                es_client = getattr(self.vector_store, "client", None)
+                if not es_client:
+                    return
+
+                index_name = self.get_index_name()
+                
+                # Query matches tenant_id AND content_hash
+                query = {
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"term": {"metadata.tenant_id.keyword": str(tenant_id)}},
+                                {"term": {"metadata.content_hash.keyword": content_hash}}
+                            ]
+                        }
+                    }
+                }
+                
+                logger.info(f"Deleting existing vectors for hash {content_hash[:8]}... in index {index_name}")
+                
+                # Check for async client
+                # Check for async client
+                if hasattr(es_client, "delete_by_query") and callable(es_client.delete_by_query):
+                    import inspect
+                    res = es_client.delete_by_query(index=index_name, body=query, refresh=True)
+                    if inspect.isawaitable(res):
+                        await res
+
+        except Exception as e:
+            logger.warning(f"Failed to delete existing vectors: {e}")
+
     async def ingest_document(
         self, 
         db: AsyncSession, 
@@ -69,6 +112,11 @@ class BaseRagService(ABC):
         document_metadata = document_metadata or {}
         
         logger.info(f"Starting ingestion for tenant {tenant_id}, file: {file_path}")
+        
+        # 0. Delete Existing Vectors (Deduplication by Content Hash)
+        content_hash = document_metadata.get("content_hash")
+        if content_hash:
+             await self._delete_existing_documents(tenant_id, content_hash)
         
         # Handle MinIO/S3 paths
         temp_file_path = None
@@ -102,6 +150,14 @@ class BaseRagService(ABC):
             for doc in documents:
                 doc.metadata.update(document_metadata)
                 doc.metadata["tenant_id"] = str(tenant_id)
+                # Fix for temp filename citations
+                if "original_filename" in document_metadata:
+                    doc.metadata["file_name"] = document_metadata["original_filename"]
+                    doc.metadata["filename"] = document_metadata["original_filename"]
+                
+                # Ensure content_hash is in metadata (critical for future deletions)
+                if content_hash and "content_hash" not in doc.metadata:
+                    doc.metadata["content_hash"] = content_hash
             
             # 3. Parse & Chunk strategy (Delegated to Domain)
             parser = self.get_parser()

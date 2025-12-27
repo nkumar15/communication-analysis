@@ -31,19 +31,21 @@ async def upload_document(
     company_name: Optional[str] = Form(None),
     report_type: Optional[str] = Form(None),
     financial_period: Optional[str] = Form(None),
+
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_active_user)
 ):
     tenant_id = str(current_user.get('tenant_id'))
     """
     Upload a document for RAG ingestion.
-    1. Hashing
-    2. MinIO Upload
-    3. DB Record (Pending)
-    4. Async Task
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename missing")
+    
+    # ... (rest of code)
+
+    # 4. Dispatch Task
+
     
     # Set RLS Context manually (since we bypass typical auth middleware for this testing endpoint)
     try:
@@ -123,7 +125,9 @@ async def upload_document(
             "company_name": company_name,
             "report_type": report_type,
             "financial_period": financial_period,
-            "source": file.filename
+            "source": file.filename,
+            "original_filename": file.filename,
+            "content_hash": content_hash
         }
     }
     

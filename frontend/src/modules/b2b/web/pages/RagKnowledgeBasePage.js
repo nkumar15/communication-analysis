@@ -418,6 +418,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                     // Normalize score using sigmoid for display
                                     const sigmoid = (x) => 1 / (1 + Math.exp(-x));
                                     const normalizedScore = sigmoid(result.score);
+                                    const filename = result.metadata?.original_filename || result.metadata?.filename || result.metadata?.file_name || result.metadata?.source || 'Unknown Document';
 
                                     return (
                                         <Card key={index} elevation={0} sx={{ border: '1px solid #e2e8f0' }}>
@@ -426,7 +427,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                                     <Box>
                                                         <Typography variant="subtitle2" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                             <DescriptionIcon fontSize="small" />
-                                                            {result.metadata?.filename || result.metadata?.file_name || result.metadata?.source || 'Unknown Document'}
+                                                            {filename}
                                                         </Typography>
                                                         {result.metadata?.page_label && (
                                                             <Typography variant="caption" color="text.secondary" sx={{ ml: 3.5 }}>
@@ -444,7 +445,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                                         <Tooltip title="Copy Context">
                                                             <IconButton
                                                                 size="small"
-                                                                onClick={() => navigator.clipboard.writeText(result.text)}
+                                                                onClick={() => copyToClipboard(result.text)}
                                                                 sx={{ color: 'text.secondary' }}
                                                             >
                                                                 <ContentCopy fontSize="small" />
@@ -452,9 +453,43 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                                         </Tooltip>
                                                     </Box>
                                                 </Box>
-                                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155' }}>
-                                                    {result.text}
-                                                </Typography>
+
+                                                {/* Render Table if Table JSON exists, else Render Text */}
+                                                {result.metadata?.table_json ? (
+                                                    <Box sx={{ overflowX: 'auto', mt: 1 }}>
+                                                        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', minWidth: 650 }}>
+                                                            <Table size="small">
+                                                                <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                                                    <TableRow>
+                                                                        {result.metadata.table_json.headers.map((header, i) => (
+                                                                            <TableCell key={i} sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>
+                                                                                {typeof header === 'string' ? header : JSON.stringify(header)}
+                                                                            </TableCell>
+                                                                        ))}
+                                                                    </TableRow>
+                                                                </TableHead>
+                                                                <TableBody>
+                                                                    {result.metadata.table_json.rows.map((row, i) => (
+                                                                        <TableRow key={i} sx={{ '&:nth-of-type(odd)': { bgcolor: '#fbfcfd' } }}>
+                                                                            {row.map((cell, j) => (
+                                                                                <TableCell key={j} sx={{ fontSize: '0.75rem', color: '#334155' }}>
+                                                                                    {typeof cell === 'string' ? cell : JSON.stringify(cell)}
+                                                                                </TableCell>
+                                                                            ))}
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </TableContainer>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                                            ⚠️ Table extraction is experimental. Check original PDF if formatting looks incorrect.
+                                                        </Typography>
+                                                    </Box>
+                                                ) : (
+                                                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155' }}>
+                                                        {result.text}
+                                                    </Typography>
+                                                )}
                                             </CardContent>
                                         </Card>
                                     );
