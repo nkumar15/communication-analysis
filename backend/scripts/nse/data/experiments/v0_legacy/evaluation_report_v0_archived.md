@@ -1,10 +1,5 @@
 # RAG Evaluation Scorecard
 
-> **⚠️ ARCHIVED - Dataset v0 (Legacy)**  
-> This report is based on the legacy 20-question dataset and is kept for historical reference only.  
-> **Current active experiments use Dataset v1** - see `experiment_logs.json` and `experiment_tracking_methodology.md`  
-> Archived: 2025-12-27
-
 **Objective**: Scientifically measure the improvement of our RAG pipeline as we move from Naive implementation to Advanced (Domain-Specific) architecture.
 
 ## 1. Methodology
