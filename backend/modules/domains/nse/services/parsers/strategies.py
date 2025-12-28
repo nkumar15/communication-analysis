@@ -369,9 +369,12 @@ class AzureParsingStrategy(IPdfParsingStrategy):
 class DoclingParsingStrategy(IPdfParsingStrategy):
     """
     Concrete implementation using Docling.
-    Supports configuration for performance (Fast mode, OCR).
+    Optimized for RAG:
+    - Uses MarkdownNodeParser for semantic chunking (keeping tables atomic).
+    - Removes Base64 images to save tokens.
+    - Enables multi-threading for performance.
     """
-    def __init__(self, fast_mode: bool = True, do_ocr: bool = False):
+    def __init__(self, fast_mode: bool = True, do_ocr: bool = True):
         self.fast_mode = fast_mode
         self.do_ocr = do_ocr
 
@@ -385,20 +388,49 @@ class DoclingParsingStrategy(IPdfParsingStrategy):
             # Lazy import to keep dependencies optional/local
             from docling.document_converter import DocumentConverter, PdfFormatOption
             from docling.datamodel.base_models import InputFormat
-            from docling.datamodel.pipeline_options import PdfPipelineOptions, TableFormerMode
+            from docling.datamodel.pipeline_options import (
+                PdfPipelineOptions, 
+                TableFormerMode
+            )
             
-            logger.info(f"[DoclingStrategy] Starting conversion for: {Path(file_path).name} (Fast={self.fast_mode}, OCR={self.do_ocr})")
+            # Acceleration options might be missing in older versions
+            try:
+                from docling.datamodel.pipeline_options import AccelerationOptions
+                HAS_ACCELERATION = True
+            except ImportError:
+                HAS_ACCELERATION = False
+                logger.warning("[DoclingStrategy] AccelerationOptions not available in this docling version.")
+
+            from docling.datamodel.pipeline_options import EasyOcrOptions, TesseractOcrOptions, RapidOcrOptions
+            from llama_index.core.node_parser import MarkdownNodeParser
+            import re
             
-            # Configure Options
+            logger.info(f"[DoclingStrategy] Starting conversion for: {Path(file_path).name}")
+            
+            # Configure Pipeline Options for Performance
             options = PdfPipelineOptions()
             options.do_ocr = self.do_ocr
             options.do_table_structure = True
             options.table_structure_options.do_cell_matching = True
             
+            # Use RapidOCR (Faster than Tesseract/EasyOCR)
+            if self.do_ocr:
+                try:
+                    options.ocr_options = RapidOcrOptions()
+                except ImportError:
+                    logger.warning("[DoclingStrategy] RapidOCR not found, falling back to default.")
+
+            # Acceleration (Multi-threading)
+            if HAS_ACCELERATION:
+                try:
+                    options.acceleration_options = AccelerationOptions(num_threads=4)
+                except TypeError:
+                     logger.warning("[DoclingStrategy] AccelerationOptions failed to init.")
+
             if self.fast_mode:
                 options.table_structure_options.mode = TableFormerMode.FAST
             
-            # Initialize Converter with options
+            # Initialize Converter
             converter = DocumentConverter(
                 format_options={
                     InputFormat.PDF: PdfFormatOption(pipeline_options=options)
@@ -409,47 +441,30 @@ class DoclingParsingStrategy(IPdfParsingStrategy):
             result = converter.convert(file_path)
             doc_obj = result.document
             
-            nodes = []
-            
-            # 1. Extract Text (Markdown)
+            # Export to Markdown (Standard)
             full_markdown = doc_obj.export_to_markdown()
-            if full_markdown.strip():
-                md_doc = Document(text=full_markdown, metadata=doc.metadata)
-                text_nodes = splitter.get_nodes_from_documents([md_doc])
-                nodes.extend(text_nodes)
-                logger.info(f"[DoclingStrategy] Generated {len(text_nodes)} text nodes.")
-                
-            # 2. Extract Tables
-            if doc_obj.tables:
-                logger.info(f"[DoclingStrategy] Found {len(doc_obj.tables)} tables.")
-                for i, table in enumerate(doc_obj.tables):
-                    try:
-                        df = table.export_to_dataframe()
-                        if df.empty: continue
-                        
-                        headers = [str(h) for h in df.columns.tolist()]
-                        rows = [[str(c) for c in r] for r in df.values.tolist()]
-                        
-                        markdown_table = df.to_markdown(index=False)
-                        
-                        table_node = TextNode(
-                            text=f"Table {i+1}:\n{markdown_table}",
-                            metadata={
-                                **doc.metadata,
-                                "is_table": True,
-                                "table_rows": len(rows),
-                                "table_columns": len(headers),
-                                "table_json": {"headers": headers, "rows": rows}
-                            }
-                        )
-                        nodes.append(table_node)
-                    except Exception as te:
-                        logger.warning(f"[DoclingStrategy] Table {i} processing failed: {te}")
-                        
+            
+            # Compatibility Fix: Manual Regex Clean for Base64 Images
+            # Matches ![...](data:image/...) and replaces with ![Image Placeholder]
+            full_markdown = re.sub(r'!\[.*?\]\(data:image\/.*?\)', '![Image Placeholder]', full_markdown)
+            
+            if not full_markdown.strip():
+                logger.warning("[DoclingStrategy] Extracted empty markdown.")
+                return []
+
+            # Create a temporary Document for the splitter
+            md_doc = Document(text=full_markdown, metadata=doc.metadata)
+            
+            # Use MarkdownNodeParser instead of SentenceSplitter
+            # This respects headers (#, ##) and keeps tables intact.
+            md_parser = MarkdownNodeParser()
+            nodes = md_parser.get_nodes_from_documents([md_doc])
+            
+            logger.info(f"[DoclingStrategy] Generated {len(nodes)} nodes using MarkdownNodeParser.")
             return nodes
 
-        except ImportError:
-            logger.error("Docling not installed.")
+        except ImportError as ie:
+            logger.error(f"Docling import failed: {ie}")
             raise
         except Exception as e:
             logger.error(f"Docling parsing execution failed: {e}")

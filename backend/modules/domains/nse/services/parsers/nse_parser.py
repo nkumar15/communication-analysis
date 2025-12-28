@@ -28,8 +28,8 @@ class NSEEarningsParser(NodeParser):
         
         # Default Strategy if not provided
         if pdf_strategy is None:
-            from modules.domains.nse.services.parsers.strategies import AzureParsingStrategy
-            self._pdf_strategy = AzureParsingStrategy()
+            from modules.domains.nse.services.parsers.strategies import DoclingParsingStrategy
+            self._pdf_strategy = DoclingParsingStrategy(fast_mode=True, do_ocr=True)
         else:
             self._pdf_strategy = pdf_strategy
 
@@ -38,12 +38,21 @@ class NSEEarningsParser(NodeParser):
         Takes list of documents/nodes and turns them into parsed nodes.
         """
         all_nodes = []
+        processed_files = set()
+
         for node in nodes:
             if isinstance(node, Document):
                 # Check metadata for file path to handle PDFs specifically
                 file_path = node.metadata.get("file_path")
+                
                 if file_path and file_path.lower().endswith(".pdf"):
+                    # Deduplication: Docling parses the FULL file. 
+                    # Only run it once per unique file path in this batch.
+                    if file_path in processed_files:
+                        continue
+                    
                     parsed_nodes = self._parse_pdf(node)
+                    processed_files.add(file_path)
                 elif self._is_transcript(node.text):
                     parsed_nodes = self._parse_transcript(node)
                 else:

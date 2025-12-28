@@ -35,6 +35,38 @@ class RagService(BaseRagService):
     def get_parser(self):
         return NSEEarningsParser()
 
+    async def _enrich_metadata_hook(self, documents: List[Any]) -> Dict[str, Any]:
+        """
+        Extract NSE specific metadata (Ticker, FY, Quarter) from the first page.
+        """
+        if not documents:
+            return {}
+            
+        try:
+            # Import here to avoid circular dependencies if any
+            from modules.domains.nse.services.parsers.metadata import MetadataExtractor
+            
+            # Use the text of the first document/page
+            first_page_text = documents[0].text
+            
+            extractor = MetadataExtractor()
+            # Run extraction (it's synchronous for now in the extractor class, but wrapped in async hook)
+            # Ideally MetadataExtractor should be async, but for now we run it directly.
+            # Depending on LLM implementation it might block, but we are in a thread pool in rag_tasks so it's acceptable.
+            metadata_model = extractor.extract(first_page_text)
+            
+            # Convert Pydantic to dict, filtering out None
+            data = metadata_model.model_dump(exclude_none=True)
+            
+            # Flatten Scope list to single string if needed, or keep as list
+            # ES schema might expect keyword. Let's keep it as is, BaseRagService handles it as metadata dict.
+            
+            return data
+            
+        except Exception as e:
+            logger.warning(f"Metadata extraction failed: {e}")
+            return {}
+
     async def _decompose_query(self, query_text: str) -> Optional[MetadataFilters]:
         """
         Uses LLM to extract metadata filters (Ticker, Year, Scope) from natural language query.
@@ -145,6 +177,14 @@ class RagService(BaseRagService):
         }
 
 
+
+    async def close(self):
+        """
+        Cleanup resources.
+        """
+        if self._router_client:
+            await self._router_client.close()
+        await super().close()
 
 # Singleton instance
 rag_service = RagService()

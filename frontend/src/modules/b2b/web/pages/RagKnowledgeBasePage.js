@@ -41,8 +41,11 @@ import {
     ChevronRight as ChevronRightIcon,
     Close as CloseIcon,
     Refresh as RefreshIcon,
-    Schedule as ScheduleIcon
+    Schedule as ScheduleIcon,
+    OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import b2bClient from '../../../../core/api/b2bClient';
 import useAuth from '../../../../core/hooks/useAuth';
 import AdminLayout from '../layouts/AdminLayout';
@@ -275,6 +278,50 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         }
     };
 
+
+
+    // Markdown Configuration for Material UI integration
+    const MarkdownComponents = {
+        // Text Typography
+        p: ({ node, ...props }) => <Typography variant="body2" sx={{ color: '#334155', mb: 1, lineHeight: 1.6 }} {...props} />,
+        h1: ({ node, ...props }) => <Typography variant="h6" sx={{ color: '#1e293b', mt: 2, mb: 1, fontWeight: 600 }} {...props} />,
+        h2: ({ node, ...props }) => <Typography variant="subtitle1" sx={{ color: '#1e293b', mt: 2, mb: 1, fontWeight: 600 }} {...props} />,
+        h3: ({ node, ...props }) => <Typography variant="subtitle2" sx={{ color: '#1e293b', mt: 1, mb: 1, fontWeight: 600 }} {...props} />,
+
+        // Lists
+        ul: ({ node, ...props }) => <Box component="ul" sx={{ pl: 2, mb: 1, color: '#334155' }} {...props} />,
+        ol: ({ node, ...props }) => <Box component="ol" sx={{ pl: 2, mb: 1, color: '#334155' }} {...props} />,
+        li: ({ node, ...props }) => <Typography component="li" variant="body2" sx={{ mb: 0.5 }} {...props} />,
+
+        // Tables (The Star of the Show)
+        table: ({ node, ...props }) => (
+            <TableContainer component={Paper} variant="outlined" sx={{ my: 2, boxShadow: 'none', border: '1px solid #e2e8f0' }}>
+                <Table size="small" aria-label="markdown table" {...props} />
+            </TableContainer>
+        ),
+        thead: ({ node, ...props }) => <TableHead sx={{ bgcolor: '#f8fafc' }} {...props} />,
+        tbody: ({ node, ...props }) => <TableBody {...props} />,
+        tr: ({ node, ...props }) => <TableRow sx={{ '&:nth-of-type(even)': { bgcolor: '#fbfcfd' } }} {...props} />,
+        th: ({ node, ...props }) => (
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569', borderBottom: '1px solid #e2e8f0' }} {...props} />
+        ),
+        td: ({ node, ...props }) => (
+            <TableCell sx={{ fontSize: '0.75rem', color: '#334155', borderBottom: '1px solid #f1f5f9' }} {...props} />
+        ),
+
+        // Links
+        a: ({ node, ...props }) => (
+            <a {...props} style={{ color: '#6366f1', textDecoration: 'none' }} target="_blank" rel="noopener noreferrer" />
+        ),
+
+        // Code
+        code: ({ node, inline, ...props }) => (
+            inline
+                ? <Typography component="span" sx={{ fontFamily: 'monospace', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, fontSize: '0.75rem' }} {...props} />
+                : <Box component="pre" sx={{ bgcolor: '#1e293b', color: '#f8fafc', p: 2, borderRadius: 2, overflowX: 'auto', fontSize: '0.75rem' }} {...props} />
+        )
+    };
+
     return (
         <AdminLayout title={title} subtitle={subtitle}>
             {domain === 'enron' ? (
@@ -487,14 +534,20 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                                         </Typography>
                                                     </Box>
                                                 ) : (
-                                                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155' }}>
-                                                        {result.text}
-                                                    </Typography>
+                                                    <Box sx={{ mt: 1 }}>
+                                                        <ReactMarkdown
+                                                            remarkPlugins={[remarkGfm]}
+                                                            components={MarkdownComponents}
+                                                        >
+                                                            {result.text}
+                                                        </ReactMarkdown>
+                                                    </Box>
                                                 )}
                                             </CardContent>
                                         </Card>
                                     );
                                 })}
+
                             </Box>
                         </Box>
                     </Box>

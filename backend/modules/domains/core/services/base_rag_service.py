@@ -40,6 +40,13 @@ class BaseRagService(ABC):
         """Return the domain-specific parser instance."""
         pass
 
+    async def _enrich_metadata_hook(self, documents: List[Any]) -> Dict[str, Any]:
+        """
+        Optional hook to extract or enrich metadata from loaded documents *before* processing.
+        Override this in subclasses if needed.
+        """
+        return {}
+
     def _ensure_initialized(self):
         """Initialize components if not already done"""
         if not self.llm:
@@ -146,6 +153,12 @@ class BaseRagService(ABC):
             # 1. Load Data
             documents = SimpleDirectoryReader(input_files=[processing_path]).load_data()
             
+            # HOOK: Domain-specific metadata enrichment (e.g. Extract Ticker from content)
+            extracted_metadata = await self._enrich_metadata_hook(documents)
+            if extracted_metadata:
+                logger.info(f"Extracted metadata: {extracted_metadata}")
+                document_metadata.update(extracted_metadata)
+
             # 2. Enrich Metadata
             for doc in documents:
                 doc.metadata.update(document_metadata)
