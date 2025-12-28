@@ -153,3 +153,23 @@ To address the failure modes above without ballooning Azure/OpenAI costs, we wil
     *   **Speaker Attribution**
     *   **Forward-Looking Hallucinations**
 
+---
+
+## 8. Advanced Capabilities Roadmap (Future)
+
+### 8.1 Intent-Aware Retrieval (Phase 2)
+*Goal: Eliminate "Silent Failures" (Semantic Drift)*
+- **Objective**: Stop returning Subsidiaries when asked for Competitors.
+- **Action**:
+    - **Classifier**: Implement lightweight LLM call to classify intent (`competitor`, `financials`, `general`).
+    - **Filters**: Enforce metadata constraints (e.g., `exclude_type=subsidiary`).
+- **Outcome**: Search results are semantically accurate, not just vector-similar.
+
+### 8.2 Conversational Intelligence (Phase 3)
+*Goal: Enable natural, analyst-like workflow.*
+- **Query State Machine**: Handle "latest", "last quarter", and "compare them".
+    - **Backend**: Implement Session State object (`{company, period, metric}`).
+    - **Logic**: State resolver updates context before retrieval.
+- **Time-Aware Chunking**: Ensure retrieval respects strict fiscal periods.
+    - Refine chunking to never cross document/quarter boundaries.
+    - Strict `fiscal_period` tagging.
