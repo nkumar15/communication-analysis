@@ -9,15 +9,16 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     curl \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Create user
 RUN useradd -m -u 1000 appuser && \
-    mkdir -p /app/cache/huggingface && \
-    chown -R appuser:appuser /app
+    mkdir -p /app/cache/huggingface /home/appuser/.cache/docling && \
+    chown -R appuser:appuser /app /home/appuser/.cache
 
 # 2. Builder Stage
 FROM base AS builder

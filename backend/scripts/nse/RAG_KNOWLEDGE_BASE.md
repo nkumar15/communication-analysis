@@ -37,6 +37,15 @@ Our RAG system is designed to handle complex financial queries with high precisi
 *   **Dual Representation**: We extract tables and store them as **Structure** (JSON) for rendering but **Generate Summaries** (Text) for embedding.
 *   **Frontend**: The UI detects table-like data and renders a structured grid/markdown table rather than raw text blocks.
 
+### 1.4 Known Issue: Cross-Entity Hallucination
+**Problem**: Queries like "Employee benefit expenses TCS" return tabular data for "Infosys".
+**Root Cause**:
+1.  **Semantic Dominance**: The embedding for "Employee benefit expenses" is identical across companies.
+2.  **Entity Blindness**: The vector model captures the "finance concept" efficiently but treats the entity name ("TCS") as just another keyword, which is outweighed by the dense financial match in the competitor's document.
+**Proposed Solution (Phase 2)**:
+*   **Metadata Filtering**: Extract `company_name` (e.g., "TCS") during ingestion and store as metadata.
+*   **Query Routing**: Parse the user query to extract entities (`filters: {company: "TCS"}`) and apply a Hard Filter on the vector search.
+
 ---
 
 ## 2. Experimentation Strategy

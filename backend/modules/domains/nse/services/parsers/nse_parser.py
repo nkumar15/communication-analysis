@@ -20,10 +20,18 @@ class NSEEarningsParser(NodeParser):
     chunk_size: int = Field(default=1024, description="Chunk size")
     chunk_overlap: int = Field(default=20, description="Chunk overlap")
     _splitter: SentenceSplitter = PrivateAttr()
-    
-    def __init__(self, chunk_size: int = 1024, chunk_overlap: int = 20, **kwargs):
+    _pdf_strategy: Any = PrivateAttr() # Type hint Any to avoid pydantic validation issues with Abstract class
+
+    def __init__(self, chunk_size: int = 1024, chunk_overlap: int = 20, pdf_strategy = None, **kwargs):
         super().__init__(chunk_size=chunk_size, chunk_overlap=chunk_overlap, **kwargs)
         self._splitter = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        
+        # Default Strategy if not provided
+        if pdf_strategy is None:
+            from modules.domains.nse.services.parsers.strategies import AzureParsingStrategy
+            self._pdf_strategy = AzureParsingStrategy()
+        else:
+            self._pdf_strategy = pdf_strategy
 
     def _parse_nodes(self, nodes: Sequence[BaseNode], show_progress: bool = False, **kwargs) -> List[BaseNode]:
         """
@@ -62,96 +70,13 @@ class NSEEarningsParser(NodeParser):
 
     def _parse_pdf(self, doc: Document) -> List[BaseNode]:
         """
-        Parse PDF using pdfplumber to extract text and tables separately.
-        Standard text is chunked via SentenceSplitter.
-        Tables are preserved as distinct TextNodes to maintain structure.
+        Parse PDF using the configured strategy (e.g., Docling).
+        Falls back to standard splitting on failure.
         """
-        import pdfplumber
-        
-        file_path = doc.metadata.get("file_path")
-        if not file_path:
-            return self._splitter.get_nodes_from_documents([doc])
-
-        nodes = []
-        
         try:
-            with pdfplumber.open(file_path) as pdf:
-                for page in pdf.pages:
-                    # 1. Extract and Process Text
-                    # We accept that extract_text might still include some table gibberish, 
-                    # but we rely on the Table Node to provide the clean version.
-                    # A robust solution would use crop() to exclude tables, but that's complex.
-                    text = page.extract_text() or ""
-                    
-                    if text.strip():
-                        # Create temporary doc for this page's text and split it
-                        page_doc = Document(text=text, metadata=doc.metadata)
-                        page_text_nodes = self._splitter.get_nodes_from_documents([page_doc])
-                        nodes.extend(page_text_nodes)
-
-                    # 2. Extract and Process Tables
-                    tables = page.extract_tables()
-                    
-                    # Fallback: If no tables found, try text-based strategy (whitespace)
-                    if not tables:
-                         logger.debug(f"[NSE Parser] Page {page.page_number}: No tables found with default strategy. Retrying with text strategy...")
-                         tables = page.extract_tables(table_settings={
-                             "vertical_strategy": "text", 
-                             "horizontal_strategy": "text",
-                             "snap_tolerance": 3,
-                         })
-
-                    logger.info(f"[NSE Parser] Page {page.page_number}: Found {len(tables)} tables")
-                    
-                    if tables:
-                        # Strategy Change: Merge primary table into the first TextNode of the page.
-                        # This ensures the node that ranks well (due to text content) also carries the UI payload.
-                        
-                        # We process the first table as the "Main" table for this page/chunk
-                        table = tables[0]
-                        
-                        cleaned_table = [[str(cell or "").replace("\n", " ").strip() for cell in row] for row in table]
-                        
-                        # Skip if empty
-                        if cleaned_table and any(any(c for c in row) for row in cleaned_table):
-                            headers = cleaned_table[0]
-                            
-                            # Create Markdown for searchability
-                            markdown_table = f"\n| {' | '.join(headers)} |\n| {' | '.join(['---']*len(headers))} |\n"
-                            for row in cleaned_table[1:]:
-                                markdown_table += f"| {' | '.join(row)} |\n"
-                                
-                            if page_text_nodes:
-                                target_node = page_text_nodes[0]
-                                logger.info(f"[NSE Parser] Merging Table {0} into TextNode {target_node.node_id[:8]}...")
-                                
-                                # Enrich Metadata
-                                target_node.metadata.update({
-                                    "is_table": True,
-                                    "table_rows": len(cleaned_table),
-                                    "table_columns": len(headers),
-                                    "table_json": {
-                                        "headers": headers,
-                                        "rows": cleaned_table[1:]
-                                    }
-                                })
-                                
-                                # Append Markdown to text to ensure table structure is indexed
-                                # We prepend a separator
-                                target_node.text += f"\n\n--- TABLE DATA ---\n{markdown_table}"
-                                
-                        # If there are more tables, we could append them as text or log them.
-                        # For now, focusing on the primary table per page avoids UI complexity.
-                        if len(tables) > 1:
-                            logger.debug(f"[NSE Parser] Page {page.page_number} has {len(tables)-1} extra tables, skipping JSON for them.")
-                            
-            return nodes
-                            
-            return nodes
-            
+            return self._pdf_strategy.parse(doc, self._splitter)
         except Exception as e:
-            # Fallback if pdfplumber fails
-            logger.error(f"Error parsing PDF with pdfplumber: {e}")
+            logger.error(f"Strategy parsing failed: {e}. Falling back to standard splitting.")
             return self._splitter.get_nodes_from_documents([doc])
 
     def _parse_transcript(self, doc: Document) -> List[BaseNode]:

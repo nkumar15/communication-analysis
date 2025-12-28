@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Global import is fine, but instance shouldn't be global if it holds loop state
 # from modules.domains.nse.services.rag_service import RagService 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60, name="domain.ingest_document")
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60, name="domain.ingest_document", time_limit=1800, soft_time_limit=1740)
 def ingest_document_task(self, payload: Dict[str, Any]):
     """
     Async Ingestion Task using ThreadPoolExecutor pattern.
@@ -119,6 +119,11 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
         rag_doc = result.scalars().first()
         
         if rag_doc:
+            # Idempotency: If job is already done, don't re-process (e.g. on worker restart)
+            if rag_doc.status == "completed":
+                logger.info(f"Job {job_id} is already completed. Skipping (Idempotency).")
+                return
+
             # Check for duplicate content before processing
             content_hash = payload.get('content_hash')
             force_reingest = settings.rag_skip_deduplication
@@ -169,7 +174,11 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
     except Exception as e:
         logger.error(f"Ingestion logic failed: {e}")
         if rag_doc:
+            # Handle SoftTimeLimitExceeded specific message if needed, but str(e) covers it
             rag_doc.status = "failed"
-            rag_doc.error_message = str(e)
-            await db.commit()
+            rag_doc.error_message = f"Processing failed: {str(e)}"
+            try:
+                await db.commit()
+            except Exception as db_exc:
+                logger.error(f"Failed to save error status: {db_exc}")
         raise

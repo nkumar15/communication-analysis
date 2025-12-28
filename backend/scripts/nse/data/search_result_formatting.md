@@ -56,43 +56,30 @@
 | **B. HTML Storage** | Medium | Medium | Medium |
 | **C. Dual Representation** | **High** (Native JSON) | **High** (Semantic Summary) | High (New storage + Pipeline changes) |
 
-## 4. Technical Feasibility: pdfplumber vs Alternatives
+## 4. Technical Feasibility: Extraction Engine Options
 
-### Is `pdfplumber` enough?
-**Verdict**: Good for "clean" native PDFs, likely **insufficient for complex financial reports**.
+| Feature | pdfplumber (Current) | LlamaParse (Cloud) | Docling (Open Source) | PyMuPDF4LLM |
+| :--- | :--- | :--- | :--- | :--- |
+| **Mechanism** | Heuristic (lines/text). | Vision Model (Cloud). | Vision + Layout Models (Local). | Enhanced Rule-based. |
+| **Table Accuracy** | 🔴 Low (Fails on borderless). | 🟢 High (SOTA). | 🟢 High (Specialized for charts/tables). | 🟡 Medium. |
+| **Cost** | Free. | Paid (Usage based). | Free (MIT License). | Free (AGPL License). |
+| **Latency** | Fast (<1s). | Slow (API call). | Medium (Local Inference). | Fast. |
+| **Edge Case** | Fails on multi-column. | Robust. | Robust. | Good. |
 
-| Feature | pdfplumber (Current) | AI Extractors (LlamaParse / Unstructured / Azure) |
-| :--- | :--- | :--- |
-| **Mechanism** | Rule-based heuristics (lines, whitespace alignment). | Computer Vision + OCR + Layout Transformer models. |
-| **Merged Cells** | ❌ Often fails or splits incorrectly. | ✅ Handles merged headers/cells well. |
-| **Borderless Tables** | ❌ Struggles (needs horizontal line detection). | ✅ Detects structure visually. |
-| **Multi-line Rows** | ⚠️ Fragile (often splits row into two). | ✅ Groups semantically. |
-| **Cost** | Free (Open Source, Local). | Paid (API cost per page). |
-| **Speed** | Fast. | Slow (Network call). |
-
-**Recommendation**:
-- **Phase 1**: Stick with `pdfplumber` but invest time in detailed `table_settings` tuning (e.g., `vertical_strategy="text"`, `snap_tolerance`).
-- **Phase 2**: If fidelity is low (< 90%), switch to **LlamaParse** (specifically optimized for RAG tables) or **Azure Document Intelligence** (Gold standard for forms).
-
-## 5. Risk Assessment (The "Hidden" Risks)
-
-1.  **Layout Shift Brittleness**:
-    - *Risk*: A slight design change in the Annual Report (e.g., removing vertical grid lines) breaks `pdfplumber` heuristics.
-    - *Mitigation*: Unit tests with samples from different years; flexible parsing logic.
-
-2.  **"Ghost" Tables**:
-    - *Risk*: Parsers often misidentify the "Management Discussion" 2-column layout as a huge table, destroying the narrative flow.
-    - *Mitigation*: Set strict thresholds for "table density" (must have numbers/headers).
-
-3.  **Footnote Separation**:
-    - *Risk*: Table footnotes ("* adjusted for FX") often get detached from the table or merged into the last row, losing critical context.
-    - *Mitigation*: Heuristics to detect small font/lines immediately following table bounds.
-
-4.  **Header Hierarchy Loss**:
-    - *Risk*: Nested headers (e.g., "India | USA" under "Revenue") get flattened to "Revenue India USA", making column mapping ambiguous.
-    - *Mitigation*: Use parsers that output hierarchical JSON (like LlamaParse "markdown" mode).
+### Analysis of New Candidates
+1.  **Docling (IBM)**: 
+    -   *Pros*: MIT License, specifically designed for document conversion (PDF -> Markdown/JSON), handles complex layouts/tables using vision models locally.
+    -   *Cons*: Heavier dependency (requires PyTorch/Model weights).
+2.  **PyMuPDF4LLM**:
+    -   *Pros*: Extremely fast, lightweight.
+    -   *Cons*: **AGPL License** (Viral license, risky for Enterprise software), heuristics might still struggle with very complex charts.
 
 ## 6. Recommendation
-**Adopt Option C (Dual Representation)** but acknowledge that `pdfplumber` is the weak link.
-- **Immediate Action**: Implement Dual Representation using `pdfplumber`.
-- **Trigger for Upgrade**: If Table Extraction fidelity is < 80% on the Gold Set, swap the extraction engine (Step 1) to LlamaParse without changing the downstream architecture.
+**Pivot to Docling (Option C + Docling)**.
+-   **Why**: It offers the robustness of LlamaParse (vision-based layout analysis) without the cloud cost/data privacy issues. It is MIT licensed, avoiding the AGPL risks of PyMuPDF.
+-   **Trade-off**: Increases container image size (needs ML libraries), but we already use `sentence-transformers`, so the delta is manageable.
+
+**Plan**:
+1.  Add `docling` to `requirements.txt`.
+2.  Update `NSEEarningsParser` to use `docling.document_converter`.
+3.  Use Docling's native export to Markdown/JSON directly.

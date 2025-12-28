@@ -248,11 +248,13 @@ services:
       - LLM_PROVIDER=openai
       - EMBEDDING_PROVIDER=openai
       - EMBEDDING_MODEL=text-embedding-3-small
+      - EMBEDDING_MODEL=text-embedding-3-small
       - HF_HOME=/app/cache/huggingface
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
       - hf_cache:/app/cache/huggingface
+      - docling_cache:/home/appuser/.cache/docling
     depends_on:
       - postgres
       - redis
@@ -488,4 +490,6 @@ volumes:
   minio_data:
     driver: local
   hf_cache:
+    driver: local
+  docling_cache:
     driver: local

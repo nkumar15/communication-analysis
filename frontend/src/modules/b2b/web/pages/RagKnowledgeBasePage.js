@@ -258,6 +258,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
             const res = await b2bClient.uploadRagDocument(domain, formData);
             setUploadStatus('Processing...');
             setPollingJobId(res.job_id); // Start polling
+            setUploading(false); // Upload (request) is finished
         } catch (error) {
             console.error("Upload failed", error);
             setUploadStatus(`❌ Error: ${error.message}`);
