@@ -8,6 +8,12 @@ This microservice handles domain-specific business logic:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
+# CRITICAL: Disable LlamaIndex's auto-patching of event loop (nest_asyncio)
+# Monkeypatch nest_asyncio.apply to be a no-op because we use uvloop (incompatible)
+import nest_asyncio
+nest_asyncio.apply = lambda: None
+
 from core.config import settings
 from core.db.session import init_db, close_db, engine
 from infrastructure.auth import get_auth_provider

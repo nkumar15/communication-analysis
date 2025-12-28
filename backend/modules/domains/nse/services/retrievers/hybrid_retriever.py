@@ -1,15 +1,20 @@
 import os
-from typing import List, Optional
+import logging
+from typing import List, Optional, Any
 from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 from llama_index.core.embeddings import BaseEmbedding
+from llama_index.core.vector_stores import MetadataFilters, MetadataFilter
 from elasticsearch import AsyncElasticsearch
+
+logger = logging.getLogger(__name__)
 
 class TenantAwareHybridRetriever(BaseRetriever):
     """
     Custom Retriever for Tenant-Aware Hybrid Search (RRF).
     Combines Vector Search (KNN) and Keyword Search (BM25) with Reciprocal Rank Fusion.
     Enforces strict tenant isolation via filter.
+    Supports dynamic metadata filters (Ticker, Year, etc.).
     """
     def __init__(
         self,
@@ -18,6 +23,7 @@ class TenantAwareHybridRetriever(BaseRetriever):
         tenant_id: str = None,
         top_k: int = 5,
         vector_weight: float = 0.5, # Not used in RRF strictly but good for param
+        filters: Optional[MetadataFilters] = None,
     ):
         super().__init__()
         self._embed_model = embed_model
@@ -26,6 +32,31 @@ class TenantAwareHybridRetriever(BaseRetriever):
         self._top_k = top_k
         self._es_url = os.getenv("ELASTICSEARCH_URL", "http://elasticsearch:9200")
         self._client = AsyncElasticsearch(self._es_url)
+        self._filters = filters
+
+    def _build_es_filters(self) -> List[dict]:
+        """
+        Constructs Elasticsearch filter clauses from tenant_id and optional MetadataFilters.
+        """
+        # 1. Mandatory Tenant Isolation
+        es_filters = [{"term": {"metadata.tenant_id.keyword": self._tenant_id}}]
+        
+        logger.info(f"DEBUG_ES_BUILDER: Starting build for Tenant {self._tenant_id}")
+        
+        # 2. Dynamic Metadata Filters
+        if self._filters and self._filters.filters:
+            logger.info(f"DEBUG_ES_BUILDER: Processing {len(self._filters.filters)} metadata filters.")
+            for f in self._filters.filters:
+                logger.info(f"DEBUG_ES_BUILDER: Adding Filter -> {f.key} = {f.value}")
+                # Assuming simple exact match for now. Use .keyword for exact string fields.
+                # LlamaIndex filters have key, value, operator.
+                field_name = f"metadata.{f.key}.keyword" if isinstance(f.value, str) else f"metadata.{f.key}"
+                es_filters.append({"term": {field_name: f.value}})
+        else:
+            logger.info("DEBUG_ES_BUILDER: No metadata filters provided.")
+                
+        logger.info(f"DEBUG_ES_BUILDER: Final ES Filter Clause: {es_filters}")
+        return es_filters
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """
@@ -38,6 +69,9 @@ class TenantAwareHybridRetriever(BaseRetriever):
         query_text = query_bundle.query_str
         query_embedding = await self._embed_model.aget_query_embedding(query_text)
         
+        # Build Filter Clauses
+        filter_clauses = self._build_es_filters()
+        
         # 1. Execute Parallel Searches (BM25 and kNN)
         
         # A. Keyword Search (BM25)
@@ -45,7 +79,7 @@ class TenantAwareHybridRetriever(BaseRetriever):
             "query": {
                 "bool": {
                     "must": [{"match": {"content": query_text}}],
-                    "filter": [{"term": {"metadata.tenant_id.keyword": self._tenant_id}}]
+                    "filter": filter_clauses
                 }
             },
             "size": 50, # Fetch more candidates for fusion
@@ -59,7 +93,7 @@ class TenantAwareHybridRetriever(BaseRetriever):
                 "query_vector": query_embedding,
                 "k": 50, # Fetch more candidates for fusion
                 "num_candidates": 100,
-                "filter": {"term": {"metadata.tenant_id.keyword": self._tenant_id}}
+                "filter": {"bool": {"filter": filter_clauses}} 
             },
             "size": 50,
             "_source": ["content", "metadata", "id", "document_id"]

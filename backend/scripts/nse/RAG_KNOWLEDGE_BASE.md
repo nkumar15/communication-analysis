@@ -94,3 +94,62 @@ When upgrading embedding models:
 ## 5. Artifact Index
 *   **Experiment Logs**: [`EXPERIMENT_REGISTRY.md`](./data/EXPERIMENT_REGISTRY.md) (The active log of all runs).
 *   **Evaluation Script**: `evaluate_rag.py`.
+
+---
+
+## 6. Taxonomy of Financial RAG Failures
+
+A catalog of known and potential failure modes specific to Earnings Calls & Financial Reports.
+
+| Category | Description | Example Scenario | Mitigation Strategy |
+| :--- | :--- | :--- | :--- |
+| **1. Entity Ambiguity (Cross-Tenant)** | Vector search retrieves documents from the wrong company due to generic financial terminology. | Query: *"TCS Margins"* <br>Result: *"Infosys Margins"* (because "Margins" vector is strong). | **Metadata Filtering**: Hard filter by `ticker` or `company_name`. |
+| **2. Structural Loss (Tabular)** | Parsing tools flatten complex tables into unstructured text, losing row/column alignment. | Query: *"Q2 FY25 Revenue"* <br>Result: Returns revenue for "Q2 FY24" because alignment was lost. | **Vision/Layout Models**: Use Azure Layout to preserve grid structure (JSON). |
+| **3. Temporal Ambiguity** | LLM/Retriever fails to distinguish between quarters or fiscal years. | Query: *"Latest revenue"* <br>Result: Returns FY23 data because it had higher keyword density. | **Recency Weighting**: Boost newer documents in retrieval. <br>**Metadata**: Explicit `fiscal_year` filtering. |
+| **4. Scope Ambiguity** | Confusion between "Standalone" and "Consolidated" figures. | Query: *"Net Profit"* <br>Result: Extracts Standalone profit (lower) instead of Consolidated (higher). | **Chunk Enrichment**: Prepend "Scope: Consolidated" to chunk text during ingestion. |
+| **5. Hard Negatives (Relational)** | Semantic similarity captures related entities (Subsidiaries, Partners) instead of the requested relation (Competitors). | Query: *"Competitors"* <br>Result: *"We invested in Subsidiary X..."* | **Reranking**: Cross-Encoder to filter non-relevant relationships. <br>**Strict Prompting**. |
+| **6. Unit Hallucination** | misinterpretation of financial units (Crores, Lakhs, Millions, USD). | Query: *"Revenue in USD"* <br>Result: Treats INR Crores as USD. | **Standardization**: Normalize all matching fields to a base currency in metadata? <br>**Prompt**: "Always cite original units". |
+| **7. Speaker Attribution** | In Concalls, confusing Management statements with Analyst questions. | Query: *"Guidance for FY26"* <br>Result: Cites an Analyst *asking* about guidance, not the answer. | **Diarization**: Tag chunks with `speaker_role: "Management"` or `"Analyst"`. |
+| **8. Forward-Looking vs Actuals** | Confusing official Guidance/Outlook with actual historical results. | Query: *"Q4 Results"* <br>Result: Returns the *Outlook* for Q4 from the Q3 call. | **Section Classification**: Classify chunks as "Outlook" vs "Financials". |
+
+---
+
+## 7. Prioritized Implementation Roadmap (Cost-Optimized)
+
+> **Detailed Design**: See [`AZURE_PARSING_STRATEGY.md`](./AZURE_PARSING_STRATEGY.md) for the technical specification of the "Golden Cache" and Semantic Chunking logic.
+
+To address the failure modes above without ballooning Azure/OpenAI costs, we will follow this **"Parse Once, Enrich Offline"** strategy.
+
+### Stage 1: The "Golden Cache" (Immediate Priority)
+**Goal**: Never call Azure Document Intelligence twice for the same PDF.
+*   **Action**: Update `AzureParsingStrategy` to save the **Raw Azure JSON Response** to disk (e.g., `.processed/<content_hash>.json`).
+*   **Benefit**: We can iterate on Table Formatting, Chunking strategies, and Metadata extraction infinitely using the cached JSON. Zero marginal cost.
+*   **Solves**: Budget constraints during development.
+
+### Stage 2: Metadata Enrichment (One-Pass)
+**Goal**: Solve Entity, Temporal, and Scope ambiguities in one go.
+*   **Action**: Before chunking, send the **First Page Text** (from Cache) to `gpt-4o-mini` to extract a "Global Metadata" object:
+    ```json
+    {
+      "ticker": "TCS",
+      "fiscal_year": "2025",
+      "period": "Q2",
+      "currency": "INR",
+      "scope": ["Consolidated", "Standalone"]
+    }
+    ```
+*   **Apply**: Stamp this metadata onto *every chunk* generated from the document.
+*   **Solves**:
+    *   **Entity Ambiguity** (Filter by `ticker=TCS`)
+    *   **Temporal Ambiguity** (Filter by `fiscal_year=2025`)
+    *   **Unit Hallucination** (Context includes `currency=INR`)
+
+### Stage 3: Structural & Section Tagging (Offline)
+**Goal**: Use Azure's layout data to classify chunks (without new API calls).
+*   **Action**: Use the cached Azure Layout (Headers/Paragraphs) to detect:
+    *   **"Speaker"**: Text following "Operator:" or "Mr. Chandrasekaran:" -> Tag as `speaker_role`.
+    *   **"Section"**: Text under header "Outlook" -> Tag as `section_type: outlook`.
+*   **Solves**:
+    *   **Speaker Attribution**
+    *   **Forward-Looking Hallucinations**
+
