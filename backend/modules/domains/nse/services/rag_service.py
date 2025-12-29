@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Any, List, Optional
+import asyncio
 from uuid import UUID
 
 from llama_index.core.vector_stores import MetadataFilters, MetadataFilter
@@ -173,8 +174,26 @@ class RagService(BaseRagService):
             
             # 3. Execute Retrieval
             from llama_index.core.schema import QueryBundle
+            from infrastructure.factories.reranker_factory import RerankerFactory
+
+            # Increase recall for reranking
+            fusion_retriever.similarity_top_k = 30
             nodes = await fusion_retriever.aretrieve(QueryBundle(query_str=query))
             
+            # 4. Rerank Results
+            candidate_texts = [n.node.get_content() for n in nodes]
+            if candidate_texts:
+                reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=10)
+                
+                # Reconstruct sorted nodes list based on reranker indices
+                reranked_nodes = []
+                for idx, score in reranker_results:
+                    original_node = nodes[idx]
+                    original_node.score = float(score) # Update score with semantic score
+                    reranked_nodes.append(original_node)
+                
+                nodes = reranked_nodes
+
             # Format results
             results = []
             for n in nodes:

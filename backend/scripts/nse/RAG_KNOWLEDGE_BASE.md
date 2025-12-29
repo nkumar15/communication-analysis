@@ -14,11 +14,12 @@ Our RAG system is designed to handle complex financial queries with high precisi
 1.  **Retrieval (Hybrid)**:
     *   **Vector Search**: Finds semantic matches (concepts).
     *   **Keyword Search (BM25)**: Finds exact matches (tickers, specific metrics like "EBITDA").
-    *   **Fusion**: Reciprocal Rank Fusion (RRF) combines these into `top_k=20` candidates.
+    *   **Fusion**: Reciprocal Rank Fusion (RRF) combines these into `top_k=30` candidates.
+    *   **Constraint**: RRF produced "Rank Ties" (e.g., Score 0.5) where an irrelevant keyword match tied with a relevant semantic match, creating noise.
 2.  **Reranking (Precision)**:
     *   **Model**: `CrossEncoder` (`ms-marco-MiniLM-L-6-v2`).
-    *   **Logic**: Re-scores the 20 candidates by reading the Query + Document pair together.
-    *   **Normalization**: Raw logits are passed through a Sigmoid function to get 0-1 probabilities.
+    *   **Logic**: Re-scores the 30 candidates by reading the Query + Document pair together.
+    *   **Impact**: Resolves rank ties (e.g., relevant doc boosted to 0.75, irrelevant doc suppressed to 0.13).
     *   **Filtering**: **Hard Threshold (0.25)**. Any chunk with < 25% relevance is discarded.
 3.  **Generation (Faithfulness)**:
     *   **Model**: `gpt-4o-mini`.
@@ -173,3 +174,18 @@ To address the failure modes above without ballooning Azure/OpenAI costs, we wil
 - **Time-Aware Chunking**: Ensure retrieval respects strict fiscal periods.
     - Refine chunking to never cross document/quarter boundaries.
     - Strict `fiscal_period` tagging.
+
+---
+
+## 9. Recent Optimizations (Dec 2025)
+
+### 9.1 Advanced Parsing & Chunking
+*   **Docling Accurate Mode**: Switched from `fast_mode=True` to `False` to enable `TableFormerMode.ACCURATE` with OCR. 
+    *   *Trade-off*: Ingestion time increased (approx. 9.5 mins for a 50-page presentation) but table fidelity is now production-grade.
+*   **Semantic Chunking**: Replaced fixed-size `SentenceSplitter` with LlamaIndex `SemanticSplitterNodeParser`.
+    *   *Benefit*: Chunks are now boundary-aware based on embedding similarity, preventing topics from being split mid-paragraph.
+
+### 9.2 Robustness Fixes
+*   **Entity Canonicalization**: Implemented strict mapping rules in `metadata.py` and `RagService` to resolve entity ambiguity (e.g., "HDFC" -> "HDFCBANK").
+*   **Fusion Mode Import**: Fixed critical import error in `llama-index` for `FusionMode` (Enum is named `FUSION_MODES`).
+*   **Silent Failures**: Added `exc_info=True` logging to `Metadata Enrichment` hook to catch and trace LLM extraction failures during ingestion.
