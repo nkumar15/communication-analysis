@@ -84,8 +84,9 @@ class RagService(BaseRagService):
                 "- scope: 'Standalone' or 'Consolidated' if strictly mentioned.\n\n"
                 "Rules:\n"
                 "1. If a company name is mentioned (even in lowercase like 'reliance'), extract its standard ticker (e.g. RELIANCE).\n"
-                "2. If no company is mentioned, leave ticker null.\n"
-                "3. Do not infer filters that are not in the query.\n\n"
+                "2. Specific Mappings: 'HDFC' or 'HDFC Bank' -> 'HDFCBANK', 'Reliance' -> 'RELIANCE'.\n"
+                "3. If no company is mentioned, leave ticker null.\n"
+                "4. Do not infer filters that are not in the query.\n\n"
                 "User Question: {query_str}\n"
             )
 

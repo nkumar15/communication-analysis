@@ -37,6 +37,10 @@ class MetadataExtractor:
                 "You are an expert financial analyst. Analyze the following text cover page "
                 "from an Indian NSE listed company's financial report or earnings call.\n"
                 "Extract the metadata items strictly.\n\n"
+                "Canonicalization Rules:\n"
+                "- Map 'HDFC', 'HDFC Limited', 'Housing Development Finance Corp' -> 'HDFCBANK' (as they are merged).\n"
+                "- Map 'Reliance', 'RIL' -> 'RELIANCE'.\n"
+                "- Map 'TCS', 'Tata Consultancy Services' -> 'TCS'.\n\n"
                 "Text:\n{text}\n\n"
             )
             
