@@ -5,7 +5,7 @@ from pathlib import Path
 
 from llama_index.core.node_parser import NodeParser
 from llama_index.core.schema import BaseNode, Document, TextNode
-from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.node_parser import SentenceSplitter, SemanticSplitterNodeParser
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
 
 logger = logging.getLogger(__name__)
@@ -19,12 +19,25 @@ class NSEEarningsParser(NodeParser):
     """
     chunk_size: int = Field(default=1024, description="Chunk size")
     chunk_overlap: int = Field(default=20, description="Chunk overlap")
-    _splitter: SentenceSplitter = PrivateAttr()
+    _splitter: NodeParser = PrivateAttr()
     _pdf_strategy: Any = PrivateAttr() # Type hint Any to avoid pydantic validation issues with Abstract class
 
-    def __init__(self, chunk_size: int = 1024, chunk_overlap: int = 20, pdf_strategy = None, **kwargs):
+    def __init__(self, chunk_size: int = 1024, chunk_overlap: int = 20, pdf_strategy = None, embed_model = None, **kwargs):
         super().__init__(chunk_size=chunk_size, chunk_overlap=chunk_overlap, **kwargs)
-        self._splitter = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        
+        # Use Semantic Splitter if embed_model is provided
+        if embed_model:
+            from llama_index.core.node_parser import SemanticSplitterNodeParser
+            # buffer_size=1 means it processes sentences one by one for breakpoints
+            # breakpoint_percentile_threshold=95 means it splits when similarity drops significantly (top 5% of drops)
+            self._splitter = SemanticSplitterNodeParser(
+                buffer_size=1, 
+                breakpoint_percentile_threshold=95, 
+                embed_model=embed_model
+            )
+            # We still keep a sentence splitter for fallback/size checks if needed, but primary is semantic
+        else:
+            self._splitter = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         
         # Default Strategy if not provided
         if pdf_strategy is None:

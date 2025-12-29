@@ -29,7 +29,8 @@ class RagService(BaseRagService):
         return self._index_name
 
     def get_parser(self):
-        return NSEEarningsParser()
+        self._ensure_initialized()
+        return NSEEarningsParser(embed_model=self.embed_model)
 
     async def _enrich_metadata_hook(self, documents: List[Any]) -> Dict[str, Any]:
         """
