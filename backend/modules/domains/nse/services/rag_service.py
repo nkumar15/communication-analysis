@@ -10,7 +10,7 @@ from llama_index.core.vector_stores import MetadataFilters, MetadataFilter
 from modules.domains.core.services.base_rag_service import BaseRagService
 from modules.domains.nse.services.parsers.nse_parser import NSEEarningsParser
 from modules.domains.nse.services.parsers.metadata import NSEDocumentMetadata
-from modules.domains.nse.services.retrievers.hybrid_retriever import TenantAwareHybridRetriever
+
 
 logger = logging.getLogger(__name__)
 
@@ -117,8 +117,8 @@ class RagService(BaseRagService):
         """
         NSE Specific Search Implementation:
         1. Decompose Query -> Filters
-        2. Retrieve (Hybrid + Tenant Isolation + Filters)
-        3. Synthesize (TODO: integrate synth, for now returning nodes)
+        2. Retrieve (QueryFusionRetriever: Vector + BM25)
+        3. Return results
         """
         self._ensure_initialized()
         
@@ -130,33 +130,64 @@ class RagService(BaseRagService):
         else:
              logger.info("DEBUG_RAG: No filters decomposed (General Query)")
         
-        # 2. Initialize Retriever with Filters
-        retriever = TenantAwareHybridRetriever(
-            embed_model=self.embed_model,
-            index_name=self.get_index_name(),
-            tenant_id=str(tenant_id),
-            filters=filters
-        )
-        
-        # 3. Execute Retrieval
-        from llama_index.core.schema import QueryBundle
-        nodes = await retriever.aretrieve(QueryBundle(query_str=query))
-        
-        # Format results
-        results = []
-        for n in nodes:
-            results.append({
-                "text": n.node.get_content(),
-                "score": n.score,
-                "metadata": n.node.metadata
-            })
+        # 2. Setup Retrievers
+        try:
+            from llama_index.core.retrievers import QueryFusionRetriever
+            from llama_index.core import VectorStoreIndex
+            from modules.domains.nse.services.retrievers.es_bm25_retriever import ElasticsearchBM25Retriever
+            from llama_index.core.retrievers import QueryFusionRetriever
             
-        return {
-            "query": query,
-            "filters": [f.dict() for f in filters.filters] if filters else None,
-            "results": results,
-            "count": len(results)
-        }
+            # A. Vector Retriever (Standard LlamaIndex)
+            # We need to create an index view first from the vector store
+            index = VectorStoreIndex.from_vector_store(self.vector_store, embed_model=self.embed_model)
+            
+            vector_retriever = index.as_retriever(
+                filters=filters,
+                similarity_top_k=50 # Retrieve candidates for fusion
+            )
+            
+            # B. BM25 Retriever (Custom ES)
+            bm25_retriever = ElasticsearchBM25Retriever(
+                index_name=self.get_index_name(),
+                tenant_id=str(tenant_id),
+                filters=filters,
+                top_k=50 
+            )
+            
+            # C. Query Fusion
+            from llama_index.core.retrievers import FusionMode
+            fusion_retriever = QueryFusionRetriever(
+                [vector_retriever, bm25_retriever],
+                retriever_weights=[0.5, 0.5], # RRF ignores weights usually, but good to have
+                similarity_top_k=10, # Final Top K
+                num_queries=1, # No query generation extension, just single query fusion
+                mode=FusionMode.RECIPROCAL_RANK,
+                use_async=True
+            )
+            
+            # 3. Execute Retrieval
+            from llama_index.core.schema import QueryBundle
+            nodes = await fusion_retriever.aretrieve(QueryBundle(query_str=query))
+            
+            # Format results
+            results = []
+            for n in nodes:
+                results.append({
+                    "text": n.node.get_content(),
+                    "score": n.score,
+                    "metadata": n.node.metadata
+                })
+                
+            return {
+                "query": query,
+                "filters": [f.dict() for f in filters.filters] if filters else None,
+                "results": results,
+                "count": len(results)
+            }
+            
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            raise e
 
 
 
