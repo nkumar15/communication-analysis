@@ -446,7 +446,10 @@ class DoclingParsingStrategy(IPdfParsingStrategy):
             
             # Compatibility Fix: Manual Regex Clean for Base64 Images
             # Matches ![...](data:image/...) and replaces with ![Image Placeholder]
-            full_markdown = re.sub(r'!\[.*?\]\(data:image\/.*?\)', '![Image Placeholder]', full_markdown)
+            full_markdown = re.sub(r'!\[.*?\]\(data:image\/.*?\)', '', full_markdown)
+            
+            # Clean Docling internal comments like <!-- image -->
+            full_markdown = re.sub(r'<!-- image -->', '', full_markdown)
             
             if not full_markdown.strip():
                 logger.warning("[DoclingStrategy] Extracted empty markdown.")

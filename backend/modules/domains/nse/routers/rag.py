@@ -14,9 +14,11 @@ from modules.b2b.models.rag_document import RagDocument
 from modules.b2b.models.tenant import TenantModel
 from modules.b2b.middleware.b2b_auth import get_current_active_user
 
-# Generic Celery instance for producing tasks
 from celery import Celery
 celery_producer = Celery('api_producer', broker=settings.celery_broker_url_resolved)
+
+# Import RagService at top level to ensure preloading of Reranker model on startup
+from modules.domains.nse.services.rag_service import rag_service
 
 router = APIRouter(
     prefix="/api/domain/{domain}/rag",
@@ -184,7 +186,7 @@ async def search_documents(
     This ensures Query Understanding (Decomposition) and advanced retrieval logic is applied.
     """
     try:
-        from modules.domains.nse.services.rag_service import rag_service
+        # rag_service is imported at module level for preloading
         
         # Call the service which handles:
         # 1. Query Decomposition (NL -> Filters)

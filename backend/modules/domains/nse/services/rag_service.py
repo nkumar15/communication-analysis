@@ -25,6 +25,15 @@ class RagService(BaseRagService):
     def __init__(self, index_name: str = "nse_rag_documents"):
         super().__init__()
         self._index_name = index_name
+        
+        # Preload Reranker Model to avoid latency on first request
+        try:
+             from infrastructure.factories.reranker_factory import RerankerFactory
+             logger.info("Preloading Reranker model...")
+             RerankerFactory.get_reranker()
+             logger.info("Reranker model preloaded.")
+        except Exception as e:
+             logger.warning(f"Failed to preload reranker: {e}")
 
     def get_index_name(self) -> str:
         return self._index_name
