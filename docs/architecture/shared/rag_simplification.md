@@ -69,7 +69,7 @@
     *   **Complexity Reduction**: **Low (Logic Swap)** but **High (Quality Gain)**.
 
 ---
-
+ 
 ## 5. Solving Roadmap Challenges with LlamaIndex
 
 The following roadmap pain points can be solved using standard LlamaIndex components without custom engineering:

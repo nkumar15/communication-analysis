@@ -45,6 +45,8 @@ class RagService(BaseRagService):
             
             # Use the text of the first document/page
             first_page_text = documents[0].text
+            if len(first_page_text) < 100:
+                logger.warning(f"[MetadataEnrichment] Text too short length: {len(first_page_text)}")
             
             extractor = MetadataExtractor()
             # Run extraction (it's synchronous for now in the extractor class, but wrapped in async hook)
@@ -62,6 +64,7 @@ class RagService(BaseRagService):
             
         except Exception as e:
             logger.warning(f"Metadata extraction failed: {e}")
+            logger.error(f"Metadata extraction traceback", exc_info=True)
             return {}
 
     async def _decompose_query(self, query_text: str) -> Optional[MetadataFilters]:
@@ -87,9 +90,10 @@ class RagService(BaseRagService):
             )
 
             # Use LlamaIndex's built-in structured prediction
+            from llama_index.core import PromptTemplate
             output = await Settings.llm.astructured_predict(
                 NSEDocumentMetadata,
-                prompt_template_str,
+                PromptTemplate(prompt_template_str),
                 query_str=query_text
             )
             
@@ -156,13 +160,13 @@ class RagService(BaseRagService):
             )
             
             # C. Query Fusion
-            from llama_index.core.retrievers import FusionMode
+            from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
             fusion_retriever = QueryFusionRetriever(
                 [vector_retriever, bm25_retriever],
                 retriever_weights=[0.5, 0.5], # RRF ignores weights usually, but good to have
                 similarity_top_k=10, # Final Top K
                 num_queries=1, # No query generation extension, just single query fusion
-                mode=FusionMode.RECIPROCAL_RANK,
+                mode=FUSION_MODES.RECIPROCAL_RANK,
                 use_async=True
             )
             

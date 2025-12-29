@@ -42,7 +42,8 @@ class NSEEarningsParser(NodeParser):
         # Default Strategy if not provided
         if pdf_strategy is None:
             from modules.domains.nse.services.parsers.strategies import DoclingParsingStrategy
-            self._pdf_strategy = DoclingParsingStrategy(fast_mode=True, do_ocr=True)
+            # Enable Accurate Mode for better table extraction
+            self._pdf_strategy = DoclingParsingStrategy(fast_mode=False, do_ocr=True)
         else:
             self._pdf_strategy = pdf_strategy
 
