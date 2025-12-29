@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 from uuid import UUID
 
 from llama_index.core.vector_stores import MetadataFilters, MetadataFilter
-from openai import AsyncOpenAI
+
 # from llama_index.llms.openai import OpenAI # REMOVED: Incompatible with uvloop
 # from llama_index.core.llms import ChatMessage # REMOVED
 
@@ -24,10 +24,6 @@ class RagService(BaseRagService):
     def __init__(self, index_name: str = "nse_rag_documents"):
         super().__init__()
         self._index_name = index_name
-        # Specialized LLM for Query Decomposition (Fast & Cheap)
-        # Using raw AsyncOpenAI client to avoid LlamaIndex/uvloop conflicts
-        import os
-        self._router_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def get_index_name(self) -> str:
         return self._index_name
@@ -73,7 +69,8 @@ class RagService(BaseRagService):
         Example: "Revenue of TCS in FY25" -> {ticker: TCS, fiscal_year: FY25}
         """
         try:
-            # reuse NSEDocumentMetadata schema which has the fields we want
+            from llama_index.core import Settings
+            
             prompt_template_str = (
                 "You are an expert financial query parser. Your job is to extract search filters from the user's natural language question.\n"
                 "Target Metadata Fields:\n"
@@ -86,29 +83,14 @@ class RagService(BaseRagService):
                 "2. If no company is mentioned, leave ticker null.\n"
                 "3. Do not infer filters that are not in the query.\n\n"
                 "User Question: {query_str}\n"
-                "Metadata:"
             )
-            
-            # Executing ASYNC LLM call directly to bypass LLMTextCompletionProgram loop patching issues
-            # We instruct the LLM to return JSON and parse it manually.
-            
-            messages = [
-                {"role": "system", "content": prompt_template_str.format(query_str=query_text) + "\n\nReturn the result as a valid JSON object matching the metadata schema."},
-                {"role": "user", "content": query_text}
-            ]
-            
-            response = await self._router_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0.0,
-                response_format={"type": "json_object"}
+
+            # Use LlamaIndex's built-in structured prediction
+            output = await Settings.llm.astructured_predict(
+                NSEDocumentMetadata,
+                prompt_template_str,
+                query_str=query_text
             )
-            
-            content = response.choices[0].message.content
-            
-            # Use Pydantic to validate/parse the JSON string (cleaning markdown block ticks if present)
-            clean_content = content.replace("```json", "").replace("```", "").strip()
-            output = NSEDocumentMetadata.model_validate_json(clean_content)
             
             filters = []
             if output.ticker:
@@ -182,8 +164,6 @@ class RagService(BaseRagService):
         """
         Cleanup resources.
         """
-        if self._router_client:
-            await self._router_client.close()
         await super().close()
 
 # Singleton instance
