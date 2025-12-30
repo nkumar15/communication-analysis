@@ -206,6 +206,7 @@ services:
       - EMAIL_PROVIDER=mailhog
       - MAILHOG_HOST=mailhog
       - LLM_PROVIDER=openai
+      - LLM_MODEL=gpt-4o-mini
       - EMBEDDING_PROVIDER=openai
       - EMBEDDING_MODEL=text-embedding-3-small
       - HF_HOME=/app/cache/huggingface
@@ -246,6 +247,7 @@ services:
       - MINIO_SECURE=False
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - LLM_PROVIDER=openai
+      - LLM_MODEL=gpt-4o-mini
       - EMBEDDING_PROVIDER=openai
       - EMBEDDING_MODEL=text-embedding-3-small
       - EMBEDDING_MODEL=text-embedding-3-small

@@ -201,7 +201,7 @@ class RagService(BaseRagService):
             if candidate_texts:
                 logger.info(f"Starting reranking for {len(candidate_texts)} candidates.")
                 with record_rag_processing(domain="nse", stage="reranking"):
-                    reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=10)
+                    reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=5)
                 logger.info("Reranking complete.")
                 
                 # Reconstruct sorted nodes list based on reranker indices
