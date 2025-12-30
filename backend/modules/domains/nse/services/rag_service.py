@@ -53,16 +53,19 @@ class RagService(BaseRagService):
             # Import here to avoid circular dependencies if any
             from modules.domains.nse.services.parsers.metadata import MetadataExtractor
             
-            # Use the text of the first document/page
-            first_page_text = documents[0].text
-            if len(first_page_text) < 100:
-                logger.warning(f"[MetadataEnrichment] Text too short length: {len(first_page_text)}")
+            # Use the text of the first 3 pages to increase chance of finding company name
+            # (Page 1 might be just a logo/image)
+            pages_to_scan = documents[:3]
+            combined_text = "\n---PAGE BREAK---\n".join([d.text for d in pages_to_scan])
+            
+            file_name = documents[0].metadata.get("file_name") or documents[0].metadata.get("filename")
+            
+            if len(combined_text) < 100:
+                logger.warning(f"[MetadataEnrichment] Combined text too short: {len(combined_text)}")
             
             extractor = MetadataExtractor()
-            # Run extraction (it's synchronous for now in the extractor class, but wrapped in async hook)
-            # Ideally MetadataExtractor should be async, but for now we run it directly.
-            # Depending on LLM implementation it might block, but we are in a thread pool in rag_tasks so it's acceptable.
-            metadata_model = extractor.extract(first_page_text)
+            # Run extraction with expanded context (3 pages)
+            metadata_model = extractor.extract(combined_text)
             
             # Convert Pydantic to dict, filtering out None
             data = metadata_model.model_dump(exclude_none=True)

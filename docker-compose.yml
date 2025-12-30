@@ -463,6 +463,18 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Kibana - Elasticsearch Dashboard
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: sso_kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
   # MinIO - Object Storage (S3 Compatible)
   minio:
     image: minio/minio:latest
@@ -494,4 +506,6 @@ volumes:
   hf_cache:
     driver: local
   docling_cache:
+    driver: local
+  kibana_data:
     driver: local

@@ -54,6 +54,8 @@ class MetadataExtractor:
             # Truncate text to avoid token limits, first 2-3k chars usually enough for cover page
             safe_text = text[:3000]
             
+            logger.info(f"[MetadataExtractor] Analyzing Text (First 500 chars):\n{safe_text[:500]}...")
+            
             completion = program(text=safe_text)
             logger.info(f"[MetadataExtractor] Extracted: {completion}")
             return completion
