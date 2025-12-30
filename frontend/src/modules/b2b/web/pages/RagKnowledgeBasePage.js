@@ -170,12 +170,22 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         }
     }, [user, authLoading, domain]);
 
-    // Polling for documents update (e.g. status changes)
+
+    // Polling for documents update (only if active processing exists)
     useEffect(() => {
         if (!user) return;
-        const interval = setInterval(() => fetchDocuments(false), 10000); // Poll every 10s for general list updates (silent)
+
+        // Check if any document is in a pending/processing state
+        const hasPendingDocs = documents.some(doc =>
+            doc.status === 'pending' || doc.status === 'processing'
+        );
+
+        if (!hasPendingDocs) return;
+
+        // Poll every 5s if there are active documents, otherwise stop
+        const interval = setInterval(() => fetchDocuments(false), 5000);
         return () => clearInterval(interval);
-    }, [user, domain]);
+    }, [user, domain, documents]);
 
     // Polling for specific upload job
     useEffect(() => {
