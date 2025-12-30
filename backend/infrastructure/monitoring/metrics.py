@@ -67,7 +67,8 @@ class PrometheusProvider(MetricsProvider):
             "http_requests_total", "Total count of HTTP requests", ["method", "path", "status_code"]
         )
         self._metrics['http_request_duration_seconds'] = Histogram(
-            "http_request_duration_seconds", "HTTP request duration in seconds", ["method", "path"]
+            "http_request_duration_seconds", "HTTP request duration in seconds", ["method", "path"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0, 90.0, 120.0]
         )
         
         # Business Metrics
@@ -89,7 +90,8 @@ class PrometheusProvider(MetricsProvider):
 
         # Performance
         self._metrics['external_api_duration_seconds'] = Histogram(
-            "external_api_duration_seconds", "Duration of external API calls", ["service", "endpoint"]
+            "external_api_duration_seconds", "Duration of external API calls", ["service", "endpoint"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0]
         )
         self._metrics['db_query_duration_seconds'] = Histogram(
             "db_query_duration_seconds", "Database query duration", ["query_type", "table_name"]
@@ -104,6 +106,12 @@ class PrometheusProvider(MetricsProvider):
         )
         self._metrics['db_connection_pool_checkedout'] = Gauge(
             "db_connection_pool_checkedout", "Number of database connections currently checked out"
+        )
+        
+        # Domain: RAG
+        self._metrics['rag_processing_duration_seconds'] = Histogram(
+            "rag_processing_duration_seconds", "Duration of RAG pipeline stages", ["domain", "stage"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0, 90.0]
         )
 
     def increment(self, name: str, labels: Dict[str, str] = None, value: int = 1):

@@ -187,12 +187,22 @@ class RagService(BaseRagService):
 
             # Increase recall for reranking
             fusion_retriever.similarity_top_k = 30
-            nodes = await fusion_retriever.aretrieve(QueryBundle(query_str=query))
+            # 3. Execute Retrieval
+            from infrastructure.monitoring import record_rag_processing
+            
+            nodes = []
+            logger.info(f"Starting retrieval for query: {query}")
+            with record_rag_processing(domain="nse", stage="retrieval"):
+                nodes = await fusion_retriever.aretrieve(QueryBundle(query_str=query))
+            logger.info(f"Retrieval complete. Found {len(nodes)} nodes.")
             
             # 4. Rerank Results
             candidate_texts = [n.node.get_content() for n in nodes]
             if candidate_texts:
-                reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=10)
+                logger.info(f"Starting reranking for {len(candidate_texts)} candidates.")
+                with record_rag_processing(domain="nse", stage="reranking"):
+                    reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=10)
+                logger.info("Reranking complete.")
                 
                 # Reconstruct sorted nodes list based on reranker indices
                 reranked_nodes = []
@@ -202,6 +212,8 @@ class RagService(BaseRagService):
                     reranked_nodes.append(original_node)
                 
                 nodes = reranked_nodes
+            else:
+                logger.warning("No candidates found for reranking.")
 
             # Format results
             results = []

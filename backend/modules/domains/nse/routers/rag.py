@@ -208,24 +208,6 @@ async def search_documents(
         
         search_result = await rag_service.search(query=query, tenant_id=uuid.UUID(tenant_id), limit=limit)
         
-        # The frontend likely expects 'answer' and 'results'.
-        # rag_service.search calculates results. 
-        # Currently rag_service.search doesn't synthesized "answer" in the version I viewed?
-        # WAIT: I need to check if rag_service has synthesis. 
-        # The `rag_service.py` I viewed earlier had "Synthesize (TODO)". 
-        # But this router HAD synthesis. Eek.
-        # I must migrate synthesis logic to rag_service OR keep it here for now but use the results from rag_service for retrieval.
-        
-        # To strictly fix the filtering issue, I will user rag_service to get NODES/RESULTS, 
-        # then keep the simple synthesis here if needed, OR better: move synthesis to rag_service.
-        
-        # Let's check `rag_service.py` again. It did NOT have synthesis implemented (lines 84 "Synthesize (TODO)").
-        # The Router DID have synthesis (Lines 278-307).
-        
-        # STRATEGY: 
-        # 1. Use rag_service.search to get filtered results.
-        # 2. Re-implement the synthesis block here using those results to maintain feature parity (Q&A).
-        
         results = search_result.get("results", [])
         filters_used = search_result.get("filters", [])
         
@@ -233,32 +215,35 @@ async def search_documents(
         answer = "I could not find enough relevant information to answer your question."
         if results:
             try:
+                from infrastructure.monitoring import record_rag_processing
                 from infrastructure.factories.llm_factory import LLMFactory
-                llm = LLMFactory.get_llm() 
-                
-                # Enrich context with metadata (Year/Quarter)
-                context_str = "\n\n".join([
-                    f"Source: {r.get('metadata', {}).get('source', 'Unknown')} "
-                    f"({r.get('metadata', {}).get('fiscal_year', 'N/A')} {r.get('metadata', {}).get('quarter', '')})\n"
-                    f"Content: {r.get('text', '')}"
-                    for r in results
-                ])
-                
-                prompt = (
-                    "You are an expert financial analyst. Your goal is to answer the user's question comprehensively using the provided context.\n\n"
-                    "**Guidelines:**\n"
-                    "1. **Format**: Use **Markdown** (bolding for key figures, lists for points).\n"
-                    "2. **Tables**: If the data allows, present financial figures in a Markdown table.\n"
-                    "3. **Structure**: Organize your answer with clear headers (e.g., '### Executive Summary', '### Key Figures').\n"
-                    "4. **Accuracy**: Use ONLY the provided context. If the exact answer isn't there, state what IS known relative to the topic.\n"
-                    "5. **Citations**: Mention the Fiscal Year/Quarter if available in the source info.\n\n"
-                    f"**Context**:\n{context_str}\n\n"
-                    f"**Question**: {query}\n\n"
-                    "**Answer**:"
-                )
-                
-                response_gen = await llm.acomplete(prompt)
-                answer = response_gen.text
+
+                with record_rag_processing(domain="nse", stage="synthesis"):
+                    llm = LLMFactory.get_llm() 
+                    
+                    # Enrich context with metadata (Year/Quarter)
+                    context_str = "\n\n".join([
+                        f"Source: {r.get('metadata', {}).get('source', 'Unknown')} "
+                        f"({r.get('metadata', {}).get('fiscal_year', 'N/A')} {r.get('metadata', {}).get('quarter', '')})\n"
+                        f"Content: {r.get('text', '')}"
+                        for r in results
+                    ])
+                    
+                    prompt = (
+                        "You are an expert financial analyst. Your goal is to answer the user's question comprehensively using the provided context.\n\n"
+                        "**Guidelines:**\n"
+                        "1. **Format**: Use **Markdown** (bolding for key figures, lists for points).\n"
+                        "2. **Tables**: If the data allows, present financial figures in a Markdown table.\n"
+                        "3. **Structure**: Organize your answer with clear headers (e.g., '### Executive Summary', '### Key Figures').\n"
+                        "4. **Accuracy**: Use ONLY the provided context. If the exact answer isn't there, state what IS known relative to the topic.\n"
+                        "5. **Citations**: Mention the Fiscal Year/Quarter if available in the source info.\n\n"
+                        f"**Context**:\n{context_str}\n\n"
+                        f"**Question**: {query}\n\n"
+                        "**Answer**:"
+                    )
+                    
+                    response_gen = await llm.acomplete(prompt)
+                    answer = response_gen.text
             except Exception as e:
                 print(f"Generation failed: {e}")
                 answer = "Error generating answer."
