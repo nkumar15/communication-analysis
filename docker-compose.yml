@@ -209,7 +209,8 @@ services:
       - LLM_MODEL=gpt-4o-mini
       - EMBEDDING_PROVIDER=openai
       - EMBEDDING_MODEL=text-embedding-3-small
-      - HF_HOME=/app/cache/huggingface
+      - HF_HOME=/app/.cache/huggingface
+
     ports:
       - "8003:8003"
     volumes:
@@ -251,13 +252,13 @@ services:
       - LLM_MODEL=gpt-4o-mini
       - EMBEDDING_PROVIDER=openai
       - EMBEDDING_MODEL=text-embedding-3-small
-      - EMBEDDING_MODEL=text-embedding-3-small
-      - HF_HOME=/app/cache/huggingface
+      - HF_HOME=/app/.cache/huggingface
+
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
       - ./backend:/app
-      - docling_cache:/home/appuser/.cache/docling
+
     depends_on:
       - postgres
       - redis
@@ -385,6 +386,7 @@ services:
       - API_URL=http://b2b-api:8000
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - HF_HOME=/app/.cache/huggingface
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       # Frontend services (now in Docker) - use internal service names
       - FRONTEND_URL=http://frontend-b2b:3000
@@ -504,9 +506,6 @@ volumes:
     driver: local
   minio_data:
     driver: local
-  hf_cache:
-    driver: local
-  docling_cache:
-    driver: local
+
   kibana_data:
     driver: local
