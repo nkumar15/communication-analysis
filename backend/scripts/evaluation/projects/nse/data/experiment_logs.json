@@ -16,5 +16,14 @@
       "contextual_recall": 0
     },
     "details": "Integration Test with RagService (ReportType Support: Yes). Cases: 8"
+  },
+  {
+    "timestamp": "2025-12-31T23:59:59",
+    "metrics": {
+      "faithfulness": 0.7386363636363636,
+      "answer_relevancy": 0.96875,
+      "contextual_recall": 0.625
+    },
+    "details": "Integration Test with RagService (ReportType Support: Yes). Cases: 8"
   }
 ]

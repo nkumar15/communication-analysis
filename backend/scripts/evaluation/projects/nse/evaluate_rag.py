@@ -139,7 +139,7 @@ async def run_integration_evaluation():
     for i, tc in enumerate(test_cases):
         print(f"Evaluating Case {i+1}...")
         try:
-            er = evaluate(test_cases=[tc], metrics=[faithfulness, answer_relevancy, contextual_recall], print_results=False)
+            er = evaluate(test_cases=[tc], metrics=[faithfulness, answer_relevancy, contextual_recall])
             test_results.extend(er.test_results)
             await asyncio.sleep(2) # Politeness delay
         except Exception as e:

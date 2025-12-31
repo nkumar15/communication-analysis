@@ -63,6 +63,12 @@ Example: `experiment_v1_004_top_k_10`
 - **Recommendation**: Deploy this configuration to Production.
 
 
+### Dataset v2 (Unified Integration)
+| Exp # | ID | Config Change | F | R | CR | Date | Status |
+|-------|-------|---------------|---|---|----|------|--------|
+| 14 | expr14_v2_integration | RagService Integration (8 Queries) | 74% | 97% | 63% | 2025-12-31 | ✅ Baseline |
+
+
 ---
 
 ## Update Protocol
