@@ -30,3 +30,4 @@ class ExperimentConfig(BaseModel):
     tenant_id: str
     metrics: List[str] = ["faithfulness", "answer_relevancy", "contextual_recall"]
     output_dir: Optional[str] = None
+    update_registry: bool = False # Runtime flag

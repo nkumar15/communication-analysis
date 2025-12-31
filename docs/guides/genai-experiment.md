@@ -65,6 +65,9 @@ Use the `make eval-run` target. This runs the evaluation inside the `e2e-tests` 
 ```bash
 # Run from project root
 make eval-run CONFIG=scripts/evaluation/projects/nse/experiment_v1.yaml
+
+# To ALSO update the registry (after confirming results are good):
+make eval-run CONFIG=scripts/evaluation/projects/nse/experiment_v1.yaml ARGS="--update-registry"
 ```
 
 **Note:** The `CONFIG` path is relative to the `backend/` directory (which is mounted as `/app` inside the container).

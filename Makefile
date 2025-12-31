@@ -446,4 +446,4 @@ stripe-listen-b2c: ## Forward Stripe webhooks to B2C service (Port 8002)
 eval-run: ## Run RAG experiment (Usage: make eval-run CONFIG=scripts/evaluation/projects/nse/experiment_v1.yaml)
 		@echo "$(BLUE)Running Experiment with config: $(CONFIG)$(NC)"
 		@if [ -z "$(CONFIG)" ]; then echo "Error: CONFIG argument is required"; exit 1; fi
-		docker-compose run --rm e2e-tests python3 -m scripts.evaluation.core.runner --config $(CONFIG)
+		docker-compose run --rm e2e-tests python3 -m scripts.evaluation.core.runner --config $(CONFIG) $(ARGS)
