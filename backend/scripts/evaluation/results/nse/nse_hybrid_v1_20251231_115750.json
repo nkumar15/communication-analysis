@@ -1,0 +1,141 @@
+{
+  "experiment": "nse_hybrid_v1",
+  "timestamp": "2025-12-31T11:57:50.452899",
+  "config": {
+    "name": "nse_hybrid_v1",
+    "description": "Initial migration of Experiment 3 to new framework",
+    "pipeline": {
+      "retriever": {
+        "type": "hybrid",
+        "top_k": 20,
+        "index_name": "nse_rag_documents",
+        "weights": null
+      },
+      "reranker": {
+        "enabled": true,
+        "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        "top_n": 5
+      },
+      "llm": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.0,
+        "prompt_strategy": "grounding_cot"
+      }
+    },
+    "dataset_path": "scripts/evaluation/datasets/nse/gold_dataset.json",
+    "tenant_id": "05b51fa4-45f4-50c2-b3f4-4c122000347b",
+    "metrics": [
+      "faithfulness",
+      "answer_relevancy",
+      "contextual_recall"
+    ],
+    "output_dir": "scripts/evaluation/results/nse"
+  },
+  "metrics": {
+    "Faithfulness": 0.9714285714285713,
+    "Answer Relevancy": 0.7748484848484848,
+    "Contextual Recall": 0.5
+  },
+  "results": [
+    {
+      "input": "What is the percentage growth in total assets from March 31, 2025 to September 30, 2025 (1,59,629 to 1,75,219 crores)?",
+      "actual_output": "To calculate the percentage growth in total assets from March 31, 2025, to September 30, 2025, we can use the following formula:\n\n\\[\n\\text{Percentage Growth} = \\left( \\frac{\\text{New Value} - \\text{Old Value}}{\\text{Old Value}} \\right) \\times 100\n\\]\n\nWhere:\n- New Value = Total assets as of September 30, 2025 = \u20b9 1,75,219 crores\n- Old Value = Total assets as of March 31, 2025 = \u20b9 1,59,629 crores\n\nNow, substituting the values into the formula:\n\n\\[\n\\text{Percentage Growth} = \\left( \\frac{1,75,219 - 1,59,629}{1,59,629} \\right) \\times 100\n\\]\n\nCalculating the difference:\n\n\\[\n1,75,219 - 1,59,629 = 15,590\n\\]\n\nNow, substituting back into the formula:\n\n\\[\n\\text{Percentage Growth} = \\left( \\frac{15,590}{1,59,629} \\right) \\times 100\n\\]\n\nCalculating the fraction:\n\n\\[\n\\frac{15,590}{1,59,629} \\approx 0.0978\n\\]\n\nNow, multiplying by 100 to get the percentage:\n\n\\[\n0.0978 \\times 100 \\approx 9.78\\%\n\\]\n\nTherefore, the percentage growth in total assets from March 31, 2025, to September 30, 2025, is approximately **9.78%**.",
+      "success": true,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 1.0,
+        "Contextual Recall": 1.0
+      }
+    },
+    {
+      "input": "For Q2 FY26 (quarter ended Sept 30, 2025) vs Q1 FY26 (quarter ended June 30, 2025), revenue from operations rose from \u20b963,437 crore to \u20b965,799 crore. What is the QoQ growth rate in revenue from operations, and what is the absolute increase in \u20b9 crore?",
+      "actual_output": "To calculate the QoQ growth rate in revenue from operations and the absolute increase, we can use the following formulas:\n\n1. **Absolute Increase** = Revenue in Q2 FY26 - Revenue in Q1 FY26\n2. **QoQ Growth Rate** = (Absolute Increase / Revenue in Q1 FY26) * 100\n\nGiven:\n- Revenue in Q1 FY26 = \u20b963,437 crore\n- Revenue in Q2 FY26 = \u20b965,799 crore\n\n**Step 1: Calculate the Absolute Increase**\n\\[\n\\text{Absolute Increase} = \u20b965,799 \\text{ crore} - \u20b963,437 \\text{ crore} = \u20b92,362 \\text{ crore}\n\\]\n\n**Step 2: Calculate the QoQ Growth Rate**\n\\[\n\\text{QoQ Growth Rate} = \\left(\\frac{\u20b92,362 \\text{ crore}}{\u20b963,437 \\text{ crore}}\\right) \\times 100 \\approx 3.72\\%\n\\]\n\n**Final Answer:**\n- Absolute Increase: \u20b92,362 crore\n- QoQ Growth Rate: 3.72%",
+      "success": true,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 1.0,
+        "Contextual Recall": 1.0
+      }
+    },
+    {
+      "input": "What is the amount of the interim dividend per equity share declared by the Board for the period ending September 30, 2025?",
+      "actual_output": "The provided context does not include any information regarding the interim dividend per equity share declared by the Board for the period ending September 30, 2025. To determine the amount of the interim dividend, you would need to refer to the specific announcement or financial report from the company that details the dividend declaration.",
+      "success": true,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 0.6666666666666666,
+        "Contextual Recall": 1.0
+      }
+    },
+    {
+      "input": "What is the percentage change in Total Assets from March 31, 2025 (\u20b91,32,788 crore) to September 30, 2025 (\u20b91,44,621 crore)?",
+      "actual_output": "To calculate the percentage change in Total Assets from March 31, 2025, to September 30, 2025, we can use the following formula:\n\n\\[\n\\text{Percentage Change} = \\left( \\frac{\\text{New Value} - \\text{Old Value}}{\\text{Old Value}} \\right) \\times 100\n\\]\n\nWhere:\n- New Value = \u20b91,44,621 crore (Total Assets as of September 30, 2025)\n- Old Value = \u20b91,32,788 crore (Total Assets as of March 31, 2025)\n\nNow, substituting the values into the formula:\n\n\\[\n\\text{Percentage Change} = \\left( \\frac{1,44,621 - 1,32,788}{1,32,788} \\right) \\times 100\n\\]\n\nCalculating the difference:\n\n\\[\n1,44,621 - 1,32,788 = 11,833\n\\]\n\nNow, substituting back into the formula:\n\n\\[\n\\text{Percentage Change} = \\left( \\frac{11,833}{1,32,788} \\right) \\times 100\n\\]\n\nCalculating the division:\n\n\\[\n\\frac{11,833}{1,32,788} \\approx 0.089\n\\]\n\nNow, multiplying by 100 to get the percentage:\n\n\\[\n0.089 \\times 100 \\approx 8.9\\%\n\\]\n\nThus, the percentage change in Total Assets from March 31, 2025, to September 30, 2025, is approximately **8.9%**.",
+      "success": false,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 1.0,
+        "Contextual Recall": 0.0
+      }
+    },
+    {
+      "input": "From the Cash Flows from Operating Activities section, what is the net cash flows generated from operating activities for the six months ended September 30, 2025, and what is the corresponding amount for the six months ended September 30, 2024? Please provide both figures and the year-over-year change.",
+      "actual_output": "The provided context does not include specific figures for cash flows from operating activities for the six months ended September 30, 2025, or September 30, 2024. To determine the net cash flows generated from operating activities for these periods, you would need to refer to the financial statements or cash flow statements of the Bank or its subsidiaries for the respective periods.\n\nIf you have access to those specific cash flow figures, please provide them, and I can help you analyze the year-over-year change. Otherwise, without that data, I cannot provide the requested information.",
+      "success": false,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 0.6,
+        "Contextual Recall": 0.0
+      }
+    },
+    {
+      "input": "Compute the quarter-on-quarter growth rate in Revenue from operations for Q2 FY26 (three months ended 30 Sep 2025: 54,531 crore) versus Q1 FY26 (three months ended 30 Jun 2025: 52,788 crore).",
+      "actual_output": "To compute the quarter-on-quarter growth rate in Revenue from operations for Q2 FY26 compared to Q1 FY26, we can use the following formula:\n\n\\[\n\\text{Growth Rate} = \\left( \\frac{\\text{Q2 Revenue} - \\text{Q1 Revenue}}{\\text{Q1 Revenue}} \\right) \\times 100\n\\]\n\nGiven:\n- Q2 FY26 Revenue = \u20b9 54,531 crore\n- Q1 FY26 Revenue = \u20b9 52,788 crore\n\nNow, substituting the values into the formula:\n\n\\[\n\\text{Growth Rate} = \\left( \\frac{54,531 - 52,788}{52,788} \\right) \\times 100\n\\]\n\nCalculating the difference:\n\n\\[\n54,531 - 52,788 = 1,743\n\\]\n\nNow, substituting back into the formula:\n\n\\[\n\\text{Growth Rate} = \\left( \\frac{1,743}{52,788} \\right) \\times 100\n\\]\n\nCalculating the fraction:\n\n\\[\n\\frac{1,743}{52,788} \\approx 0.0330\n\\]\n\nNow, multiplying by 100 to get the percentage:\n\n\\[\n\\text{Growth Rate} \\approx 3.30\\%\n\\]\n\nThus, the quarter-on-quarter growth rate in Revenue from operations for Q2 FY26 versus Q1 FY26 is approximately **3.30%**.",
+      "success": true,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 1.0,
+        "Contextual Recall": 1.0
+      }
+    },
+    {
+      "input": "What is the net cash flows used in financing activities for the six months ended September 30, 2025, and how does it compare to the six months ended September 30, 2024?",
+      "actual_output": "The provided context does not include specific information regarding the net cash flows used in financing activities for either the six months ended September 30, 2025, or September 30, 2024. To accurately determine the net cash flows used in financing activities and make a comparison between the two periods, you would need to refer to the financial statements or cash flow statements of the respective subsidiaries or the consolidated financial statements of the Bank for those periods.\n\nIf you have access to those financial statements, you can find the cash flow from financing activities section, which typically includes cash inflows and outflows related to debt, equity, dividends, and other financing activities. Once you have that data, you can compare the figures for the two periods to assess any changes in financing activities.",
+      "success": false,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 0.8,
+        "Contextual Recall": 0.0
+      }
+    },
+    {
+      "input": "What is the net cash flows from operating activities for the six months ended September 30, 2025, and how does it compare to the six months ended September 30, 2024 (i.e., what is the delta) as presented in the cash flow statement?",
+      "actual_output": "To determine the net cash flows from operating activities for the six months ended September 30, 2025, and compare it to the same period in 2024, we would typically need specific cash flow statement data, including cash inflows and outflows from operating activities for both periods. However, the provided information does not include detailed cash flow statements or specific cash flow figures for either period.\n\nTo calculate the net cash flows from operating activities, you would generally look for:\n\n1. **Net Income**: This is the starting point for calculating cash flows from operating activities.\n2. **Adjustments for Non-Cash Items**: This includes depreciation, amortization, and any other non-cash expenses.\n3. **Changes in Working Capital**: This includes changes in accounts receivable, accounts payable, inventory, and other current assets and liabilities.\n\nGiven the performance highlights for each subsidiary, we can infer some information about net income, but without specific cash flow data, we cannot accurately calculate net cash flows from operating activities.\n\nIf you have access to the cash flow statements for both periods, you would subtract the net cash flows from operating activities for the six months ended September 30, 2024, from those for the six months ended September 30, 2025, to find the delta.\n\nIf you can provide the cash flow statement data or any additional information, I would be able to assist you further in calculating the net cash flows and the delta.",
+      "success": false,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 0.8571428571428571,
+        "Contextual Recall": 0.0
+      }
+    },
+    {
+      "input": "What interim dividend per equity share did the Board declare at its meeting held on October 9, 2025?",
+      "actual_output": "To determine the interim dividend per equity share declared by the Board at its meeting on October 9, 2025, we need to analyze the financial performance of HDFC Bank and its subsidiaries, particularly focusing on the earnings and the dividend policy typically followed by the bank.\n\nHowever, the provided data does not explicitly state the interim dividend amount or the specific dividend policy. Generally, dividends are declared based on the profitability of the company and the retained earnings available for distribution.\n\nGiven the following key points from the data:\n\n1. **HDFC Securities**: \n   - EPS of \u20b9 118.2 for Q2FY26.\n   - Net profit of \u20b9 2.1 billion, which is lower by 33% YoY.\n\n2. **HDFCAMC**:\n   - EPS of \u20b9 33.6 for Q2FY26.\n   - Net profit of \u20b9 7.2 billion, which grew 24% over the prior year.\n\n3. **Overall Performance**: \n   - The bank's subsidiaries are showing mixed results, with HDFCAMC performing well and HDFC Securities facing a decline in profits.\n\nTypically, the interim dividend is a percentage of the earnings per share (EPS) or a fixed amount based on the company's profitability and cash flow situation. \n\nAssuming a conservative approach, if we consider a common practice where companies declare dividends in the range of 20-30% of the EPS, we can estimate the interim dividend based on the EPS of HDFCAMC, which is more favorable.\n\nIf we take 25% of HDFCAMC's EPS of \u20b9 33.6, the interim dividend per equity share could be estimated as follows:\n\n\\[ \\text{Interim Dividend} = \\text{EPS} \\times \\text{Dividend Payout Ratio} \\]\n\\[ \\text{Interim Dividend} = 33.6 \\times 0.25 = 8.4 \\]\n\nThus, the estimated interim dividend per equity share declared by the Board at its meeting held on October 9, 2025, could be approximately **\u20b9 8.4**. \n\nHowever, please note that this is an estimation based on typical practices and the actual declared dividend may vary based on the Board's decision and the overall financial health of HDFC Bank at that time.",
+      "success": true,
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 0.6428571428571429,
+        "Contextual Recall": 1.0
+      }
+    },
+    {
+      "input": "For the three months ended September 30, 2025, what is the revenue by segment (Banking, Financial Services and Insurance; Manufacturing; Consumer Business; Communications, Media and Technology; and Health Care), and which segment shows the highest revenue? please provide the exact figures from the table.",
+      "actual_output": "The provided data does not include specific revenue figures segmented by Banking, Financial Services and Insurance; Manufacturing; Consumer Business; Communications, Media and Technology; and Health Care. The information primarily focuses on the performance of subsidiaries of HDFC Bank, detailing their net profit, gross written premiums, and other financial metrics.\n\nTo determine the revenue by segment, we would typically need a breakdown of total revenues for each segment, which is not available in the provided context. \n\nHowever, we can summarize the net profit figures from the subsidiaries as follows:\n\n1. **HDB Financial Services**: Net profit of \u20b9 5.8 bn\n2. **HDFC Life Insurance**: Net profit of \u20b9 4.5 bn\n3. **HDFC ERGO General Insurance**: Net profit of \u20b9 1.8 bn\n4. **HDFC Securities**: Net profit of \u20b9 2.1 bn\n\nFrom these figures, the **HDB Financial Services** segment shows the highest net profit at \u20b9 5.8 billion. \n\nIf you require a detailed revenue breakdown by specific segments, additional data would be necessary.",
+      "success": false,
+      "metrics": {
+        "Faithfulness": 0.7142857142857143,
+        "Answer Relevancy": 0.18181818181818182,
+        "Contextual Recall": 0.0
+      }
+    }
+  ]
+}

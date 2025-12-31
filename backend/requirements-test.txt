@@ -11,6 +11,7 @@ faker==20.1.0
 pytest-playwright==0.4.3
 pytest-xdist==3.2.1
 pytest-mock==3.12.0
+deepeval>=0.21.0
 
 # Static code analysis
 bandit==1.7.6  # Python security linter

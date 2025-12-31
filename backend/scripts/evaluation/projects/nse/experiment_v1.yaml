@@ -1,0 +1,25 @@
+name: "nse_hybrid_v1"
+description: "Initial migration of Experiment 3 to new framework"
+tenant_id: "05b51fa4-45f4-50c2-b3f4-4c122000347b"
+dataset_path: "scripts/evaluation/datasets/nse/gold_dataset.json"
+output_dir: "scripts/evaluation/results/nse"
+
+metrics:
+  - faithfulness
+  - answer_relevancy
+  - contextual_recall
+
+pipeline:
+  retriever:
+    type: "hybrid"
+    top_k: 20
+    index_name: "nse_rag_documents"
+  
+  reranker:
+    enabled: true
+    model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    top_n: 5
+    
+  llm:
+    model: "gpt-4o-mini"
+    temperature: 0.0
