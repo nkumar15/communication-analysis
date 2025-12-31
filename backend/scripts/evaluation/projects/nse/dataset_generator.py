@@ -18,8 +18,13 @@ except ImportError:
 
 # Configuration
 SCRIPT_DIR = Path(__file__).resolve().parent
-SOURCE_DOCS_DIR = SCRIPT_DIR.parent / "datasets/nse/source_documents/test"
-OUTPUT_DIR = SCRIPT_DIR.parent / "datasets/nse/golden_datasets"
+# Go up 2 levels: projects/nse -> projects -> evaluation
+# Actually SCRIPT_DIR is .../projects/nse
+# SCRIPT_DIR.parent = .../projects
+# SCRIPT_DIR.parent.parent = .../evaluation
+ROOT_EVAL_DIR = SCRIPT_DIR.parent.parent 
+SOURCE_DOCS_DIR = ROOT_EVAL_DIR / "datasets/nse/source_documents/test"
+OUTPUT_DIR = ROOT_EVAL_DIR / "datasets/nse/golden_datasets"
 OUTPUT_FILE = OUTPUT_DIR / "unified_gold_dataset.json"
 
 logging.basicConfig(level=logging.INFO)
