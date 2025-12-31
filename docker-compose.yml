@@ -262,7 +262,7 @@ services:
       - redis
       - minio
       - elasticsearch
-    command: celery -A workers.domain_worker.celery_app worker --loglevel=info -Q domain
+    command: celery -A workers.domain_worker.celery_app worker --loglevel=info --concurrency=1 -Q domain
 
   # Redis - Message Broker for ARQ Background Tasks
   redis:
