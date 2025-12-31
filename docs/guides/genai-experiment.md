@@ -34,7 +34,7 @@ Create a YAML file in `backend/scripts/evaluation/projects/<project>/<name>.yaml
 name: "nse_hybrid_v1"
 description: "Baseline Hybrid Search with Reranking"
 tenant_id: "05b51fa4-45f4-50c2-b3f4-4c122000347b"
-dataset_path: "scripts/evaluation/datasets/nse/gold_dataset.json"
+dataset_path: "scripts/evaluation/datasets/nse/golden_datasets/gold_dataset.json"
 output_dir: "scripts/evaluation/results/nse"
 
 metrics:
