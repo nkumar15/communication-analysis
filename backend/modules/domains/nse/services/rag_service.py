@@ -132,7 +132,7 @@ class RagService(BaseRagService):
             logger.warning(f"Query decomposition failed: {e}")
             return None
 
-    async def search(self, query: str, tenant_id: UUID, **kwargs) -> Dict[str, Any]:
+    async def search(self, query: str, tenant_id: UUID, limit: int = 5, **kwargs) -> Dict[str, Any]:
         """
         NSE Specific Search Implementation:
         1. Decompose Query -> Filters
@@ -199,12 +199,29 @@ class RagService(BaseRagService):
                 nodes = await fusion_retriever.aretrieve(QueryBundle(query_str=query))
             logger.info(f"Retrieval complete. Found {len(nodes)} nodes.")
             
+            # Explicit Deduplication by Content (Handle potential overlaps from Hybrid Search)
+            unique_nodes = []
+            seen_content = set()
+            for n in nodes:
+                # Normalize whitespace for comparison
+                content_preview = n.node.get_content().strip()[:100] 
+                # Or use full content hash if necessary, but full string comparison on 20 nodes is fast enough
+                full_content = n.node.get_content()
+                
+                if full_content not in seen_content:
+                    seen_content.add(full_content)
+                    unique_nodes.append(n)
+            
+            nodes = unique_nodes
+            logger.info(f"After deduplication: {len(nodes)} nodes.")
+
             # 4. Rerank Results
             candidate_texts = [n.node.get_content() for n in nodes]
             if candidate_texts:
                 logger.info(f"Starting reranking for {len(candidate_texts)} candidates.")
                 with record_rag_processing(domain="nse", stage="reranking"):
-                    reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=5)
+                    # Use the 'limit' passed from the router (default 5, but can be 3)
+                    reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=limit)
                 logger.info("Reranking complete.")
                 
                 # Reconstruct sorted nodes list based on reranker indices

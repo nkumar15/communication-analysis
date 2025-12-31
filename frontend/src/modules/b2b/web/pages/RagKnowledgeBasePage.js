@@ -478,9 +478,17 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                             />
                                         )}
                                     </Box>
-                                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#1e293b' }}>
-                                        {searchAnswer}
-                                    </Typography>
+                                    <Box sx={{ color: '#1e293b' }}>
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                                ...MarkdownComponents,
+                                                p: ({ node, ...props }) => <Typography variant="body1" sx={{ mb: 1, lineHeight: 1.6 }} {...props} />
+                                            }}
+                                        >
+                                            {searchAnswer}
+                                        </ReactMarkdown>
+                                    </Box>
                                     <Divider sx={{ my: 2 }} />
                                     <Typography variant="caption" color="text.secondary">
                                         Based on {searchResults.length} relevant sources found below.

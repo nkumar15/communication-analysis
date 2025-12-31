@@ -49,11 +49,17 @@ up: ## Start all backend services (frontend runs locally)
 	@echo "$(BLUE)Starting backend services...$(NC)"
 	docker-compose up -d postgres elasticsearch minio b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker domain-worker nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
+	@echo ""
+	@echo "$(BLUE)=== Running Services ===$(NC)"
+	@docker-compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Ports}}"
+	@echo ""
+	@echo "$(YELLOW)Common URLs:$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
 	@echo "Email UI:     http://localhost:8025 (Mailhog)"
 	@echo "Grafana:      http://localhost:3002"
 	@echo "Prometheus:   http://localhost:9090"
 	@echo "Jaeger:       http://localhost:16686"
+	@echo "Kibana:       http://localhost:5601"
 	@echo "Run 'make web-b2b' for B2B frontend on port 3000"
 
 down: ## Stop all services

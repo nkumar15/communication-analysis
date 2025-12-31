@@ -176,7 +176,7 @@ async def get_ingestion_status(
 async def search_documents(
     domain: str,
     query: str = Form(...),
-    limit: int = Form(5),
+    limit: int = Form(3), # Reduced default from 5 to 3 for performance
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_active_user)
 ):
@@ -217,7 +217,7 @@ async def search_documents(
             try:
                 from infrastructure.monitoring import record_rag_processing
                 from infrastructure.factories.llm_factory import LLMFactory
-
+ 
                 with record_rag_processing(domain="nse", stage="synthesis"):
                     llm = LLMFactory.get_llm() 
                     
@@ -230,13 +230,13 @@ async def search_documents(
                     ])
                     
                     prompt = (
-                        "You are an expert financial analyst. Your goal is to answer the user's question comprehensively using the provided context.\n\n"
+                        "You are an expert financial analyst. Your goal is to answer the user's question concisely using the provided context.\n\n"
                         "**Guidelines:**\n"
-                        "1. **Format**: Use **Markdown** (bolding for key figures, lists for points).\n"
-                        "2. **Tables**: If the data allows, present financial figures in a Markdown table.\n"
-                        "3. **Structure**: Organize your answer with clear headers (e.g., '### Executive Summary', '### Key Figures').\n"
-                        "4. **Accuracy**: Use ONLY the provided context. If the exact answer isn't there, state what IS known relative to the topic.\n"
-                        "5. **Citations**: Mention the Fiscal Year/Quarter if available in the source info.\n\n"
+                        "1. **Conciseness**: Be extremely direct. Limit answer to 2-3 sentences.\n"
+                        "2. **NO Markdown Tables**: The text provided contains tables. Do NOT re-generate them. The user can see the source tables.\n"
+                        "3. **Format**: Use bullet points for key figures only.\n"
+                        "4. **Accuracy**: Use ONLY the provided context.\n"
+                        "5. **Citations**: Inline the Fiscal Year/Quarter (e.g. [FY25 Q2]) where relevant.\n\n"
                         f"**Context**:\n{context_str}\n\n"
                         f"**Question**: {query}\n\n"
                         "**Answer**:"
