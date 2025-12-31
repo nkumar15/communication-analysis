@@ -8,12 +8,14 @@ from llama_index.core.vector_stores import MetadataFilters, MetadataFilter
 # from llama_index.llms.openai import OpenAI # REMOVED: Incompatible with uvloop
 # from llama_index.core.llms import ChatMessage # REMOVED
 
+from core.constants import RAGDefaults
+from infrastructure.logging import get_logger
 from modules.domains.core.services.base_rag_service import BaseRagService
 from modules.domains.nse.services.parsers.nse_parser import NSEEarningsParser
 from modules.domains.nse.services.parsers.metadata import NSEDocumentMetadata
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class RagService(BaseRagService):
     """
@@ -55,7 +57,7 @@ class RagService(BaseRagService):
             
             # Use the text of the first 3 pages to increase chance of finding company name
             # (Page 1 might be just a logo/image)
-            pages_to_scan = documents[:3]
+            pages_to_scan = documents[:RAGDefaults.METADATA_PAGES_TO_SCAN]
             combined_text = "\n---PAGE BREAK---\n".join([d.text for d in pages_to_scan])
             
             file_name = documents[0].metadata.get("file_name") or documents[0].metadata.get("filename")
@@ -134,126 +136,171 @@ class RagService(BaseRagService):
 
     async def search(self, query: str, tenant_id: UUID, limit: int = 5, **kwargs) -> Dict[str, Any]:
         """
-        NSE Specific Search Implementation:
-        1. Decompose Query -> Filters
-        2. Retrieve (QueryFusionRetriever: Vector + BM25)
-        3. Return results
+        Main search orchestration method.
+        
+        Args:
+            query: Search query
+            tenant_id: Tenant UUID for isolation
+            limit: Number of final results to return
+            
+        Returns:
+            Dict with query, filters, results, and count
         """
         self._ensure_initialized()
         
-        # 1. Decompose Query
+        # 1. Decompose query into metadata filters
         filters = await self._decompose_query(query)
-        logger.info(f"DEBUG_RAG: User Query: '{query}'")
-        if filters:
-             logger.info(f"DEBUG_RAG: Decomposed Filters: {filters.filters}")
-        else:
-             logger.info("DEBUG_RAG: No filters decomposed (General Query)")
+        logger.info("query_decomposed", query_preview=query[:50], has_filters=bool(filters))
         
-        # 2. Setup Retrievers
-        try:
-            from llama_index.core.retrievers import QueryFusionRetriever
-            from llama_index.core import VectorStoreIndex
-            from modules.domains.nse.services.retrievers.es_bm25_retriever import ElasticsearchBM25Retriever
-            from llama_index.core.retrievers import QueryFusionRetriever
+        # 2. Retrieve candidates using hybrid search
+        candidates = await self._retrieve_candidates(query, tenant_id, filters)
+        
+        # 3. Deduplicate nodes
+        unique_candidates = self._deduplicate_nodes(candidates)
+        
+        # 4. Rerank results
+        ranked_results = await self._rerank_results(query, unique_candidates, limit)
+        
+        # 5. Format and return
+        return self._format_search_results(query, ranked_results, filters)
+    
+    async def _retrieve_candidates(
+        self,
+        query: str,
+        tenant_id: UUID,
+        filters: Optional[MetadataFilters]
+    ) -> List:
+        """
+        Retrieve candidates using hybrid search (vector + BM25).
+        
+        Returns:
+            List of NodeWithScore objects
+        """
+        from llama_index.core.retrievers import QueryFusionRetriever
+        from llama_index.core import VectorStoreIndex
+        from modules.domains.nse.services.retrievers.es_bm25_retriever import ElasticsearchBM25Retriever
+        from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
+        from llama_index.core.schema import QueryBundle
+        from infrastructure.monitoring import record_rag_processing
+        
+        # Create vector retriever
+        index = VectorStoreIndex.from_vector_store(self.vector_store, embed_model=self.embed_model)
+        vector_retriever = index.as_retriever(
+            filters=filters,
+            similarity_top_k=RAGDefaults.VECTOR_TOP_K
+        )
+        
+        # Create BM25 retriever
+        bm25_retriever = ElasticsearchBM25Retriever(
+            index_name=self.get_index_name(),
+            tenant_id=str(tenant_id),
+            filters=filters,
+            top_k=RAGDefaults.BM25_TOP_K
+        )
+        
+        # Create fusion retriever
+        fusion_retriever = QueryFusionRetriever(
+            [vector_retriever, bm25_retriever],
+            retriever_weights=[RAGDefaults.VECTOR_WEIGHT, RAGDefaults.BM25_WEIGHT],
+            similarity_top_k=RAGDefaults.FUSION_TOP_K,
+            num_queries=1,
+            mode=FUSION_MODES.RECIPROCAL_RANK,
+            use_async=True
+        )
+        
+        # Execute retrieval with monitoring
+        logger.info("retrieval_started", query_preview=query[:50])
+        with record_rag_processing(domain="nse", stage="retrieval"):
+            nodes = await fusion_retriever.aretrieve(QueryBundle(query_str=query))
+        logger.info("retrieval_complete", num_nodes=len(nodes))
+        
+        return nodes
+    
+    def _deduplicate_nodes(self, nodes: List) -> List:
+        """
+        Remove duplicate nodes by content.
+        
+        Hybrid search can return overlapping results from vector and BM25.
+        """
+        unique_nodes = []
+        seen_content = set()
+        
+        for n in nodes:
+            full_content = n.node.get_content()
             
-            # A. Vector Retriever (Standard LlamaIndex)
-            # We need to create an index view first from the vector store
-            index = VectorStoreIndex.from_vector_store(self.vector_store, embed_model=self.embed_model)
+            if full_content not in seen_content:
+                seen_content.add(full_content)
+                unique_nodes.append(n)
+        
+        logger.info("deduplication_complete", original=len(nodes), unique=len(unique_nodes))
+        return unique_nodes
+    
+    async def _rerank_results(
+        self,
+        query: str,
+        nodes: List,
+        top_k: int
+    ) -> List:
+        """
+        Rerank results using semantic similarity model.
+        
+        Args:
+            query: Search query
+            nodes: Candidate nodes
+            top_k: Number of top results to return
             
-            vector_retriever = index.as_retriever(
-                filters=filters,
-                similarity_top_k=50 # Retrieve candidates for fusion
+        Returns:
+            Reranked list of nodes
+        """
+        if not nodes:
+            logger.warning("no_candidates_for_reranking")
+            return []
+        
+        from infrastructure.factories.reranker_factory import RerankerFactory
+        from infrastructure.monitoring import record_rag_processing
+        
+        candidate_texts = [n.node.get_content() for n in nodes]
+        
+        logger.info("reranking_started", num_candidates=len(candidate_texts), top_k=top_k)
+        with record_rag_processing(domain="nse", stage="reranking"):
+            reranker_results = await asyncio.to_thread(
+                RerankerFactory.predict,
+                query,
+                candidate_texts,
+                top_k=top_k
             )
-            
-            # B. BM25 Retriever (Custom ES)
-            bm25_retriever = ElasticsearchBM25Retriever(
-                index_name=self.get_index_name(),
-                tenant_id=str(tenant_id),
-                filters=filters,
-                top_k=50 
-            )
-            
-            # C. Query Fusion
-            from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
-            fusion_retriever = QueryFusionRetriever(
-                [vector_retriever, bm25_retriever],
-                retriever_weights=[0.5, 0.5], # RRF ignores weights usually, but good to have
-                similarity_top_k=10, # Final Top K
-                num_queries=1, # No query generation extension, just single query fusion
-                mode=FUSION_MODES.RECIPROCAL_RANK,
-                use_async=True
-            )
-            
-            # 3. Execute Retrieval
-            from llama_index.core.schema import QueryBundle
-            from infrastructure.factories.reranker_factory import RerankerFactory
-
-            # Increase recall for reranking
-            fusion_retriever.similarity_top_k = 30
-            # 3. Execute Retrieval
-            from infrastructure.monitoring import record_rag_processing
-            
-            nodes = []
-            logger.info(f"Starting retrieval for query: {query}")
-            with record_rag_processing(domain="nse", stage="retrieval"):
-                nodes = await fusion_retriever.aretrieve(QueryBundle(query_str=query))
-            logger.info(f"Retrieval complete. Found {len(nodes)} nodes.")
-            
-            # Explicit Deduplication by Content (Handle potential overlaps from Hybrid Search)
-            unique_nodes = []
-            seen_content = set()
-            for n in nodes:
-                # Normalize whitespace for comparison
-                content_preview = n.node.get_content().strip()[:100] 
-                # Or use full content hash if necessary, but full string comparison on 20 nodes is fast enough
-                full_content = n.node.get_content()
-                
-                if full_content not in seen_content:
-                    seen_content.add(full_content)
-                    unique_nodes.append(n)
-            
-            nodes = unique_nodes
-            logger.info(f"After deduplication: {len(nodes)} nodes.")
-
-            # 4. Rerank Results
-            candidate_texts = [n.node.get_content() for n in nodes]
-            if candidate_texts:
-                logger.info(f"Starting reranking for {len(candidate_texts)} candidates.")
-                with record_rag_processing(domain="nse", stage="reranking"):
-                    # Use the 'limit' passed from the router (default 5, but can be 3)
-                    reranker_results = await asyncio.to_thread(RerankerFactory.predict, query, candidate_texts, top_k=limit)
-                logger.info("Reranking complete.")
-                
-                # Reconstruct sorted nodes list based on reranker indices
-                reranked_nodes = []
-                for idx, score in reranker_results:
-                    original_node = nodes[idx]
-                    original_node.score = float(score) # Update score with semantic score
-                    reranked_nodes.append(original_node)
-                
-                nodes = reranked_nodes
-            else:
-                logger.warning("No candidates found for reranking.")
-
-            # Format results
-            results = []
-            for n in nodes:
-                results.append({
-                    "text": n.node.get_content(),
-                    "score": n.score,
-                    "metadata": n.node.metadata
-                })
-                
-            return {
-                "query": query,
-                "filters": [f.dict() for f in filters.filters] if filters else None,
-                "results": results,
-                "count": len(results)
-            }
-            
-        except Exception as e:
-            logger.error(f"Search failed: {e}")
-            raise e
+        logger.info("reranking_complete")
+        
+        # Reconstruct nodes with new scores
+        reranked_nodes = []
+        for idx, score in reranker_results:
+            original_node = nodes[idx]
+            original_node.score = float(score)
+            reranked_nodes.append(original_node)
+        
+        return reranked_nodes
+    
+    def _format_search_results(
+        self,
+        query: str,
+        nodes: List,
+        filters: Optional[MetadataFilters]
+    ) -> Dict[str, Any]:
+        """Format search results for API response."""
+        results = []
+        for n in nodes:
+            results.append({
+                "text": n.node.get_content(),
+                "score": n.score,
+                "metadata": n.node.metadata
+            })
+        
+        return {
+            "query": query,
+            "filters": [f.dict() for f in filters.filters] if filters else None,
+            "results": results,
+            "count": len(results)
+        }
 
 
 

@@ -215,7 +215,7 @@ services:
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-      - hf_cache:/app/cache/huggingface
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -232,7 +232,8 @@ services:
   domain-worker:
     build:
       context: ./backend
-      dockerfile: Dockerfile.worker
+      dockerfile: Dockerfile
+      target: domain-worker
     container_name: sso_domain_worker
     restart: always
     env_file:
@@ -255,7 +256,7 @@ services:
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
-      - hf_cache:/app/cache/huggingface
+      - ./backend:/app
       - docling_cache:/home/appuser/.cache/docling
     depends_on:
       - postgres

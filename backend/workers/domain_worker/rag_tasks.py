@@ -1,14 +1,15 @@
 
 from workers.domain_worker.celery_app import celery_app
 import asyncio
-import logging
 from uuid import UUID
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any
 
+from core.constants import DocumentStatus
+from infrastructure.logging import get_logger
 from modules.domains.nse.services.rag_service import RagService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Initialize RagService (Lazy load happens on first access inside methods if needed)
 # However, importing the class is fine.
@@ -90,95 +91,43 @@ def ingest_document_task(self, payload: Dict[str, Any]):
         raise self.retry(exc=exc)
 
 async def _ingest_async(payload: Dict[str, Any], db, rag_service):
-    from modules.b2b.models.rag_document import RagDocument
-    from core.db.rls import rls_service
-    from sqlalchemy import select
+    """
+    Async ingestion logic using IngestionService.
     
-    from core.config import settings
+    This function handles RLS context setup, then delegates to IngestionService.
+    """
+    from modules.domains.nse.services.ingestion_service import ingestion_service
+    from core.db.rls import rls_service
     
     tenant_id_str = payload.get('tenant_id')
     file_path = payload.get('file_path')
     job_id = payload.get('job_id')
+    content_hash = payload.get('content_hash', '')
     metadata = payload.get('document_metadata', {})
     
     if not tenant_id_str or not file_path:
-        logger.error("Missing tenant_id or file_path")
+        logger.error("missing_required_payload", has_tenant=bool(tenant_id_str), has_file_path=bool(file_path))
         return
 
     tenant_id = UUID(tenant_id_str)
     
-    # Set RLS Context
+    # Set RLS Context (required for all DB operations)
     await rls_service.set_tenant_context(db, tenant_id)
     
-    # Update Status to PROCESSING
-    rag_doc = None
-    if job_id:
-        # Find document by job_id
-        stmt = select(RagDocument).where(RagDocument.job_id == job_id)
-        result = await db.execute(stmt)
-        rag_doc = result.scalars().first()
-        
-        if rag_doc:
-            # Idempotency: If job is already done, don't re-process (e.g. on worker restart)
-            if rag_doc.status == "completed":
-                logger.info(f"Job {job_id} is already completed. Skipping (Idempotency).")
-                return
-
-            # Check for duplicate content before processing
-            content_hash = payload.get('content_hash')
-            force_reingest = settings.rag_skip_deduplication
-            
-            if content_hash and not force_reingest:
-                # Look for existing completed document with same hash
-                duplicate_check = select(RagDocument).where(
-                    RagDocument.tenant_id == tenant_id,
-                    RagDocument.content_hash == content_hash,
-                    RagDocument.status == "completed"
-                )
-                duplicate_result = await db.execute(duplicate_check)
-                existing_doc = duplicate_result.scalars().first()
-                
-                if existing_doc:
-                    logger.info(f"Duplicate content detected (hash: {content_hash[:8]}...). Skipping re-embedding.")
-                    rag_doc.status = "completed"
-                    rag_doc.chunk_count = existing_doc.chunk_count
-                    rag_doc.error_message = f"Duplicate of document {existing_doc.id}"
-                    await db.commit()
-                    return  # Skip processing
-            
-            rag_doc.status = "processing"
-            await db.commit()
-            # CRITICAL: RLS context (SET LOCAL) is lost after commit. Re-apply it for subsequent updates.
-            await rls_service.set_tenant_context(db, tenant_id)
-            logger.info(f"Updated RagDocument {rag_doc.id} status to PROCESSING")
-        else:
-             logger.warning(f"RagDocument for job_id {job_id} not found. Proceeding with ingestion anyway.")
-
+    # Delegate to IngestionService
     try:
-        # Call Service
-        result = await rag_service.ingest_document(
+        result = await ingestion_service.process_ingestion(
             db=db,
             tenant_id=tenant_id,
             file_path=file_path,
-            document_metadata=metadata
+            job_id=job_id,
+            document_metadata=metadata,
+            content_hash=content_hash,
+            rag_service=rag_service
         )
         
-        # Update Status to COMPLETED
-        if rag_doc:
-            rag_doc.status = "completed" # or 'ready'
-            rag_doc.chunk_count = result.get('chunks', 0)
-            rag_doc.error_message = None
-            await db.commit()
-            logger.info(f"Ingestion successful for {file_path}")
-
+        logger.info("worker_ingestion_complete", job_id=job_id, result_status=result.get('status'))
+        
     except Exception as e:
-        logger.error(f"Ingestion logic failed: {e}")
-        if rag_doc:
-            # Handle SoftTimeLimitExceeded specific message if needed, but str(e) covers it
-            rag_doc.status = "failed"
-            rag_doc.error_message = f"Processing failed: {str(e)}"
-            try:
-                await db.commit()
-            except Exception as db_exc:
-                logger.error(f"Failed to save error status: {db_exc}")
+        logger.error("worker_ingestion_failed", job_id=job_id, error=str(e), exc_info=True)
         raise

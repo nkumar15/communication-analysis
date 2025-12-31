@@ -9,16 +9,17 @@ from sqlalchemy import select
 from core.db.session import get_db
 from core.db.rls import rls_service
 from core.config import settings
-from infrastructure.factories.storage_factory import StorageFactory
+from core.constants import DocumentStatus, RAGDefaults
+from infrastructure.logging import get_logger, add_context
 from modules.b2b.models.rag_document import RagDocument
-from modules.b2b.models.tenant import TenantModel
 from modules.b2b.middleware.b2b_auth import get_current_active_user
 
-from celery import Celery
-celery_producer = Celery('api_producer', broker=settings.celery_broker_url_resolved)
-
-# Import RagService at top level to ensure preloading of Reranker model on startup
+# Import services
+from modules.domains.nse.services.document_service import document_service
+from modules.domains.nse.services.synthesis_service import synthesis_service
 from modules.domains.nse.services.rag_service import rag_service
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/api/domain/{domain}/rag",
@@ -33,7 +34,6 @@ async def upload_document(
     company_name: Optional[str] = Form(None),
     report_type: Optional[str] = Form(None),
     financial_period: Optional[str] = Form(None),
-
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_active_user)
 ):
@@ -41,106 +41,37 @@ async def upload_document(
     """
     Upload a document for RAG ingestion.
     """
+    # Bind context for all logs in this request
+    add_context(tenant_id=tenant_id, domain=domain, filename=file.filename or "unknown")
+    
     if not file.filename:
+        logger.warning("upload_rejected_no_filename", tenant_id=tenant_id)
         raise HTTPException(status_code=400, detail="Filename missing")
     
-    # ... (rest of code)
-
-    # 4. Dispatch Task
-
+    logger.info("document_upload_started", file_size=file.size)
     
-    # Set RLS Context manually (since we bypass typical auth middleware for this testing endpoint)
+    # Use DocumentService for all upload logic
     try:
         tenant_uuid = uuid.UUID(tenant_id)
-        await rls_service.set_tenant_context(db, tenant_uuid)
     except ValueError:
+        logger.error("invalid_tenant_id_format", tenant_id=tenant_id)
         raise HTTPException(status_code=400, detail="Invalid tenant_id format")
     
-    # 1. Read & Hash
-    content = await file.read()
-    content_hash = hashlib.sha256(content).hexdigest()
-    file_size = len(content)
-    
-    # Reset file cursor for upload (or pass bytes)
-    # MinIO put_object needs stream or bytes
-    # But we need to be careful with memory for large files. 
-    # For < 50MB it's fine.
-    
-    import io
-    file_stream = io.BytesIO(content)
-    
-    # 2. Upload to MinIO
-    storage = StorageFactory.get_storage_client()
-    bucket = "rag-documents"
-    
-    # Ensure bucket exists
-    if not storage.bucket_exists(bucket):
-        storage.make_bucket(bucket)
-        
-    object_name = f"{tenant_id}/{content_hash}/{file.filename}"
-    
-    storage.put_object(
-        bucket,
-        object_name,
-        file_stream,
-        length=file_size,
-        content_type=file.content_type
-    )
-    
-    s3_path = f"s3://{bucket}/{object_name}"
-    
-    # 3. DB Record
-    # Check duplicates/upsert?
-    # Phase 2 plan says: "If exists... delete old vectors -> Re-ingest".
-    # For simplicity, we create a new RagDocument record for every upload job, 
-    # but the Worker checks logic. OR we link here.
-    # Let's create a NEW job/record every time to track history.
-    
-    job_id = str(uuid.uuid4())
-    
-    new_doc = RagDocument(
-        tenant_id=uuid.UUID(tenant_id),
-        filename=file.filename,
-        file_url=s3_path,
-        file_size_bytes=file_size,
-        mime_type=file.content_type,
-        company_name=company_name,
-        report_type=report_type,
-        financial_period=financial_period,
-        status="pending",
-        content_hash=content_hash,
-        job_id=job_id
-    )
-    
-    db.add(new_doc)
-    await db.commit()
-    # await db.refresh(new_doc) - Removed: RLS context is lost after commit (SET LOCAL), 
-    # and INSERT RETURNING already populates necessary fields (id, created_at).
-    
-    # 4. Dispatch Task
-    payload = {
-        "tenant_id": str(tenant_id),
-        "file_path": s3_path,
-        "job_id": job_id,
-        "content_hash": content_hash,
-        "document_metadata": {
-            "company_name": company_name,
-            "report_type": report_type,
-            "financial_period": financial_period,
-            "source": file.filename,
-            "original_filename": file.filename,
-            "content_hash": content_hash
-        }
+    metadata = {
+        "company_name": company_name,
+        "report_type": report_type,
+        "financial_period": financial_period,
+        "original_filename": file.filename
     }
     
-    celery_producer.send_task("domain.ingest_document", args=[payload], queue="domain")
+    result = await document_service.upload_document(
+        db=db,
+        tenant_id=tenant_uuid,
+        file=file,
+        metadata=metadata
+    )
     
-    return {
-        "status": "pending",
-        "job_id": job_id,
-        "document_id": str(new_doc.id),
-        "message": "Upload successful, ingestion started."
-    }
+    return result.to_dict()
 
 @router.get("/status/{job_id}")
 async def get_ingestion_status(
@@ -151,10 +82,13 @@ async def get_ingestion_status(
 ):
     tenant_id = str(current_user.get('tenant_id'))
     """Check status of an ingestion job"""
+    add_context(tenant_id=tenant_id, domain=domain, job_id=job_id)
+    
     try:
         tenant_uuid = uuid.UUID(tenant_id)
         await rls_service.set_tenant_context(db, tenant_uuid)
     except ValueError:
+        logger.error("invalid_tenant_id_format", tenant_id=tenant_id)
         raise HTTPException(status_code=400, detail="Invalid tenant_id format")
 
     stmt = select(RagDocument).where(RagDocument.job_id == job_id)
@@ -176,7 +110,7 @@ async def get_ingestion_status(
 async def search_documents(
     domain: str,
     query: str = Form(...),
-    limit: int = Form(3), # Reduced default from 5 to 3 for performance
+    limit: int = Form(3, ge=1), # Reduced default from 5 to 3 for performance
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_active_user)
 ):
@@ -185,6 +119,7 @@ async def search_documents(
     Search ingested documents using the centralized RagService.
     This ensures Query Understanding (Decomposition) and advanced retrieval logic is applied.
     """
+    add_context(tenant_id=tenant_id, domain=domain, query=query[:50])
     try:
         # rag_service is imported at module level for preloading
         
@@ -211,54 +146,25 @@ async def search_documents(
         results = search_result.get("results", [])
         filters_used = search_result.get("filters", [])
         
-        # 7. Generate Answer (Synthesize) - Preserving existing Router logic
-        answer = "I could not find enough relevant information to answer your question."
-        if results:
-            try:
-                from infrastructure.monitoring import record_rag_processing
-                from infrastructure.factories.llm_factory import LLMFactory
- 
-                with record_rag_processing(domain="nse", stage="synthesis"):
-                    llm = LLMFactory.get_llm() 
-                    
-                    # Enrich context with metadata (Year/Quarter)
-                    context_str = "\n\n".join([
-                        f"Source: {r.get('metadata', {}).get('source', 'Unknown')} "
-                        f"({r.get('metadata', {}).get('fiscal_year', 'N/A')} {r.get('metadata', {}).get('quarter', '')})\n"
-                        f"Content: {r.get('text', '')}"
-                        for r in results
-                    ])
-                    
-                    prompt = (
-                        "You are an expert financial analyst. Your goal is to answer the user's question concisely using the provided context.\n\n"
-                        "**Guidelines:**\n"
-                        "1. **Conciseness**: Be extremely direct. Limit answer to 2-3 sentences.\n"
-                        "2. **NO Markdown Tables**: The text provided contains tables. Do NOT re-generate them. The user can see the source tables.\n"
-                        "3. **Format**: Use bullet points for key figures only.\n"
-                        "4. **Accuracy**: Use ONLY the provided context.\n"
-                        "5. **Citations**: Inline the Fiscal Year/Quarter (e.g. [FY25 Q2]) where relevant.\n\n"
-                        f"**Context**:\n{context_str}\n\n"
-                        f"**Question**: {query}\n\n"
-                        "**Answer**:"
-                    )
-                    
-                    response_gen = await llm.acomplete(prompt)
-                    answer = response_gen.text
-            except Exception as e:
-                print(f"Generation failed: {e}")
-                answer = "Error generating answer."
+        # Generate answer using SynthesisService
+        answer = await synthesis_service.synthesize_answer(
+            query=query,
+            results=results,
+            domain=domain
+        )
 
         return {
+            "query": query,
             "answer": answer,
             "results": results,
+            "context": results,  # Alias for compatibility with tests/frontend
             "filters": filters_used,
             "count": len(results)
         }
 
     except Exception as e:
-        # Log the full error
-        print(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("search_failed", query=query, error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="Search operation failed")
 
 @router.get("/documents")
 async def list_documents(
@@ -268,11 +174,13 @@ async def list_documents(
 ):
     tenant_id = str(current_user.get('tenant_id'))
     """List all RAG documents for a tenant"""
+    add_context(tenant_id=tenant_id, domain=domain)
+    
     try:
         tenant_uuid = uuid.UUID(tenant_id)
-        # Verify tenant access (simple check or RLS context)
         await rls_service.set_tenant_context(db, tenant_uuid)
     except ValueError:
+        logger.error("invalid_tenant_id_format", tenant_id=tenant_id)
         raise HTTPException(status_code=400, detail="Invalid tenant_id")
 
     stmt = select(RagDocument).where(RagDocument.tenant_id == tenant_uuid).order_by(RagDocument.created_at.desc())
@@ -286,7 +194,11 @@ async def list_documents(
             "status": d.status,
             "created_at": d.created_at,
             "file_size_bytes": d.file_size_bytes,
-            "job_id": d.job_id
+            "file_size_bytes": d.file_size_bytes,
+            "job_id": d.job_id,
+            "company_name": d.company_name,
+            "report_type": d.report_type,
+            "financial_period": d.financial_period
         }
         for d in docs
     ]

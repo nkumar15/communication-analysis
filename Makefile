@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c sast-scan sast-scan-python sast-scan-react sast-scan-containers security-update-npm dast-scan dast-scan-b2b dast-scan-platform dast-scan-b2c dast-scan-domain dast-scan-full
+.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-domain-rag test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c sast-scan sast-scan-python sast-scan-react sast-scan-containers security-update-npm dast-scan dast-scan-b2b dast-scan-platform dast-scan-b2c dast-scan-domain dast-scan-full
 
 
 
@@ -264,8 +264,11 @@ test-api: ## Run all API integration tests
 	docker-compose run --rm e2e-tests pytest -n auto tests/e2e_api/ -v
 	@echo "$(GREEN)✓ API tests complete$(NC)"
 
+test-domain-rag: ## Run NSE RAG domain integration tests
+	@echo "$(BLUE)Running NSE RAG domain tests...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/domain/nserag/ -v
+	@echo "$(GREEN)✓ NSE RAG domain tests complete$(NC)"
 
-# Test Runner Config
 # Test Runner Config
 ifdef LOCAL
 TEST_CMD := cd backend && pytest
