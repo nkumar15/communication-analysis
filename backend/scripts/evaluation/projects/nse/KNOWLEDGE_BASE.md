@@ -50,9 +50,14 @@ A catalog of known failure modes specific to Earnings Calls & Financial Reports.
 ### 3.3 State Management: Query State Machine
 *   **Problem**: "What is the revenue?" followed by "How about Q3?" fails in a stateless system.
 *   **Decision**: Implement **Session State Object** `{Company, Period, Metric}`.
-    *   Resolves "Q3" -> `Period="Q3 2025"`.
-    *   Resolves "Latest" -> `Period=MAX(Date)`.
 *   **Status**: Planned for Phase 3 (Conversational Intelligence).
+
+### 3.4 Unified Analysis: Paired Ingestion
+*   **Problem**: Financial Reports give the "What" (Numbers), Concalls give the "Why" (Context). Analyzing them in isolation misses critical insights.
+*   **Decision**: **Unified Multi-Hop Analysis**.
+    *   Ingest Earnings + Concalls as matched pairs.
+    *   Generate "Cross-Context" questions requiring both sources.
+*   **Status**: Planned for Phase 4 (Current).
 
 ---
 
