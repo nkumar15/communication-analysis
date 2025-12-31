@@ -80,6 +80,10 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
     const [uploadStatus, setUploadStatus] = useState('');
     const [pollingJobId, setPollingJobId] = useState(null);
 
+    // Upload Metadata State
+    const [reportType, setReportType] = useState('earnings');
+    const [financialPeriod, setFinancialPeriod] = useState('');
+
     // Sidebar State
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -210,6 +214,9 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                             setUploadDrawerOpen(false);
                             setUploadStatus('');
                             setFile(null);
+                            // Reset metadata
+                            setReportType('earnings');
+                            setFinancialPeriod('');
                         }, 2000);
                     }
                 } else {
@@ -274,6 +281,8 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
 
         const formData = new FormData();
         formData.append('file', file);
+        if (reportType) formData.append('report_type', reportType);
+        if (financialPeriod) formData.append('financial_period', financialPeriod);
 
         try {
             const res = await b2bClient.uploadRagDocument(domain, formData);
@@ -702,6 +711,38 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                                             <Typography variant="caption" color="text.secondary" paragraph display="block">
                                                 Upload PDFs or text files to index them for the {domain} knowledge base.
                                             </Typography>
+
+                                            {/* Metadata Controls */}
+                                            <Box mb={2}>
+                                                <Typography variant="caption" fontWeight="600" display="block" mb={1}>
+                                                    Document Type
+                                                </Typography>
+                                                <Box display="flex" gap={1} mb={2}>
+                                                    {['earnings', 'concall'].map((type) => (
+                                                        <Chip
+                                                            key={type}
+                                                            label={type === 'earnings' ? 'Earnings Report' : 'Concall Transcript'}
+                                                            onClick={() => setReportType(type)}
+                                                            color={reportType === type ? 'primary' : 'default'}
+                                                            variant={reportType === type ? 'filled' : 'outlined'}
+                                                            size="small"
+                                                            sx={{ textTransform: 'capitalize' }}
+                                                        />
+                                                    ))}
+                                                </Box>
+
+                                                <Typography variant="caption" fontWeight="600" display="block" mb={1}>
+                                                    Financial Period (Optional)
+                                                </Typography>
+                                                <TextField
+                                                    size="small"
+                                                    fullWidth
+                                                    placeholder="e.g. Q2 FY26"
+                                                    value={financialPeriod}
+                                                    onChange={(e) => setFinancialPeriod(e.target.value)}
+                                                    sx={{ bgcolor: 'white', mb: 2 }}
+                                                />
+                                            </Box>
 
                                             <Box
                                                 border={1}
