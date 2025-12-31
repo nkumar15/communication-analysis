@@ -96,12 +96,15 @@ class RagService(BaseRagService):
                 "- ticker: The stock ticker symbol of the company explicitly mentioned (e.g., 'reliance' -> 'RELIANCE', 'tcs' -> 'TCS').\n"
                 "- fiscal_year: The Fiscal Year if mentioned (e.g., 'FY25', '2025').\n"
                 "- quarter: The Quarter if mentioned (e.g., 'Q2', 'second quarter').\n"
+                "- report_type: 'earnings' (Results, financials) or 'concall' (Transcript, call, management discussion).\n"
                 "- scope: 'Standalone' or 'Consolidated' if strictly mentioned.\n\n"
                 "Rules:\n"
                 "1. If a company name is mentioned (even in lowercase like 'reliance'), extract its standard ticker (e.g. RELIANCE).\n"
                 "2. Specific Mappings: 'HDFC' or 'HDFC Bank' -> 'HDFCBANK', 'Reliance' -> 'RELIANCE'.\n"
                 "3. If no company is mentioned, leave ticker null.\n"
-                "4. Do not infer filters that are not in the query.\n\n"
+                "4. Map 'concall', 'transcript', 'call' -> report_type='concall'.\n"
+                "5. Map 'results', 'earnings', 'presentation' -> report_type='earnings'.\n"
+                "6. Do not infer filters that are not in the query.\n\n"
                 "User Question: {query_str}\n"
             )
 
@@ -120,6 +123,8 @@ class RagService(BaseRagService):
                 filters.append(MetadataFilter(key="fiscal_year", value=output.fiscal_year))
             if output.quarter:
                 filters.append(MetadataFilter(key="quarter", value=output.quarter))
+            if output.report_type and output.report_type != "unknown":
+                 filters.append(MetadataFilter(key="report_type", value=output.report_type.value))
             # Scope is list, handle single if present (simplification)
             if output.scope and output.scope[0] != "Unknown":
                  filters.append(MetadataFilter(key="scope", value=output.scope[0]))

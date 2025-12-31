@@ -56,6 +56,8 @@ async def main():
             "company_name": "TCS",
             "report_type": item["report_type"],
             "financial_period": "Q2_FY26",
+            "quarter": "Q2", 
+            "fiscal_year": "FY26",
             "doc_type": item["doc_type"],
             "original_filename": file_name,
             "content_hash": content_hash 

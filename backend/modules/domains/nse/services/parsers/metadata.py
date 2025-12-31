@@ -13,6 +13,12 @@ class NSEScope(str, Enum):
     CONSOLIDATED = "Consolidated"
     UNKNOWN = "Unknown"
 
+class NSEReportType(str, Enum):
+    EARNINGS = "earnings"
+    CONCALL = "concall"
+    ANNUAL_REPORT = "annual_report"
+    UNKNOWN = "unknown"
+
 class NSEDocumentMetadata(BaseModel):
     """
     Structured metadata extracted from the first page of an NSE Earnings/Financial document.
@@ -21,6 +27,7 @@ class NSEDocumentMetadata(BaseModel):
     company_name: Optional[str] = Field(default=None, description="The full name of the company.")
     fiscal_year: Optional[str] = Field(default=None, description="The Fiscal Year mentioned, normalized to format 'FY25', 'FY24'.")
     quarter: Optional[str] = Field(default=None, description="The Quarter mentioned, normalized to 'Q1', 'Q2', 'Q3', 'Q4'.")
+    report_type: Optional[NSEReportType] = Field(default=None, description="The type of document: 'earnings' (Financial Results/Presentation) or 'concall' (Earnings Call Transcript).")
     scope: Optional[List[NSEScope]] = Field(default=None, description="The scope of financial results detected (Standalone, Consolidated, or both).")
 
 class MetadataExtractor:
@@ -40,7 +47,8 @@ class MetadataExtractor:
                 "Canonicalization Rules:\n"
                 "- Map 'HDFC', 'HDFC Limited', 'Housing Development Finance Corp' -> 'HDFCBANK' (as they are merged).\n"
                 "- Map 'Reliance', 'RIL' -> 'RELIANCE'.\n"
-                "- Map 'TCS', 'Tata Consultancy Services' -> 'TCS'.\n\n"
+                "- Map 'TCS', 'Tata Consultancy Services' -> 'TCS'.\n"
+                "- Detect Report Type: 'Earnings' if it contains financial tables/results, 'Concall' if it is a transcript of a call.\n\n"
                 "Text:\n{text}\n\n"
             )
             
