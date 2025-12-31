@@ -83,7 +83,18 @@ Results are saved as JSON files in the configured `output_dir` (default: `script
 - **Metrics**: Aggregated scores (Faithfulness, Relevancy, Recall).
 - **Results**: Detailed breakdown of each test case (Query, Retrieved Context, Actual Answer, Scores).
 
-## 5. Adding New Projects
+## 5. Capturing Learnings
+
+We maintain a **Knowledge Base** (`backend/scripts/evaluation/projects/nse/KNOWLEDGE_BASE.md`) to document insights that go beyond raw numbers.
+
+**When to update:**
+- After a significant finding (e.g., "Reranking improved Recall by 20%").
+- When making a design decision (e.g., "Switching to Hybrid Search").
+- To hypothesize about future experiments.
+
+This file serves as the qualitative companion to the quantitative `EXPERIMENT_REGISTRY.md`.
+
+## 6. Adding New Projects
 
 To support a new project (e.g., "Enron"):
 1. Create `backend/scripts/evaluation/projects/enron/`.
