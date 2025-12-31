@@ -31,9 +31,9 @@ class RagService(BaseRagService):
         # Preload Reranker Model to avoid latency on first request
         try:
              from infrastructure.factories.reranker_factory import RerankerFactory
-             logger.info("Preloading Reranker model...")
+             from infrastructure.factories.reranker_factory import RerankerFactory
+             # Ensure model is loaded (cached singleton)
              RerankerFactory.get_reranker()
-             logger.info("Reranker model preloaded.")
         except Exception as e:
              logger.warning(f"Failed to preload reranker: {e}")
 

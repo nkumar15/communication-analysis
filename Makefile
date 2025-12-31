@@ -130,8 +130,9 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	read REPLY; \
 	case "$$REPLY" in \
 		[Yy]*) \
-			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker nginx mailhog; \
+			docker-compose down; \
+			docker volume rm enterprisesso_postgres_data || true; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			docker-compose restart postgres; \
