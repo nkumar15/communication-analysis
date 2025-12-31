@@ -5,7 +5,7 @@ from core.db.base import Base
 
 class RagDocument(Base):
     __tablename__ = "rag_documents"
-    __table_args__ = {"schema": "b2b"}
+    __table_args__ = {"schema": "b2b_nse"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("b2b.tenants.id", ondelete="CASCADE"), nullable=False)
