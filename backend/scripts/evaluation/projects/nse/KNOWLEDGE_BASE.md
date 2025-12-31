@@ -1,5 +1,14 @@
 # NSE Domain RAG Knowledge Base
 
+## 🧠 Validated Learnings
+
+### ❗ Retrieval Dynamics
+- **Decomposition vs. Recall (Expr #14)**:
+  - **Observation**: Introducing strict query decomposition (extracting metadata filters like Ticker/FY) caused Contextual Recall to drop from 93.8% to 63% on generated questions.
+  - **Reason**: Generated questions often lack explicit metadata (e.g., "What was the revenue?" vs "Revenue of TCS in FY24"). The decomposer either failed to extract filters (returning wide results, good) or extracted incorrect/partial filters (returning 0 results, bad).
+  - **Lesson**: Strict filtering is dangerous for natural language queries.
+  - **Solution**: Implement **Adaptive Filtering**. If a filtered search yields low results (< 5), fallback to a broad vector/hybrid search without filters. This balances precision (when filters work) with recall (when they fail).
+
 > **Single Source of Truth** for the NSE Earnings Analysis RAG System.
 > Unifies insights from Experiments, Architecture Decisions, and Failure Analysis.
 
