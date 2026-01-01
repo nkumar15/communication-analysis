@@ -74,6 +74,7 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[Multi-Tenant Isolation](docs/architecture/shared/multi-tenant-isolation.md)**: RLS implementation and tenant data isolation.
 - **[Tenant Onboarding Flow](docs/architecture/b2b/tenant-onboarding-flow.md)**: Complete onboarding sequence from platform admin invite to activation.
 - **[Subscription & Billing](docs/architecture/b2b/subscription.md)**: Pricing engine, payment flows, Stripe integration, and invoice management.
+- **[RAG Architecture](docs/specifications/shared/rag.md)**: Search, Retrieval Augmented Generation, and Experimental Framework.
 
 
 ### 🧪 Testing

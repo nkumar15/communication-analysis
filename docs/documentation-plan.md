@@ -58,9 +58,14 @@ To provide a clear, role-based and product-based navigation path for developers 
 - **Audience:** Engineers, Architects
 - **Purpose:** Technical design and system documentation.
 - **Structure:**
-    - `architecture/shared/` - Cross-product architecture
-    - `architecture/b2b/` - B2B-specific architecture
-    - `architecture/b2c/` - B2C-specific architecture
+    #### Shared Architecture
+    - **[Overview](docs/architecture/overview.md)**: High-level system architecture and tech stack.
+    - **[System Architecture](docs/architecture/system-architecture.md)**: Detailed component breakdown.
+    - **[Security](docs/architecture/security.md)**: Security best practices and implementation details.
+    - **[UI Design](docs/architecture/ui-design.md)**: Design system and reusable frontend components.
+    - **[Domain APIs](docs/architecture/b2b/domain-apis.md)**: Projects, Tasks, and Comments APIs.
+    - **[RAG Architecture](docs/specifications/shared/rag.md)**: Search, Retrieval Augmented Generation, and Experimental Framework.
+    - **[Hybrid Search Deep Dive](docs/architecture/shared/rag-hybridsearch.md)**: Technical guide on BM25 + Vector Search.
 
 ## 🧹 Cleanup Actions
 - [x] Create `docs/products/` with B2B, B2C, Platform READMEs
