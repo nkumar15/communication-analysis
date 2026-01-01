@@ -39,8 +39,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     # Startup: Initialize Observability (Tracing, Metrics)
-    # Note: Platform API currently uses sync DB for some parts and 'engine' from 'core.db.session'
-    setup_observability(app, service_name="platform-api", sqlalchemy_engine=engine)
+    # setup_observability(app, service_name="platform-api", sqlalchemy_engine=engine) - MOVED
     
     get_auth_provider().initialize()
     logger.info("platform_api_ready",
@@ -76,6 +75,10 @@ app.add_middleware(
 
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
+
+# Initialize Observability (Tracing, Metrics)
+# Must be done after app creation but before requests
+setup_observability(app, service_name="platform-api", sqlalchemy_engine=engine)
 
 # Include Platform routers
 app.include_router(platform.router)      # Core platform endpoints (/api/platform/config, /api/platform/auth/me)

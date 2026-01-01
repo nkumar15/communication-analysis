@@ -10,6 +10,10 @@ domain_permissions:
       actions: [read, write, delete]
     - resource: comments
       actions: [read, write, delete]
+    - resource: rag_nse
+      actions: [read, write, delete]
+    - resource: rag_enron
+      actions: [read, write, delete]
 
   admin:
     - resource: projects
@@ -17,6 +21,10 @@ domain_permissions:
     - resource: tasks
       actions: [read, write, delete]
     - resource: comments
+      actions: [read, write, delete]
+    - resource: rag_nse
+      actions: [read, write, delete]
+    - resource: rag_enron
       actions: [read, write, delete]
 
   member:
@@ -26,6 +34,10 @@ domain_permissions:
       actions: [read, write]
     - resource: comments
       actions: [read, write, delete]  # delete for own comments
+    - resource: rag_nse
+      actions: [read, write, delete]
+    - resource: rag_enron
+      actions: [read, write, delete]
 
   viewer:
     - resource: projects
@@ -34,3 +46,8 @@ domain_permissions:
       actions: [read]
     - resource: comments
       actions: [read]
+    - resource: rag_nse
+      actions: [read]
+    - resource: rag_enron
+      actions: [read]      
+    # No RAG access for viewer

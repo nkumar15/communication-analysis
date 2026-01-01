@@ -112,6 +112,10 @@ app.include_router(b2c_auth.router)
 app.include_router(b2c_workspaces.router)
 app.include_router(b2c_invitations.router)
 
+# Include NSE RAG router
+from modules.domains.nse.routers import rag as nse_rag
+app.include_router(nse_rag.router)
+
 # Include B2C billing router if stripe is available
 if HAS_B2C_BILLING:
     app.include_router(b2c_billing.router)
@@ -400,7 +404,9 @@ async def api_client(db_session):
     app.dependency_overrides[get_current_b2c_user] = override_get_current_b2c_user
     # Removed override_get_current_active_user to verify real middleware logic
     
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    # httpx 0.27+ requires ASGITransport instead of app parameter
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
     
     app.dependency_overrides.clear()

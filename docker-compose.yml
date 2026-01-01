@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg17
     container_name: sso_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -31,8 +31,6 @@ services:
     container_name: sso_dbmigrate
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    ports:
-      - "9000:9000"
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
@@ -207,10 +205,17 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - EMAIL_PROVIDER=mailhog
       - MAILHOG_HOST=mailhog
+      - LLM_PROVIDER=openai
+      - LLM_MODEL=gpt-4o-mini
+      - EMBEDDING_PROVIDER=openai
+      - EMBEDDING_MODEL=text-embedding-3-small
+      - HF_HOME=/app/.cache/huggingface
+
     ports:
       - "8003:8003"
     volumes:
       - ./backend:/app
+      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       postgres:
@@ -219,7 +224,47 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     command: uvicorn modules.domains.main:app --host 0.0.0.0 --port 8003 --reload
+
+  domain-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: domain-worker
+    container_name: sso_domain_worker
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_SECURE=False
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - LLM_PROVIDER=openai
+      - LLM_MODEL=gpt-4o-mini
+      - EMBEDDING_PROVIDER=openai
+      - EMBEDDING_MODEL=text-embedding-3-small
+      - HF_HOME=/app/.cache/huggingface
+
+      - PYTHONPATH=/app
+    volumes:
+      - ./backend:/app
+      - ./backend:/app
+
+    depends_on:
+      - postgres
+      - redis
+      - minio
+      - elasticsearch
+    command: celery -A workers.domain_worker.celery_app worker --loglevel=info --concurrency=1 -Q domain
 
   # Redis - Message Broker for ARQ Background Tasks
   redis:
@@ -341,6 +386,7 @@ services:
       - API_URL=http://b2b-api:8000
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - HF_HOME=/app/.cache/huggingface
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       # Frontend services (now in Docker) - use internal service names
       - FRONTEND_URL=http://frontend-b2b:3000
@@ -401,7 +447,65 @@ services:
       - jaeger
     restart: unless-stopped
 
+  # Elasticsearch - Vector Store & Search Engine
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: sso_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Kibana - Elasticsearch Dashboard
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: sso_kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  # MinIO - Object Storage (S3 Compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: sso_minio
+    ports:
+      - "9000:9000" # API
+      - "9005:9001" # Console (mapped to 9005 to avoid conflict if any)
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   grafana_data:
+  es_data:
+    driver: local
+  minio_data:
+    driver: local
+
+  kibana_data:
+    driver: local

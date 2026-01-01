@@ -1,4 +1,4 @@
-.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c sast-scan sast-scan-python sast-scan-react sast-scan-containers security-update-npm dast-scan dast-scan-b2b dast-scan-platform dast-scan-b2c dast-scan-domain dast-scan-full
+.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-domain-rag test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c sast-scan sast-scan-python sast-scan-react sast-scan-containers security-update-npm dast-scan dast-scan-b2b dast-scan-platform dast-scan-b2c dast-scan-domain dast-scan-full
 
 
 
@@ -47,13 +47,19 @@ status: ## Show status of all services and configuration
 
 up: ## Start all backend services (frontend runs locally)
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker nginx mailhog prometheus grafana jaeger
+	docker-compose up -d postgres elasticsearch minio b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker domain-worker nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
+	@echo ""
+	@echo "$(BLUE)=== Running Services ===$(NC)"
+	@docker-compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Ports}}"
+	@echo ""
+	@echo "$(YELLOW)Common URLs:$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
 	@echo "Email UI:     http://localhost:8025 (Mailhog)"
 	@echo "Grafana:      http://localhost:3002"
 	@echo "Prometheus:   http://localhost:9090"
 	@echo "Jaeger:       http://localhost:16686"
+	@echo "Kibana:       http://localhost:5601"
 	@echo "Run 'make web-b2b' for B2B frontend on port 3000"
 
 down: ## Stop all services
@@ -72,7 +78,7 @@ logs: ## View logs (usage: make logs [s=service])
 ifdef s
 	docker-compose logs -f $(s)
 else
-	docker-compose logs -f b2b-api platform-api b2c-api domain-api b2c-worker nginx
+	docker-compose logs -f b2b-api platform-api b2c-api domain-api b2c-worker domain-worker nginx
 endif
 
 ps: ## List running services
@@ -124,14 +130,16 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	read REPLY; \
 	case "$$REPLY" in \
 		[Yy]*) \
-			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker nginx mailhog; \
+			docker-compose down; \
+			docker volume rm enterprisesso_postgres_data || true; \
+			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
 			sleep 5; \
 			$(MAKE) migrate; \
 			docker-compose restart postgres; \
 			sleep 5; \
 			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
+			$(MAKE) stop-web-all; \
 			;; \
 		*) echo "Cancelled."; ;; \
 	esac
@@ -162,9 +170,9 @@ b2c-seed-plans: ## Seed B2C subscription plans
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
-b2b-invite: ## Invite B2B Tenant (interactive)
+b2b-invite: ## Invite B2B Tenant (usage: make b2b-invite f=seed.json)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/data/seed_tenant_config.json)
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -204,11 +212,14 @@ web-platform: ## Start Platform portal (port 3002)
 web-all: ## Build all portals for production
 	cd frontend && npm run build:all
 
+stop-web-all:
+	docker-compose stop frontend-b2c frontend-b2b frontend-platform || true
+
 ##@ Development
 
 up-backend: ## Start only backend services
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
+	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api b2b-worker b2c-worker domain-worker nginx
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 
 dev-b2b: ## Start dev env: backend + B2B frontend (port 3000)
@@ -254,8 +265,11 @@ test-api: ## Run all API integration tests
 	docker-compose run --rm e2e-tests pytest -n auto tests/e2e_api/ -v
 	@echo "$(GREEN)✓ API tests complete$(NC)"
 
+test-domain-rag: ## Run NSE RAG domain integration tests
+	@echo "$(BLUE)Running NSE RAG domain tests...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/domain/nserag/ -v
+	@echo "$(GREEN)✓ NSE RAG domain tests complete$(NC)"
 
-# Test Runner Config
 # Test Runner Config
 ifdef LOCAL
 TEST_CMD := cd backend && pytest
@@ -428,3 +442,8 @@ stripe-listen-b2b: ## Forward Stripe webhooks to B2B service (Port 8000)
 stripe-listen-b2c: ## Forward Stripe webhooks to B2C service (Port 8002)
 	@echo "$(BLUE)Forwarding Stripe events to B2C Service...$(NC)"
 	stripe listen --forward-to localhost:8002/api/b2c/billing/webhooks/stripe
+
+eval-run: ## Run RAG experiment (Usage: make eval-run CONFIG=scripts/evaluation/projects/nse/experiment_v1.yaml)
+		@echo "$(BLUE)Running Experiment with config: $(CONFIG)$(NC)"
+		@if [ -z "$(CONFIG)" ]; then echo "Error: CONFIG argument is required"; exit 1; fi
+		docker-compose run --rm e2e-tests python3 -m scripts.evaluation.core.runner --config $(CONFIG) $(ARGS)

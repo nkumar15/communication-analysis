@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     sentry_dsn: Optional[str] = None
     otel_exporter_otlp_endpoint: Optional[str] = None
 
+    # RAG Settings
+    rag_skip_deduplication: bool = False
+
     # Cloud Provider Configuration (for logging)
     gcp_project_id: Optional[str] = None
     aws_region: Optional[str] = None

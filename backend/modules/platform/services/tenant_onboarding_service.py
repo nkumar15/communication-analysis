@@ -35,7 +35,8 @@ class TenantOnboardingService:
         domain: str,
         owner_email: str,
         # New optional params for local/test mode
-        firebase_tenant_id: Optional[str] = None
+        firebase_tenant_id: Optional[str] = None,
+        tenant_id: Optional[UUID] = None
     ) -> dict:
         """
         Complete tenant onboarding workflow (Step 1: Provisioning)
@@ -46,6 +47,7 @@ class TenantOnboardingService:
             domain: Domain name
             owner_email: Owner email address
             firebase_tenant_id: Optional existing Firebase tenant ID (skips creation if provided)
+            tenant_id: Optional UUID to force a specific tenant ID (for seeding)
         """
 
         try:
@@ -128,15 +130,19 @@ class TenantOnboardingService:
             expires_at = get_utc_now() + timedelta(hours=48)
             
             # 3. Create tenant in database
-            tenant = TenantModel(
-                name=company_name,
-                domain=domain.lower(),
-                firebase_tenant_id=firebase_tenant_id,
-                activation_token=activation_token,
-                activation_status='pending',
-                activation_expires_at=expires_at,
-                is_active=True
-            )
+            tenant_model_args = {
+                "name": company_name,
+                "domain": domain.lower(),
+                "firebase_tenant_id": firebase_tenant_id,
+                "activation_token": activation_token,
+                "activation_status": 'pending',
+                "activation_expires_at": expires_at,
+                "is_active": True
+            }
+            if tenant_id:
+                tenant_model_args["id"] = tenant_id
+                
+            tenant = TenantModel(**tenant_model_args)
             db.add(tenant)
             await db.flush()
             await db.refresh(tenant)

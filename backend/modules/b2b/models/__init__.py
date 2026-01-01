@@ -1,5 +1,6 @@
 from .tenant import TenantModel
 from .user import UserModel
+from .rag_document import RagDocument
 from .invitation import InvitationModel
 from .rbac import Role, Resource, Action, RolePermission
 from .team import Team
@@ -32,6 +33,7 @@ CouponRedemption = B2BCouponRedemption
 __all__ = [
     "TenantModel", 
     "UserModel", 
+    "RagDocument",
     "InvitationModel", 
     "Role", 
     "Resource", 

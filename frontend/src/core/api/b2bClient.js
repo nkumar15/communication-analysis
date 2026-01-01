@@ -445,6 +445,96 @@ class ApiService {
     async createPortalSession(returnUrl) {
         return this.post('/api/b2b/billing/portal', { return_url: returnUrl });
     }
+
+    /**
+     * Helper to handle response and parse JSON
+     */
+    async handleResponse(response) {
+        if (!response.ok) {
+            const error = await response.text();
+            try {
+                const jsonError = JSON.parse(error);
+                throw new Error(jsonError.detail || `API Request Failed: ${response.status}`);
+            } catch (e) {
+                if (e.message.includes('API Request Failed')) throw e;
+                throw new Error(`API Request Failed: ${response.status} - ${error}`);
+            }
+        }
+        return response.json();
+    }
+
+    /**
+     * RAG: Upload Document
+     */
+    async uploadRagDocument(domain, formData) {
+        // Use raw fetch for multipart/form-data to let browser set boundary
+        const headers = await this.getAuthHeaders();
+        delete headers['Content-Type']; // Let browser set it
+
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/upload`, {
+            method: 'POST',
+            headers,
+            body: formData
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            try {
+                const jsonError = JSON.parse(error);
+                throw new Error(jsonError.detail || `Upload failed: ${response.status}`);
+            } catch (e) {
+                throw new Error(`Upload failed: ${response.status} - ${error}`);
+            }
+        }
+        return response.json();
+    }
+
+    /**
+     * RAG: Get Job Status
+     */
+    async getRagStatus(domain, jobId) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/status/${jobId}`, {
+            method: 'GET',
+            headers
+        });
+        return this.handleResponse(response);
+    }
+
+    /**
+     * RAG: Search
+     */
+    async searchRag(domain, query) {
+        const headers = await this.getAuthHeaders();
+        // Backend expects Form data for search
+        delete headers['Content-Type']; // Let fetch set correct content type for FormData/URLSearchParams if needed, or set explicitly for x-www-form-urlencoded
+
+        const formData = new URLSearchParams();
+        formData.append('query', query);
+
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/search`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData
+        });
+        return this.handleResponse(response);
+    }
+
+    /**
+     * RAG: List Documents
+     */
+    async listRagDocuments(domain) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/documents`, {
+            method: 'GET',
+            headers
+        });
+        return this.handleResponse(response);
+    }
 }
 
 export default new ApiService();
+

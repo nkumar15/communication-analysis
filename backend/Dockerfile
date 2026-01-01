@@ -18,8 +18,14 @@ RUN apt-get update && apt-get install -y \
 # Install uv for fast package management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user and cache directory
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/.cache/huggingface && \
+    chown -R appuser:appuser /app
+
+# Ensure specialized libraries use this cache
+ENV HF_HOME=/app/.cache/huggingface
+ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache/torch
 
 # ==========================================
 # 2. Builder Stage (Dependency Caching)
@@ -61,9 +67,9 @@ RUN apt-get update && apt-get install -y \
 
 # Install test python dependencies using uv
 COPY requirements.txt .
+COPY requirements-ai-api.txt .
 COPY requirements-test.txt .
-RUN uv pip install --system --no-cache -r requirements.txt && \
-    uv pip install --system --no-cache -r requirements-test.txt
+RUN uv pip install --system --no-cache -r requirements-test.txt
 
 # Install Playwright browsers (Heavy, cached)
 # Set fixed path for browsers so both root and appuser can find them
@@ -111,8 +117,16 @@ WORKDIR /app
 EXPOSE 8002
 CMD ["uvicorn", "modules.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
 
-# --- Domain Microservice ---
+# --- Domain Microservice (AI/RAG) ---
 FROM builder AS domain
+
+# Install AI-specific dependencies (builder already has requirements.txt)
+# uv will only install the NEW packages from requirements-ai-api.txt
+COPY requirements-ai-api.txt .
+# Increase timeout for AI packages
+ENV UV_HTTP_TIMEOUT=300
+RUN uv pip install --system --no-cache -r requirements-ai-api.txt
+
 USER appuser
 # Copy code
 COPY core/ /app/core/
@@ -132,3 +146,41 @@ USER appuser
 COPY --chown=appuser:appuser . /app
 ENV PYTHONPATH=/app
 CMD ["python", "-m", "pytest", "tests/"]
+
+# ==========================================
+# 6. Domain Worker (AI/RAG Heavy Processing)
+# ==========================================
+
+# Domain Worker Builder - Install heavy AI dependencies
+FROM base AS domain-worker-builder
+WORKDIR /app
+
+# Install additional system deps for heavy ML libraries
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install AI worker dependencies (heaviest requirements)
+COPY requirements.txt .
+COPY requirements-ai-api.txt .
+COPY requirements-ai-worker.txt .
+# Increase timeout for heavy AI packages (torch, nvidia, etc.)
+ENV UV_HTTP_TIMEOUT=300
+RUN uv pip install --system --no-cache -r requirements-ai-worker.txt
+
+# Domain Worker Stage
+FROM domain-worker-builder AS domain-worker
+USER appuser
+
+# Copy code
+COPY --chown=appuser:appuser core /app/core
+COPY --chown=appuser:appuser infrastructure /app/infrastructure
+COPY --chown=appuser:appuser modules /app/modules
+COPY --chown=appuser:appuser workers /app/workers
+
+# Create cache directories for ML models
+RUN mkdir -p /app/.cache/huggingface /home/appuser/.cache/docling
+
+WORKDIR /app
+CMD ["celery", "-A", "workers.domain_worker.celery_app", "worker", "--loglevel=info"]

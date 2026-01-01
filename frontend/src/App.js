@@ -17,6 +17,7 @@ import TeamRoleManagementPage from './modules/b2b/web/pages/TeamRoleManagementPa
 import ProjectsPage from './modules/domains/projects/pages/ProjectsPage';
 import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPage';
 import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
+import RagKnowledgeBasePage from './modules/b2b/web/pages/RagKnowledgeBasePage';
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
 
 import apiService from './core/api/b2bClient';
@@ -111,6 +112,23 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <InvitationsPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/b2b/c/nse/rag"
+                    element={
+                        <ProtectedRoute>
+                            <RagKnowledgeBasePage domain="nse" />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/b2b/c/enron/rag"
+                    element={
+                        <ProtectedRoute>
+                            <RagKnowledgeBasePage domain="enron" />
                         </ProtectedRoute>
                     }
                 />

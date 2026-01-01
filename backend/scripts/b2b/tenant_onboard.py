@@ -63,46 +63,126 @@ async def create_tenant_async(
 
 
 @cli.command('create-local')
-@click.option('--company', prompt='Company Name', help='Company name')
-@click.option('--domain', prompt='Domain (e.g., test.com)', help='Email domain')
-@click.option('--firebase-tenant-id', prompt='Firebase Tenant ID', help='Existing Firebase tenant ID')
-@click.option('--owner-email', prompt='Owner Email', help='Owner email address')
-def create_local(company, domain, firebase_tenant_id, owner_email):
+@click.option('--company', help='Company name')
+@click.option('--domain', help='Email domain (e.g., test.com)')
+@click.option('--firebase-tenant-id', help='Existing Firebase tenant ID')
+@click.option('--owner-email', help='Owner email address')
+@click.option('--file', required=True, help='Path to JSON config file')
+def create_local(company, domain, firebase_tenant_id, owner_email, file):
     """Create tenant using existing Firebase tenant (DB only - for testing)"""
-    asyncio.run(create_local_async(
-        company, domain, firebase_tenant_id, owner_email
-    ))
+    import json
+    import uuid
+    from uuid import UUID
+
+    if not os.path.exists(file):
+        click.echo(f"❌ Config file not found: {file}", err=True)
+        sys.exit(1)
+
+    try:
+        with open(file, 'r') as f:
+            existing_config = json.load(f)
+            click.echo(f"📂 Loaded config from {file}")
+    except Exception as e:
+        click.echo(f"❌ Invalid config file: {e}", err=True)
+        sys.exit(1)
+
+    # Resolve parameters (CLI args > Config)
+    company = company or existing_config.get("company")
+    domain = domain or existing_config.get("domain")
+    owner_email = owner_email or existing_config.get("owner_email")
+    firebase_tenant_id = firebase_tenant_id or existing_config.get("firebase_tenant_id")
+    
+    tenant_id_str = existing_config.get("tenant_id")
+    tenant_id = UUID(tenant_id_str) if tenant_id_str else None
+
+    # Validate mandatory fields
+    missing = []
+    if not company: missing.append("company")
+    if not domain: missing.append("domain")
+    if not owner_email: missing.append("owner_email")
+    
+    if missing:
+        click.echo(f"❌ Missing required fields in config or args: {', '.join(missing)}", err=True)
+        sys.exit(1)
+
+    # Determine Tenant ID strategy (if not already in config)
+    if not tenant_id and company == "Demo Tenant":
+        NAMESPACE_DNS = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
+        tenant_id = uuid.uuid5(NAMESPACE_DNS, company)
+    
+    if tenant_id:
+        click.echo(f"   Using Tenant ID: {tenant_id}")
+
+    # Run Async Logic
+    try:
+        result = asyncio.run(create_local_async(
+            company, domain, firebase_tenant_id, owner_email, tenant_id
+        ))
+    except Exception as e:
+        click.echo(f"\n❌ Error: {str(e)}", err=True)
+        sys.exit(1)
+
+    # Update Config File with result
+    import time
+    existing_config.update({
+        "tenant_id": str(result["tenant_id"]),
+        "domain": domain,
+        "company": company,
+        "owner_email": owner_email,
+        "firebase_tenant_id": result.get("firebase_tenant_id"),
+        "last_updated": str(time.time()),
+    })
+    
+    try:
+        with open(file, 'w') as f:
+            json.dump(existing_config, f, indent=2)
+            click.echo(f"💾 Saved tenant config to {file}")
+    except Exception as e:
+        click.echo(f"⚠️ Failed to save config: {e}", err=True)
+        
+    print_summary(result)
 
 
 async def create_local_async(
-    company, domain, firebase_tenant_id, owner_email):
-    """Create tenant using API service (Local Mode)"""
-    click.echo(f"🚀 Creating local tenant for {company}...\n")
-    click.echo(f"📍 Using Firebase tenant: {firebase_tenant_id}")
-
+    company, domain, firebase_tenant_id, owner_email, tenant_id=None):
+    """Create tenant using API service (Local Mode) - Pure Logic"""
+    click.echo(f"🚀 Creating local tenant for {company} ({domain})...")
+    
     async with AsyncSessionLocal() as db:
         try:
             from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
             
-            # Call service with optional ID params to skip external calls
+            # Check if tenant exists first (idempotency)
+            if tenant_id:
+                from modules.b2b.models import TenantModel
+                existing_tenant = await db.get(TenantModel, tenant_id)
+                if existing_tenant:
+                    click.echo(f"✅ Tenant {tenant_id} already exists in DB. Skipping creation.")
+                    return {
+                        "tenant_id": str(existing_tenant.id),
+                        "tenant_name": existing_tenant.name,
+                        "domain": existing_tenant.domain,
+                        "owner_email": owner_email,
+                        "firebase_tenant_id": existing_tenant.firebase_tenant_id,
+                        "activation_url": "ALREADY_ACTIVE",
+                        "expires_at": "N/A"
+                    }
+
             result = await tenant_onboarding_service.onboard_tenant(
                 db=db,
                 company_name=company,
                 domain=domain,
                 owner_email=owner_email,
-                firebase_tenant_id=firebase_tenant_id
+                firebase_tenant_id=firebase_tenant_id,
+                tenant_id=tenant_id
             )
             
             await db.commit()
+            return result
             
-            print_summary(result)
-            
-        except Exception as e:
-            click.echo(f"\n❌ Error: {str(e)}", err=True)
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
+        except Exception:
+            raise
 
 
 def print_summary(result):

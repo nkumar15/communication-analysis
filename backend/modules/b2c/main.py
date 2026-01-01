@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     # Startup: Initialize Observability (Tracing, Metrics)
-    setup_observability(app, service_name="b2c-api", sqlalchemy_engine=engine)
+    # setup_observability(app, service_name="b2c-api", sqlalchemy_engine=engine) - MOVED
     
     get_auth_provider().initialize()
     logger.info("b2c_api_ready",
@@ -78,6 +78,10 @@ app.add_middleware(
 
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
+
+# Initialize Observability (Tracing, Metrics)
+# Must be done after app creation but before requests
+setup_observability(app, service_name="b2c-api", sqlalchemy_engine=engine)
 
 # Include B2C routers
 from modules.b2c.routers import auth, workspaces, billing, invitations
