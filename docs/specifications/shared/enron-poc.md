@@ -59,13 +59,40 @@ Keep the stack lightweight to focus on AI logic, not infrastructure.
 
 *   **Backend**: Python `FastAPI` (Easy to expose agents as APIs).
 *   **Orchestration**: `LlamaIndex` (Strong for RAG) or `LangChain` / `LangGraph` (Strong for flows).
-*   **Database**: `PostgreSQL` (Stores metadata) + `pgvector` (Stores embeddings).
-*   **Frontend**: `Streamlit` or `Next.js` (Simple dashboard to view "Flagged Cases" and "Chat with Data").
+*   **Database**: `PostgreSQL` (Stores metadata) + `Elasticsearch` (Stores embeddings and enables vector search).
+*   **Frontend**: Integrated into existing **B2B UI** (Dashboard to view "Flagged Cases", "Chat with Data", and investigation reports).
 *   **Data Source**: Enron Email Dataset (Kaggle version or CMU), parsed into a clean SQL schema.
 
 ---
 
-## 4. Development Roadmap
+## 4. Development Methodology: Experiment-Driven
+
+**All development for the Enron project MUST follow an experiment-driven approach using the existing `backend/scripts/evaluation` framework.**
+
+### Evaluation Framework Structure
+*   **Config-based**: Each experiment defined in YAML (see existing NSE project structure)
+*   **Datasets**: Test cases with inputs, expected outputs, and context stored in `scripts/evaluation/datasets/`
+*   **Projects**: Project-specific configurations in `scripts/evaluation/projects/enron/`
+*   **Runners**: Core evaluation engine (`scripts/evaluation/core/runner.py`) with support for:
+    *   DeepEval metrics (Faithfulness, Answer Relevancy, Contextual Recall)
+    *   Custom retrievers and rerankers
+    *   Automatic result logging and registry updates
+
+### Experiment Workflow
+1.  **Define Test Cases**: Create JSON dataset with queries, expected outputs, and ground truth context
+2.  **Create Config**: Write YAML config specifying pipeline (retriever, reranker, LLM), metrics, dataset path
+3.  **Run Experiment**: Execute via `python scripts/evaluation/core/runner.py --config <path> --update-registry`
+4.  **Analyze Results**: Review metrics, identify failure modes, iterate on prompts/retrievers
+5.  **Document**: Update experiment registry with findings and decisions
+
+### Why This Matters
+*   **Reproducibility**: Every agent/RAG iteration is versioned and measurable
+*   **Comparability**: Can systematically compare "Intent Agent v1" vs "v2" with concrete metrics
+*   **Knowledge Transfer**: Same framework used for NSE earnings analysis → directly applicable to financial surveillance
+
+---
+
+## 5. Development Roadmap
 
 ### Phase 1: Data & Foundations (Weeks 1-2)
 *   [ ] **Ingestion**: Script to parse raw Enron files into Postgres (`sender`, `recipient`, `body`, `date`).
@@ -83,7 +110,15 @@ Keep the stack lightweight to focus on AI logic, not infrastructure.
 
 ---
 
-## 5. Success Metrics (Did we learn?)
-*   **Transferability**: Can we swap the "SEC Rules" text with "Internal Bank Policy" text and have it still work? (Yes/No)
-*   **Modularity**: Is the "Evasion Agent" a standalone python class we can lift-and-shift?
-*   **Accuracy**: Does the system actually flag the *known* Enron fraud cases (e.g., identifiable emails from the trial)?
+## 6. Success Metrics (Did we learn?)
+
+**Quantifiable Metrics** (via `backend/scripts/evaluation`):
+*   **Faithfulness** ≥ 70%: Agents cite actual evidence, no hallucinations
+*   **Answer Relevancy** ≥ 75%: Responses directly address the query
+*   **Contextual Recall** ≥ 70%: Retrieved context covers ground truth information
+*   **Known Case Detection**: System flags ≥ 80% of labeled "fraud" emails from trial transcripts
+
+**Qualitative Metrics**:
+*   **Transferability**: Can swap "SEC Rules" with "Internal Bank Policy" and maintain performance (>90% metrics retention)
+*   **Modularity**: Each agent (Intent, Evasion, Policy) is independently testable via evaluation framework
+*   **Learning Outcome**: Can articulate design decisions backed by experiment results (captured in `EXPERIMENT_REGISTRY.md`)
