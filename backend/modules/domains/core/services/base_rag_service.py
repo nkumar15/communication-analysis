@@ -55,7 +55,11 @@ class BaseRagService(ABC):
             
             # Use configured index name from abstract method
             index_name = self.get_index_name()
-            self.vector_store = VectorStoreFactory.get_vector_store(index_name=index_name)
+            # Explicitly favor instance-specific provider config, or fallback to factory default
+            self.vector_store = VectorStoreFactory.get_vector_store(
+                index_name=index_name, 
+                provider=getattr(self, "_vector_store_provider", None)
+            )
             self.storage_client = StorageFactory.get_storage_client()
             
             # Setup Global LlamaIndex Settings
