@@ -88,3 +88,6 @@ backend/zap-*.log
 
 backend/.cache
 backend/.pytest_cache
+
+# Enron Dataset
+backend/scripts/evaluation/datasets/enron/source/emails*
