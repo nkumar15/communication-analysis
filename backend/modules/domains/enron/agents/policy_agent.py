@@ -2,6 +2,7 @@ from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from modules.domains.enron.agents.policy_tool import SearchRegulationsTool
 from pydantic import BaseModel, Field
+from uuid import UUID
 import os
 
 # Define output schema
