@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, Typography, TextField, Button, Paper, Card, CardContent, Chip, CircularProgress, Divider, Alert } from '@mui/material';
-import { Search, Description, Email, DateRange } from '@mui/icons-material';
+import { Search, Description, Email, DateRange, ArrowBack } from '@mui/icons-material';
 import AdminLayout from './web/layouts/AdminLayout';
 import b2bClient from '../../core/api/b2bClient';
 
 const EnronKnowledgeBasePage = () => {
+    const navigate = useNavigate();
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
@@ -43,6 +45,13 @@ const EnronKnowledgeBasePage = () => {
     return (
         <AdminLayout title="Enron Knowledge Base" subtitle="RAG-powered semantic search over email corpus">
             <Box sx={{ p: 4, maxWidth: 1000, margin: '0 auto' }}>
+                <Button
+                    startIcon={<ArrowBack />}
+                    onClick={() => navigate(-1)}
+                    sx={{ mb: 2 }}
+                >
+                    Back
+                </Button>
 
                 {/* Search Header */}
                 <Box textAlign="center" mb={4}>

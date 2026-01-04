@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Box, Typography, TextField, Button, Paper, Card, CardContent, Alert, Chip, CircularProgress } from '@mui/material';
-import { Assessment, Security, Warning, CheckCircle } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { Box, Typography, TextField, Button, Paper, Card, CardContent, Alert, Chip, CircularProgress, IconButton } from '@mui/material';
+import { Assessment, Security, Warning, CheckCircle, ArrowBack } from '@mui/icons-material';
 import AdminLayout from './web/layouts/AdminLayout';
 import b2bClient from '../../core/api/b2bClient';
 
@@ -25,6 +26,7 @@ const getRiskIcon = (riskLevel) => {
 };
 
 const EnronInvestigationPage = () => {
+    const navigate = useNavigate();
     const [emailText, setEmailText] = useState('');
     const [sender, setSender] = useState('');
     const [loading, setLoading] = useState(false);
@@ -57,6 +59,13 @@ const EnronInvestigationPage = () => {
     return (
         <AdminLayout title="Email Investigation" subtitle="Multi-Agent AI surveillance and compliance analysis">
             <Box sx={{ p: 4, maxWidth: 1200, margin: '0 auto' }}>
+                <Button
+                    startIcon={<ArrowBack />}
+                    onClick={() => navigate(-1)}
+                    sx={{ mb: 2 }}
+                >
+                    Back
+                </Button>
                 <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Assessment /> Enron Email Investigation
                 </Typography>

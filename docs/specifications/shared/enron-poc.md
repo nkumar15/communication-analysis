@@ -12,7 +12,7 @@ This POC is designed to map public Enron data concepts directly to private finan
 | **Evasion Detection** | Detecting "Take this offline" / "Delete this" patterns | **Agents**: Nuance detection, slang/code-word identification. |
 | **Collusion Networks** | Mapping Trader A $\leftrightarrow$ Broker B relationships | **Graph/Orchestration**: Multi-step reasoning, network analysis helpers. |
 | **Investigation Assembly** | Auto-generating a case timeline and evidence pack | **Orchestration**: Multi-agent coordination (Planner, Retriever, Writer). |
-
+ 
 ---
 
 ## 2. Architecture Patterns (The "What We Will Build")

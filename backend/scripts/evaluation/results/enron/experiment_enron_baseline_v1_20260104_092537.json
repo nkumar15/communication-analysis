@@ -1,0 +1,77 @@
+{
+  "config": {
+    "name": "enron_baseline_v1",
+    "description": "Baseline Enron RAG (Vector Only, Top-k=10)",
+    "tenant_id": "default",
+    "dataset_path": "scripts/evaluation/datasets/enron/golden_dataset/golden_set.json",
+    "output_dir": "scripts/evaluation/results/enron",
+    "metrics": [
+      "faithfulness",
+      "answer_relevancy",
+      "contextual_recall"
+    ],
+    "pipeline": {
+      "retriever": {
+        "type": "vector",
+        "top_k": 10,
+        "index_name": "enron_emails"
+      },
+      "llm": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.0
+      }
+    }
+  },
+  "metrics": {
+    "faithfulness": 0.7,
+    "answer_relevancy": 0.6333333333333333,
+    "contextual_recall": 0.76
+  },
+  "details": [
+    {
+      "input": "What are the Raptor transactions?",
+      "actual_output": "The provided context does not contain any information regarding \"Raptor transactions.\" Therefore, I cannot provide an answer based on the given context.",
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 0.0,
+        "Contextual Recall": 0.0
+      }
+    },
+    {
+      "input": "Who is the CEO of Enron?",
+      "actual_output": "The CEO of Enron is Kenneth L. Lay, who resumed the position after Jeff Skilling's unexpected resignation.",
+      "metrics": {
+        "Faithfulness": 0.0,
+        "Answer Relevancy": 1.0,
+        "Contextual Recall": 1.0
+      }
+    },
+    {
+      "input": "What is the status of the California energy crisis?",
+      "actual_output": "The California energy crisis is characterized by significant problems with electricity supply and pricing, largely attributed to policies and procedures adopted over the past decade. Since June, wholesale prices for electrical power have surged by an average of 270% compared to the same period in 1999, resulting in over $1 billion in excess payments for electricity. Contributing factors include hot weather, aging power plants and transmission infrastructure, and dysfunctional bidding behavior in the wholesale power markets.\n\nThe state is experiencing a tight supply of electricity, leading to predictions that purchasers of California power will incur billions more in costs this year. These price increases do not necessarily fund new investments in electricity supply or reliability, but may instead benefit power producer profit margins. The California Independent System Operator (ISO) has declared multiple Stage 2 emergencies, indicating that power reserves are critically low.\n\nIn response to the crisis, Governor Davis has ordered investigations into suspected price fixing by power generators and has called for federal regulators to expedite their own inquiries into California's wholesale electricity market. The situation has led to calls for legislative action to roll back electricity rates to pre-deregulation levels, and there are ongoing discussions about implementing measures to stabilize prices for consumers.\n\nOverall, the crisis reflects a combination of supply shortages, high prices, and regulatory challenges, with the state struggling to meet increasing electricity demand while managing the complexities of a deregulated market.",
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 1.0,
+        "Contextual Recall": 1.0
+      }
+    },
+    {
+      "input": "Did anyone discuss shredding documents?",
+      "actual_output": "No, there is no mention of anyone discussing shredding documents in the provided context. In fact, the context indicates that normal document destruction policies are suspended due to the requirement to preserve documents related to litigation.",
+      "metrics": {
+        "Faithfulness": 1.0,
+        "Answer Relevancy": 0.6666666666666666,
+        "Contextual Recall": 0.8
+      }
+    },
+    {
+      "input": "Meeting with Arthur Andersen",
+      "actual_output": "The context does not provide specific details about a meeting with Arthur Andersen. However, it does mention that a congressman has called for an investigation of Arthur Andersen in connection with its audits of Enron Corp. and Waste Management Inc. Additionally, there is a reference to Andersen undergoing a peer review by Deloitte & Touche. If you are looking for information about a specific meeting, please provide more details or clarify your question.",
+      "metrics": {
+        "Faithfulness": 0.5,
+        "Answer Relevancy": 0.5,
+        "Contextual Recall": 1.0
+      }
+    }
+  ]
+}

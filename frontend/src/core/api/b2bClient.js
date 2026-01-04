@@ -173,9 +173,24 @@ class ApiService {
     }
 
     // Generic GET request with auth headers
-    async get(path) {
+    async get(path, options = {}) {
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}${path}`, {
+        let url = `${API_BASE_URL}${path}`;
+
+        if (options.params) {
+            const queryParams = new URLSearchParams();
+            Object.entries(options.params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    queryParams.append(key, value);
+                }
+            });
+            const queryString = queryParams.toString();
+            if (queryString) {
+                url += `?${queryString}`;
+            }
+        }
+
+        const response = await fetch(url, {
             method: 'GET',
             headers,
         });
