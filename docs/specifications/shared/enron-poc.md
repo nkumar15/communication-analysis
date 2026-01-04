@@ -122,3 +122,23 @@ Keep the stack lightweight to focus on AI logic, not infrastructure.
 *   **Transferability**: Can swap "SEC Rules" with "Internal Bank Policy" and maintain performance (>90% metrics retention)
 *   **Modularity**: Each agent (Intent, Evasion, Policy) is independently testable via evaluation framework
 *   **Learning Outcome**: Can articulate design decisions backed by experiment results (captured in `EXPERIMENT_REGISTRY.md`)
+
+---
+
+## 7. Post-POC Recommendations (Advanced Implementations)
+
+As you scale from this learning POC to enterprise deployment, consider these advanced architectural decisions:
+
+### Graph Analysis: Analytics vs. Search
+| Framework | Best For | Recommendation |
+| :--- | :--- | :--- |
+| **NetworkX (In-Memory)** | **Mathematical Analysis** (Centrality, Cliques). Perfect for "Who is the ringleader?" in a specific case. | **Use for Dashboard Widgets**. Lightweight, free, instant for small subsets (50-500 nodes). |
+| **LlamaIndex GraphRAG** | **Semantic Search**. "How does Topic A relate to Topic B across 1M docs?" | **Use for Deep Discovery**. Expensive to build but essential if you don't know who the suspects are yet. |
+| **Neo4j / PGGraph** | **Persistence**. Storing billion-edge graphs permanently. | **Use for Production**. When the graph exceeds memory limits. |
+
+### Agent Frameworks
+| Framework | Best For | Recommendation |
+| :--- | :--- | :--- |
+| **LangChain/LangGraph** | **Industry Standard**. Massive ecosystem, used by 80% of enterprises. | **Best for Learning**. Exposes you to every pattern (ReAct, MapReduce). |
+| **LlamaIndex Agents** | **Data-Centric**. Native integration with RAG engines. Cleanest abstraction. | **Best for RAG-Heavy Apps**. If your agent mostly just queries docs, use this. |
+| **PydanticAI** | **Type Safety**. Direct control, minimal "magic". | **Best for Senior Engineers**. If you hate debugging framework internals, build your own loop with Pydantic. |

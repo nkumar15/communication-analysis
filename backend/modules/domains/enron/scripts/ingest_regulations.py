@@ -8,6 +8,7 @@ import uuid
 sys.path.append("/app")
 
 from modules.domains.enron.services.policy import policy_rag_service
+from modules.domains.enron.constants import DEFAULT_TENANT_ID
 
 async def ingest_regulations():
     # Path to regulation text files
@@ -16,9 +17,6 @@ async def ingest_regulations():
     files = glob.glob(os.path.join(reg_dir, "*.txt"))
     
     print(f"📚 Found {len(files)} regulatory documents in {reg_dir}")
-    
-    # We use a static tenant ID for regulations since they are global
-    global_tenant = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
     
     for file_path in files:
         print(f"   Indexing: {file_path}")
@@ -49,7 +47,7 @@ async def ingest_regulations():
         # Reuse the service method (passing None for db as it's not used in this path)
         await policy_rag_service.ingest_document(
             db=None, 
-            tenant_id=global_tenant, 
+            tenant_id=DEFAULT_TENANT_ID, 
             file_path=file_path, 
             document_metadata=metadata
         )

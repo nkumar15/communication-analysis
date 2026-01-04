@@ -14,12 +14,34 @@ class PolicyRagService(BaseRagService):
         # Regulations are dense; smaller chunks might be better to pinpoint specific clauses
         return SentenceSplitter(chunk_size=256, chunk_overlap=20)
 
-    async def search(self, query: str, limit: int = 3, **kwargs) -> Dict[str, Any]:
-        """Search specifically for regulations."""
+    async def search(self, query: str, limit: int = 3, tenant_id: UUID = None, **kwargs) -> Dict[str, Any]:
+        """
+        Search specifically for regulations.
+        
+        Args:
+            query: Search query
+            limit: Number of results to return
+            tenant_id: Tenant ID for filtering (required for multi-tenancy)
+        """
         self._ensure_initialized()
         
         index = VectorStoreIndex.from_vector_store(self.vector_store, embed_model=self.embed_model)
-        retriever = index.as_retriever(similarity_top_k=limit)
+        
+        # Apply tenant filtering if tenant_id is provided
+        if tenant_id:
+            from llama_index.core.vector_stores import MetadataFilters, FilterCondition, MetadataFilter
+            
+            filters = MetadataFilters(
+                filters=[
+                    MetadataFilter(key="tenant_id", value=str(tenant_id), operator="==")
+                ],
+                condition=FilterCondition.AND
+            )
+            retriever = index.as_retriever(similarity_top_k=limit, filters=filters)
+        else:
+            # No filtering - search all regulations (useful for demos/testing)
+            retriever = index.as_retriever(similarity_top_k=limit)
+        
         nodes = await retriever.aretrieve(query)
         
         return self._format_results(query, nodes)
