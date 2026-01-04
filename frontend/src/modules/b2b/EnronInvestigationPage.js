@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, TextField, Button, Paper, Card, CardContent, Alert, Chip, CircularProgress, IconButton } from '@mui/material';
-import { Assessment, Security, Warning, CheckCircle, ArrowBack } from '@mui/icons-material';
+import { Assessment, Security, Warning, CheckCircle, ArrowBack, History, Email, Download } from '@mui/icons-material';
 import AdminLayout from './web/layouts/AdminLayout';
 import b2bClient from '../../core/api/b2bClient';
 
@@ -29,6 +29,7 @@ const EnronInvestigationPage = () => {
     const navigate = useNavigate();
     const [emailText, setEmailText] = useState('');
     const [sender, setSender] = useState('');
+    const [date, setDate] = useState('2001-10-22'); // Default to peak Enron crisis
     const [loading, setLoading] = useState(false);
     const [report, setReport] = useState(null);
     const [error, setError] = useState(null);
@@ -44,7 +45,8 @@ const EnronInvestigationPage = () => {
             const response = await b2bClient.post('/api/domain/enron/investigate', {
                 email_text: emailText,
                 email_metadata: {
-                    sender: sender.trim() || undefined
+                    sender: sender.trim() || undefined,
+                    date: date || undefined
                 }
             });
             setReport(response);
@@ -53,6 +55,114 @@ const EnronInvestigationPage = () => {
             setError(err.message || 'Investigation failed. Please try again.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        if (!report) return;
+
+        try {
+            // Dynamically import jsPDF
+            const { default: jsPDF } = await import('jspdf');
+            const doc = new jsPDF();
+
+            let yPos = 20;
+            const lineHeight = 7;
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 20;
+            const maxWidth = pageWidth - (margin * 2);
+
+            // Helper function to add text with word wrap
+            const addText = (text, fontSize = 10, isBold = false, color = [0, 0, 0]) => {
+                doc.setFontSize(fontSize);
+                doc.setFont(undefined, isBold ? 'bold' : 'normal');
+                doc.setTextColor(...color);
+                const lines = doc.splitTextToSize(text, maxWidth);
+                lines.forEach(line => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.text(line, margin, yPos);
+                    yPos += lineHeight;
+                });
+            };
+
+            // Title
+            addText('ENRON EMAIL INVESTIGATION REPORT', 18, true, [0, 51, 102]);
+            yPos += 5;
+            addText(`Generated: ${new Date(report.timestamp).toLocaleString()}`, 9, false, [100, 100, 100]);
+            yPos += 5;
+
+            // Risk Level
+            const riskColor = report.risk_level.toLowerCase() === 'high' ? [211, 47, 47] :
+                report.risk_level.toLowerCase() === 'medium' ? [237, 108, 2] : [46, 125, 50];
+            addText(`RISK LEVEL: ${report.risk_level.toUpperCase()}`, 14, true, riskColor);
+            addText(`ACTION REQUIRED: ${report.requires_action ? 'YES' : 'NO'}`, 12, true);
+            yPos += 3;
+
+            // Summary
+            addText('SUMMARY:', 12, true);
+            addText(report.summary, 10);
+            yPos += 3;
+
+            // Intent Classification
+            if (report.intent_verdict) {
+                addText('INTENT CLASSIFICATION:', 12, true, [0, 51, 102]);
+                addText(`Classification: ${report.intent_verdict.classification}`, 10);
+                addText(`Confidence: ${(report.intent_verdict.confidence * 100).toFixed(0)}%`, 10);
+                addText(`Reasoning: ${report.intent_verdict.reasoning}`, 10);
+                yPos += 3;
+            }
+
+            // Policy Compliance
+            if (report.policy_verdict) {
+                addText('POLICY COMPLIANCE:', 12, true, [0, 51, 102]);
+                addText(`Compliant: ${report.policy_verdict.is_compliant ? 'Yes' : 'No'}`, 10);
+                if (!report.policy_verdict.is_compliant) {
+                    addText(`Violation: ${report.policy_verdict.violation_citation}`, 10, false, [211, 47, 47]);
+                }
+                addText(`Reasoning: ${report.policy_verdict.reasoning}`, 10);
+                yPos += 3;
+            }
+
+            // Evasion Detection
+            if (report.evasion_verdict) {
+                addText('EVASION DETECTION:', 12, true, [0, 51, 102]);
+                addText(`Evasion Detected: ${report.evasion_verdict.is_evasion ? 'Yes' : 'No'}`, 10);
+                if (report.evasion_verdict.is_evasion) {
+                    addText(`Type: ${report.evasion_verdict.evasion_type}`, 10, false, [211, 47, 47]);
+                    addText(`Evidence: ${report.evasion_verdict.evidence}`, 10);
+                    addText(`Confidence: ${(report.evasion_verdict.confidence * 100).toFixed(0)}%`, 10);
+                }
+                yPos += 3;
+            }
+
+            // Case Timeline
+            if (report.timeline && report.timeline.length > 0) {
+                addText(`CASE TIMELINE (${report.timeline.length} emails):`, 12, true, [0, 51, 102]);
+                report.timeline.forEach((event, i) => {
+                    addText(`${i + 1}. ${new Date(event.date).toLocaleString()}`, 10, true);
+                    addText(`   Subject: ${event.subject || '(No Subject)'}`, 9);
+                    addText(`   From: ${event.sender}`, 9);
+                    addText(`   Snippet: ${event.snippet}`, 9, false, [80, 80, 80]);
+                    yPos += 2;
+                });
+                yPos += 3;
+            }
+
+            // Evidence Pack
+            if (report.evidence_pack && report.evidence_pack.length > 0) {
+                addText('EVIDENCE PACK:', 12, true, [0, 51, 102]);
+                addText(`Total emails: ${report.evidence_pack.length}`, 10);
+                addText(`IDs: ${report.evidence_pack.join(', ')}`, 9, false, [80, 80, 80]);
+            }
+
+            // Save PDF
+            doc.save(`enron-investigation-${Date.now()}.pdf`);
+        } catch (error) {
+            console.error('PDF generation failed:', error);
+            alert('Failed to generate PDF. Please try again.');
         }
     };
 
@@ -87,6 +197,18 @@ const EnronInvestigationPage = () => {
                         onChange={(e) => setSender(e.target.value)}
                         variant="outlined"
                         helperText="Provide a sender email to visualize their Ego Network graph."
+                        sx={{ mb: 3 }}
+                    />
+
+                    <TextField
+                        fullWidth
+                        type="date"
+                        label="Reference Date"
+                        InputLabelProps={{ shrink: true }}
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        variant="outlined"
+                        helperText="Required for Case Timeline (e.g., approximate date of the email). Try: 2001-10-22"
                         sx={{ mb: 3 }}
                     />
 
@@ -229,6 +351,74 @@ const EnronInvestigationPage = () => {
                                 </Card>
                             )}
                         </Box>
+
+
+                        {/* Case Timeline (Investigation Assembly) */}
+                        {report.timeline && report.timeline.length > 0 && (
+                            <Box sx={{ mt: 4 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <History /> Case Timeline
+                                    </Typography>
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<Download />}
+                                        onClick={handleExportPDF}
+                                    >
+                                        Export Report
+                                    </Button>
+                                </Box>
+                                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                        {report.timeline.map((event, index) => (
+                                            <Box key={index} sx={{ display: 'flex', gap: 2 }}>
+                                                {/* Date Column */}
+                                                <Box sx={{ minWidth: 150, textAlign: 'right' }}>
+                                                    <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                                                        {new Date(event.date).toLocaleDateString()}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </Typography>
+                                                </Box>
+
+                                                {/* Line */}
+                                                <Box sx={{ width: 2, bgcolor: 'divider', position: 'relative' }}>
+                                                    <Box sx={{
+                                                        width: 10, height: 10, borderRadius: '50%', bgcolor: 'primary.main',
+                                                        position: 'absolute', left: -4, top: 4
+                                                    }} />
+                                                </Box>
+
+                                                {/* Content */}
+                                                <Box sx={{ flex: 1, pb: 2 }}>
+                                                    <Card variant="outlined" sx={{ '&:hover': { borderColor: 'primary.main' } }}>
+                                                        <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
+                                                            <Typography variant="subtitle2" color="primary" fontWeight="bold">
+                                                                {event.subject || '(No Subject)'}
+                                                            </Typography>
+                                                            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                                                                <Email fontSize="inherit" color="action" />
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    From: {event.sender || 'Unknown'}
+                                                                </Typography>
+                                                            </Box>
+                                                            <Typography variant="body2" sx={{
+                                                                fontFamily: 'monospace', fontSize: '0.85rem',
+                                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                                                            }}>
+                                                                {event.snippet}
+                                                            </Typography>
+                                                        </CardContent>
+                                                    </Card>
+                                                </Box>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </Paper>
+                            </Box>
+                        )}
 
                         {/* Graph Visualization */}
                         {report.graph_context && (

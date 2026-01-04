@@ -66,6 +66,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Node.js
+node_modules/
+
 # Docker
 docker-compose.override.yml
 

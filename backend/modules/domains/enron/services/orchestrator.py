@@ -3,7 +3,7 @@ Multi-Agent Orchestrator for Enron Email Investigation
 
 Coordinates Intent, Policy, and Evasion agents to perform comprehensive email analysis.
 """
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from uuid import UUID
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -35,6 +35,14 @@ class InvestigationReport(BaseModel):
     requires_action: bool = Field(default=False, description="Whether this case requires human review")
     summary: str = Field(default="", description="Brief summary of findings")
     
+    # Assembly
+    timeline: Optional[List[Dict[str, Any]]] = None
+    evidence_pack: Optional[List[str]] = None
+    
+from datetime import timedelta
+from sqlalchemy import or_
+from sqlalchemy.future import select
+from modules.domains.enron.models import EnronEmail
 from modules.domains.enron.services.graph import graph_service
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,6 +126,20 @@ class OrchestratorService:
                     # For now just data enrichment.
                 except Exception as e:
                     print(f"Graph context fetch failed: {e}")
+            
+            # --- Investigation Assembly (Timeline) ---
+            if db:
+                try:
+                    timeline, evidence_ids = await self.assemble_case(
+                        sender=sender,
+                        date_str=email_metadata.get("date"),
+                        tenant_id=effective_tenant_id,
+                        db=db
+                    )
+                    report.timeline = timeline
+                    report.evidence_pack = evidence_ids
+                except Exception as e:
+                    print(f"Case assembly failed: {e}")
                 
         else:
             # Business as usual
@@ -126,7 +148,84 @@ class OrchestratorService:
             report.summary = f"LOW RISK: Email classified as '{classification}'. No further action required."
         
         return report
+    
+    async def assemble_case(
+        self,
+        sender: str,
+        date_str: str,
+        tenant_id: UUID,
+        db: AsyncSession
+    ):
+        """
+        Assembles a timeline of related emails for the case.
+        Window: +/- 7 days around the email date.
+        Criteria: Emails sent by the same user.
+        """
+        if not sender or not date_str:
+            return [], []
+
+        try:
+            # Parse date (handle formats loosely or expect ISO)
+            # Enron dates in DB are datetime objects. 
+            # Input date_str might be ISO from frontend/metadata if available.
+            # If metadata lacks date, we can't reliably window.
+            from dateutil.parser import parse
+            target_date = parse(date_str)
+            if target_date.tzinfo is None:
+                # Assume UTC if naive, or match DB timezone storage
+                from datetime import timezone
+                target_date = target_date.replace(tzinfo=timezone.utc)
+        except Exception:
+            # Fallback: Can't build timeline without valid date
+            return [], []
+
+        window_days = 7
+        start_date = target_date - timedelta(days=window_days)
+        end_date = target_date + timedelta(days=window_days)
+
+        # Query DB for emails by this sender in the window
+        # We focus on the 'Sender' being the pivot for investigation
+        query = select(EnronEmail).where(
+            EnronEmail.sender == sender,
+            EnronEmail.date >= start_date,
+            EnronEmail.date <= end_date
+        ).order_by(EnronEmail.date.asc()).limit(50)
+
+        result = await db.execute(query)
+        emails = result.scalars().all()
+
+        timeline = []
+        evidence_ids = []
+        seen_emails = set()  # Track unique emails by content signature
+
+        for email in emails:
+            # Create a content signature to identify duplicates
+            # Same email can have different message_ids in the Enron dataset
+            content_signature = (
+                email.date.isoformat() if email.date else "",
+                email.sender or "",
+                email.subject or "",
+                (email.body[:100] if email.body else "")  # First 100 chars for dedup
+            )
+            
+            # Skip duplicates based on content
+            if content_signature in seen_emails:
+                continue
+            
+            seen_emails.add(content_signature)
+            evidence_ids.append(str(email.id))
+            timeline.append({
+                "date": email.date.isoformat() if email.date else None,
+                "sender": email.sender,
+                "recipients": email.recipients,
+                "subject": email.subject,
+                "message_id": email.message_id,
+                "snippet": (email.body[:150] + "...") if email.body else ""
+            })
+
+        return timeline, evidence_ids
 
 # Singleton
 from modules.domains.enron.constants import DEFAULT_TENANT_ID
 orchestrator_service = OrchestratorService(tenant_id=DEFAULT_TENANT_ID)
+

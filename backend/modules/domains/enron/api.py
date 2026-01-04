@@ -60,6 +60,8 @@ class InvestigateEmailResponse(BaseModel):
     evasion_verdict: Optional[Dict[str, Any]] = None
     graph_context: Optional[Dict[str, Any]] = None
     tenant_id: Optional[uuid.UUID] = None
+    timeline: Optional[List[Dict[str, Any]]] = None
+    evidence_pack: Optional[List[str]] = None
 
 @router.post("/investigate", response_model=InvestigateEmailResponse)
 async def investigate_email(request: InvestigateEmailRequest, db: AsyncSession = Depends(get_db)):
@@ -87,7 +89,9 @@ async def investigate_email(request: InvestigateEmailRequest, db: AsyncSession =
         policy_verdict=report.policy_verdict,
         evasion_verdict=report.evasion_verdict,
         graph_context=report.graph_context,
-        tenant_id=report.tenant_id
+        tenant_id=report.tenant_id,
+        timeline=report.timeline,
+        evidence_pack=report.evidence_pack
     )
 
 # --- Graph Network Analysis Endpoints ---
