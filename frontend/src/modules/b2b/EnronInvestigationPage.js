@@ -4,8 +4,29 @@ import { Assessment, Security, Warning, CheckCircle } from '@mui/icons-material'
 import AdminLayout from './web/layouts/AdminLayout';
 import b2bClient from '../../core/api/b2bClient';
 
+import EnronGraphView from './components/EnronGraphView';
+
+const getRiskColor = (riskLevel) => {
+    switch (riskLevel?.toLowerCase()) {
+        case 'high': return 'error';
+        case 'medium': return 'warning';
+        case 'low': return 'success';
+        default: return 'default';
+    }
+};
+
+const getRiskIcon = (riskLevel) => {
+    switch (riskLevel?.toLowerCase()) {
+        case 'high': return <Warning />;
+        case 'medium': return <Security />;
+        case 'low': return <CheckCircle />;
+        default: return <Assessment />;
+    }
+};
+
 const EnronInvestigationPage = () => {
     const [emailText, setEmailText] = useState('');
+    const [sender, setSender] = useState('');
     const [loading, setLoading] = useState(false);
     const [report, setReport] = useState(null);
     const [error, setError] = useState(null);
@@ -20,7 +41,9 @@ const EnronInvestigationPage = () => {
         try {
             const response = await b2bClient.post('/api/domain/enron/investigate', {
                 email_text: emailText,
-                email_metadata: {}
+                email_metadata: {
+                    sender: sender.trim() || undefined
+                }
             });
             setReport(response);
         } catch (err) {
@@ -28,24 +51,6 @@ const EnronInvestigationPage = () => {
             setError(err.message || 'Investigation failed. Please try again.');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const getRiskColor = (riskLevel) => {
-        switch (riskLevel?.toLowerCase()) {
-            case 'high': return 'error';
-            case 'medium': return 'warning';
-            case 'low': return 'success';
-            default: return 'default';
-        }
-    };
-
-    const getRiskIcon = (riskLevel) => {
-        switch (riskLevel?.toLowerCase()) {
-            case 'high': return <Warning />;
-            case 'medium': return <Security />;
-            case 'low': return <CheckCircle />;
-            default: return <Assessment />;
         }
     };
 
@@ -62,6 +67,21 @@ const EnronInvestigationPage = () => {
                 {/* Input Form */}
                 <Paper sx={{ p: 3, mt: 3 }}>
                     <Typography variant="h6" gutterBottom>
+                        Investigation Input
+                    </Typography>
+
+                    <TextField
+                        fullWidth
+                        label="Sender Email (Optional for Graph Context)"
+                        placeholder="e.g. kenneth.lay@enron.com"
+                        value={sender}
+                        onChange={(e) => setSender(e.target.value)}
+                        variant="outlined"
+                        helperText="Provide a sender email to visualize their Ego Network graph."
+                        sx={{ mb: 3 }}
+                    />
+
+                    <Typography variant="subtitle1" gutterBottom>
                         Email Content
                     </Typography>
                     <TextField
@@ -100,7 +120,7 @@ const EnronInvestigationPage = () => {
                         </Typography>
 
                         {/* Summary Card */}
-                        <Card sx={{ mb: 3, borderLeft: `5px solid`, borderLeftColor: getRiskColor(report.risk_level) + '.main' }}>
+                        <Card sx={{ mb: 3, borderLeft: `5px solid`, borderLeftColor: (theme) => theme.palette[getRiskColor(report.risk_level)].main }}>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -142,7 +162,7 @@ const EnronInvestigationPage = () => {
                                             <strong>Classification:</strong> {report.intent_verdict.classification}
                                         </Typography>
                                         <Typography variant="body2" gutterBottom>
-                                            <strong>Confidence:</strong> {(report.intent_verdict.confidence * 100).toFixed(0)}%
+                                            <strong>Confidence:</strong> {report.intent_verdict.confidence ? (report.intent_verdict.confidence * 100).toFixed(0) : 'N/A'}%
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                                             {report.intent_verdict.reasoning}
@@ -192,7 +212,7 @@ const EnronInvestigationPage = () => {
                                                     <strong>Evidence:</strong> {report.evasion_verdict.evidence}
                                                 </Typography>
                                                 <Typography variant="body2" gutterBottom>
-                                                    <strong>Confidence:</strong> {(report.evasion_verdict.confidence * 100).toFixed(0)}%
+                                                    <strong>Confidence:</strong> {report.evasion_verdict.confidence ? (report.evasion_verdict.confidence * 100).toFixed(0) : 'N/A'}%
                                                 </Typography>
                                             </>
                                         )}
@@ -200,6 +220,13 @@ const EnronInvestigationPage = () => {
                                 </Card>
                             )}
                         </Box>
+
+                        {/* Graph Visualization */}
+                        {report.graph_context && (
+                            <Box sx={{ mt: 4 }}>
+                                <EnronGraphView data={report.graph_context} width={1100} height={600} />
+                            </Box>
+                        )}
                     </Box>
                 )}
             </Box>

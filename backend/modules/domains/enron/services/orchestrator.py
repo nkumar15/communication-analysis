@@ -27,10 +27,17 @@ class InvestigationReport(BaseModel):
     policy_verdict: Optional[Dict[str, Any]] = None
     evasion_verdict: Optional[Dict[str, Any]] = None
     
+    # Graph Analysis
+    graph_context: Optional[Dict[str, Any]] = None
+    
     # Summary
     risk_level: str = Field(default="unknown", description="Overall risk: 'high', 'medium', 'low', 'none'")
     requires_action: bool = Field(default=False, description="Whether this case requires human review")
     summary: str = Field(default="", description="Brief summary of findings")
+    
+from modules.domains.enron.services.graph import graph_service
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 class OrchestratorService:
     """Coordinates multiple agents to investigate emails"""
@@ -42,26 +49,19 @@ class OrchestratorService:
         self, 
         email_text: str, 
         email_metadata: Dict[str, Any] = None,
-        tenant_id: UUID = None
+        tenant_id: UUID = None,
+        db: AsyncSession = None
     ) -> InvestigationReport:
         """
         Performs comprehensive investigation of an email using all agents.
-        
-        Workflow:
-        1. Intent Classification (always run)
-        2. If suspicious: Policy Check + Evasion Check (parallel)
-        3. Compile results into unified report
-        
-        Args:
-            email_text: The email content to investigate
-            email_metadata: Optional metadata (sender, recipient, date, etc.)
-            tenant_id: Optional tenant ID (overrides instance tenant_id)
-        
-        Returns:
-            InvestigationReport with all agent verdicts
         """
         effective_tenant_id = tenant_id or self.tenant_id
         email_metadata = email_metadata or {}
+        sender = email_metadata.get("sender")
+
+        # Ensure graph is built lazily if db is available
+        if db and graph_service.graph.number_of_nodes() == 0:
+            await graph_service.build_graph(db, effective_tenant_id)
         
         # Step 1: Intent Classification (Triage)
         intent_result = await intent_agent.classify_email(email_text, tenant_id=effective_tenant_id)
@@ -106,6 +106,19 @@ class OrchestratorService:
                 report.risk_level = "medium"
                 report.requires_action = False
                 report.summary = f"MEDIUM RISK: Classified as '{classification}' but no specific violations detected. Recommend manual review."
+                
+            # --- Graph Context Integration ---
+            if sender:
+                try:
+                    # Enriches report with social graph context
+                    ego_network = graph_service.get_ego_network(sender, radius=1)
+                    report.graph_context = ego_network
+                    
+                    # If high centrality or clique member, append to summary?
+                    # For now just data enrichment.
+                except Exception as e:
+                    print(f"Graph context fetch failed: {e}")
+                
         else:
             # Business as usual
             report.risk_level = "low"

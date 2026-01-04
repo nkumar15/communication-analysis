@@ -16,3 +16,4 @@ class EnronEmail(Base, TimestampMixin):
     subject = Column(String, nullable=True)
     body = Column(Text, nullable=True)
     date = Column(DateTime(timezone=True), nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), nullable=True) # Multitenancy support
