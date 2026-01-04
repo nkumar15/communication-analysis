@@ -1,0 +1,152 @@
+import React, { useState } from 'react';
+import { Box, Typography, TextField, Button, Paper, Card, CardContent, Chip, CircularProgress, Divider, Alert } from '@mui/material';
+import { Search, Description, Email, DateRange } from '@mui/icons-material';
+import AdminLayout from './web/layouts/AdminLayout';
+import b2bClient from '../../core/api/b2bClient';
+
+const EnronKnowledgeBasePage = () => {
+    const [query, setQuery] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [results, setResults] = useState(null);
+    const [error, setError] = useState(null);
+
+    const handleSearch = async () => {
+        if (!query.trim()) return;
+
+        setLoading(true);
+        setError(null);
+        setResults(null);
+
+        try {
+            // Call the RAG Search Endpoint
+            const response = await b2bClient.get('/api/domain/enron/search', {
+                params: {
+                    q: query,
+                    limit: 10
+                }
+            });
+            setResults(response.data || response); // Handle axios wrapper variations
+        } catch (err) {
+            console.error('Search failed:', err);
+            setError(err.message || 'Search failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleSearch();
+        }
+    };
+
+    return (
+        <AdminLayout title="Enron Knowledge Base" subtitle="RAG-powered semantic search over email corpus">
+            <Box sx={{ p: 4, maxWidth: 1000, margin: '0 auto' }}>
+
+                {/* Search Header */}
+                <Box textAlign="center" mb={4}>
+                    <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <Description fontSize="large" color="primary" /> Enron Knowledge Base
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                        Search through thousands of emails using semantic understanding.
+                        Ask questions like "Who discussed Raptor?" or "What about LJM partnerships?"
+                    </Typography>
+                </Box>
+
+                {/* Search Input */}
+                <Paper elevation={2} sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', borderRadius: 2 }}>
+                    <Search color="action" />
+                    <TextField
+                        fullWidth
+                        placeholder="Search emails..."
+                        variant="standard"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        InputProps={{ disableUnderline: true, style: { fontSize: '1.1rem' } }}
+                    />
+                    <Button
+                        variant="contained"
+                        size="large"
+                        onClick={handleSearch}
+                        disabled={loading || !query.trim()}
+                        sx={{ minWidth: 100 }}
+                    >
+                        {loading ? <CircularProgress size={24} color="inherit" /> : 'Search'}
+                    </Button>
+                </Paper>
+
+                {/* Error */}
+                {error && (
+                    <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>
+                )}
+
+                {/* Results */}
+                {results && (
+                    <Box sx={{ mt: 4 }}>
+                        <Typography variant="h6" gutterBottom color="text.primary">
+                            Found {results.count || (results.results ? results.results.length : 0)} result(s)
+                        </Typography>
+
+                        {results.results && results.results.length === 0 && (
+                            <Typography variant="body1" color="text.secondary" sx={{ mt: 2, fontStyle: 'italic' }}>
+                                No documents matched your query. Try broadening your terms.
+                            </Typography>
+                        )}
+
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {results.results && results.results.map((item, index) => {
+                                const meta = item.metadata || {};
+                                return (
+                                    <Card key={index} variant="outlined" sx={{ '&:hover': { bgcolor: '#fbfbfb', borderColor: 'primary.light' } }}>
+                                        <CardContent>
+                                            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                                                <Typography variant="subtitle1" fontWeight="bold" color="primary">
+                                                    {meta.subject || '(No Subject)'}
+                                                </Typography>
+                                                <Chip
+                                                    label={`Score: ${item.score?.toFixed(2)}`}
+                                                    size="small"
+                                                    variant="outlined"
+                                                    color="default"
+                                                    sx={{ opacity: 0.7 }}
+                                                />
+                                            </Box>
+
+                                            <Box display="flex" gap={2} mb={1.5} flexWrap="wrap">
+                                                <Box display="flex" alignItems="center" gap={0.5}>
+                                                    <Email fontSize="small" color="action" />
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        From: <b>{meta.sender || 'Unknown'}</b> to <b>{meta.recipients || 'Unknown'}</b>
+                                                    </Typography>
+                                                </Box>
+                                                {meta.date && (
+                                                    <Box display="flex" alignItems="center" gap={0.5}>
+                                                        <DateRange fontSize="small" color="action" />
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {new Date(meta.date).toLocaleDateString()}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </Box>
+
+                                            <Divider sx={{ my: 1 }} />
+
+                                            <Typography variant="body2" color="text.primary" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.9rem', bgcolor: '#f5f5f5', p: 1.5, borderRadius: 1 }}>
+                                                {item.text}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </Box>
+                    </Box>
+                )}
+            </Box>
+        </AdminLayout>
+    );
+};
+
+export default EnronKnowledgeBasePage;

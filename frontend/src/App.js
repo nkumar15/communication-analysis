@@ -21,11 +21,10 @@ import RagKnowledgeBasePage from './modules/b2b/web/pages/RagKnowledgeBasePage';
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
 import EnronDashboard from './modules/b2b/EnronDashboard';
 import EnronInvestigationPage from './modules/b2b/EnronInvestigationPage';
+import EnronKnowledgeBasePage from './modules/b2b/EnronKnowledgeBasePage';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
-
-// Redirect component to handle /join?token=... URLs from emails
 function JoinRedirect() {
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get('token');
@@ -141,6 +140,14 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <EnronInvestigationPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/b2b/c/enron/knowledge-base"
+                    element={
+                        <ProtectedRoute>
+                            <EnronKnowledgeBasePage />
                         </ProtectedRoute>
                     }
                 />

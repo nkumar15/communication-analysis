@@ -22,7 +22,7 @@ const EnronDashboard = () => {
             title: 'Knowledge Base (RAG)',
             description: 'Search through Enron email corpus and regulatory documents using advanced vector search.',
             status: 'active',
-            path: '/b2b/c/enron/rag',
+            path: '/b2b/c/enron/knowledge-base',
             buttonText: 'Browse Knowledge Base',
             color: 'secondary'
         },
