@@ -24,7 +24,7 @@ const Sidebar = () => {
         { isHeader: true, label: 'Domains' },
         { id: 'projects', label: 'Projects', icon: '📋', path: '/projects', feature: 'projects' },
         { id: 'rag-nse', label: 'NSE Earnings', icon: '📈', path: '/b2b/c/nse/rag', feature: 'rag_nse' },
-        { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron/rag', feature: 'rag_enron' },
+        { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron', feature: 'rag_enron' },
 
         // Organization
         { isHeader: true, label: 'Organization' },

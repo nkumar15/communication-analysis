@@ -2,7 +2,7 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core import VectorStoreIndex
 from typing import Dict, Any, List
 from uuid import UUID
-from backend.modules.domains.core.services.base_rag_service import BaseRagService
+from modules.domains.core.services.base_rag_service import BaseRagService
 
 class EnronRagService(BaseRagService):
     _vector_store_provider = "elasticsearch"

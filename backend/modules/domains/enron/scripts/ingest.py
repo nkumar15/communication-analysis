@@ -8,8 +8,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
-from backend.core.db.session import AsyncSessionLocal
-from backend.modules.domains.enron.services.ingestion import EnronIngestionService
+from core.db.session import AsyncSessionLocal
+from modules.domains.enron.services.ingestion import EnronIngestionService
 
 async def ingest_directory(directory: str, batch_size: int = 100):
     print(f"Scanning directory: {directory}")

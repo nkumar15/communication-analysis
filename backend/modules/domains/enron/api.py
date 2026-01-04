@@ -4,12 +4,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 import uuid
 
-from backend.core.db.session import get_db
-from backend.modules.domains.enron.models import EnronEmail
-from backend.modules.domains.enron.schemas import EnronEmailResponse
-from backend.modules.domains.enron.services.rag import enron_rag_service
+from core.db.session import get_db
+from modules.domains.enron.models import EnronEmail
+from modules.domains.enron.schemas import EnronEmailResponse
+from modules.domains.enron.services.rag import enron_rag_service
+from modules.domains.enron.services.orchestrator import orchestrator_service
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
 
-router = APIRouter(prefix="/enron", tags=["Enron"])
+router = APIRouter(prefix="/api/domain/enron", tags=["Enron"])
 
 @router.get("/emails/{email_id}", response_model=EnronEmailResponse)
 async def get_email(email_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
@@ -39,3 +42,47 @@ async def search_emails(
     
     results = await enron_rag_service.search(query=q, tenant_id=dummy_tenant_id, limit=limit)
     return results
+
+# Investigation API Schemas
+class InvestigateEmailRequest(BaseModel):
+    email_text: str = Field(..., description="The email content to investigate")
+    email_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata (sender, recipient, subject, etc.)")
+    tenant_id: Optional[uuid.UUID] = Field(default=None, description="Optional tenant ID for multi-tenancy")
+
+class InvestigateEmailResponse(BaseModel):
+    """Investigation report returned to the client"""
+    timestamp: str
+    risk_level: str = Field(description="Overall risk: high, medium, low, unknown")
+    requires_action: bool
+    summary: str
+    intent_verdict: Optional[Dict[str, Any]] = None
+    policy_verdict: Optional[Dict[str, Any]] = None
+    evasion_verdict: Optional[Dict[str, Any]] = None
+    tenant_id: Optional[uuid.UUID] = None
+
+@router.post("/investigate", response_model=InvestigateEmailResponse)
+async def investigate_email(request: InvestigateEmailRequest):
+    """
+    Performs comprehensive multi-agent investigation of an email.
+    
+    Workflow:
+    1. Intent Classification (always runs)
+    2. If suspicious: Policy Check + Evasion Check (parallel)
+    3. Returns unified InvestigationReport
+    """
+    report = await orchestrator_service.investigate_email(
+        email_text=request.email_text,
+        email_metadata=request.email_metadata or {},
+        tenant_id=request.tenant_id
+    )
+    
+    return InvestigateEmailResponse(
+        timestamp=report.timestamp.isoformat(),
+        risk_level=report.risk_level,
+        requires_action=report.requires_action,
+        summary=report.summary,
+        intent_verdict=report.intent_verdict,
+        policy_verdict=report.policy_verdict,
+        evasion_verdict=report.evasion_verdict,
+        tenant_id=report.tenant_id
+    )

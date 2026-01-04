@@ -19,6 +19,8 @@ import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPag
 import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
 import RagKnowledgeBasePage from './modules/b2b/web/pages/RagKnowledgeBasePage';
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
+import EnronDashboard from './modules/b2b/EnronDashboard';
+import EnronInvestigationPage from './modules/b2b/EnronInvestigationPage';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
@@ -124,11 +126,21 @@ function App() {
                         </ProtectedRoute>
                     }
                 />
+
+                {/* Enron Domain Routes */}
                 <Route
-                    path="/b2b/c/enron/rag"
+                    path="/b2b/c/enron"
                     element={
                         <ProtectedRoute>
-                            <RagKnowledgeBasePage domain="enron" />
+                            <EnronDashboard />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/b2b/c/enron/investigate"
+                    element={
+                        <ProtectedRoute>
+                            <EnronInvestigationPage />
                         </ProtectedRoute>
                     }
                 />

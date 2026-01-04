@@ -8,10 +8,10 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from backend.modules.domains.enron.services.rag import enron_rag_service
+from modules.domains.enron.services.rag import enron_rag_service
 
-from backend.modules.domains.enron.models import EnronEmail
-from backend.modules.domains.enron.schemas import EnronEmailCreate
+from modules.domains.enron.models import EnronEmail
+from modules.domains.enron.schemas import EnronEmailCreate
 
 class EnronIngestionService:
     def __init__(self, db_session: AsyncSession):

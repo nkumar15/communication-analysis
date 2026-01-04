@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.sql import func, text
 import uuid
 
-from backend.core.db.base import Base, TimestampMixin
+from core.db.base import Base, TimestampMixin
 
 class EnronEmail(Base, TimestampMixin):
     __tablename__ = "enron_emails"

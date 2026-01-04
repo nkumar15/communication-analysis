@@ -55,15 +55,23 @@ Analyze the email, query the regulations if needed, and provide a final verdict.
             config = {"configurable": {"tenant_id": effective_tenant_id}} if effective_tenant_id else {}
             result = await self.agent.ainvoke({"messages": [("user", email_text)]}, config=config)
             
-            # The result should be the parsed pydantic object if response_format is used
-            # Or it might be in result['output'] or something similar.
-            # Usually create_agent returns the output directly or a state dict.
-            # If it returns a state dict, look for 'output' or the response format key.
+            # LangChain 1.2.0 returns a dict with 'structured_response' key
+            if isinstance(result, dict) and "structured_response" in result:
+                verdict = result["structured_response"]
+                if hasattr(verdict, "dict"):
+                    return verdict.dict()
+                return verdict
             
-            # Let's inspect the result in the test script. 
-            # For now, return dict(result) if it's a model, or result if dict.
+            # Fallback for tool-using agents which might return 'output' or other keys
+            # If the runnable returns the Pydantic object directly (some chains do)
             if hasattr(result, "dict"):
                  return result.dict()
+            
+            # If it's a dict but no structured_response, it might be the state dict
+            # Check if fields exist directly
+            if isinstance(result, dict) and "is_compliant" in result:
+                return result
+
             return result
             
         except Exception as e:
