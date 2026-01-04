@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, Card, CardContent, CardActions, Button, Grid, Chip } from '@mui/material';
-import { Assessment, Search, MenuBook, BarChart, ArrowForward } from '@mui/icons-material';
+import { Box, Typography, Card, CardContent, CardActions, Button, Grid, Chip, Container } from '@mui/material';
+import { Assessment, Search, MenuBook, BarChart, ArrowForward, AccountTree } from '@mui/icons-material';
 import AdminLayout from './web/layouts/AdminLayout';
 
 const EnronDashboard = () => {
@@ -27,6 +27,15 @@ const EnronDashboard = () => {
             color: 'secondary'
         },
         {
+            icon: <AccountTree sx={{ fontSize: 48, color: 'success.main' }} />,
+            title: 'Social Graph Analysis',
+            description: 'Visualize communication networks, detect cliques, and identify key influencers in the email network.',
+            status: 'active',
+            path: '/b2b/c/enron/investigate',
+            buttonText: 'View Network Graph',
+            color: 'success'
+        },
+        {
             icon: <BarChart sx={{ fontSize: 48, color: 'info.main' }} />,
             title: 'Analytics & Reports',
             description: 'View investigation history, risk trends, and compliance dashboards.',
@@ -39,14 +48,25 @@ const EnronDashboard = () => {
 
     return (
         <AdminLayout title="Enron Surveillance System" subtitle="AI-powered email surveillance and compliance monitoring">
-            <Box sx={{ p: 4, maxWidth: 1200, margin: '0 auto' }}>
+            <Box sx={{ p: 4 }}>
                 {/* Feature Cards */}
-                <Grid container spacing={3}>
-                    {features.map((feature, index) => (
-                        <Grid item xs={12} md={6} lg={4} key={index}>
+                <Container maxWidth="lg">
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                md: 'repeat(2, 1fr)'
+                            },
+                            gap: 3
+                        }}
+                    >
+                        {features.map((feature, index) => (
                             <Card
+                                key={index}
                                 sx={{
                                     height: '100%',
+                                    minHeight: 240,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     transition: 'transform 0.2s, box-shadow 0.2s',
@@ -89,23 +109,23 @@ const EnronDashboard = () => {
                                     </Button>
                                 </CardActions>
                             </Card>
-                        </Grid>
-                    ))}
-                </Grid>
+                        ))}
+                    </Box>
 
-                {/* Info Box */}
-                <Box sx={{ mt: 4, p: 3, bgcolor: 'info.lighter', borderRadius: 1 }}>
-                    <Typography variant="h6" gutterBottom color="info.dark">
-                        About This System
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        This POC demonstrates advanced AI techniques for detecting financial fraud in corporate communications.
-                        The system uses Intent Classification, Policy Compliance, and Evasion Detection agents to provide
-                        comprehensive email analysis and risk assessment.
-                    </Typography>
-                </Box>
+                    {/* Info Box */}
+                    <Box sx={{ mt: 4, p: 3, bgcolor: 'info.lighter', borderRadius: 1 }}>
+                        <Typography variant="h6" gutterBottom color="info.dark">
+                            About This System
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            This POC demonstrates advanced AI techniques for detecting financial fraud in corporate communications.
+                            The system uses Intent Classification, Policy Compliance, and Evasion Detection agents to provide
+                            comprehensive email analysis and risk assessment.
+                        </Typography>
+                    </Box>
+                </Container>
             </Box>
-        </AdminLayout>
+        </AdminLayout >
     );
 };
 
