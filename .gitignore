@@ -85,3 +85,6 @@ backend/zap-*.html
 backend/zap-*.md
 backend/zap-*.json
 backend/zap-*.log
+
+# Enron Dataset
+backend/scripts/evaluation/datasets/enron/source/emails*
