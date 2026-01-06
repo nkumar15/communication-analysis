@@ -93,9 +93,9 @@ email-ui: ## Open Mailhog email UI in browser
 db-shell: ## Open PostgreSQL shell
 	docker-compose exec postgres sh -c "psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB"
 
-db-setup-auth: ## Setup app user and permissionsznnnnnnnnhh
+db-setup-auth: ## Setup app user and permissions
 	@echo "$(BLUE)Setting up application user and permissions...$(NC)"
-	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_password=\$$DB_PASSWORD -c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/init_auth_db.sql"
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_password=\$$DB_PASSWORD -c saas.app_db_user=\$$DB_USER -c saas.app_db_name=\$$POSTGRES_DB\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/init_auth_db.sql"
 	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/grant_permissions.sql"
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
