@@ -241,6 +241,266 @@ if await has_permission(user_id, 'invoices', 'read', db):
 
 ---
 
+## Plugin/Extension Architecture
+
+**Audience:** Developers building enterprise features
+
+The RBAC system is designed with a **plugin architecture** that keeps the core 2D RBAC (Tenant Roles + Team Scope) simple while allowing optional enterprise extensions for complex use cases.
+
+### Why Plugins?
+
+**Core Principle:** The 2D RBAC model serves 80% of use cases. For the remaining 20% (enterprise, regulated industries), plugins provide advanced capabilities without complicating the core.
+
+**Example Scenarios:**
+- **Multi-national banks** need geographic boundaries (APAC, EMEA, Americas) for data residency compliance
+- **Healthcare systems** need data classification (PUBLIC, CONFIDENTIAL, HIPAA-PROTECTED) with clearance levels
+- **Large enterprises** need hierarchical teams (Region → Department → Team) with inherited access
+
+### Plugin System Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              CORE RBAC (Always Enabled)                     │
+│  • Tenant Roles (Owner/Admin/Member/Viewer)                 │
+│  • Team Scope (Manager/Member/Viewer)                       │
+│  • Resource + Action Permissions                            │
+│  • Extension Hooks (Plugin Registry)                        │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ○ Plugin API
+                        │
+┌───────────────────────┴─────────────────────────────────────┐
+│            Optional Enterprise Plugins                       │
+│  • Geographic Boundaries                                     │
+│  • Hierarchical Teams                                        │
+│  • Data Classification                                       │
+│  • ABAC (Attribute-Based Access Control)                     │
+│  • Conditional Access (Time, Context, Approval Workflows)    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### How Plugins Work
+
+Plugins extend permission checks through **hooks**:
+
+1. **Before Hook** - Execute before core permission check (can short-circuit)
+2. **Core Check** - Standard RBAC permission validation
+3. **After Hook** - Execute after core check (can augment or override result)
+
+**Example Flow:**
+```python
+# User tries to access a communication record
+has_access = await has_permission_with_plugins(
+    user_id=user.id,
+    resource="communications",
+    action="read",
+    resource_obj=communication
+)
+
+# 1. Before Hook: No plugin denies, continue
+# 2. Core Check: User has "communications:read" permission ✓
+# 3. After Hook: Geographic plugin checks region
+#    - User has geographic_scopes = ["APAC"]
+#    - Communication has data_region_id = "EMEA"
+#    - Access DENIED (region mismatch)
+```
+
+### Available Plugins
+
+#### 1. Geographic Boundaries Plugin
+
+**Use Case:** Multi-region compliance (GDPR, MAS, SEC)
+
+**Features:**
+- Users have `geographic_scopes` (e.g., `['APAC', 'EMEA']`)
+- Resources tagged with `data_region_id`
+- Access denied if resource region not in user's scopes
+- Global roles (e.g., CSO) can bypass restrictions
+
+**Configuration:**
+```bash
+# .env
+RBAC_PLUGINS=geographic_boundaries
+
+GEO_BOUNDARIES_STRICT=true
+GEO_BOUNDARIES_GLOBAL_ROLES=owner,chief_surveillance_officer
+```
+
+**Database Changes:**
+```sql
+-- Adds geographic_scopes to users
+ALTER TABLE b2b.users ADD COLUMN geographic_scopes UUID[];
+
+-- Adds data_region_id to resources
+ALTER TABLE b2b.communications ADD COLUMN data_region_id UUID;
+```
+
+#### 2. Hierarchical Teams Plugin
+
+**Use Case:** Enterprise org charts with nested teams
+
+**Features:**
+- Teams can have parent teams (Region → Desk → Unit)
+- Managers inherit access to child team data
+- Configurable depth limits
+- Materialized view for performance
+
+**Configuration:**
+```bash
+RBAC_PLUGINS=hierarchical_teams
+
+HIERARCHICAL_TEAMS_MAX_DEPTH=5
+```
+
+**Database Changes:**
+```sql
+-- Adds hierarchy to teams
+ALTER TABLE b2b.teams ADD COLUMN parent_team_id UUID;
+ALTER TABLE b2b.teams ADD COLUMN hierarchy_level INTEGER;
+```
+
+#### 3. Data Classification Plugin
+
+**Use Case:** Sensitivity-based access (finance, healthcare, legal)
+
+**Features:**
+- Resources have sensitivity levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED, TOP_SECRET)
+- Roles have clearance levels (0-4)
+- Access denied if user's clearance < resource sensitivity
+- Clearance requirements configurable per organization
+
+**Configuration:**
+```bash
+RBAC_PLUGINS=data_classification
+
+DATA_CLASSIFICATION_DEFAULT=INTERNAL
+```
+
+**Database Changes:**
+```sql
+-- Adds clearance to roles
+ALTER TABLE b2b.roles ADD COLUMN clearance_level INTEGER;
+
+-- Adds sensitivity to resources
+CREATE TYPE b2b.sensitivity_level AS ENUM (
+    'PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'TOP_SECRET'
+);
+ALTER TABLE b2b.communications ADD COLUMN sensitivity sensitivity_level;
+```
+
+### Enabling Plugins
+
+**Environment Configuration:**
+```bash
+# .env
+RBAC_ENABLED=true
+
+# Comma-separated list of plugins to enable
+RBAC_PLUGINS=geographic_boundaries,hierarchical_teams,data_classification
+```
+
+**Application Startup:**
+```python
+# backend/app.py
+from core.rbac.plugin_registry import plugin_registry
+from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin
+from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin
+
+async def initialize_plugins(db):
+    # Register plugins
+    plugin_registry.register(GeographicBoundariesPlugin())
+    plugin_registry.register(HierarchicalTeamsPlugin())
+    
+    # Initialize all plugins
+    await plugin_registry.initialize_all(db, plugin_config)
+```
+
+### Using Plugins in Code
+
+Plugins are **transparent** - use standard permission checks:
+
+```python
+# Standard permission check (works with or without plugins)
+if await has_permission(user_id, 'communications', 'read', db):
+    # Access granted by core RBAC
+
+# With plugin support (recommended for enterprise features)
+if await has_permission_with_plugins(
+    user_id,
+    'communications',
+    'read',
+    db,
+    resource_obj=communication  # Plugins can inspect resource
+):
+    # Access granted after core + plugin checks
+```
+
+**The difference:**
+- `has_permission()` - Core RBAC only (tenant role + team scope)
+- `has_permission_with_plugins()` - Core RBAC + enabled plugins
+
+### Frontend Integration
+
+Plugins enrich user context in `/auth/me` response:
+
+```json
+{
+    "id": "...",
+    "email": "analyst@bank.com",
+    "role": "surveillance_analyst",
+    "permissions": ["communications:read", "investigations:write"],
+    
+    // Plugin enrichments
+    "geographic_scopes": ["apac", "emea"],  // Geographic plugin
+    "clearance_level": 3,                    // Classification plugin
+    "accessible_teams": ["team1", "team2", "child_team1"]  // Hierarchical plugin
+}
+```
+
+### When to Use Plugins
+
+**Use Core RBAC (No Plugins) When:**
+- ✅ Simple permission model (who can do what)
+- ✅ Team-based scoping is sufficient
+- ✅ No geographic restrictions
+- ✅ No compliance requirements for data classification
+- ✅ Flat team structure
+
+**Use Plugins When:**
+- ✅ Multi-region/multi-country operations
+- ✅ Regulatory compliance (GDPR, HIPAA, SOC2)
+- ✅ Complex organizational hierarchies
+- ✅ Sensitivity-based access control
+- ✅ Context-aware permissions (time, location, device)
+- ✅ Advanced approval workflows
+
+### Custom Plugins
+
+You can build custom plugins for domain-specific needs:
+
+```python
+# custom_plugins/industry_specific.py
+from core.rbac.plugin_system import RBACPlugin, PluginMetadata
+
+class CustomIndustryPlugin(RBACPlugin):
+    def get_metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="custom_industry",
+            version="1.0.0",
+            description="Industry-specific access control"
+        )
+    
+    async def after_permission_check(self, context, core_result, db):
+        # Your custom logic here
+        return core_result
+```
+
+**See Also:**
+- [Advanced RBAC Plugin Architecture](../../brain/rbac_plugin_architecture.md) - Complete plugin system design
+- [B2B Authorization Architecture](../architecture/b2b/authorization.md) - Detailed RBAC implementation
+
+---
+
 ## Best Practices
 
 ### 1. Default Team Assignment

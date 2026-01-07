@@ -951,4 +951,476 @@ Tenants can create custom roles via the Admin UI or API, but they start from rol
 
 ---
 
+## 🔌 Plugin/Extension Architecture
+
+**Audience:** Developers implementing enterprise features
+
+The RBAC system features a **plugin architecture** that allows extending the core 2D RBAC model (Tenant Roles + Team Scope) with optional enterprise capabilities without modifying core code.
+
+### Architecture Overview
+
+The plugin system uses a **hook-based approach** where plugins register themselves and intercept permission checks at two points:
+
+1. **Before Core Check** - Plugins can grant or deny permission before core RBAC evaluation
+2. **After Core Check** - Plugins can augment or override the core RBAC decision
+
+```python
+┌──────────────────────────────────────────────────────────────┐
+│                  Permission Check Flow                        │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  1. Plugin Before Hooks                                      │
+│     ├─ Geographic Boundaries Plugin                          │
+│     ├─ Data Classification Plugin                            │
+│     └─ Hierarchical Teams Plugin                             │
+│                                                               │
+│  2. Core RBAC Check                                          │
+│     └─ has_permission(user, resource, action)                │
+│                                                               │
+│  3. Plugin After Hooks                                       │
+│     ├─ Geographic Boundaries Plugin  ← Most common hook      │
+│     ├─ Data Classification Plugin                            │
+│     └─ ABAC Engine Plugin                                    │
+│                                                               │
+│  4. Return Final Decision                                    │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Plugin Interface
+
+All plugins implement the `RBACPlugin` base class:
+
+```python
+# core/rbac/plugin_system.py
+
+from abc import ABC, abstractmethod
+from typing import Optional, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+
+class RBACPlugin(ABC):
+    """Base class for all RBAC plugins"""
+    
+    @abstractmethod
+    def get_metadata(self) -> PluginMetadata:
+        """Return plugin name, version, description"""
+        pass
+    
+    @abstractmethod
+    async def initialize(self, db: AsyncSession, config: Dict[str, Any]) -> bool:
+        """Initialize plugin (run migrations, seed data)"""
+        pass
+    
+    async def before_permission_check(
+        self, 
+        context: PermissionContext,
+        db: AsyncSession
+    ) -> Optional[bool]:
+        """
+        Hook called BEFORE core permission check
+        Return:
+          - True: Grant access immediately (skip core check)
+          - False: Deny access immediately (skip core check)
+          - None: Continue to core check
+        """
+        return None
+    
+    async def after_permission_check(
+        self,
+        context: PermissionContext,
+        core_result: bool,
+        db: AsyncSession
+    ) -> bool:
+        """
+        Hook called AFTER core permission check
+        Can augment or override core result
+        """
+        return core_result
+    
+    async def enrich_user_context(
+        self,
+        user: Dict[str, Any],
+        db: AsyncSession
+    ) -> Dict[str, Any]:
+        """Add plugin-specific data to user context"""
+        return {}
+```
+
+### Plugin Registry
+
+The `PluginRegistry` manages all registered plugins:
+
+```python
+# core/rbac/plugin_registry.py
+
+class PluginRegistry:
+    """Central registry for RBAC plugins"""
+    
+    def register(self, plugin: RBACPlugin):
+        """Register a plugin"""
+        pass
+    
+    async def check_permission(
+        self,
+        context: PermissionContext,
+        core_permission_checker,
+        db: AsyncSession
+    ) -> bool:
+        """Execute permission check with all plugins"""
+        # 1. Before hooks
+        for plugin in self._plugins:
+            result = await plugin.before_permission_check(context, db)
+            if result is not None:
+                return result  # Short-circuit
+        
+        # 2. Core check
+        core_result = await core_permission_checker(context, db)
+        
+        # 3. After hooks
+        final_result = core_result
+        for plugin in self._plugins:
+            final_result = await plugin.after_permission_check(
+                context, final_result, db
+            )
+        
+        return final_result
+
+# Global instance
+plugin_registry = PluginRegistry()
+```
+
+### Available Enterprise Plugins
+
+#### 1. Geographic Boundaries Plugin
+
+**Purpose:** Enforce geographic/jurisdictional data access restrictions for multi-region compliance.
+
+**Use Cases:**
+- Banking surveillance (APAC/EMEA/Americas data segregation)
+- GDPR compliance (EU data must stay with EU-scoped users)
+- Data residency requirements (Singapore MAS, UK FCA)
+
+**Database Schema:**
+```sql
+-- Plugin migration
+CREATE TABLE b2b.geographic_regions (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES b2b.tenants(id),
+    code VARCHAR(10),  -- 'APAC', 'EMEA', 'AMER'
+    name VARCHAR(100),
+    regulatory_jurisdiction VARCHAR(50)  -- 'MAS', 'FCA', 'SEC'
+);
+
+ALTER TABLE b2b.users ADD COLUMN geographic_scopes UUID[];
+ALTER TABLE b2b.communications ADD COLUMN data_region_id UUID;
+```
+
+**Implementation:**
+```python
+# plugins/geographic_boundaries/plugin.py
+
+class GeographicBoundariesPlugin(RBACPlugin):
+    async def after_permission_check(
+        self, context, core_result, db
+    ) -> bool:
+        if not core_result:
+            return False  # Core denied, don't override
+        
+        # Check if user role bypasses geographic restrictions
+        if context.user['role']['name'] in self.config['global_roles']:
+            return True
+        
+        # Get resource region
+        resource_region = context.resource.data_region_id if context.resource else None
+        if not resource_region:
+            return True  # No geographic restriction
+        
+        # Check user's allowed regions
+        user_scopes = context.user.get('geographic_scopes', [])
+        if resource_region in user_scopes:
+            return True
+        
+        # Deny: region mismatch
+        logger.warning(
+            f"Geographic boundary violation: user {context.user_id} "
+            f"accessing region {resource_region}"
+        )
+        return False
+```
+
+**Configuration:**
+```bash
+# .env
+RBAC_PLUGINS=geographic_boundaries
+
+GEO_BOUNDARIES_STRICT=true
+GEO_BOUNDARIES_GLOBAL_ROLES=owner,chief_surveillance_officer
+```
+
+#### 2. Hierarchical Teams Plugin
+
+**Purpose:** Support nested team structures with inherited access.
+
+**Use Cases:**
+- Enterprise org charts (Region → Department → Team)
+- Bank surveillance (Global → Regional → Desk → Unit)
+- Multi-level sales organizations
+
+**Database Schema:**
+```sql
+ALTER TABLE b2b.teams ADD COLUMN parent_team_id UUID REFERENCES b2b.teams(id);
+ALTER TABLE b2b.teams ADD COLUMN team_type VARCHAR(50);
+ALTER TABLE b2b.teams ADD COLUMN hierarchy_level INTEGER DEFAULT 0;
+
+CREATE INDEX idx_teams_parent ON b2b.teams(parent_team_id);
+```
+
+**Implementation:**
+```python
+# plugins/hierarchical_teams/plugin.py
+
+class HierarchicalTeamsPlugin(RBACPlugin):
+    async def enrich_user_context(self, user: Dict[str, Any], db) -> Dict[str, Any]:
+        """Add child teams to accessible teams"""
+        direct_teams = await self._get_direct_teams(user['id'], db)
+        
+        # For managers, include child teams
+        all_accessible = set(direct_teams)
+        for team_id in direct_teams:
+            if await self._is_team_manager(user['id'], team_id, db):
+                children = await self._get_child_teams(team_id, db)
+                all_accessible.update(children)
+        
+        return {"accessible_teams": list(all_accessible)}
+```
+
+#### 3. Data Classification Plugin
+
+**Purpose:** Implement sensitivity-based access control with clearance levels.
+
+**Use Cases:**
+- Financial services (PUBLIC → CONFIDENTIAL → RESTRICTED)
+- Healthcare (PHI protection levels)
+- Government/Defense (security clearances)
+
+**Database Schema:**
+```sql
+CREATE TYPE b2b.sensitivity_level AS ENUM (
+    'PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'TOP_SECRET'
+);
+
+ALTER TABLE b2b.roles ADD COLUMN clearance_level INTEGER DEFAULT 1;
+ALTER TABLE b2b.communications ADD COLUMN sensitivity sensitivity_level DEFAULT 'INTERNAL';
+```
+
+**Implementation:**
+```python
+# plugins/data_classification/plugin.py
+
+class DataClassificationPlugin(RBACPlugin):
+    SENSITIVITY_LEVELS = {
+        'PUBLIC': 0,
+        'INTERNAL': 1,
+        'CONFIDENTIAL': 2,
+        'RESTRICTED': 3,
+        'TOP_SECRET': 4
+    }
+    
+    async def after_permission_check(self, context, core_result, db) -> bool:
+        if not core_result:
+            return False
+        
+        # Get resource sensitivity
+        sensitivity = context.resource.sensitivity if context.resource else None
+        if not sensitivity:
+            return True  # No classification
+        
+        # Check clearance
+        user_clearance = context.user['role']['clearance_level']
+        required_clearance = self.SENSITIVITY_LEVELS[sensitivity]
+        
+        return user_clearance >= required_clearance
+```
+
+### Enabling Plugins
+
+**Step 1: Environment Configuration**
+```bash
+# .env
+RBAC_PLUGINS=geographic_boundaries,hierarchical_teams,data_classification
+
+# Plugin-specific config
+GEO_BOUNDARIES_STRICT=true
+HIERARCHICAL_TEAMS_MAX_DEPTH=5
+DATA_CLASSIFICATION_DEFAULT=INTERNAL
+```
+
+**Step 2: Application Initialization**
+```python
+# backend/app.py
+
+from core.rbac.plugin_registry import plugin_registry
+from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin
+from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin
+from plugins.data_classification.plugin import DataClassificationPlugin
+
+async def initialize_rbac_plugins(db: AsyncSession):
+    """Initialize RBAC plugins on startup"""
+    
+    plugin_config = {
+        "geographic_boundaries": {
+            "enforce_strict": True,
+            "global_roles": ["owner"]
+        },
+        "hierarchical_teams": {"max_depth": 5},
+        "data_classification": {"default_level": "INTERNAL"}
+    }
+    
+    # Register plugins based on environment
+    enabled_plugins = os.getenv("RBAC_PLUGINS", "").split(",")
+    
+    if "geographic_boundaries" in enabled_plugins:
+        plugin_registry.register(GeographicBoundariesPlugin())
+    
+    if "hierarchical_teams" in enabled_plugins:
+        plugin_registry.register(HierarchicalTeamsPlugin())
+    
+    if "data_classification" in enabled_plugins:
+        plugin_registry.register(DataClassificationPlugin())
+    
+    # Initialize all
+    await plugin_registry.initialize_all(db, plugin_config)
+    
+    logger.info(f"Initialized {len(plugin_registry.list_plugins())} RBAC plugins")
+```
+
+### Using Plugins in Code
+
+Plugins integrate transparently with existing permission checks:
+
+```python
+# Standard check (core RBAC only)
+if await has_permission(user_id, 'communications', 'read', db):
+    # Access granted
+
+# Plugin-aware check (recommended for enterprise)
+if await has_permission_with_plugins(
+    user_id,
+    'communications',
+    'read',
+    db,
+    resource_obj=communication  # Plugins can inspect resource
+):
+    # Access granted after core + plugin checks
+```
+
+**Modified Permission Checker:**
+```python
+# modules/b2b/rbac/permission_checker.py
+
+from core.rbac.plugin_registry import plugin_registry, PermissionContext
+
+async def has_permission_with_plugins(
+    user_id: UUID,
+    resource: str,
+    action: str,
+    db: AsyncSession,
+    resource_obj: Optional[Any] = None
+) -> bool:
+    """Check permission with plugin support"""
+    
+    # Get user
+    user = await db.get(User, user_id)
+    if not user:
+        return False
+    
+    # Build context
+    context = PermissionContext(
+        user_id=str(user_id),
+        user=user.__dict__,
+        resource_type=resource,
+        resource=resource_obj,
+        action=action,
+        tenant_id=str(user.tenant_id)
+    )
+    
+    # Execute with plugins
+    async def core_check(ctx, db):
+        return await has_permission(
+            UUID(ctx.user_id), ctx.resource_type, ctx.action, db
+        )
+    
+    return await plugin_registry.check_permission(context, core_check, db)
+```
+
+### Plugin Design Principles
+
+**1. Non-Invasive**: Plugins don't modify core code, only extend it
+**2. Composable**: Multiple plugins can be enabled simultaneously
+**3. Opt-In**: Plugins are explicitly enabled via configuration
+**4. Isolated**: Each plugin has its own schema migrations and dependencies
+**5. Testable**: Plugins can be tested independently
+
+### When to Use Plugins vs Core RBAC
+
+**Use Core RBAC (No Plugins):**
+- ✅ Standard permission model (who can do what)
+- ✅ Team-based scoping is sufficient
+- ✅ Flat organizational structure
+- ✅ No compliance requirements
+
+**Use Plugins:**
+- ✅ Multi-region/multi-country operations
+- ✅ Regulatory compliance (GDPR, HIPAA, SOC2)
+- ✅ Complex organizational hierarchies
+- ✅ Sensitivity-based access control
+- ✅ Context-aware permissions
+
+### Custom Plugin Development
+
+Create custom plugins for domain-specific requirements:
+
+```python
+# plugins/custom_approval_workflow/plugin.py
+
+class ApprovalWorkflowPlugin(RBACPlugin):
+    """Require manager approval for sensitive actions"""
+    
+    def get_metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="approval_workflow",
+            version="1.0.0",
+            description="Approval workflows for sensitive actions"
+        )
+    
+    async def initialize(self, db, config):
+        # Create approval tables
+        await db.execute(text("""
+            CREATE TABLE IF NOT EXISTS b2b.approval_requests (
+                id UUID PRIMARY KEY,
+                user_id UUID,
+                resource_type VARCHAR(50),
+                action VARCHAR(50),
+                approved_by UUID,
+                approved_at TIMESTAMP
+            );
+        """))
+        return True
+    
+    async def before_permission_check(self, context, db):
+        # Check if action requires approval
+        if context.action in ['delete', 'export']:
+            approval = await self._get_approval(context, db)
+            if not approval:
+                # Deny and require approval request
+                return False
+        return None  # Continue to core check
+```
+
+**See Also:**
+- [Plugin Architecture Design](../../brain/rbac_plugin_architecture.md) - Complete technical specification
+- [B2B RBAC Concepts Guide](../../guides/b2b-rbac-concepts.md) - Plugin usage guide
+
+---
+
 ## Security Considerations
