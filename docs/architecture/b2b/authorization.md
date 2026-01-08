@@ -19,11 +19,13 @@ For **Authentication**, see [Authentication Architecture](./authentication.md).
 *   **`b2b.actions`**: Universal actions (read, write, delete, invite, export, manage).
 
 ### 2. Services
-*   **`PermissionChecker`**: Core logic for verifying `user_id + resource + action` (Tenant Level).
+*   **`permission_checker.py`**: Functions for verifying `user_id + resource + action` (Tenant Level).
+    *   **`has_permission(user_id, resource, action, db, role_id=None)`**: Check if user has tenant-level permission.
+    *   **`get_user_permissions(user_id, db)`**: Get all permissions for a user.
 *   **`TeamRoleService`**: CRUD for team-level role definitions.
-*   **`ScopeChecker`**: Specialized logic for hierarchical data access (Team vs Tenant scope).
-    *   **`can_perform_action(user_id, team_id, resource, action)`**: Checks if user has permission within a specific team context.
-    *   **`can_manage_team(user_id, team_id)`**: Checks for `team_members:manage` permission.
+*   **`scope_checker.py`**: Functions for hierarchical data access (Team vs Tenant scope).
+    *   **`check_team_permission(user_id, team_id, resource, action, db, role_def_override=None)`**: Checks if user has permission within a specific team context.
+    *   **`can_manage_team(user_id, team_id, db)`**: Checks for `team_members:manage` permission or `teams:write` tenant permission.
 *   **`role_template_service`**: Manages role templates and seeds tenant roles during onboarding.
 
 ---
@@ -43,7 +45,7 @@ Use the decorators from `services.b2b.rbac.decorators` to secure API routes.
 Checks if the user's role has the specific capability.
 
 ```python
-from services.b2b.rbac.decorators import require_permission
+from modules.b2b.rbac.decorators import require_permission
 
 @router.get("/projects")
 async def list_projects(
@@ -61,7 +63,7 @@ async def list_projects(
 Checks for a specific named role. Use sparingly; prefer permissions for flexibility.
 
 ```python
-from services.b2b.rbac.decorators import require_role
+from modules.b2b.rbac.decorators import require_role
 
 @router.post("/invite")
 async def invite_user(
@@ -73,18 +75,22 @@ async def invite_user(
 ```
 
 ### 3. Granular Team Scope (Resource Access)
-For actions within a team (e.g., creating tasks), use `can_perform_action` inside the endpoint.
+For actions within a team (e.g., creating tasks), use `check_team_permission` inside the endpoint.
 
 ```python
-from services.domains.projects.scope_checker import can_perform_action
+from modules.b2b.rbac.scope_checker import check_team_permission
 
 @router.post("/tasks")
-async def create_task(data: TaskCreate, ...):
-    project = await get_project(data.project_id)
+async def create_task(
+    data: TaskCreate,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    project = await get_project(data.project_id, db)
     
     # Check if user's team role allows writing tasks
-    if not await can_perform_action(user.id, project.team_id, 'tasks', 'write', user.role, db):
-        raise Forbidden("Cannot create tasks in this team")
+    if not await check_team_permission(current_user['id'], project.team_id, 'tasks', 'write', db):
+        raise HTTPException(status_code=403, detail="Cannot create tasks in this team")
 ```
 
 ---
@@ -96,11 +102,11 @@ async def create_task(data: TaskCreate, ...):
 *   **Effect**: Users strictly cannot see data from other tenants.
 
 **2. Application Level (Team/User Scope)**
-*   **Mechanism**: `ScopeChecker` service.
+*   **Mechanism**: Functions in `scope_checker.py` module.
 *   **Effect**: Filters data *within* the tenant (e.g., A user only sees their specific Team's tasks).
 
 ```python
-from services.b2b.rbac.scope_checker import get_accessible_user_ids
+from modules.b2b.rbac.scope_checker import get_accessible_user_ids
 
 # Example: Get users I am allowed to see
 accessible_ids = await get_accessible_user_ids(user_id, db)
@@ -852,7 +858,7 @@ Create your domain router using the new permission:
 
 ```python
 # services/domains/quotes/router.py
-from services.b2b.rbac.decorators import require_permission
+from modules.b2b.rbac.decorators import require_permission
 
 @router.get("/quotes")
 async def list_quotes(

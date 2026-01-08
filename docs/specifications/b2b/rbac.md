@@ -254,11 +254,11 @@ db.add(role)
 
 #### Step 2: Use helper in code
 
-You can now rely on `can_perform_action` or specific capability checks:
+You can now rely on `check_team_permission` or specific capability checks:
 
 ```python
-# Check generic permission
-await can_perform_action(user_id, team_id, 'tasks', 'delete', role_slug, db)
+# Check team-level permission
+await check_team_permission(user_id, team_id, 'tasks', 'delete', db)
 
 # Check management capability (mapped from 'team_members:manage')
 await can_manage_team(user_id, team_id, db)

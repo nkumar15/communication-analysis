@@ -14,15 +14,6 @@ from modules.b2b.models import UserModel, Role, Team, TeamMember
 from modules.b2b.rbac.permission_checker import has_permission
 
 
-async def has_full_user_access(user_id: UUID, db: AsyncSession) -> bool:
-    """
-    Check if user has full access to all users (e.g., Owner/Admin level).
-    
-    This checks for 'users:write' permission instead of role names,
-    making it flexible for role name changes.
-    """
-    return await has_permission(user_id, 'users', 'write', db)
-
 
 async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]:
     """
@@ -58,21 +49,6 @@ async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]
     # No permission - only see self
     return [user_id]
 
-
-async def can_access_user(current_user_id: UUID, target_user_id: UUID, db: AsyncSession) -> bool:
-    """
-    Check if current user can access target user's data
-    
-    Args:
-        current_user_id: User performing the action
-        target_user_id: User whose data is being accessed
-        db: Database session
-        
-    Returns:
-        bool: True if current user can access target user
-    """
-    accessible_ids = await get_accessible_user_ids(current_user_id, db)
-    return target_user_id in accessible_ids
 
 
 # ============================================================================
