@@ -419,15 +419,26 @@ async def initialize_plugins(db):
 
 Plugins are **transparent** - use standard permission checks:
 
+> [!IMPORTANT]
+> **Resource Names Come From YAML Configuration**
+> 
+> The `'communications'` resource in these examples is defined in your YAML files:
+> - `backend/scripts/b2b/domain_resources.yaml` - Add your domain-specific resources
+> - Resources are seeded into `b2b.resources` table during initialization
+> 
+> The plugin system works with **any resource** you define - it's completely resource-agnostic.
+> Use resource names that match your domain (e.g., `'products'`, `'patients'`, `'orders'`).
+
 ```python
 # Standard permission check (works with or without plugins)
+# Resource name must match your YAML configuration
 if await has_permission(user_id, 'communications', 'read', db):
     # Access granted by core RBAC
 
 # With plugin support (recommended for enterprise features)
 if await has_permission_with_plugins(
     user_id,
-    'communications',
+    'communications',  # ← From your domain_resources.yaml
     'read',
     db,
     resource_obj=communication  # Plugins can inspect resource

@@ -957,6 +957,368 @@ Tenants can create custom roles via the Admin UI or API, but they start from rol
 
 ---
 
+## 🎯 Design Philosophy: Dynamic Configuration vs Code
+
+**Understanding what is configurable vs what requires implementation**
+
+A common question when seeing string literals like `'users'` in code:
+
+```python
+if await has_permission(user_id, 'users', 'invite', db):
+    # Is 'users' hardcoded? Should this be more dynamic?
+```
+
+### What IS Dynamic (No Code Changes)
+
+The RBAC system makes **authorization** fully configurable:
+
+**✅ Permission Configuration**
+```yaml
+# Change in YAML, re-seed → Behavior changes
+owner:
+  - resource: users
+    actions: [read, write, invite, delete]  # ← Change permissions here
+```
+
+**✅ Role Assignments**
+```python
+# No code changes needed to:
+# - Create new roles
+# - Modify role permissions
+# - Assign users to roles
+# All done via database/admin UI
+```
+
+**✅ Plugin Behavior**
+```python
+# Enable/disable via environment variables
+RBAC_PLUGINS=geographic_boundaries,data_classification
+
+# Plugin configuration changes without code deployment
+GEO_BOUNDARIES_STRICT=true
+```
+
+**✅ Frontend UI**
+```javascript
+// UI adapts based on user permissions
+{permissions.includes('users:invite') && <InviteButton />}
+```
+
+### What REQUIRES Code (By Design)
+
+The RBAC system does NOT create **functionality** - only controls access to it:
+
+**❌ Business Logic**
+```python
+# Each resource has unique implementation
+async def invite_user(email, role):
+    # Validation rules specific to invitations
+    # Email sending logic
+    # Token generation
+    # Database operations
+    # Audit logging
+```
+
+**❌ API Endpoints**
+```python
+# You must implement the route
+@router.post("/invitations/invite")
+async def invite_user(...):
+    # The actual invitation functionality
+```
+
+**❌ Data Models**
+```python
+# Database schema for the resource
+class Invitation(Base):
+    __tablename__ = "invitations"
+    id = Column(UUID, primary_key=True)
+    email = Column(String, nullable=False)
+    # ... resource-specific fields
+```
+
+### Why This Design is Correct
+
+**RBAC controls ACCESS, not FUNCTIONALITY**
+
+Think of it like building access control for rooms:
+
+```
+YAML Configuration (Dynamic):
+├─ "kitchen" room exists in system
+├─ "chef" role can access kitchen
+└─ "waiter" role cannot access kitchen
+
+Code (Must Implement):
+├─ Build the actual kitchen
+├─ Add kitchen equipment  
+├─ Define what happens in kitchen
+└─ Implement kitchen operations
+```
+
+You can change **who** accesses the kitchen dynamically, but you still need to **build** the kitchen!
+
+### Real-World Example
+
+**Adding a new "Contracts" resource:**
+
+**Step 1: Define Permission Structure (YAML)**
+```yaml
+# domain_resources.yaml
+resources:
+  - name: contracts
+    display_name: Contract Management
+    category: Domain
+```
+
+**Step 2: Implement Functionality (Code Required)**
+```python
+# 1. Create data model
+class Contract(Base):
+    __tablename__ = "contracts"
+    id = Column(UUID, primary_key=True)
+    title = Column(String)
+    value = Column(Decimal)
+    # ... business-specific fields
+
+# 2. Implement business logic
+class ContractService:
+    async def create_contract(self, data):
+        # Validation
+        # Business rules
+        # Calculations
+        pass
+
+# 3. Create API endpoints
+@router.post("/contracts")
+async def create_contract(
+    data: ContractCreate,
+    current_user: dict = require_permission('contracts', 'write'),
+    #                                        ^^^^^^^^^^
+    #                            RBAC checks access to functionality
+    db: AsyncSession = Depends(get_db)
+):
+    return await contract_service.create_contract(data, db)
+```
+
+**What's dynamic:** Who can access contracts  
+**What's static:** Contract implementation itself
+
+### The String Reference Pattern
+
+**String literals like `'users'` are semantic references, not hardcoding:**
+
+```python
+# This looks "hardcoded" but it's a reference to database configuration
+if await has_permission(user_id, 'users', 'invite', db):
+    pass
+```
+
+**Runtime Resolution:**
+1. Query: `SELECT * FROM b2b.resources WHERE name = 'users'`
+2. Resolve to UUID: `abc-123-def-456`
+3. Check permission in `b2b.role_permissions`
+4. Grant/deny based on **database configuration**
+
+**Compare to TRUE hardcoding:**
+```python
+# BAD - This is actual hardcoding
+def can_invite(user):
+    if user.role in ['admin', 'owner']:  # ❌ Logic in code
+        return True
+```
+
+**Our pattern:**
+```python
+# GOOD - Logic in database
+if await has_permission(user_id, 'users', 'invite', db):  # ✅ Logic in database
+    pass
+```
+
+**Change behavior:**
+- Hardcoded: Modify code → Deploy
+- Our pattern: Modify YAML → Re-seed (no deployment!)
+
+### Patterns for Different Needs
+
+#### Pattern 1: Explicit Routes (Recommended for Complex Resources)
+
+**Use for:** Resources with unique business logic
+
+```python
+@router.post("/invitations/invite")
+async def invite_user(
+    request: InviteUserRequest,
+    current_user: dict = require_permission('users', 'invite'),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Custom logic:
+    - Email validation
+    - Token generation
+    - Expiration handling
+    - Email sending
+    - Audit logging
+    """
+    return await invitation_service.invite_user(...)
+```
+
+**Benefits:**
+- ✅ Full control over validation
+- ✅ Custom business rules
+- ✅ Type-safe request/response
+- ✅ Testable
+- ✅ Self-documenting
+
+#### Pattern 2: Generic CRUD Factory (For Simple Resources)
+
+**Use for:** Simple resources with standard CRUD operations
+
+```python
+# Factory function
+def create_resource_router(resource_name: str, model_class, schema_class):
+    router = APIRouter()
+    
+    @router.get(f"/{resource_name}")
+    async def list_items(
+        current_user: dict = require_permission(resource_name, 'read'),
+        db: AsyncSession = Depends(get_db)
+    ):
+        items = await db.execute(select(model_class))
+        return items.scalars().all()
+    
+    @router.post(f"/{resource_name}")
+    async def create_item(
+        data: schema_class,
+        current_user: dict = require_permission(resource_name, 'write'),
+        db: AsyncSession = Depends(get_db)
+    ):
+        item = model_class(**data.dict())
+        db.add(item)
+        await db.commit()
+        return item
+    
+    return router
+
+# Auto-generate routes for simple resources
+tags_router = create_resource_router('tags', TagModel, TagSchema)
+categories_router = create_resource_router('categories', CategoryModel, CategorySchema)
+```
+
+**Benefits:**
+- ✅ Less boilerplate
+- ✅ Consistent patterns
+- ✅ Good for admin panels
+- ❌ Less flexibility
+
+#### Pattern 3: Hybrid Approach (Best of Both Worlds)
+
+```python
+# Complex resources: Explicit (full control)
+from modules.b2b.routers import (
+    invitations,   # Custom invitation flow
+    billing,       # Complex payment logic
+    teams,         # Hierarchical team management
+)
+
+# Simple resources: Generic factory (less code)
+simple_resources = ['tags', 'categories', 'labels', 'notes']
+for resource in simple_resources:
+    router = create_crud_router(resource)
+    app.include_router(router, prefix=f"/api/b2b/{resource}")
+```
+
+### Design Principles
+
+**1. Explicit is Better Than Magic**
+```python
+# Good - Clear what's being protected
+require_permission('users', 'invite')
+
+# Avoid - Too much indirection
+auto_protect_all_endpoints()  # What permissions? Unknown!
+```
+
+**2. Separation of Concerns**
+```
+YAML/Database:  WHO can access WHAT
+Code:           WHAT functionality exists
+RBAC System:    Enforce access control
+```
+
+**3. Convention Over Configuration**
+```python
+# String must match YAML 'name' field
+'users'  # ← Must exist in resources.yaml
+
+# Typos fail safely
+'usersss'  # ← Returns permission denied
+```
+
+**4. Domain Agnostic**
+```python
+# Same RBAC code works for ANY domain
+'users'          # B2B SaaS
+'products'       # E-commerce
+'patients'       # Healthcare
+'communications' # Banking surveillance
+```
+
+### Common Questions
+
+**Q: Why not auto-generate routes from YAML?**
+
+A: Because each resource has unique business logic that can't be genericized:
+- Different validation rules
+- Different relationships
+- Different side effects
+- Different workflows
+
+**Q: Can I make it more dynamic?**
+
+A: Yes! Use factory patterns for simple resources (see Pattern 2 above). But complex resources benefit from explicit implementation.
+
+**Q: Is the string reference maintainable?**
+
+A: Yes:
+- ✅ Searchable (grep for `'users'`)
+- ✅ Type-safe by convention
+- ✅ Clear contract (must match YAML)
+- ✅ IDE-friendly (can use constants)
+
+**Q: What if I want fully dynamic resources?**
+
+A: Consider a headless CMS or admin panel framework instead of a custom RBAC system. Tools like:
+- Strapi (headless CMS)
+- Django Admin (auto-generated admin)
+- Forest Admin (admin panel as a service)
+
+These trade flexibility for convenience.
+
+### Summary
+
+**Dynamic (Configuration-Driven):**
+- ✅ Resource permissions (YAML)
+- ✅ Role assignments (database)
+- ✅ Plugin behavior (environment variables)
+- ✅ UI visibility (user permissions)
+
+**Static (Code-Driven):**
+- ✅ Business logic implementation
+- ✅ API endpoint definitions
+- ✅ Data models and validation
+- ✅ Workflows and side effects
+
+**The RBAC system:**
+- Controls **access** to functionality (dynamic)
+- Does NOT create functionality (requires code)
+- Uses string references as semantic keys (not hardcoding)
+- Balances flexibility with type safety
+
+**This design is intentional and optimal for most B2B SaaS applications.**
+
+---
+
 ## 🔌 Plugin/Extension Architecture
 
 **Audience:** Developers implementing enterprise features
@@ -1304,20 +1666,36 @@ async def initialize_rbac_plugins(db: AsyncSession):
 
 Plugins integrate transparently with existing permission checks:
 
+> [!IMPORTANT]
+> **Resource Names are Dynamic**
+> 
+> Resources like `'communications'` in these examples come from your YAML configuration files:
+> - `backend/scripts/b2b/resources.yaml` - Core SaaS resources
+> - `backend/scripts/b2b/domain_resources.yaml` - Your domain-specific resources
+> 
+> The plugin system is **resource-agnostic** - it works with ANY resource you define in YAML.
+> `'communications'` is used here as an example for a bank surveillance domain, but could be
+> `'products'`, `'orders'`, `'patients'`, or any resource relevant to your application.
+
 ```python
+# Example: Using plugins with ANY resource (not hardcoded)
+# The resource name comes from your domain_resources.yaml configuration
+
 # Standard check (core RBAC only)
 if await has_permission(user_id, 'communications', 'read', db):
-    # Access granted
+    # Access granted by core RBAC
+    # (checks b2b.role_permissions for this resource+action)
 
-# Plugin-aware check (recommended for enterprise)
+# Plugin-aware check (recommended for enterprise features)
 if await has_permission_with_plugins(
     user_id,
-    'communications',
+    'communications',  # ← Resource from YAML, not hardcoded!
     'read',
     db,
-    resource_obj=communication  # Plugins can inspect resource
+    resource_obj=communication  # Plugins can inspect actual resource instance
 ):
     # Access granted after core + plugin checks
+
 ```
 
 **Modified Permission Checker:**
