@@ -1,0 +1,97 @@
+# Core Team-Level Roles (Universal Base)
+#
+# SCOPE: These are TEAM-LEVEL roles (can ONLY access their assigned team)
+# CATEGORY: Universal team roles (work across any business domain)
+# USAGE: Base team roles that are generic enough for any team structure
+#
+# NAMING CLARIFICATION:
+# - "Team-level" = SCOPE (single team access only)
+# - "Base" = CATEGORY (universal vs domain-specific)
+#
+# WHEN LOADED:
+# - Always loaded (for ALL use cases)
+# - Additional domain-specific team roles can be added via use_cases/
+#
+# ⚠️ ROLE POLLUTION CONCERN:
+# These base roles are ALWAYS seeded, even if unused in specific domains.
+# For example, bank surveillance might not need generic "team_manager" if they
+# use "desk_surveillance_manager" instead. This is a known trade-off for flexibility.
+#
+# FUTURE IMPROVEMENT:
+# Consider making base team roles optional/configurable per domain to reduce clutter.
+
+team_roles:
+  
+  # =========================================================================
+  # UNIVERSAL TEAM ROLES (Generic Team Management)
+  # =========================================================================
+  
+  - name: team_manager
+    display_name: Team Manager
+    description: |
+      Full management control within a team (generic).
+      
+      USAGE NOTE: This is a generic team management role. Domain-specific
+      deployments may prefer specialized roles like:
+      - desk_surveillance_manager (bank surveillance)
+      - account_manager (marketing agency)
+      
+      Consider if this generic role is needed for your use case.
+    is_system: true
+    permissions:
+      # Team Management
+      - resource: team_members
+        actions: [manage]
+      - resource: team_settings
+        actions: [manage]
+
+  - name: team_contributor
+    display_name: Team Contributor
+    description: |
+      Can contribute to team work but cannot manage team settings (generic).
+      
+      USAGE NOTE: Generic contributor role. Domain-specific deployments
+      may prefer specialized roles like:
+      - surveillance_analyst (bank)
+      - specialist (marketing agency)
+    is_system: true
+    permissions:
+      # Team Access
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+
+  - name: team_reader
+    display_name: Team Reader
+    description: |
+      Read-only access to team resources (generic).
+      
+      USAGE NOTE: Generic read-only team role.
+    is_system: true
+    permissions:
+      # Team Access (read-only)
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+
+# =========================================================================
+# NOTE: Domain-Specific Team Roles
+# =========================================================================
+# Additional team-level roles for specific business domains are defined in:
+#
+# - use_cases/bank_surveillance/team_roles.yaml
+#   (desk_surveillance_manager, senior_analyst, surveillance_analyst, junior_analyst)
+#
+# - use_cases/marketing_agency/team_roles.yaml
+#   (account_manager, creative_lead, specialist, content_contributor)
+#
+# These are ALSO team-level (scope) but business-specific (category).
+# They are loaded ONLY when using that specific USE_CASE.
+#
+# ⚠️ WARNING: When domain-specific team roles are loaded, you'll have BOTH
+# base roles (team_manager, team_contributor, team_reader) AND domain roles
+# (desk_surveillance_manager, etc.) in the database.
+#
+# This may cause UI clutter when creating teams if users see irrelevant options.

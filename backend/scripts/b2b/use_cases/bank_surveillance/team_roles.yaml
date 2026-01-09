@@ -1,0 +1,74 @@
+# Bank Surveillance - Team-Level Roles (Trading Desk)
+
+team_roles:
+  - name: desk_surveillance_manager
+    display_name: Desk Surveillance Manager
+    description: Manages surveillance operations for a specific trading desk
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage]
+      - resource: team_settings
+        actions: [manage]
+      - resource: communications
+        actions: [read, analyze, flag, export]
+      - resource: investigations
+        actions: [read, create, assign, approve, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss]
+      - resource: surveillance_reports
+        actions: [read, create, export]
+  
+  - name: senior_analyst
+    display_name: Senior Surveillance Analyst
+    description: Experienced analyst with case approval authority
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: communications
+        actions: [read, analyze, flag, export]
+      - resource: investigations
+        actions: [read, create, investigate, approve, escalate, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate]
+      - resource: surveillance_reports
+        actions: [read, create]
+  
+  - name: surveillance_analyst
+    display_name: Surveillance Analyst
+    description: Mid-level analyst conducting investigations
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: communications
+        actions: [read, analyze, flag]
+      - resource: investigations
+        actions: [read, create, investigate, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate]
+      - resource: surveillance_reports
+        actions: [read]
+  
+  - name: junior_analyst
+    display_name: Junior Surveillance Analyst
+    description: Entry-level analyst with limited access
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: communications
+        actions: [read]
+      - resource: investigations
+        actions: [read, investigate]
+      - resource: alerts
+        actions: [read, acknowledge]
+      - resource: surveillance_reports
+        actions: [read]

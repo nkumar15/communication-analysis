@@ -1,636 +1,492 @@
 # Role-Based Access Control (RBAC) Guide
 
-**Audience:** Developers and System Architects
+**Audience:** Developers and System Architects  
+**Last Updated:** 2026-01-09
 
-This guide explains the RBAC implementation in the SSO boilerplate, including tenant roles, team roles, and permission management.
+This guide explains the RBAC implementation in the SSO boilerplate, including configuration architecture, tenant roles, team roles, and customization workflows.
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Role Architecture](#role-architecture)
-3. [Invitation Workflows](#invitation-workflows)
-4. [Permission Model](#permission-model)
-5. [Subscription & Billing Permissions](#subscription--billing-permissions)
+2. [Configuration Architecture](#configuration-architecture)
+3. [Role Architecture](#role-architecture)
+4. [Customization Workflows](#customization-workflows)
+5. [Use Case Examples](#use-case-examples)
 6. [Best Practices](#best-practices)
 
 ---
 
 ## Overview
 
-The system implements a **two-level role system**:
+The system implements a **two-level role system** with **flexible configuration**:
 
-1. **Tenant Roles** - Organization-wide permissions (owner, admin, viewer)
-2. **Team Roles** - Team-specific permissions (team_manager, team_member, team_viewer)
+1. **Tenant Roles** - Organization-wide permissions (owner, admin, surveillance_chief, etc.)
+2. **Team Roles** - Team-specific permissions (team_manager, desk_surveillance_manager, etc.)
+3. **Configuration System** - YAML-based, supports core/domain/use_cases pattern
 
-This pattern is used by GitHub, Slack, and Google Workspace for multi-tenant collaboration.
+This pattern is used by GitHub, Slack, and Google Workspace for multi-tenant collaboration, extended with domain-specific customization.
+
+---
+
+## Configuration Architecture
+
+### Directory Structure
+
+```
+backend/scripts/b2b/
+├── core/                           # Universal SaaS (don't edit)
+│   ├── actions.yaml
+│   ├── saas_roles.yaml             # owner, admin, member, viewer
+│   ├── saas_resources.yaml         # users, teams, billing, etc.
+│   ├── team_roles_base.yaml        # team_manager, team_contributor, team_reader
+│   └── README.md
+│
+├── domain/                         # YOUR customization
+│   ├── resources.yaml
+│   ├── tenant_roles.yaml
+│   ├── team_roles.yaml
+│   └── README.md
+│
+├── use_cases/                      # Demo templates
+│   ├── bank_surveillance/
+│   ├── marketing_agency/
+│   └── task_management/
+│
+├── demo_configs/                   # Demo tenant seeds
+│   ├── bank_surveillance_demo.json
+│   ├── marketing_agency_demo.json
+│   └── task_management_demo.json
+│
+├── subscription_plans.yaml
+├── seed_rbac.py                    # Main seeding script
+└── tenant_onboard.py
+```
+
+### Loading Logic
+
+**Development/Demo (with USE_CASE):**
+```bash
+USE_CASE=bank_surveillance make b2b-seed-roles
+# Loads: core/* + use_cases/bank_surveillance/*
+```
+
+**Production (without USE_CASE):**
+```bash
+make b2b-seed-roles
+# Loads: core/* + domain/*
+```
+
+**Key Rule:** If use case/domain defines custom team roles, base team roles are **automatically skipped** (prevents role pollution).
 
 ---
 
 ## Role Architecture
 
-### Tenant Roles (Organization-Wide)
+### Three-Table Model
 
-**Purpose:** Define what a user can do across the entire organization
+```
+┌─────────────────────────────────────────────────────────┐
+│ 1. role_templates (Global Blueprints)                  │
+│    - Seeded from YAML                                   │
+│    - Shared across all tenants                          │
+│    - Contains permissions JSONB                         │
+└─────────────────────────────────────────────────────────┘
+                          ↓ (tenant creation)
+┌─────────────────────────────────────────────────────────┐
+│ 2. roles (Tenant-Specific Instances)                   │
+│    - Created from templates                             │
+│    - One set per tenant                                 │
+│    - tenant_id + name unique                            │
+└─────────────────────────────────────────────────────────┘
+                          ↓ (user invitation)
+┌─────────────────────────────────────────────────────────┐
+│ 3. users (User Assignments)                            │
+│    - users.role_id → roles.id                          │
+│    - Each user has ONE tenant role                      │
+└─────────────────────────────────────────────────────────┘
+```
 
-**Examples:**
-- `owner` - Full control over account, billing, and all features
-- `admin` - Management capabilities (no billing/account deletion)
-- `viewer` - Read-only access
+### Tenant Roles (Two Categories)
 
-**Storage:** `b2b.roles` table (per tenant)
+**A. Platform/SaaS Roles** (`core/saas_roles.yaml`)
+- Universal across any business
+- IT/operational focus
+- Examples: `owner`, `admin`, `member`, `viewer`
 
-**Assignment:** During user invitation
+**B. Domain-Specific Roles** (`domain/tenant_roles.yaml` or `use_cases/*/tenant_roles.yaml`)
+- Business-specific roles
+- Examples: `surveillance_chief`, `regional_director`, `agency_owner`
 
-**Characteristics:**
-- Every user has exactly ONE tenant role
-- Persists across all teams
-- Controls organization-level permissions (invite users, manage billing, etc.)
+**Example Tenant Roles:**
+```yaml
+# core/saas_roles.yaml (Platform)
+role_templates:
+  - name: owner
+    permissions:
+      - resource: billing
+        actions: [read, write, manage]
+      - resource: users
+        actions: [read, write, invite, delete]
 
-### Team Roles (Team-Specific)
+# use_cases/bank_surveillance/tenant_roles.yaml (Domain)
+tenant_roles:
+  - name: surveillance_chief
+    permissions:
+      - resource: communications
+        actions: [read, analyze, flag, export, archive]
+      - resource: investigations
+        actions: [read, create, assign, approve, close, export]
+```
 
-**Purpose:** Define what a user can do within a specific team
+### Team Roles (Domain-Specific)
 
-**Examples:**
-- `team_manager` - Can add/remove team members, edit team settings
-- `team_member` - Active participant in team
-- `team_viewer` - Read-only access to team
+**Purpose:** Define capabilities within specific teams
 
-**Storage:** `b2b.team_members.team_role` column
+**Conditional Loading:**
+- If `domain/team_roles.yaml` is **empty** → Load base team roles
+- If `domain/team_roles.yaml` has **custom roles** → **Skip** base team roles
 
-**Assignment:** When adding user to a team
-
-**Characteristics:**
-- A user can have DIFFERENT roles in DIFFERENT teams
-- Only applies within that team's context
-- Does NOT override tenant-level permissions
+**Example:**
+```yaml
+# use_cases/bank_surveillance/team_roles.yaml
+team_roles:
+  - name: desk_surveillance_manager
+    display_name: Desk Surveillance Manager
+    permissions:
+      - resource: team_members
+        actions: [manage]
+      - resource: communications
+        actions: [read, analyze, flag, export]
+      - resource: investigations
+        actions: [read, create, assign, approve, close]
+```
 
 ---
 
-## Invitation Workflows
+## Customization Workflows
 
-### Standard Workflow
+### Workflow 1: Starting from Scratch (Generic SaaS)
 
-1. **Admin invites user** → Creates invitation with tenant role
-2. **User receives email** → Clicks invitation link
-3. **User completes SSO** → Authenticates via Firebase
-4. **User joins tenant** → Account created with assigned role
-5. **Optional: Auto-add to team** → If team specified, user added with team role
-
-### Who Can Invite?
-
-Only users with `users:invite` permission can invite new users:
-- ✅ Owner
-- ✅ Admin  
-- ❌ Viewer (no permission)
-
-### Enhanced Invitation (Optional Team Assignment)
-
-When inviting a user, you can optionally:
-- Select a team
-- Select a team role
-
-The user will be automatically added to that team upon accepting the invitation.
-
-```json
-{
-  "email": "user@company.com",
-  "role": "viewer",
-  "team_id": "uuid-of-engineering-team",
-  "team_role": "team_contributor"
-}
-```
-
-**Result:**
-- User created with tenant role = `viewer`
-- User added to Engineering team with role = `team_contributor`
-
----
-
-## Permission Model
-
-### Permission Evaluation
-
-Permissions are checked at two levels:
-
-**1. Tenant-Level Permission:**
-```python
-if await has_permission(user_id, 'users', 'invite', db):
-    # User can invite new users to organization
-```
-
-**2. Team-Level Permission:**
-```python
-if await can_manage_team(user_id, team_id, db):
-    # User can manage this specific team
-```
-
-### RLS Context Requirements
-
-> [!IMPORTANT]
-> All permission checks require RLS (Row Level Security) context to be set BEFORE calling
-
-The `has_permission()` function queries RLS-protected tables (`users`, `roles`). The middleware automatically sets this context, but if you're calling permission checks outside of a request handler, you must set it manually:
-
-```python
-# ✅ CORRECT: In route handler (middleware sets context automatically)
-@router.get("/api/b2b/resources")
-async def list_resources(
-    current_user: dict = Depends(get_current_active_user),  # Sets RLS context
-    db: AsyncSession = Depends(get_db)
-):
-    # Permission check works because RLS context is already set
-    if not await has_permission(current_user['id'], 'resources', 'read', db):
-        raise HTTPException(status_code=403)
-    
-    # Query resources
-    result = await db.execute(select(Resource))
-    return result.scalars().all()
-
-# ✅ CORRECT: In background task (manual context setting)
-async def process_batch(tenant_id: UUID, db: AsyncSession):
-    from sqlalchemy import text
-    
-    # Must set context manually
-    await db.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'"))
-    
-    # Now permission checks work
-    admin_result = await db.execute(
-        select(User).join(Role).where(Role.name == 'admin')
-    )
-```
-
-**See Also:**
-- [Multi-Tenant Isolation Architecture](../architecture/b2b/multi-tenant-isolation.md) - Complete RLS documentation
-- [B2B Authorization Architecture](../architecture/b2b/authorization.md) - Comprehensive RBAC implementation details
-
----
-
-## Example Scenario
-
-**User:** Alice  
-**Tenant Role:** `admin`  
-**Team Roles:**
-  - Engineering: `team_manager`
-  - Marketing: `team_viewer`
-
-**Questions:**
-
-**Q: Can Alice invite new users to the organization?**
-- Check: `admin` role has `users:invite` permission?
-- Answer: **YES** ✅
-
-**Q: Can Alice add members to Engineering team?**
-- Check 1: Tenant role `admin` has `teams:write`? **YES** ✅
-- OR Check 2: Team role in Engineering = `team_manager`? **YES** ✅
-- Answer: **YES** ✅
-
-**Q: Can Alice add members to Marketing team?**
-- Check 1: Tenant role `admin` has `teams:write`? **YES** ✅
-- OR Check 2: Team role in Marketing = `team_viewer`? **NO** ❌
-- Answer: **YES** ✅ (because of tenant role)
-
-### Permission Hierarchy
-
-**Tenant permissions > Team permissions**
-
-If a user's tenant role grants a permission, team role cannot restrict it.
-
----
-
-## Subscription & Billing Permissions
-
-### Billing-Related Permissions
-
-The system includes subscription and billing management with specific RBAC controls:
-
-**Subscription Management:**
-- `subscription:read` - View current subscription, plan details, seat count
-- `subscription:write` - Upgrade/downgrade subscription tiers
-- `subscription:manage` - Change payment modes, cancel subscription
-
-**Invoice Management:**
-- `invoices:read` - View billing history and invoices
-- `invoices:write` - Mark invoices as paid (admin only)
-- `invoices:export` - Download invoice PDFs
-
-### Default Role Assignments
-
-| Role | Subscription | Invoices | Billing Settings |
-|------|-------------|----------|------------------|
-| **Owner** | Full access | Full access | Full access |
-| **Admin** | View, Upgrade | View, Export | View only |
-| **Viewer** | View only | View only | No access |
-
-**Example Use Cases:**
-
-```python
-# Check if user can upgrade subscription
-if await has_permission(user_id, 'subscription', 'write', db):
-    # User can initiate subscription upgrade
-    await subscription_service.create_checkout_session(...)
-
-# Check if user can view invoices
-if await has_permission(user_id, 'invoices', 'read', db):
-    # User can view billing history
-    invoices = await invoice_service.list_invoices(...)
-```
-
-**See Also:** [B2B Subscription Architecture](../architecture/b2b/subscription.md) for complete billing implementation details.
-
----
-
-## Plugin/Extension Architecture
-
-**Audience:** Developers building enterprise features
-
-The RBAC system is designed with a **plugin architecture** that keeps the core 2D RBAC (Tenant Roles + Team Scope) simple while allowing optional enterprise extensions for complex use cases.
-
-### Why Plugins?
-
-**Core Principle:** The 2D RBAC model serves 80% of use cases. For the remaining 20% (enterprise, regulated industries), plugins provide advanced capabilities without complicating the core.
-
-**Example Scenarios:**
-- **Multi-national banks** need geographic boundaries (APAC, EMEA, Americas) for data residency compliance
-- **Healthcare systems** need data classification (PUBLIC, CONFIDENTIAL, HIPAA-PROTECTED) with clearance levels
-- **Large enterprises** need hierarchical teams (Region → Department → Team) with inherited access
-
-### Plugin System Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              CORE RBAC (Always Enabled)                     │
-│  • Tenant Roles (Owner/Admin/Member/Viewer)                 │
-│  • Team Scope (Manager/Member/Viewer)                       │
-│  • Resource + Action Permissions                            │
-│  • Extension Hooks (Plugin Registry)                        │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ○ Plugin API
-                        │
-┌───────────────────────┴─────────────────────────────────────┐
-│            Optional Enterprise Plugins                       │
-│  • Geographic Boundaries                                     │
-│  • Hierarchical Teams                                        │
-│  • Data Classification                                       │
-│  • ABAC (Attribute-Based Access Control)                     │
-│  • Conditional Access (Time, Context, Approval Workflows)    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### How Plugins Work
-
-Plugins extend permission checks through **hooks**:
-
-1. **Before Hook** - Execute before core permission check (can short-circuit)
-2. **Core Check** - Standard RBAC permission validation
-3. **After Hook** - Execute after core check (can augment or override result)
-
-**Example Flow:**
-```python
-# User tries to access a communication record
-has_access = await has_permission_with_plugins(
-    user_id=user.id,
-    resource="communications",
-    action="read",
-    resource_obj=communication
-)
-
-# 1. Before Hook: No plugin denies, continue
-# 2. Core Check: User has "communications:read" permission ✓
-# 3. After Hook: Geographic plugin checks region
-#    - User has geographic_scopes = ["APAC"]
-#    - Communication has data_region_id = "EMEA"
-#    - Access DENIED (region mismatch)
-```
-
-### Available Plugins
-
-#### 1. Geographic Boundaries Plugin
-
-**Use Case:** Multi-region compliance (GDPR, MAS, SEC)
-
-**Features:**
-- Users have `geographic_scopes` (e.g., `['APAC', 'EMEA']`)
-- Resources tagged with `data_region_id`
-- Access denied if resource region not in user's scopes
-- Global roles (e.g., CSO) can bypass restrictions
-
-**Configuration:**
 ```bash
-# .env
-RBAC_PLUGINS=geographic_boundaries
+# Use task_management (generic base)
+USE_CASE=task_management make b2b-seed-roles
 
-GEO_BOUNDARIES_STRICT=true
-GEO_BOUNDARIES_GLOBAL_ROLES=owner,chief_surveillance_officer
+# Result:
+# - Tenant roles: owner, admin, member, viewer (from core/)
+# - Team roles: team_manager, team_contributor, team_reader (from core/)
+# - Resources: projects, tasks, comments (from use_cases/task_management/)
 ```
 
-**Database Changes:**
-```sql
--- Adds geographic_scopes to users
-ALTER TABLE b2b.users ADD COLUMN geographic_scopes UUID[];
+### Workflow 2: Copy from Demo Template
 
--- Adds data_region_id to resources
-ALTER TABLE b2b.communications ADD COLUMN data_region_id UUID;
-```
-
-#### 2. Hierarchical Teams Plugin
-
-**Use Case:** Enterprise org charts with nested teams
-
-**Features:**
-- Teams can have parent teams (Region → Desk → Unit)
-- Managers inherit access to child team data
-- Configurable depth limits
-- Materialized view for performance
-
-**Configuration:**
 ```bash
-RBAC_PLUGINS=hierarchical_teams
+# Step 1: Choose template
+cp -r use_cases/marketing_agency/* domain/
 
-HIERARCHICAL_TEAMS_MAX_DEPTH=5
+# Step 2: Customize for your client
+nano domain/resources.yaml
+nano domain/tenant_roles.yaml
+nano domain/team_roles.yaml
+
+# Step 3: Seed production
+make b2b-seed-roles  # Loads domain/
 ```
 
-**Database Changes:**
-```sql
--- Adds hierarchy to teams
-ALTER TABLE b2b.teams ADD COLUMN parent_team_id UUID;
-ALTER TABLE b2b.teams ADD COLUMN hierarchy_level INTEGER;
+### Workflow 3: Add Custom Role to Existing Setup
+
+```yaml
+# domain/tenant_roles.yaml
+tenant_roles:
+  - name: supervisor
+    display_name: Supervisor
+    description: Oversees operations without full admin access
+    permissions:
+      - resource: projects
+        actions: [read, write]
+      - resource: tasks
+        actions: [read, write]
+      - resource: users
+        actions: [read]  # Can see but not modify users
+      - resource: teams
+        actions: [read, write]  # Can manage teams
 ```
 
-#### 3. Data Classification Plugin
-
-**Use Case:** Sensitivity-based access (finance, healthcare, legal)
-
-**Features:**
-- Resources have sensitivity levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED, TOP_SECRET)
-- Roles have clearance levels (0-4)
-- Access denied if user's clearance < resource sensitivity
-- Clearance requirements configurable per organization
-
-**Configuration:**
+Reseed:
 ```bash
-RBAC_PLUGINS=data_classification
-
-DATA_CLASSIFICATION_DEFAULT=INTERNAL
+make b2b-seed-roles
 ```
 
-**Database Changes:**
-```sql
--- Adds clearance to roles
-ALTER TABLE b2b.roles ADD COLUMN clearance_level INTEGER;
+### Workflow 4: Add Custom Team Role
 
--- Adds sensitivity to resources
-CREATE TYPE b2b.sensitivity_level AS ENUM (
-    'PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'TOP_SECRET'
-);
-ALTER TABLE b2b.communications ADD COLUMN sensitivity sensitivity_level;
+```yaml
+# domain/team_roles.yaml
+team_roles:
+  - name: project_lead
+    display_name: Project Lead
+    permissions:
+      - resource: team_members
+        actions: [manage]  # Can add/remove team members
+      - resource: team_settings
+        actions: [manage]
+      - resource: projects
+        actions: [read, write, delete]
+      - resource: tasks
+        actions: [read, write, delete]
 ```
 
-### Enabling Plugins
+**Important:** Once you add ANY custom team role, base team roles are automatically skipped!
 
-**Environment Configuration:**
+---
+
+## Use Case Examples
+
+### Bank Surveillance (Enterprise)
+
+**Tenant Structure:**
+- Platform roles: `owner` (IT admin)
+- Domain roles: `surveillance_chief`, `regional_director`, `compliance_officer`
+
+**Team Structure:**
+- Teams = Trading desks (US Equities, London Fixed Income, etc.)
+- Team roles: `desk_surveillance_manager`, `senior_analyst`, `surveillance_analyst`, `junior_analyst`
+
+**Separation of Duties:**
+```yaml
+# IT Administrator
+user: it.admin@worldwidebank.com
+tenant_role: owner
+access: billing, user management, platform settings
+no_access: surveillance operations
+
+# Chief Surveillance Officer
+user: susan.martinez@worldwidebank.com
+tenant_role: surveillance_chief
+access: surveillance operations, investigations, alerts
+no_access: billing, user provisioning
+
+# Compliance Officer
+user: thomas.anderson@worldwidebank.com
+tenant_role: compliance_officer
+access: read-only audit across all resources
+no_access: any write/modify operations
+```
+
+**Demo:**
 ```bash
-# .env
-RBAC_ENABLED=true
-
-# Comma-separated list of plugins to enable
-RBAC_PLUGINS=geographic_boundaries,hierarchical_teams,data_classification
+make b2b-demo-bank
+make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
 ```
 
-**Application Startup:**
-```python
-# backend/app.py
-from core.rbac.plugin_registry import plugin_registry
-from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin
-from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin
+### Marketing Agency (SME)
 
-async def initialize_plugins(db):
-    # Register plugins
-    plugin_registry.register(GeographicBoundariesPlugin())
-    plugin_registry.register(HierarchicalTeamsPlugin())
-    
-    # Initialize all plugins
-    await plugin_registry.initialize_all(db, plugin_config)
+**Tenant Structure:**
+- Platform roles: `owner` (merged with agency operations)
+- Domain roles: `agency_owner`, `agency_admin`, `account_director`
+
+**Team Structure:**
+- Teams = Client accounts (Nike, Starbucks, etc.)
+- Team roles: `account_manager`, `creative_lead`, `specialist`, `content_contributor`
+
+**Simple Hierarchy:**
+```
+agency_owner (full access)
+  ├── account_director (multiple clients)
+  │   └── account_manager (single client team)
+  │       ├── creative_lead (team role)
+  │       ├── specialist (team role)
+  │       └── content_contributor (team role)
 ```
 
-### Using Plugins in Code
-
-Plugins are **transparent** - use standard permission checks:
-
-> [!IMPORTANT]
-> **Resource Names Come From YAML Configuration**
-> 
-> The `'communications'` resource in these examples is defined in your YAML files:
-> - `backend/scripts/b2b/domain_resources.yaml` - Add your domain-specific resources
-> - Resources are seeded into `b2b.resources` table during initialization
-> 
-> The plugin system works with **any resource** you define - it's completely resource-agnostic.
-> Use resource names that match your domain (e.g., `'products'`, `'patients'`, `'orders'`).
-
-```python
-# Standard permission check (works with or without plugins)
-# Resource name must match your YAML configuration
-if await has_permission(user_id, 'communications', 'read', db):
-    # Access granted by core RBAC
-
-# With plugin support (recommended for enterprise features)
-if await has_permission_with_plugins(
-    user_id,
-    'communications',  # ← From your domain_resources.yaml
-    'read',
-    db,
-    resource_obj=communication  # Plugins can inspect resource
-):
-    # Access granted after core + plugin checks
+**Demo:**
+```bash
+make b2b-demo-marketing
+make b2b-invite f=scripts/b2b/demo_configs/marketing_agency_demo.json
 ```
-
-**The difference:**
-- `has_permission()` - Core RBAC only (tenant role + team scope)
-- `has_permission_with_plugins()` - Core RBAC + enabled plugins
-
-### Frontend Integration
-
-Plugins enrich user context in `/auth/me` response:
-
-```json
-{
-    "id": "...",
-    "email": "analyst@bank.com",
-    "role": "surveillance_analyst",
-    "permissions": ["communications:read", "investigations:write"],
-    
-    // Plugin enrichments
-    "geographic_scopes": ["apac", "emea"],  // Geographic plugin
-    "clearance_level": 3,                    // Classification plugin
-    "accessible_teams": ["team1", "team2", "child_team1"]  // Hierarchical plugin
-}
-```
-
-### When to Use Plugins
-
-**Use Core RBAC (No Plugins) When:**
-- ✅ Simple permission model (who can do what)
-- ✅ Team-based scoping is sufficient
-- ✅ No geographic restrictions
-- ✅ No compliance requirements for data classification
-- ✅ Flat team structure
-
-**Use Plugins When:**
-- ✅ Multi-region/multi-country operations
-- ✅ Regulatory compliance (GDPR, HIPAA, SOC2)
-- ✅ Complex organizational hierarchies
-- ✅ Sensitivity-based access control
-- ✅ Context-aware permissions (time, location, device)
-- ✅ Advanced approval workflows
-
-### Custom Plugins
-
-You can build custom plugins for domain-specific needs:
-
-```python
-# custom_plugins/industry_specific.py
-from core.rbac.plugin_system import RBACPlugin, PluginMetadata
-
-class CustomIndustryPlugin(RBACPlugin):
-    def get_metadata(self) -> PluginMetadata:
-        return PluginMetadata(
-            name="custom_industry",
-            version="1.0.0",
-            description="Industry-specific access control"
-        )
-    
-    async def after_permission_check(self, context, core_result, db):
-        # Your custom logic here
-        return core_result
-```
-
-**See Also:**
-- [Advanced RBAC Plugin Architecture](../../brain/rbac_plugin_architecture.md) - Complete plugin system design
-- [B2B Authorization Architecture](../architecture/b2b/authorization.md) - Detailed RBAC implementation
 
 ---
 
 ## Best Practices
 
-### 1. Default Team Assignment
-
-**Recommendation:** Auto-add new users to a default team
-
-```python
-# In invitation acceptance
-default_team = await team_service.get_or_create_default_team(tenant_id)
-await team_service.add_team_member(default_team.id, user.id, 'team_member')
-```
-
-### 2. Clear Role Naming
-
-- Tenant roles: Owner, Admin, Viewer  
-- Team roles: Team Manager, Team Member, Team Viewer
-
-Prefix team roles with "Team" to avoid confusion.
-
-### 3. Invitation Best Practices
-
-**DO:**
-- ✅ Default to lowest privilege role (viewer)
-- ✅ Optionally assign to team during invitation
-- ✅ Send clear invitation emails
+### 1. Start with a Use Case Template
 
 **DON'T:**
-- ❌ Allow viewers to invite users
-- ❌ Default to admin role
-- ❌ Skip email verification
+```bash
+# Start from scratch
+nano domain/resources.yaml  # Empty file, no guidance
+```
+
+**DO:**
+```bash
+# Copy closest use case
+cp -r use_cases/marketing_agency/* domain/
+# Now customize from working baseline
+```
+
+### 2. Understand SoD Requirements
+
+**Regulated Industries (Banks, Healthcare, Finance):**
+- ✅ Separate `owner` (IT) from domain roles (business)
+- ✅ Independent `compliance_officer` role
+- ✅ Clear audit trail
+
+**SMEs (Marketing, Consulting, Design):**
+- ✅ Merge owner permissions into top business role (simpler)
+- ✅ Fewer roles = easier to manage
+
+### 3. Conditional Team Role Loading
+
+**If using base team roles:**
+```yaml
+# domain/team_roles.yaml
+team_roles: []  # Empty = use base team_manager, team_contributor, team_reader
+```
+
+**If defining custom team roles:**
+```yaml
+# domain/team_roles.yaml
+team_roles:
+  - name: project_lead
+    # ... definition
+  - name: developer
+    # ... definition
+# Base team roles automatically skipped!
+```
 
 ### 4. Testing Checklist
 
-When implementing RBAC:
-- [ ] Test owner can invite all roles
-- [ ] Test admin cannot invite owner
-- [ ] Test viewer cannot invite anyone
-- [ ] Test team manager can add to their team
-- [ ] Test team viewer cannot add members
-- [ ] Test auto-assignment to default team
+- [ ] Owner can invite all roles
+- [ ] Admin cannot access billing
+- [ ] Member cannot invite users
+- [ ] Viewer has read-only access
+- [ ] Team manager can add team members
+- [ ] Team roles work within team scope
+- [ ] Switching USE_CASE loads correct resources
+- [ ] Production (no USE_CASE) loads domain/ correctly
+
+---
+
+## Common Scenarios
+
+### Scenario 1: Add Resource to Existing Deployment
+
+```yaml
+# domain/resources.yaml
+resources:
+  # ... existing resources
+  
+  - name: invoices  # NEW
+    display_name: Invoices
+    category: Finance
+    description: Client invoicing and payments
+```
+
+**Grant permissions:**
+```yaml
+# domain/tenant_roles.yaml (add to relevant role)
+  - name: agency_owner
+    permissions:
+      # ... existing permissions
+      - resource: invoices  # NEW
+        actions: [read, write, delete, export]
+```
+
+Reseed:
+```bash
+make b2b-seed-roles
+```
+
+### Scenario 2: Change Existing Role Permissions
+
+```yaml
+# domain/tenant_roles.yaml
+# Change admin to have billing read access (not write):
+  - name: admin
+    permissions:
+      - resource: billing
+        actions: [read]  # Changed from no billing access
+```
+
+Reseed (idempotent):
+```bash
+make b2b-seed-roles
+```
+
+### Scenario 3: Client Needs Custom Approval Workflow
+
+**This requires plugin architecture** (future enhancement). Current 2D RBAC doesn't support:
+- Multi-step approval chains
+- Conditional permissions based on resource state
+- Time-based or location-based access
+
+**See:** [RBAC Plugin Architecture](/home/neeraj/.gemini/antigravity/brain/08ab7912-d441-4df9-96a1-b63018c1569e/rbac_plugin_architecture.md)
 
 ---
 
 ## API Reference
 
-### Invite User
+### Seed RBAC
 
-```http
-POST /api/b2b/invitations/invite
-Content-Type: application/json
-Authorization: Bearer {token}
+```bash
+# Development/Demo:
+USE_CASE=bank_surveillance make b2b-seed-roles
 
-{
-  "email": "user@company.com",
-  "role": "viewer",
-  "team_id": "optional-team-uuid",
-  "team_role": "team_contributor"
-}
+# Production:
+make b2b-seed-roles
 ```
 
-### Accept Invitation
+### Create Demo Tenant
 
-```http
-POST /api/b2b/invitations/join?token={invitation_token}
-Authorization: Bearer {firebase_token}
+```bash
+make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
 ```
 
-### List Roles
+### Check User Permissions (Backend)
 
-```http
-GET /api/b2b/roles
-Authorization: Bearer {token}
-```
+```python
+from modules.b2b.rbac.permission_checker import has_permission
 
-### Get Team Roles
+# Tenant-level check
+if await has_permission(user_id, 'projects', 'write', db):
+    # User can write projects
 
-```http
-GET /api/b2b/teams/team-roles
+# Team-level check
+from modules.b2b.rbac.scope_checker import check_team_permission
+
+if await check_team_permission(user_id, team_id, 'tasks', 'delete', db):
+    # User can delete tasks in this team
 ```
 
 ---
 
 ## Related Documentation
 
-### User Guides
-- [B2B Tenant Admin Guide](./b2b-tenant-admin.md) - How to use the admin interface
-- [Development Guide](./development.md) - Setting up the development environment
-- [Platform Admin Guide](./platform-admin.md) - Platform administration
-
-### Architecture Documentation
-- [B2B Authorization Architecture](../architecture/b2b/authorization.md) - Comprehensive RBAC system details
-- [B2B Authentication](../architecture/b2b/authentication.md) - Auth flow and tenant validation
-- [Multi-Tenant Isolation](../architecture/b2b/multi-tenant-isolation.md) - RLS implementation
-- [B2B Subscription](../architecture/b2b/subscription.md) - Billing RBAC and payment flows
-- [Tenant Onboarding Flow](../architecture/b2b/tenant-onboarding-flow.md) - Complete onboarding sequence
-
-### Specifications
-- [RBAC Specification](../specifications/rbac.md) - Functional requirements (SPEC-03)
-- [User Management Specification](../specifications/user.md) - User workflows (SPEC-04)
-
-### Testing
-- [Test Matrix](../testing/test-matrix.md) - RBAC test coverage mapping
+- [RBAC Specification](../specifications/b2b/rbac.md) - Technical specification
+- [Authorization Architecture](../architecture/b2b/authorization.md) - Deep technical dive
+- [Enterprise Use Cases](/home/neeraj/.gemini/antigravity/brain/08ab7912-d441-4df9-96a1-b63018c1569e/enterprise_sme_use_cases.md) - Bank & Marketing examples
 
 ---
 
 ## FAQ
 
-**Q: Can a user have multiple tenant roles?**
-No. Each user has exactly one tenant role.
+**Q: What's the difference between `owner` and `surveillance_chief`?**
+- `owner` = Platform/IT role (billing, user management)
+- `surveillance_chief` = Business role (surveillance operations)
+- For banks: Separate for SoD compliance
+- For SMEs: Can merge into one role
 
-**Q: Can a user be in multiple teams?**
-Yes. A user can be a member of multiple teams with different team roles in each.
+**Q: When are base team roles loaded?**
+Only when use case/domain has NO custom team roles defined.
 
-**Q: Who manages team membership?**
-- Owners and Admins (organization-wide permission)
-- Team Managers (for their specific team)
+**Q: Can I have both platform and domain roles for the same user?**
+Yes! User typically has: 1 platform role (e.g., `admin`) + can be assigned domain role (e.g., `regional_director`)
 
-**Q: Can team roles override tenant roles?**
-No. Tenant-level permissions take precedence. If your tenant role grants access, team role cannot restrict it.
+**Q: How do I switch between demo use cases?**
+```bash
+make b2b-demo-bank       # Switch to bank
+make b2b-demo-marketing  # Switch to marketing
+```
 
-**Q: How do I add custom roles?**
-Custom tenant roles can be created via the Role Management interface. Team roles are fixed in the boilerplate.
+**Q: What if I need geographic boundaries or data classification?**
+Current 2D RBAC doesn't support this. See [Plugin Architecture](/home/neeraj/.gemini/antigravity/brain/08ab7912-d441-4df9-96a1-b63018c1569e/rbac_plugin_architecture.md) for future enhancements.

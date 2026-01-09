@@ -1,0 +1,43 @@
+# Bank Surveillance - Tenant Role Permission Overlays
+# Adds surveillance permissions to existing base roles (owner, admin, member, viewer)
+
+tenant_permissions:
+  owner:
+    - resource: communications
+      actions: [read, analyze, flag, export, archive]
+    - resource: investigations
+      actions: [read, create, assign, investigate, approve, escalate, close, export]
+    - resource: alerts
+      actions: [read, acknowledge, investigate, escalate, dismiss, export]
+    - resource: surveillance_reports
+      actions: [read, create, submit, export, archive]
+  
+  admin:
+    - resource: communications
+      actions: [read, analyze, flag, export]
+    - resource: investigations
+      actions: [read, create, assign, investigate, approve, close, export]
+    - resource: alerts
+      actions: [read, acknowledge, investigate, escalate, dismiss]
+    - resource: surveillance_reports
+      actions: [read, create, export]
+  
+  member:
+    - resource: communications
+      actions: [read]
+    - resource: investigations
+      actions: [read]
+    - resource: alerts
+      actions: [read]
+    - resource: surveillance_reports
+      actions: [read]
+  
+  viewer:
+    - resource: communications
+      actions: [read]
+    - resource: investigations
+      actions: [read]
+    - resource: alerts
+      actions: [read]
+    - resource: surveillance_reports
+      actions: [read]

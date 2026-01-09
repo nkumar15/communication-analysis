@@ -1,0 +1,480 @@
+#!/usr/bin/env python3
+"""
+RBAC Data Seeding Script
+
+Seeds RBAC configuration from YAML files:
+1. Core boilerplate (core/ directory) - Always loaded
+2. Domain configuration (domain/ OR use_cases/) - Based on USE_CASE env var
+
+Environment Variables:
+- USE_CASE: Optional, loads a specific use case demo
+  Examples: "bank_surveillance", "marketing_agency", "task_management"
+  Default: Loads from domain/ directory
+
+Usage:
+  # Load core + domain configuration (default)
+  python scripts/b2b/seed_rbac.py
+
+  # Load core + bank surveillance demo
+  USE_CASE=bank_surveillance python scripts/b2b/seed_rbac.py
+  
+  # Load core + marketing agency demo
+  USE_CASE=marketing_agency python scripts/b2b/seed_rbac.py
+  
+  # Load core + task management demo
+  USE_CASE=task_management python scripts/b2b/seed_rbac.py
+"""
+
+if __name__ == "__main__":
+    # Fix sys.path BEFORE any imports to avoid platform.py collision
+    import sys
+    import os
+    
+    # Remove scripts directory from path to avoid shadowing stdlib
+    sys.path = [p for p in sys.path if not p.endswith('/scripts/b2b') and not p.endswith('/scripts') and p != '']
+    
+    # Ensure /app is first in path for imports
+    if '/app' not in sys.path:
+        sys.path.insert(0, '/app')
+    
+    # Now safe to import everything else
+    import asyncio
+    import yaml
+    from pathlib import Path
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm.attributes import flag_modified
+    from core.db.session import database_url
+    from modules.b2b.models.rbac import Resource, Action
+    from modules.b2b.models.role_template import RoleTemplate
+    from modules.b2b.models.team_role_definition import TeamRoleDefinition
+
+    # Directory paths
+    SCRIPT_DIR = Path(__file__).parent
+    CORE_DIR = SCRIPT_DIR / "core"
+    DOMAIN_DIR = SCRIPT_DIR / "domain"
+    USE_CASES_DIR = SCRIPT_DIR / "use_cases"
+    
+    # Determine which configuration to load
+    use_case = os.getenv("USE_CASE", "")
+    if use_case:
+        CONFIG_DIR = USE_CASES_DIR / use_case
+        if not CONFIG_DIR.exists():
+            print(f"❌ Error: Use case '{use_case}' not found in {USE_CASES_DIR}")
+            sys.exit(1)
+        print(f"📦 Loading use case: {use_case}")
+    else:
+        CONFIG_DIR = DOMAIN_DIR
+        print("📦 Loading domain configuration")
+
+    def load_yaml(filepath: Path) -> dict:
+        """Load and parse a YAML file"""
+        if not filepath.exists():
+            return {}
+        
+        with open(filepath, 'r') as f:
+            return yaml.safe_load(f) or {}
+
+    async def seed_actions(db: AsyncSession) -> None:
+        """Seed RBAC actions from core/actions.yaml"""
+        data = load_yaml(CORE_DIR / 'actions.yaml')
+        actions_data = data.get('actions', [])
+        
+        if not actions_data:
+            print("⚠️  No actions found")
+            return
+        
+        # Check if already seeded
+        result = await db.execute(select(Action).limit(1))
+        if result.scalar_one_or_none():
+            print("✓ Actions already seeded")
+            return
+        
+        print(f"Seeding {len(actions_data)} actions...")
+        actions = [
+            Action(
+                name=action['name'], 
+                display_name=action['display_name'],
+                description=action.get('description'),
+                applicable_resources=action.get('applicable_resources')
+            )
+            for action in actions_data
+        ]
+        db.add_all(actions)
+        await db.flush()
+        print(f"✓ Seeded {len(actions)} actions")
+
+    async def seed_saas_resources(db: AsyncSession) -> None:
+        """Seed core SaaS resources from core/saas_resources.yaml"""
+        data = load_yaml(CORE_DIR / 'saas_resources.yaml')
+        resources_data = data.get('resources', [])
+        
+        if not resources_data:
+            print("⚠️  No SaaS resources found")
+            return
+        
+        print(f"Seeding {len(resources_data)} SaaS resources...")
+        seeded_count = 0
+        
+        for res_data in resources_data:
+            result = await db.execute(
+                select(Resource).where(Resource.name == res_data['name'])
+            )
+            existing = result.scalar_one_or_none()
+            
+            if not existing:
+                resource = Resource(
+                    name=res_data['name'],
+                    display_name=res_data['display_name'],
+                    category=res_data.get('category'),
+                    description=res_data.get('description'),
+                    is_system_resource=res_data.get('is_system_resource', False)
+                )
+                db.add(resource)
+                seeded_count += 1
+        
+        await db.flush()
+        if seeded_count > 0:
+            print(f"✓ Seeded {seeded_count} SaaS resources")
+        else:
+            print("✓ SaaS resources already seeded")
+
+    async def seed_domain_resources(db: AsyncSession) -> None:
+        """Seed domain resources from config directory"""
+        # Try different possible keys in resources.yaml
+        data = load_yaml(CONFIG_DIR / 'resources.yaml')
+        resources_data = (
+            data.get('resources', []) or
+            data.get('bank_surveillance_resources', []) or
+            data.get('marketing_agency_resources', []) or
+            data.get('task_management_resources', [])
+        )
+        
+        if not resources_data:
+            print("✓ No domain resources to seed")
+            return
+        
+        print(f"Seeding {len(resources_data)} domain resources...")
+        seeded_count = 0
+        
+        for res_data in resources_data:
+            result = await db.execute(
+                select(Resource).where(Resource.name == res_data['name'])
+            )
+            existing = result.scalar_one_or_none()
+            
+            if not existing:
+                resource = Resource(
+                    name=res_data['name'],
+                    display_name=res_data['display_name'],
+                    category=res_data.get('category'),
+                    description=res_data.get('description'),
+                    is_system_resource=res_data.get('is_system_resource', False)
+                )
+                db.add(resource)
+                seeded_count += 1
+        
+        await db.flush()
+        if seeded_count > 0:
+            print(f"✓ Seeded {seeded_count} domain resources")
+
+    async def seed_saas_roles(db: AsyncSession) -> None:
+        """Seed base tenant role templates from core/saas_roles.yaml"""
+        data = load_yaml(CORE_DIR / 'saas_roles.yaml')
+        templates_data = data.get('role_templates', [])
+        
+        if not templates_data:
+            print("⚠️  No base role templates found")
+            return
+        
+        print(f"Seeding {len(templates_data)} base role templates...")
+        
+        for template_data in templates_data:
+            result = await db.execute(
+                select(RoleTemplate).where(RoleTemplate.name == template_data['name'])
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                existing.display_name = template_data['display_name']
+                existing.description = template_data.get('description')
+                existing.is_system_role = template_data.get('is_system_role', False)
+                existing.is_default = template_data.get('is_default', False)
+                existing.permissions = template_data.get('permissions', [])
+                flag_modified(existing, 'permissions')
+            else:
+                template = RoleTemplate(
+                    name=template_data['name'],
+                    display_name=template_data['display_name'],
+                    description=template_data.get('description'),
+                    is_system_role=template_data.get('is_system_role', False),
+                    is_default=template_data.get('is_default', False),
+                    permissions=template_data.get('permissions', [])
+                )
+                db.add(template)
+        
+        await db.flush()
+        print(f"✓ Processed {len(templates_data)} role templates")
+
+    async def seed_additional_tenant_roles(db: AsyncSession) -> None:
+        """Seed additional tenant roles from config/tenant_roles.yaml"""
+        data = load_yaml(CONFIG_DIR / 'tenant_roles.yaml')
+        roles_data = data.get('tenant_roles', [])
+        
+        if not roles_data:
+            print("✓ No additional tenant roles to seed")
+            return
+        
+        print(f"Seeding {len(roles_data)} additional tenant roles...")
+        
+        for role_data in roles_data:
+            result = await db.execute(
+                select(RoleTemplate).where(RoleTemplate.name == role_data['name'])
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                existing.display_name = role_data['display_name']
+                existing.description = role_data.get('description')
+                existing.is_system_role = role_data.get('is_system_role', False)
+                existing.is_default = role_data.get('is_default', False)
+                existing.permissions = role_data.get('permissions', [])
+                flag_modified(existing, 'permissions')
+            else:
+                role = RoleTemplate(
+                    name=role_data['name'],
+                    display_name=role_data['display_name'],
+                    description=role_data.get('description'),
+                    is_system_role=role_data.get('is_system_role', False),
+                    is_default=role_data.get('is_default', False),
+                    permissions=role_data.get('permissions', [])
+                )
+                db.add(role)
+        
+        await db.flush()
+        print(f"✓ Processed {len(roles_data)} additional tenant roles")
+
+    async def seed_base_team_roles(db: AsyncSession) -> None:
+        """
+        Seed base team roles from core/team_roles_base.yaml
+        
+        NOTE: Base team roles are SKIPPED if the use case defines custom team roles.
+        This prevents role pollution where generic roles (team_manager, team_contributor)
+        coexist with domain-specific roles (desk_surveillance_manager, account_manager).
+        
+        Logic:
+        - If use case has custom team roles → Skip base roles (use domain roles only)
+        - If use case has NO custom team roles → Load base roles (generic use case)
+        """
+        # Check if use case defines custom team roles
+        use_case_team_roles_data = load_yaml(CONFIG_DIR / 'team_roles.yaml')
+        use_case_team_roles = use_case_team_roles_data.get('team_roles', [])
+        
+        if use_case_team_roles:
+            # Use case has custom team roles - skip base roles to avoid pollution
+            print("✓ Skipping base team roles (use case defines custom team roles)")
+            return
+        
+        # Use case has NO custom team roles - load base roles
+        data = load_yaml(CORE_DIR / 'team_roles_base.yaml')
+        roles_data = data.get('team_roles', [])
+        
+        if not roles_data:
+            print("⚠️  No base team roles found")
+            return
+        
+        print(f"Seeding {len(roles_data)} base team roles (generic use case)...")
+        
+        for role_data in roles_data:
+            result = await db.execute(
+                select(TeamRoleDefinition).where(
+                    TeamRoleDefinition.name == role_data['name'],
+                    TeamRoleDefinition.tenant_id.is_(None)
+                )
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                existing.display_name = role_data['display_name']
+                existing.description = role_data.get('description')
+                existing.is_system = role_data.get('is_system', False)
+                existing.permissions = role_data.get('permissions', [])
+                flag_modified(existing, 'permissions')
+            else:
+                role = TeamRoleDefinition(
+                    name=role_data['name'],
+                    display_name=role_data['display_name'],
+                    description=role_data.get('description'),
+                    is_system=role_data.get('is_system', False),
+                    tenant_id=None,
+                    permissions=role_data.get('permissions', [])
+                )
+                db.add(role)
+        
+        await db.flush()
+        print(f"✓ Processed {len(roles_data)} base team roles")
+
+    async def seed_additional_team_roles(db: AsyncSession) -> None:
+        """Seed additional team roles from config/team_roles.yaml"""
+        data = load_yaml(CONFIG_DIR / 'team_roles.yaml')
+        roles_data = data.get('team_roles', [])
+        
+        if not roles_data:
+            print("✓ No additional team roles to seed")
+            return
+        
+        print(f"Seeding {len(roles_data)} additional team roles...")
+        
+        for role_data in roles_data:
+            result = await db.execute(
+                select(TeamRoleDefinition).where(
+                    TeamRoleDefinition.name == role_data['name'],
+                    TeamRoleDefinition.tenant_id.is_(None)
+                )
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                existing.display_name = role_data['display_name']
+                existing.description = role_data.get('description')
+                existing.is_system = role_data.get('is_system', False)
+                existing.permissions = role_data.get('permissions', [])
+                flag_modified(existing, 'permissions')
+            else:
+                role = TeamRoleDefinition(
+                    name=role_data['name'],
+                    display_name=role_data['display_name'],
+                    description=role_data.get('description'),
+                    is_system=role_data.get('is_system', False),
+                    tenant_id=None,
+                    permissions=role_data.get('permissions', [])
+                )
+                db.add(role)
+        
+        await db.flush()
+        print(f"✓ Processed {len(roles_data)} additional team roles")
+
+    async def apply_tenant_permissions(db: AsyncSession) -> None:
+        """Apply tenant permission overlays from config/tenant_permissions.yaml"""
+        data = load_yaml(CONFIG_DIR / 'tenant_permissions.yaml')
+        perms_by_role = data.get('tenant_permissions', {})
+        
+        if not perms_by_role:
+            print("✓ No tenant permission overlays to apply")
+            return
+        
+        print("Applying tenant permission overlays...")
+        
+        for role_name, perms in perms_by_role.items():
+            result = await db.execute(
+                select(RoleTemplate).where(RoleTemplate.name == role_name)
+            )
+            role = result.scalar_one_or_none()
+            
+            if not role:
+                print(f"  ⚠️  Role '{role_name}' not found")
+                continue
+            
+            # Add permissions
+            current_perms = list(role.permissions)
+            resources_to_update = {p.get('resource') for p in perms}
+            
+            # Remove old overlays for these resources
+            filtered_perms = [p for p in current_perms if p.get('resource') not in resources_to_update]
+            filtered_perms.extend(perms)
+            
+            if filtered_perms != current_perms:
+                role.permissions = filtered_perms
+                flag_modified(role, 'permissions')
+        
+        print("✓ Applied tenant permission overlays")
+
+    async def apply_team_permissions(db: AsyncSession) -> None:
+        """Apply team permission overlays from config/team_permissions.yaml"""
+        data = load_yaml(CONFIG_DIR / 'team_permissions.yaml')
+        perms_by_role = data.get('team_permissions', {})
+        
+        if not perms_by_role:
+            print("✓ No team permission overlays to apply")
+            return
+        
+        print("Applying team permission overlays...")
+        
+        for role_name, perms in perms_by_role.items():
+            result = await db.execute(
+                select(TeamRoleDefinition).where(
+                    TeamRoleDefinition.name == role_name,
+                    TeamRoleDefinition.tenant_id.is_(None)
+                )
+            )
+            role = result.scalar_one_or_none()
+            
+            if not role:
+                print(f"  ⚠️  Team role '{role_name}' not found")
+                continue
+            
+            # Add permissions
+            current_perms = list(role.permissions)
+            resources_to_update = {p.get('resource') for p in perms}
+            
+            # Remove old overlays for these resources
+            filtered_perms = [p for p in current_perms if p.get('resource') not in resources_to_update]
+            filtered_perms.extend(perms)
+            
+            if filtered_perms != current_perms:
+                role.permissions = filtered_perms
+                flag_modified(role, 'permissions')
+        
+        print("✓ Applied team permission overlays")
+
+    async def main():
+        """Main seeding function"""
+        print("\n" + "="*60)
+        print("RBAC Data Seeding (From YAML)")
+        print("="*60 + "\n")
+        
+        if not database_url:
+            print("❌ Error: DATABASE_URL not configured")
+            sys.exit(1)
+        
+        engine = create_async_engine(database_url, echo=False)
+        
+        try:
+            async with AsyncSession(engine) as db:
+                async with db.begin():
+                    # Step 1: Core SaaS boilerplate (always)
+                    print("📦 Loading core boilerplate...")
+                    await seed_actions(db)
+                    await seed_saas_resources(db)
+                    await seed_saas_roles(db)
+                    await seed_base_team_roles(db)
+                    print()
+                    
+                    # Step 2: Domain OR Use Case configuration
+                    print(f"📦 Loading configuration from {CONFIG_DIR.name}/...")
+                    await seed_domain_resources(db)
+                    await seed_additional_tenant_roles(db)
+                    await seed_additional_team_roles(db)
+                    print()
+                    
+                    # Step 3: Apply permission overlays
+                    print("📦 Applying permission overlays...")
+                    await apply_tenant_permissions(db)
+                    await apply_team_permissions(db)
+                    print()
+                    
+                    print("✓ All changes committed successfully")
+            
+            print("\n" + "="*60)
+            print("✅ RBAC data seeding complete!")
+            print("="*60 + "\n")
+            
+        except Exception as e:
+            print(f"\n❌ Error during seeding: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        finally:
+            await engine.dispose()
+
+    asyncio.run(main())

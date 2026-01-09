@@ -1,0 +1,13 @@
+# Team Role Permission Overlays
+# Add permissions to base team roles (team_manager, team_contributor, team_reader)
+
+team_permissions: {}
+
+# Example (uncomment to add):
+# team_permissions:
+#   team_manager:
+#     - resource: your_resource
+#       actions: [read, write, delete]
+#   team_contributor:
+#     - resource: your_resource
+#       actions: [read, write]

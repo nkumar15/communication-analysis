@@ -1,0 +1,93 @@
+# Core SaaS Resources (Platform/Universal)
+#
+# CATEGORY: Platform resources (exist in every SaaS regardless of domain)
+# USAGE: Universal across ANY business domain
+#
+# These resources are the foundation of the B2B SaaS platform:
+# - User management
+# - Team management
+# - Billing
+# - Settings
+# - Reporting
+# - Audit
+#
+# WHEN LOADED:
+# - Always loaded (for ALL use cases)
+# - Domain-specific resources are added via:
+#   - use_cases/bank_surveillance/resources.yaml (communications, investigations, etc.)
+#   - use_cases/marketing_agency/resources.yaml (campaigns, social_posts, etc.)
+
+resources:
+  
+  # =========================================================================
+  # PLATFORM/IT RESOURCES (Universal SaaS)
+  # =========================================================================
+  
+  - name: dashboard
+    display_name: Dashboard
+    category: Analytics
+    description: Statistics, metrics, and overview
+    is_system_resource: true
+
+  - name: users
+    display_name: Users
+    category: Access Control
+    description: User management and permissions
+    is_system_resource: true
+
+  - name: teams
+    display_name: Teams
+    category: Organization
+    description: Team structure and management
+    is_system_resource: true
+
+  - name: team_members
+    display_name: Team Members
+    category: Organization
+    description: Managing members within a team
+    is_system_resource: true
+
+  - name: team_settings
+    display_name: Team Settings
+    category: Organization
+    description: Team configuration and preferences
+    is_system_resource: true
+
+  - name: settings
+    display_name: Settings
+    category: Configuration
+    description: Tenant configuration and preferences
+    is_system_resource: true
+
+  - name: billing
+    display_name: Billing
+    category: Finance
+    description: Subscription and payment management
+    is_system_resource: true
+
+  - name: audit_logs
+    display_name: Audit Logs
+    category: Security
+    description: Security and compliance audit trails
+    is_system_resource: true
+
+  - name: reports
+    display_name: Reports
+    category: Analytics
+    description: System reports and analytics
+    is_system_resource: true
+
+# =========================================================================
+# NOTE: Domain-Specific Resources
+# =========================================================================
+# Business-specific resources are defined in:
+# - use_cases/bank_surveillance/resources.yaml
+#   (communications, investigations, alerts, surveillance_reports)
+#
+# - use_cases/marketing_agency/resources.yaml
+#   (campaigns, social_posts, creative_assets, analytics_reports, client_communications)
+#
+# - use_cases/task_management/resources.yaml
+#   (projects, tasks, comments, rag_documents)
+#
+# These are loaded ONLY when using that specific USE_CASE.

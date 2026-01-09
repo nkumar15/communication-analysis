@@ -64,7 +64,7 @@ up: ## Start all backend services (frontend runs locally)
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
-	docker-compose down
+	docker-compose down --remove-orphans
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 restart: down up ## Restart all services
@@ -99,21 +99,21 @@ db-setup-auth: ## Setup app user and permissions
 	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/grant_permissions.sql"
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
-migrate: ## Run migrations for all products (platform + b2b + b2c)
+migrate: ## Run migrations for all products (USE_CASE=bank_surveillance|marketing_agency)
 	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
 	@$(MAKE) platform-seed-permissions
-	@$(MAKE) b2b-seed-roles
+	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
 	@$(MAKE) b2b-seed-plans
 	@$(MAKE) b2c-seed-plans
 	@echo "$(GREEN)✓ Migrations complete$(NC)"
 
-b2b-migrate: ## Run migrations for B2B only (platform + b2b)
+b2b-migrate: ## Run migrations for B2B only (USE_CASE=bank_surveillance|marketing_agency)
 	@echo "$(BLUE)Running B2B migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
-	@$(MAKE) b2b-seed-roles
+	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
 	@$(MAKE) b2b-seed-plans
 	@echo "$(GREEN)✓ B2B migrations complete$(NC)"
 
@@ -130,7 +130,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	read REPLY; \
 	case "$$REPLY" in \
 		[Yy]*) \
-			docker-compose down; \
+			docker-compose down --remove-orphans; \
 			docker volume rm enterprisesso_postgres_data || true; \
 			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
 			sleep 5; \
@@ -155,14 +155,19 @@ platform-create-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
 	@docker-compose exec -T platform-api python /app/scripts/platform/create_platform_admin.py
 
-b2b-seed-roles: ## Seed domain-specific roles and templates
-	@echo "$(BLUE)Seeding domain data...$(NC)"
-	@docker-compose run --rm b2b-api python /app/scripts/b2b/seed_domain_data.py
-	@echo "$(GREEN)✓ Domain data seeded$(NC)"
+b2b-seed-roles: ## Seed RBAC roles and resources (USE_CASE=bank_surveillance|marketing_agency|task_management)
+	@echo "$(BLUE)Seeding RBAC data...$(NC)"
+	@if [ -n "$(USE_CASE)" ]; then \
+		echo "$(YELLOW)Loading use case: $(USE_CASE)$(NC)"; \
+		docker-compose run --rm b2b-api env USE_CASE=$(USE_CASE) python /app/scripts/b2b/seed_rbac.py; \
+	else \
+		docker-compose run --rm b2b-api python /app/scripts/b2b/seed_rbac.py; \
+	fi
+	@echo "$(GREEN)✓ RBAC data seeded$(NC)"
 
 b2b-seed-plans: ## Seed B2B subscription plans
 	@echo "$(BLUE)Seeding B2B subscription plans...$(NC)"
-	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_b2b_plans.py
+	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2B plans seeded$(NC)"
 
 b2c-seed-plans: ## Seed B2C subscription plans
@@ -170,9 +175,9 @@ b2c-seed-plans: ## Seed B2C subscription plans
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
-b2b-invite: ## Invite B2B Tenant (usage: make b2b-invite f=seed.json)
+b2b-invite: ## Invite B2B Tenant (f=bank_surveillance_demo.json|marketing_agency_demo.json|task_management_demo.json)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/data/seed_tenant_config.json)
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/demo_configs/task_management_demo.json)
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -185,6 +190,41 @@ else
 	@echo "$(YELLOW)Usage: make b2b-resend-invite d=<domain> OR t=<tenant-id>$(NC)"
 	@echo "Example: make b2b-resend-invite d=acme.com"
 endif
+
+##@ B2B Demos
+
+b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant via UI)
+	@echo "$(BLUE)🏦 Resetting DB for Bank Surveillance Demo...$(NC)"
+	@$(MAKE) reset-db USE_CASE=bank_surveillance
+	@echo ""
+	@echo "$(GREEN)✅ Bank Surveillance RBAC Ready!$(NC)"
+	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
+	@echo "  👥 Roles: surveillance_chief, regional_director, compliance_officer, analysts"
+	@echo ""
+	@echo "$(YELLOW)Next: Create tenant via Platform UI or run:$(NC)"
+	@echo "  make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json"
+
+b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tenant via UI)
+	@echo "$(BLUE)📱 Resetting DB for Marketing Agency Demo...$(NC)"
+	@$(MAKE) reset-db USE_CASE=marketing_agency
+	@echo ""
+	@echo "$(GREEN)✅ Marketing Agency RBAC Ready!$(NC)"
+	@echo "  📋 Resources: campaigns, social_posts, creative_assets, analytics_reports, client_communications"
+	@echo "  👥 Roles: agency_owner, account_director, account_manager, creative_lead, specialist"
+	@echo ""
+	@echo "$(YELLOW)Next: Create tenant via Platform UI or run:$(NC)"
+	@echo "  make b2b-invite f=scripts/b2b/demo_configs/marketing_agency_demo.json"
+
+b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via UI)
+	@echo "$(BLUE)✅ Resetting DB for Task Management Demo...$(NC)"
+	@$(MAKE) reset-db USE_CASE=task_management
+	@echo ""
+	@echo "$(GREEN)✅ Task Management RBAC Ready!$(NC)"
+	@echo "  📋 Resources: projects, tasks, comments, rag_documents"
+	@echo "  👥 Roles: owner, admin, member, viewer (base roles)"
+	@echo ""
+	@echo "$(YELLOW)Next: Create tenant via Platform UI or run:$(NC)"
+	@echo "  make b2b-invite f=scripts/b2b/demo_configs/task_management_demo.json"
 
 ##@ Frontend (Local Development)
 
@@ -250,7 +290,7 @@ endif
 
 clean: ## Clean up containers, volumes, and build artifacts
 	@echo "$(BLUE)Cleaning up...$(NC)"
-	docker-compose down -v
+	docker-compose down -v --remove-orphans
 	rm -rf frontend/node_modules/.cache
 	rm -rf frontend/dist
 	@echo "$(GREEN)✓ Cleanup complete$(NC)"

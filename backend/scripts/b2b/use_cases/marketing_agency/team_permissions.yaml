@@ -1,0 +1,36 @@
+team_permissions:
+  team_manager:
+    - resource: campaigns
+      actions: [read, write, delete, export]
+    - resource: social_posts
+      actions: [read, write, publish, schedule, export]
+    - resource: creative_assets
+      actions: [read, write, delete, export]
+    - resource: analytics_reports
+      actions: [read, create, export]
+    - resource: client_communications
+      actions: [read, write, export]
+  
+  team_contributor:
+    - resource: campaigns
+      actions: [read, write]
+    - resource: social_posts
+      actions: [read, write, schedule]
+    - resource: creative_assets
+      actions: [read, write]
+    - resource: analytics_reports
+      actions: [read]
+    - resource: client_communications
+      actions: [read, write]
+  
+  team_reader:
+    - resource: campaigns
+      actions: [read]
+    - resource: social_posts
+      actions: [read]
+    - resource: creative_assets
+      actions: [read]
+    - resource: analytics_reports
+      actions: [read]
+    - resource: client_communications
+      actions: [read]

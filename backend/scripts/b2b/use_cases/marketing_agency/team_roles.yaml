@@ -1,0 +1,80 @@
+team_roles:
+  - name: account_manager
+    display_name: Account Manager
+    description: Lead manager for a specific client account
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage]
+      - resource: team_settings
+        actions: [manage]
+      - resource: campaigns
+        actions: [read, write, delete, export, archive]
+      - resource: social_posts
+        actions: [read, write, delete, publish, schedule, export]
+      - resource: creative_assets
+        actions: [read, write, delete, export, archive]
+      - resource: analytics_reports
+        actions: [read, create, export]
+      - resource: client_communications
+        actions: [read, write, delete, export]
+  
+  - name: creative_lead
+    display_name: Creative Lead
+    description: Senior creative role for client account
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: campaigns
+        actions: [read, write, export]
+      - resource: social_posts
+        actions: [read, write, publish, schedule, export]
+      - resource: creative_assets
+        actions: [read, write, delete, export, archive]
+      - resource: analytics_reports
+        actions: [read, export]
+      - resource: client_communications
+        actions: [read, write]
+  
+  - name: specialist
+    display_name: Marketing Specialist
+    description: Execute campaigns and create content
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: campaigns
+        actions: [read, write, export]
+      - resource: social_posts
+        actions: [read, write, schedule, export]
+      - resource: creative_assets
+        actions: [read, write, export]
+      - resource: analytics_reports
+        actions: [read]
+      - resource: client_communications
+        actions: [read, write]
+  
+  - name: content_contributor
+    display_name: Content Contributor
+    description: Create content and assets, limited permissions
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: campaigns
+        actions: [read]
+      - resource: social_posts
+        actions: [read, write]
+      - resource: creative_assets
+        actions: [read, write]
+      - resource: analytics_reports
+        actions: [read]
+      - resource: client_communications
+        actions: [read]

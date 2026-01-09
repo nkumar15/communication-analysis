@@ -1,0 +1,32 @@
+# Marketing Agency - Domain Resources
+
+marketing_agency_resources:
+  - name: campaigns
+    display_name: Marketing Campaigns
+    category: Marketing
+    description: Marketing campaign planning and execution
+    is_system_resource: false
+  
+  - name: social_posts
+    display_name: Social Media Posts
+    category: Marketing
+    description: Social media content scheduling and publishing
+    is_system_resource: false
+  
+  - name: creative_assets
+    display_name: Creative Assets
+    category: Marketing
+    description: Images, videos, graphics for campaigns
+    is_system_resource: false
+  
+  - name: analytics_reports
+    display_name: Analytics & Reports
+    category: Reporting
+    description: Campaign performance and ROI metrics
+    is_system_resource: false
+  
+  - name: client_communications
+    display_name: Client Communications
+    category: Collaboration
+    description: Client emails, notes, and feedback
+    is_system_resource: false

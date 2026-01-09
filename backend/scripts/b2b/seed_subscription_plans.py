@@ -16,10 +16,11 @@ from core.config import settings
 from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
 
 def load_plans_from_yaml():
-    yaml_path = os.path.join(os.path.dirname(__file__), 'data/subscription_plans.yaml')
+    yaml_path = os.path.join(os.path.dirname(__file__), 'subscription_plans.yaml')
     with open(yaml_path, 'r') as f:
         data = yaml.safe_load(f)
     return data.get('plans', [])
+
 
 async def seed_b2b_plans():
     database_url = settings.database_url

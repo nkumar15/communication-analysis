@@ -1,0 +1,10 @@
+{
+  "tenant_id": "b5e1fa40-89f4-50c2-a3f4-4c122000beef",
+  "firebase_tenant_id": "worldwidebank-eehsj",
+  "domain": "worldwidebank.com",
+  "company": "Worldwide Bank",
+  "owner_email": "owner@worldwidebank.com",
+  "last_updated": "1767972432.2198443",
+  "description": "Enterprise Bank Demo Tenant",
+  "use_case": "bank_surveillance"
+}

@@ -1,8 +1,4 @@
-# Domain-Specific Role Template Permissions (Task Management)
-# These permissions are added to existing role templates
-# For different domains, modify these permissions accordingly
-
-domain_permissions:
+tenant_permissions:
   owner:
     - resource: projects
       actions: [read, write, delete]
@@ -14,7 +10,7 @@ domain_permissions:
       actions: [read, write, delete]
     - resource: rag_enron
       actions: [read, write, delete]
-
+  
   admin:
     - resource: projects
       actions: [read, write, delete]
@@ -26,19 +22,19 @@ domain_permissions:
       actions: [read, write, delete]
     - resource: rag_enron
       actions: [read, write, delete]
-
+  
   member:
     - resource: projects
       actions: [read]
     - resource: tasks
-      actions: [read, write]
+      actions: [read]
     - resource: comments
-      actions: [read, write, delete]  # delete for own comments
+      actions: [read]
     - resource: rag_nse
-      actions: [read, write, delete]
+      actions: [read]
     - resource: rag_enron
-      actions: [read, write, delete]
-
+      actions: [read]
+  
   viewer:
     - resource: projects
       actions: [read]
@@ -49,5 +45,4 @@ domain_permissions:
     - resource: rag_nse
       actions: [read]
     - resource: rag_enron
-      actions: [read]      
-    # No RAG access for viewer
+      actions: [read]

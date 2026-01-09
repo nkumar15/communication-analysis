@@ -1,0 +1,27 @@
+# Bank Surveillance - Domain Resources
+
+bank_surveillance_resources:
+  # Core Surveillance Resources
+  - name: communications
+    display_name: Communications Surveillance
+    category: Surveillance
+    description: Email, chat, voice, and electronic communications monitoring
+    is_system_resource: false
+  
+  - name: investigations
+    display_name: Investigation Cases
+    category: Surveillance
+    description: Compliance investigation case management
+    is_system_resource: false
+  
+  - name: alerts
+    display_name: Surveillance Alerts
+    category: Surveillance
+    description: System-generated compliance and surveillance alerts
+    is_system_resource: false
+  
+  - name: surveillance_reports
+    display_name: Surveillance Reports
+    category: Reporting
+    description: Regulatory and management surveillance reports
+    is_system_resource: false

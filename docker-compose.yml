@@ -460,10 +460,11 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow || exit 1" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 90s
     restart: unless-stopped
 
   # Kibana - Elasticsearch Dashboard

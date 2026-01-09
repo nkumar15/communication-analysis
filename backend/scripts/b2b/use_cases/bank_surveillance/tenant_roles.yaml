@@ -1,0 +1,72 @@
+# Bank Surveillance - Tenant-Level Roles
+# Additional roles beyond the base owner/admin/member/viewer
+
+tenant_roles:
+  - name: surveillance_chief
+    display_name: Chief Surveillance Officer
+    description: C-Suite executive with global oversight of all surveillance operations
+    is_system_role: false
+    is_default: false
+    permissions:
+      - resource: communications
+        actions: [read, analyze, flag, export, archive]
+      - resource: investigations
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export, archive]
+      - resource: dashboard
+        actions: [read]
+      - resource: reports
+        actions: [read, export]
+      - resource: users
+        actions: [read, write, invite]
+      - resource: teams
+        actions: [read, write, delete]
+      - resource: audit_logs
+        actions: [read, export]
+  
+  - name: regional_director
+    display_name: Regional Surveillance Director
+    description: Senior management overseeing surveillance for a geographic region
+    is_system_role: false
+    is_default: false
+    permissions:
+      - resource: communications
+        actions: [read, analyze, flag, export]
+      - resource: investigations
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export]
+      - resource: dashboard
+        actions: [read]
+      - resource: reports
+        actions: [read, export]
+      - resource: users
+        actions: [read, write, invite]
+      - resource: teams
+        actions: [read, write]
+  
+  - name: compliance_officer
+    display_name: Compliance Officer
+    description: Oversight role for regulatory compliance and auditing
+    is_system_role: false
+    is_default: false
+    permissions:
+      - resource: communications
+        actions: [read, export]
+      - resource: investigations
+        actions: [read, export]
+      - resource: alerts
+        actions: [read, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export]
+      - resource: dashboard
+        actions: [read]
+      - resource: reports
+        actions: [read, export]
+      - resource: audit_logs
+        actions: [read, export]

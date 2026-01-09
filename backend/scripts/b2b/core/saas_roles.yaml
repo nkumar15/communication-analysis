@@ -1,0 +1,114 @@
+# Core SaaS Tenant-Level Roles (Platform/IT Focused)
+#
+# SCOPE: These are TENANT-LEVEL roles (can access all teams within tenant)
+# CATEGORY: Platform/IT roles (not business-domain specific)
+# USAGE: Universal across ANY business domain
+#
+# NAMING CLARIFICATION:
+# - "Tenant-level" = SCOPE (cross-team access)
+# - "SaaS" = CATEGORY (platform/IT vs business-specific)
+#
+# WHEN LOADED:
+# - Always loaded (for ALL use cases)
+# - Additional domain-specific tenant roles can be added via use_cases/
+
+role_templates:
+  
+  # =========================================================================
+  # UNIVERSAL PLATFORM TENANT ROLES
+  # (IT/Operational - Every SaaS needs these)
+  # =========================================================================
+  
+  - name: owner
+    display_name: Owner
+    description: |
+      Full administrative control over tenant (IT/platform focus).
+      Manages billing, users, settings, and all platform features.
+      
+      DESIGN NOTE: For domain-specific SaaS (bank, marketing), consider
+      merging owner permissions into top business role (surveillance_chief, agency_owner)
+      to avoid role duplication.
+    is_system_role: true
+    is_default: true
+    permissions:
+      # Platform Management
+      - resource: dashboard
+        actions: [read]
+      - resource: users
+        actions: [read, write, delete, invite]
+      - resource: teams
+        actions: [read, write, delete]
+      - resource: settings
+        actions: [manage]
+      - resource: billing
+        actions: [read, write, manage]
+      - resource: audit_logs
+        actions: [read, export]
+      - resource: reports
+        actions: [read, export]
+
+  - name: admin
+    display_name: Administrator
+    description: |
+      Platform administrator without billing access.
+      Can manage users, teams, and settings but cannot access billing.
+    is_system_role: true
+    is_default: false
+    permissions:
+      # Platform Management (no billing)
+      - resource: dashboard
+        actions: [read]
+      - resource: users
+        actions: [read, write, invite]
+      - resource: teams
+        actions: [read, write]
+      - resource: settings
+        actions: [manage]
+      - resource: audit_logs
+        actions: [read, export]
+      - resource: reports
+        actions: [read, export]
+
+  - name: member
+    display_name: Member
+    description: |
+      Standard tenant member with read access across all teams.
+      Can view data but limited write permissions.
+    is_system_role: true
+    is_default: false
+    permissions:
+      - resource: dashboard
+        actions: [read]
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read]
+      - resource: reports
+        actions: [read]
+
+  - name: viewer
+    display_name: Viewer
+    description: |
+      Read-only access across tenant.
+      Cannot modify any data.
+    is_system_role: true
+    is_default: false
+    permissions:
+      - resource: dashboard
+        actions: [read]
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read]
+      - resource: reports
+        actions: [read]
+
+# =========================================================================
+# NOTE: Domain-Specific Tenant Roles
+# =========================================================================
+# Additional tenant-level roles for specific business domains are defined in:
+# - use_cases/bank_surveillance/tenant_roles.yaml (surveillance_chief, regional_director, etc.)
+# - use_cases/marketing_agency/tenant_roles.yaml (agency_owner, account_director, etc.)
+#
+# These are ALSO tenant-level (scope) but business-specific (category).
+# They are loaded ONLY when using that specific USE_CASE.

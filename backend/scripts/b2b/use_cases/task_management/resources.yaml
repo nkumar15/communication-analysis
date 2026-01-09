@@ -1,9 +1,4 @@
-# Domain-Specific Resources (Task Management)
-# For different domains (e.g., ecommerce), replace with domain-appropriate resources
-# like 'products', 'orders', 'inventory', etc.
-# All domain resources are TEAM-LEVEL by default
-
-resources:
+task_management_resources:
   - name: projects
     display_name: Projects
     category: Domain
