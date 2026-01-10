@@ -104,6 +104,41 @@ if __name__ == "__main__":
         await db.flush()
         print(f"✓ Seeded {len(actions)} actions")
 
+    async def seed_domain_actions(db: AsyncSession) -> None:
+        """Seed domain-specific actions from config/actions.yaml"""
+        data = load_yaml(CONFIG_DIR / 'actions.yaml')
+        actions_data = data.get('actions', [])
+        
+        if not actions_data:
+            print("✓ No domain actions to seed")
+            return
+        
+        print(f"Seeding {len(actions_data)} domain actions...")
+        seeded_count = 0
+        
+        for action_data in actions_data:
+            # Check if already seeded
+            result = await db.execute(
+                select(Action).where(Action.name == action_data['name'])
+            )
+            existing = result.scalar_one_or_none()
+            
+            if not existing:
+                action = Action(
+                    name=action_data['name'], 
+                    display_name=action_data['display_name'],
+                    description=action_data.get('description'),
+                    applicable_resources=action_data.get('applicable_resources')
+                )
+                db.add(action)
+                seeded_count += 1
+        
+        await db.flush()
+        if seeded_count > 0:
+            print(f"✓ Seeded {seeded_count} domain actions")
+        else:
+            print("✓ Domain actions already seeded")
+
     async def seed_saas_resources(db: AsyncSession) -> None:
         """Seed core SaaS resources from core/saas_resources.yaml"""
         data = load_yaml(CORE_DIR / 'saas_resources.yaml')
@@ -452,6 +487,7 @@ if __name__ == "__main__":
                     
                     # Step 2: Domain OR Use Case configuration
                     print(f"📦 Loading configuration from {CONFIG_DIR.name}/...")
+                    await seed_domain_actions(db)
                     await seed_domain_resources(db)
                     await seed_additional_tenant_roles(db)
                     await seed_additional_team_roles(db)

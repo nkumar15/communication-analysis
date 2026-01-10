@@ -1,0 +1,38 @@
+# Bank Surveillance - Domain Specific Actions
+# These actions extend the core set (read, write, delete) with domain-specific verbs
+
+actions:
+  - name: investigate
+    display_name: Investigate
+    description: Open and conduct a formal investigation workflow
+    applicable_resources: [investigations, alerts]
+
+  - name: flag
+    display_name: Flag for Review
+    description: Mark an item as suspicious requiring further review
+    applicable_resources: [communications]
+
+  - name: approve
+    display_name: Approve
+    description: Formally approve a request or investigation result
+    applicable_resources: [investigations, watchlist]
+
+  - name: train
+    display_name: Train Model
+    description: Reinforce or retrain AI models with feedback
+    applicable_resources: [model_config]
+
+  - name: acknowledge
+    display_name: Acknowledge
+    description: Acknowledge receipt of an alert without closing it
+    applicable_resources: [alerts]
+
+  - name: submit
+    display_name: Submit
+    description: Submit a report or finding for final review
+    applicable_resources: [surveillance_reports]
+
+  - name: analyze
+    display_name: Analyze
+    description: Perform deep-dive analysis on data
+    applicable_resources: [communications, surveillance_reports]

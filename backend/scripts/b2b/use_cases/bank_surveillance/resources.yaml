@@ -25,3 +25,21 @@ bank_surveillance_resources:
     category: Reporting
     description: Regulatory and management surveillance reports
     is_system_resource: false
+
+  - name: watchlist
+    display_name: Monitored Subjects
+    category: Surveillance
+    description: Management of monitored dealer and trader identities
+    is_system_resource: false
+
+  - name: model_config
+    display_name: AI Model Configuration
+    category: Administration
+    description: Configuration of surveillance models, keywords, and feedback loops
+    is_system_resource: false
+
+  - name: analytics
+    display_name: Surveillance Analytics
+    category: Reporting
+    description: Operational analytics and data processing statistics
+    is_system_resource: false

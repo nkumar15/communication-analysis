@@ -247,78 +247,12 @@ team_roles:
 **Demo Tenant:** Worldwide Bank (`worldwidebank.com`)  
 **Use Case:** `bank_surveillance`
 
-**Tenant-Level Roles** (Organization-wide access):
+This use case implements a **Hybrid RBAC Model** to satisfy banking regulations:
+- Separation of Duties (Maker/Checker)
+- Data Segregation (Chinese Walls between regional teams)
+- Lead Privilege (Auditor access)
 
-| Role | Display Name | Example Email | Invitable? |
-|------|--------------|---------------|------------|
-| `owner` | Owner | `owner@worldwidebank.com` | ❌ (Created at tenant setup) |
-| `surveillance_chief` | Chief Surveillance Officer | `cso@worldwidebank.com` | ✅ |
-| `regional_director` | Regional Surveillance Director | `director.amer@worldwidebank.com` | ✅ |
-| `compliance_officer` | Compliance Officer | `compliance@worldwidebank.com` | ✅ |
-
-**Team-Level Roles** (Assigned to trading desks):
-
-| Role | Display Name | Example Email | Scope |
-|------|--------------|---------------|-------|
-| `desk_surveillance_manager` | Desk Surveillance Manager | `manager.equities@worldwidebank.com` | Team |
-| `senior_analyst` | Senior Surveillance Analyst | `senior.analyst@worldwidebank.com` | Team |
-| `surveillance_analyst` | Surveillance Analyst | `analyst.fx@worldwidebank.com` | Team |
-| `junior_analyst` | Junior Surveillance Analyst | `junior.analyst@worldwidebank.com` | Team |
-
-**Separation of Duties Example:**
-```yaml
-# IT Administrator (Owner)
-email: owner@worldwidebank.com
-tenant_role: owner
-can_access: billing, user management, platform settings
-cannot_access: surveillance operations, investigations
-
-# Chief Surveillance Officer
-email: cso@worldwidebank.com
-tenant_role: surveillance_chief
-can_access: all surveillance operations, investigations, alerts, reports
-cannot_access: billing, user provisioning
-can_invite: regional_director, compliance_officer
-
-# Regional Director (AMER)
-email: director.amer@worldwidebank.com
-tenant_role: regional_director
-can_access: region-specific communications, investigations, team management
-cannot_access: billing, other region data (with plugin)
-can_invite: yes (surveillance roles)
-
-# Compliance Officer
-email: compliance@worldwidebank.com
-tenant_role: compliance_officer
-can_access: read-only audit across all resources, export for compliance
-cannot_access: any write/modify operations
-can_invite: no
-```
-
-**Test Invitation Examples:**
-```bash
-# After running: make b2b-demo-bank
-# Login as: owner@worldwidebank.com
-
-# Invite Regional Directors:
-director.amer@worldwidebank.com → Regional Surveillance Director
-director.emea@worldwidebank.com → Regional Surveillance Director
-director.apac@worldwidebank.com → Regional Surveillance Director
-
-# Invite Compliance:
-compliance@worldwidebank.com → Compliance Officer
-audit@worldwidebank.com → Compliance Officer
-
-# Team assignments (desk-level):
-analyst.equities@worldwidebank.com → Surveillance Analyst (US Equities Desk)
-senior.fx@worldwidebank.com → Senior Analyst (FX Trading Desk)
-```
-
-**Demo Commands:**
-```bash
-make b2b-demo-bank  # Creates tenant + owner user
-# UI: http://localhost:3001/b2b/users
-```
+👉 **For the full guide on this use case, see:** [Bank Surveillance README](/home/neeraj/codes/enterprisesso/backend/scripts/b2b/use_cases/bank_surveillance/README.md)
 
 ### Marketing Agency (SME)
 
@@ -566,11 +500,7 @@ if await check_team_permission(user_id, team_id, 'tasks', 'delete', db):
 
 ## FAQ
 
-**Q: What's the difference between `owner` and `surveillance_chief`?**
-- `owner` = Platform/IT role (billing, user management)
-- `surveillance_chief` = Business role (surveillance operations)
-- For banks: Separate for SoD compliance
-- For SMEs: Can merge into one role
+
 
 **Q: When are base team roles loaded?**
 Only when use case/domain has NO custom team roles defined.

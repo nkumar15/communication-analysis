@@ -192,6 +192,10 @@ async def _send_bulk_invitation_emails_async(invitation_ids: List[str], tenant_i
     try:
         from modules.b2b.models import InvitationModel
         from infrastructure.email import email_service
+        from core.db.rls import rls_service
+        
+        # Set RLS context for tenant - CRITICAL for querying B2B tables
+        await rls_service.set_tenant_context(db, tenant_id)
         
         # Fetch all invitations
         result = await db.execute(

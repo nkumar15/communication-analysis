@@ -11,6 +11,12 @@ tenant_permissions:
       actions: [read, acknowledge, investigate, escalate, dismiss, export]
     - resource: surveillance_reports
       actions: [read, create, submit, export, archive]
+    - resource: watchlist
+      actions: [read, approve, delete]
+    - resource: model_config
+      actions: [read, write, train]
+    - resource: analytics
+      actions: [read, export]
   
   admin:
     - resource: communications
@@ -21,6 +27,12 @@ tenant_permissions:
       actions: [read, acknowledge, investigate, escalate, dismiss]
     - resource: surveillance_reports
       actions: [read, create, export]
+    - resource: watchlist
+      actions: [read, approve, delete]
+    - resource: model_config
+      actions: [read]
+    - resource: analytics
+      actions: [read, export]
   
   member:
     - resource: communications

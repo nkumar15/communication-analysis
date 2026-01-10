@@ -1,0 +1,12 @@
+email,name,role,team_name,team_role
+cso@worldwidebank.com,Susan Martinez (CSO),surveillance_chief,,
+director.apac.surv@worldwidebank.com,Head of APAC Surveillance (SH),regional_director,,
+head.sg.surv@worldwidebank.com,Head of SG (Bonds Lead),member,SG T&M Surveillance,surveillance_lead
+guest.auditor@worldwidebank.com,External Auditor (Guest),viewer,SG T&M Surveillance,guest_analyst
+liaison.sg.mas@worldwidebank.com,MAS Liaison Officer (LCO),member,SG T&M Surveillance,compliance_officer
+tech.support.apac@worldwidebank.com,Tech Support (GT),member,SG T&M Surveillance,tech_support
+head.my.surv@worldwidebank.com,Head of MY (Wealth Lead),member,MY T&M Surveillance,surveillance_lead
+analyst.my.wealth@worldwidebank.com,MY Wealth Analyst (SA),member,MY T&M Surveillance,surveillance_analyst
+tech.support.apac@worldwidebank.com,Tech Support (GT),member,MY T&M Surveillance,tech_support
+analyst.global.forensic@worldwidebank.com,Forensic Analyst (Maker),member,Special Investigations,operations_maker
+checker.global.forensic@worldwidebank.com,Forensic Checker (Checker),member,Special Investigations,operations_checker

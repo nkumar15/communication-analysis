@@ -1,9 +1,10 @@
-# Bank Surveillance - Team-Level Roles (Trading Desk)
+# Bank Surveillance - Team-Level Roles
+# Roles: STL, SA, Maker, Checker, LCO, Guest
 
 team_roles:
-  - name: desk_surveillance_manager
-    display_name: Desk Surveillance Manager
-    description: Manages surveillance operations for a specific trading desk
+  - name: surveillance_lead
+    display_name: Surveillance Team Lead (STL)
+    description: Full management and approval authority for the team
     is_system: false
     permissions:
       - resource: team_members
@@ -18,28 +19,16 @@ team_roles:
         actions: [read, acknowledge, investigate, escalate, dismiss]
       - resource: surveillance_reports
         actions: [read, create, export]
-  
-  - name: senior_analyst
-    display_name: Senior Surveillance Analyst
-    description: Experienced analyst with case approval authority
-    is_system: false
-    permissions:
-      - resource: team_members
+      - resource: watchlist
+        actions: [read, approve, delete]
+      - resource: model_config
         actions: [read]
-      - resource: team_settings
-        actions: [read]
-      - resource: communications
-        actions: [read, analyze, flag, export]
-      - resource: investigations
-        actions: [read, create, investigate, approve, escalate, export]
-      - resource: alerts
-        actions: [read, acknowledge, investigate, escalate]
-      - resource: surveillance_reports
-        actions: [read, create]
-  
+      - resource: analytics
+        actions: [read, export]
+
   - name: surveillance_analyst
-    display_name: Surveillance Analyst
-    description: Mid-level analyst conducting investigations
+    display_name: Surveillance Analyst (SA)
+    description: Standard analyst role for investigations
     is_system: false
     permissions:
       - resource: team_members
@@ -54,10 +43,40 @@ team_roles:
         actions: [read, acknowledge, investigate]
       - resource: surveillance_reports
         actions: [read]
-  
-  - name: junior_analyst
-    display_name: Junior Surveillance Analyst
-    description: Entry-level analyst with limited access
+
+  - name: operations_maker
+    display_name: Operations Maker
+    description: Operational role for processing cases (No approval)
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: communications
+        actions: [read, flag]
+      - resource: investigations
+        actions: [read, create]
+      - resource: alerts
+        actions: [read, acknowledge]
+      - resource: watchlist
+        actions: [read, create]
+
+  - name: operations_checker
+    display_name: Operations Checker
+    description: Operational role for approving/closing cases
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: investigations
+        actions: [read, approve, close]
+      - resource: alerts
+        actions: [read]
+      - resource: watchlist
+        actions: [read, approve]
+
+  - name: compliance_officer
+    display_name: Compliance Officer (LCO)
+    description: Read-only oversight access
     is_system: false
     permissions:
       - resource: team_members
@@ -67,8 +86,38 @@ team_roles:
       - resource: communications
         actions: [read]
       - resource: investigations
-        actions: [read, investigate]
+        actions: [read]
       - resource: alerts
-        actions: [read, acknowledge]
+        actions: [read]
       - resource: surveillance_reports
+        actions: [read]
+
+  - name: guest_analyst
+    display_name: Guest Analyst
+    description: Restricted read-only access for external parties
+    is_system: false
+    permissions:
+      - resource: investigation_details
+        actions: [read]
+      - resource: public_reports
+        actions: [read]
+
+  - name: tech_support
+    display_name: Technical Support (GT)
+    description: Technical oversight for data processing and configuration
+    is_system: false
+    permissions:
+      - resource: team_settings
+        actions: [manage]
+      - resource: surveillance_reports
+        actions: [read]
+      - resource: alerts
+        actions: [read]
+      - resource: communications
+        actions: [read]
+      - resource: audit_logs
+        actions: [read]
+      - resource: model_config
+        actions: [read, write, train]
+      - resource: analytics
         actions: [read]

@@ -177,7 +177,7 @@ b2c-seed-plans: ## Seed B2C subscription plans
 
 b2b-invite: ## Invite B2B Tenant (f=bank_surveillance_demo.json|marketing_agency_demo.json|task_management_demo.json)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/demo_configs/task_management_demo.json)
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/use_cases/task_management/task_management_demo.json)
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -199,10 +199,10 @@ b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant v
 	@echo ""
 	@echo "$(GREEN)✅ Bank Surveillance RBAC Ready!$(NC)"
 	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
-	@echo "  👥 Roles: surveillance_chief, regional_director, compliance_officer, analysts"
+	@echo "  👥 Roles: surveillance_lead (STL), surveillance_analyst (SA), operations_maker, operations_checker, compliance_officer (LCO), guest_analyst"
 	@echo ""
 	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
-	@echo "  make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json"
+	@echo "  make b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json"
 	@echo ""
 	@echo "$(BLUE)Then login as:$(NC) owner@worldwidebank.com and invite users via UI"
 
@@ -215,7 +215,7 @@ b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tena
 	@echo "  👥 Roles: agency_owner, account_director, account_manager, creative_lead, specialist"
 	@echo ""
 	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
-	@echo "  make b2b-invite f=scripts/b2b/demo_configs/marketing_agency_demo.json"
+	@echo "  make b2b-invite f=scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json"
 	@echo ""
 	@echo "$(BLUE)Then login as:$(NC) owner@merlionmarketing.com and invite users via UI"
 
@@ -228,7 +228,7 @@ b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via
 	@echo "  👥 Roles: owner, admin, member, viewer (base roles)"
 	@echo ""
 	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
-	@echo "  make b2b-invite f=scripts/b2b/demo_configs/task_management_demo.json"
+	@echo "  make b2b-invite f=scripts/b2b/use_cases/task_management/task_management_demo.json"
 	@echo ""
 	@echo "$(BLUE)Then login as tenant owner and invite users via UI$(NC)"
 

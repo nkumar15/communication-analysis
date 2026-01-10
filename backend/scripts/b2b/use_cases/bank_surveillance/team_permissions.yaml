@@ -11,6 +11,10 @@ team_permissions:
       actions: [read, acknowledge, investigate, escalate, dismiss]
     - resource: surveillance_reports
       actions: [read, create, export]
+    - resource: watchlist
+      actions: [read, approve, delete]
+    - resource: analytics
+      actions: [read]
   
   team_contributor:
     - resource: communications
@@ -21,6 +25,8 @@ team_permissions:
       actions: [read, acknowledge, investigate]
     - resource: surveillance_reports
       actions: [read]
+    - resource: watchlist
+      actions: [read, create]
   
   team_reader:
     - resource: communications

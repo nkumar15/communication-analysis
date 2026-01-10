@@ -10,16 +10,29 @@ Complete RBAC configuration for Digital Marketing Agency managing multiple clien
 - **Simple:** Pure 2D RBAC, no plugins needed
 
 ## Usage
-
 ```bash
-# Load this use case
-USE_CASE=marketing_agency python scripts/b2b/seed_rbac.py
+# 1. Reset DB and seed RBAC with marketing agency use case
+make reset-db
+make b2b-seed-roles USE_CASE=marketing_agency
 
-# To customize for production
-cp -r use_cases/marketing_agency/* domain/
-# Edit domain/ files as needed
-python scripts/b2b/seed_rbac.py
+# 2. Create demo tenant
+make b2b-invite f=scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json
+
+# 3. Demo is ready!
+# - Domain: creativeedge.agency
+# - Owner: jennifer.blake@creativeedge.agency
 ```
+
+## Demo Configuration
+
+**Fixed Tenant ID:** `c6f2ea50-92a5-51d3-b4e5-5d233111cafe`
+- Ensures idempotency
+- Consistent for automated testing
+
+**Primary Persona:**
+- **Name:** Jennifer Blake
+- **Role:** Agency Owner & CEO
+- **Context:** Digital marketing agency managing multiple client accounts
 
 ## Demo Pitch
 

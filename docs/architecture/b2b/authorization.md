@@ -196,17 +196,9 @@ compliance_officer:
 ## 🔄 Use Case Examples
 
 ### Bank Surveillance
+For a deep dive into the Enterprise Bank Surveillance RBAC implementation (Hybrid Model, SoD, Chinese Walls), please see the dedicated guide:
 
-**Configuration:**
-```bash
-USE_CASE=bank_surveillance python seed_rbac.py
-```
-
-**Roles Seeded:**
-- Tenant: `owner`, `admin`, `surveillance_chief`, `regional_director`, `compliance_officer`
-- Team: `desk_surveillance_manager`, `senior_analyst`, `surveillance_analyst`, `junior_analyst`
-
-**SoD Compliance:** ✅ Separate owner and surveillance_chief
+👉 **[Bank Surveillance Use Case README](/home/neeraj/codes/enterprisesso/backend/scripts/b2b/use_cases/bank_surveillance/README.md)**
 
 ### Marketing Agency
 

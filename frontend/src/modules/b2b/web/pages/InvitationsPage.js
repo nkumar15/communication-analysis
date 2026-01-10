@@ -52,9 +52,11 @@ const InvitationsPage = () => {
         loadData();
     }, []);
 
-    const loadData = async () => {
+    const loadData = async (refreshing = false) => {
         try {
-            setLoading(true);
+            if (!refreshing) {
+                setLoading(true);
+            }
             setError('');
 
             // Load stats and users (all users can access)
@@ -123,7 +125,9 @@ const InvitationsPage = () => {
             console.error('Failed to load data:', err);
             setError('Failed to load data');
         } finally {
-            setLoading(false);
+            if (!refreshing) {
+                setLoading(false);
+            }
         }
     };
 
@@ -749,7 +753,7 @@ const InvitationsPage = () => {
                     isOpen={showBulkInviteModal}
                     onClose={() => setShowBulkInviteModal(false)}
                     onSuccess={() => {
-                        loadData();
+                        loadData(true);
                         setSuccess('Bulk invitations processed successfully!');
                     }}
                 />
