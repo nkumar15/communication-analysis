@@ -66,38 +66,28 @@ const InvitationsPage = () => {
             setStats(statsData);
             setUsers(usersData);
 
-            // Fetch roles separately to not block main data load
+            // Fetch invitable roles separately to not block main data load
             try {
-                console.log('🔄 Fetching roles from API...');
-                const rolesData = await b2bClient.getRoles();
-                console.log('✅ Roles fetched from API:', rolesData);
+                console.log('🔄 Fetching invitable roles from API...');
+                const rolesData = await b2bClient.getInvitableRoles();
+                console.log('✅ Invitable roles fetched from API:', rolesData);
 
                 if (Array.isArray(rolesData) && rolesData.length > 0) {
                     // Format roles for dropdown
                     const roles = rolesData.map(r => ({
                         value: r.name,
                         label: r.display_name || r.name.charAt(0).toUpperCase() + r.name.slice(1),
-                        disabled: r.name === TENANT_ROLES.OWNER // Disable owner role
+                        disabled: false  // Backend already filters invitable roles
                     }));
 
                     console.log('📋 Formatted roles for dropdown:', roles);
 
-                    // Ensure we have at least Admin and Viewer if API returns empty (fallback)
-                    if (roles.length === 0) {
-                        console.warn('⚠️ No roles returned from API, using fallback');
-                        roles.push(
-                            { value: TENANT_ROLES.ADMIN, label: 'Admin', disabled: false },
-                            { value: TENANT_ROLES.VIEWER, label: 'Viewer', disabled: false }
-                        );
-                    }
-
                     setAvailableRoles(roles);
                     console.log('✅ availableRoles state updated with', roles.length, 'roles');
 
-                    // Set default role to 'member' if available, otherwise first non-disabled
+                    // Set default role to first available
                     if (roles.length > 0) {
-                        const memberRole = roles.find(r => r.value === TENANT_ROLES.MEMBER && !r.disabled);
-                        const defaultRole = memberRole || roles.find(r => !r.disabled) || roles[0];
+                        const defaultRole = roles[0];
                         setSelectedRole(defaultRole.value);
                         console.log('✅ Default role set to:', defaultRole.value);
                     }
@@ -105,7 +95,7 @@ const InvitationsPage = () => {
                     console.warn('⚠️ Roles data is not a valid array or is empty:', rolesData);
                 }
             } catch (err) {
-                console.error('❌ Failed to load roles:', err);
+                console.error('❌ Failed to load invitable roles:', err);
                 // Keep default roles on error
             }
 

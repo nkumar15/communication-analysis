@@ -201,8 +201,10 @@ b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant v
 	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
 	@echo "  👥 Roles: surveillance_chief, regional_director, compliance_officer, analysts"
 	@echo ""
-	@echo "$(YELLOW)Next: Create tenant via Platform UI or run:$(NC)"
+	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
 	@echo "  make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json"
+	@echo ""
+	@echo "$(BLUE)Then login as:$(NC) owner@worldwidebank.com and invite users via UI"
 
 b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tenant via UI)
 	@echo "$(BLUE)📱 Resetting DB for Marketing Agency Demo...$(NC)"
@@ -212,8 +214,10 @@ b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tena
 	@echo "  📋 Resources: campaigns, social_posts, creative_assets, analytics_reports, client_communications"
 	@echo "  👥 Roles: agency_owner, account_director, account_manager, creative_lead, specialist"
 	@echo ""
-	@echo "$(YELLOW)Next: Create tenant via Platform UI or run:$(NC)"
+	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
 	@echo "  make b2b-invite f=scripts/b2b/demo_configs/marketing_agency_demo.json"
+	@echo ""
+	@echo "$(BLUE)Then login as:$(NC) owner@merlionmarketing.com and invite users via UI"
 
 b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via UI)
 	@echo "$(BLUE)✅ Resetting DB for Task Management Demo...$(NC)"
@@ -223,8 +227,10 @@ b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via
 	@echo "  📋 Resources: projects, tasks, comments, rag_documents"
 	@echo "  👥 Roles: owner, admin, member, viewer (base roles)"
 	@echo ""
-	@echo "$(YELLOW)Next: Create tenant via Platform UI or run:$(NC)"
+	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
 	@echo "  make b2b-invite f=scripts/b2b/demo_configs/task_management_demo.json"
+	@echo ""
+	@echo "$(BLUE)Then login as tenant owner and invite users via UI$(NC)"
 
 ##@ Frontend (Local Development)
 

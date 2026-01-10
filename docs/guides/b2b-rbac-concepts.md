@@ -244,65 +244,161 @@ team_roles:
 
 ### Bank Surveillance (Enterprise)
 
-**Tenant Structure:**
-- Platform roles: `owner` (IT admin)
-- Domain roles: `surveillance_chief`, `regional_director`, `compliance_officer`
+**Demo Tenant:** Worldwide Bank (`worldwidebank.com`)  
+**Use Case:** `bank_surveillance`
 
-**Team Structure:**
-- Teams = Trading desks (US Equities, London Fixed Income, etc.)
-- Team roles: `desk_surveillance_manager`, `senior_analyst`, `surveillance_analyst`, `junior_analyst`
+**Tenant-Level Roles** (Organization-wide access):
 
-**Separation of Duties:**
+| Role | Display Name | Example Email | Invitable? |
+|------|--------------|---------------|------------|
+| `owner` | Owner | `owner@worldwidebank.com` | ❌ (Created at tenant setup) |
+| `surveillance_chief` | Chief Surveillance Officer | `cso@worldwidebank.com` | ✅ |
+| `regional_director` | Regional Surveillance Director | `director.amer@worldwidebank.com` | ✅ |
+| `compliance_officer` | Compliance Officer | `compliance@worldwidebank.com` | ✅ |
+
+**Team-Level Roles** (Assigned to trading desks):
+
+| Role | Display Name | Example Email | Scope |
+|------|--------------|---------------|-------|
+| `desk_surveillance_manager` | Desk Surveillance Manager | `manager.equities@worldwidebank.com` | Team |
+| `senior_analyst` | Senior Surveillance Analyst | `senior.analyst@worldwidebank.com` | Team |
+| `surveillance_analyst` | Surveillance Analyst | `analyst.fx@worldwidebank.com` | Team |
+| `junior_analyst` | Junior Surveillance Analyst | `junior.analyst@worldwidebank.com` | Team |
+
+**Separation of Duties Example:**
 ```yaml
-# IT Administrator
-user: it.admin@worldwidebank.com
+# IT Administrator (Owner)
+email: owner@worldwidebank.com
 tenant_role: owner
-access: billing, user management, platform settings
-no_access: surveillance operations
+can_access: billing, user management, platform settings
+cannot_access: surveillance operations, investigations
 
 # Chief Surveillance Officer
-user: susan.martinez@worldwidebank.com
+email: cso@worldwidebank.com
 tenant_role: surveillance_chief
-access: surveillance operations, investigations, alerts
-no_access: billing, user provisioning
+can_access: all surveillance operations, investigations, alerts, reports
+cannot_access: billing, user provisioning
+can_invite: regional_director, compliance_officer
+
+# Regional Director (AMER)
+email: director.amer@worldwidebank.com
+tenant_role: regional_director
+can_access: region-specific communications, investigations, team management
+cannot_access: billing, other region data (with plugin)
+can_invite: yes (surveillance roles)
 
 # Compliance Officer
-user: thomas.anderson@worldwidebank.com
+email: compliance@worldwidebank.com
 tenant_role: compliance_officer
-access: read-only audit across all resources
-no_access: any write/modify operations
+can_access: read-only audit across all resources, export for compliance
+cannot_access: any write/modify operations
+can_invite: no
 ```
 
-**Demo:**
+**Test Invitation Examples:**
 ```bash
-make b2b-demo-bank
-make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
+# After running: make b2b-demo-bank
+# Login as: owner@worldwidebank.com
+
+# Invite Regional Directors:
+director.amer@worldwidebank.com → Regional Surveillance Director
+director.emea@worldwidebank.com → Regional Surveillance Director
+director.apac@worldwidebank.com → Regional Surveillance Director
+
+# Invite Compliance:
+compliance@worldwidebank.com → Compliance Officer
+audit@worldwidebank.com → Compliance Officer
+
+# Team assignments (desk-level):
+analyst.equities@worldwidebank.com → Surveillance Analyst (US Equities Desk)
+senior.fx@worldwidebank.com → Senior Analyst (FX Trading Desk)
+```
+
+**Demo Commands:**
+```bash
+make b2b-demo-bank  # Creates tenant + owner user
+# UI: http://localhost:3001/b2b/users
 ```
 
 ### Marketing Agency (SME)
 
-**Tenant Structure:**
-- Platform roles: `owner` (merged with agency operations)
-- Domain roles: `agency_owner`, `agency_admin`, `account_director`
+**Demo Tenant:** Merlion Marketing (`merlionmarketing.com`)  
+**Use Case:** `marketing_agency`
 
-**Team Structure:**
-- Teams = Client accounts (Nike, Starbucks, etc.)
-- Team roles: `account_manager`, `creative_lead`, `specialist`, `content_contributor`
+**Tenant-Level Roles** (Organization-wide access):
 
-**Simple Hierarchy:**
+| Role | Display Name | Example Email | Invitable? |
+|------|--------------|---------------|------------|
+| `owner` | Owner | `owner@merlionmarketing.com` | ❌ (Created at tenant setup) |
+| `account_manager` | Account Manager | `john.smith@merlionmarketing.com` | ✅ |
+| `creative_director` | Creative Director | `creative.director@merlionmarketing.com` | ✅ |
+| `content_creator` | Content Creator | `designer@merlionmarketing.com` | ✅ |
+| `marketing_specialist` | Marketing Specialist | `seo@merlionmarketing.com` | ✅ |
+
+**Simple Role Hierarchy:**
 ```
-agency_owner (full access)
-  ├── account_director (multiple clients)
-  │   └── account_manager (single client team)
-  │       ├── creative_lead (team role)
-  │       ├── specialist (team role)
-  │       └── content_contributor (team role)
+owner (full access)
+  ├── account_manager (client management, campaigns)
+  ├── creative_director (design oversight, brand strategy)
+  ├── content_creator (content production)
+  └── marketing_specialist (SEO, analytics, social media)
 ```
 
-**Demo:**
+**Role Examples:**
+```yaml
+# Agency Owner
+email: owner@merlionmarketing.com
+tenant_role: owner
+can_access: everything (billing, users, all client data)
+can_invite: all roles
+
+# Account Manager
+email: john.smith@merlionmarketing.com
+tenant_role: account_manager
+can_access: client accounts, campaigns, team collaboration
+cannot_access: billing, platform settings
+can_invite: yes (content creators, specialists)
+
+# Creative Director
+email: creative.director@merlionmarketing.com
+tenant_role: creative_director
+can_access: design assets, brand guidelines, creative review
+cannot_access: billing, client contracts
+can_invite: yes (designers, content creators)
+
+# Content Creator
+email: designer@merlionmarketing.com
+tenant_role: content_creator
+can_access: content production, asset library
+cannot_access: billing, client management
+can_invite: no
+
+# Marketing Specialist (SEO)
+email: seo@merlionmarketing.com
+tenant_role: marketing_specialist
+can_access: analytics, campaign performance, SEO tools
+cannot_access: billing, design assets
+can_invite: no
+```
+
+**Test Invitation Examples:**
 ```bash
-make b2b-demo-marketing
-make b2b-invite f=scripts/b2b/demo_configs/marketing_agency_demo.json
+# After running: make b2b-demo-marketing
+# Login as: owner@merlionmarketing.com
+
+# Invite team members:
+john.smith@merlionmarketing.com → Account Manager
+creative.director@merlionmarketing.com → Creative Director
+designer@merlionmarketing.com → Content Creator
+writer@merlionmarketing.com → Content Creator
+seo@merlionmarketing.com → Marketing Specialist
+social@merlionmarketing.com → Marketing Specialist
+```
+
+**Demo Commands:**
+```bash
+make b2b-demo-marketing  # Creates tenant + owner user
+# UI: http://localhost:3001/b2b/users
 ```
 
 ---

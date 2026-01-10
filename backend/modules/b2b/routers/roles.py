@@ -65,6 +65,30 @@ async def list_resources(
     return await role_service.get_all_resources(db)
 
 
+@router.get("/invitable", response_model=List[RoleResponse])
+async def list_invitable_roles(
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List roles that the current user is allowed to invite
+    
+    Returns roles based on user's permissions:
+    - Users with 'users:invite' permission see invitable roles
+    - Generally excludes 'owner' role (only one owner per tenant)
+    """
+    # Get all roles for this tenant
+    all_roles = await role_service.get_all_roles(db, current_user['tenant_id'])
+    
+    # Filter to invitable roles (exclude 'owner' which is system-assigned)
+    invitable_roles = [
+        role for role in all_roles
+        if role.name != 'owner'  # Owner cannot be invited
+    ]
+    
+    return invitable_roles
+
+
 @router.post("", response_model=RoleResponse)
 async def create_role(
     request: RoleCreate,

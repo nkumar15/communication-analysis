@@ -258,6 +258,10 @@ class ApiService {
         return this.get('/api/b2b/roles/templates');
     }
 
+    async getInvitableRoles() {
+        return this.get('/api/b2b/roles/invitable');
+    }
+
     async createRole(data) {
         return this.post('/api/b2b/roles', data);
     }
