@@ -11,8 +11,8 @@ This use case demonstrates the **Core Platform Capabilities** without advanced c
 
 ```mermaid
 graph TD
-    Agency[Agency HQ<br/>(Standard Admin Access)] --> Nike[Nike Team<br/>(Standard Workspace)]
-    Agency --> SBUX[Starbucks Team<br/>(Standard Workspace)]
+    Agency["Agency HQ<br/>(Standard Admin Access)"] --> Nike["Nike Team<br/>(Standard Workspace)"]
+    Agency --> SBUX["Starbucks Team<br/>(Standard Workspace)"]
     
     %% Note: No "Geo-Fencing" or "Clearance" barriers here
     

@@ -52,11 +52,11 @@ We use a **Hybrid Model** to map these roles to the organization. This distingui
 ```mermaid
 graph TD
     %% Nodes with Clearance Levels
-    CSO[CSO: Global Oversight<br/>Clearance: L4 (Top Secret)<br/>Geo: Global Bypass] 
-    -->|Manages| Dir[Director: Regional Oversight<br/>Clearance: L3 (Confidential)<br/>Geo: Regional Scope]
+    CSO["CSO: Global Oversight<br/>Clearance: L4 (Top Secret)<br/>Geo: Global Bypass"] 
+    -->|Manages| Dir["Director: Regional Oversight<br/>Clearance: L3 (Confidential)<br/>Geo: Regional Scope"]
     
-    Dir -->|Manages| SG[SG Head<br/>Clearance: L2<br/>Geo: SG Only]
-    Dir -->|Manages| MY[MY Head<br/>Clearance: L2<br/>Geo: MY Only]
+    Dir -->|Manages| SG["SG Head<br/>Clearance: L2<br/>Geo: SG Only"]
+    Dir -->|Manages| MY["MY Head<br/>Clearance: L2<br/>Geo: MY Only"]
 
     %% Plugin Boundary
     subgraph "Geo-Fenced Zone (Strict Data Isolation)"
