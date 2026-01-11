@@ -1,6 +1,4 @@
 from .tenant import TenantModel
-from .investigation import Investigation
-from .communication import Communication
 from .user import UserModel
 from .rag_document import RagDocument
 from .invitation import InvitationModel
@@ -49,8 +47,6 @@ __all__ = [
     "TeamRoleDefinition",
     "AuditLog",
     "GeographicRegion",
-    "Investigation",
-    "Communication",
     # Billing models
     "Subscription",
     "B2BSubscription",
