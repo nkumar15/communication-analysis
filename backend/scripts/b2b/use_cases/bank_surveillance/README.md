@@ -1,6 +1,6 @@
 # Bank Surveillance Use Case (Enterprise)
 
-Complete RBAC configuration for Global Bank Surveillance operations, demonstrating "2-Layer" Role-Based Access Control.
+Complete RBAC configuration for Global Bank Surveillance operations, demonstrating **"Multi-Dimensional"** Attribute-Based Access Control (ABAC).
 
 ## 1. Target Organization Structure
 
@@ -12,10 +12,10 @@ graph TD
     APAC --> SG_Desk[SG Trading Desk - Bonds]
     APAC --> MY_Desk[MY Wealth Desk - Private Banking]
     
-    style Global fill:#f9f,stroke:#333
-    style APAC fill:#bbf,stroke:#333
-    style SG_Desk fill:#c3e6cb,stroke:#333
-    style MY_Desk fill:#c3e6cb,stroke:#333
+    style Global fill:#f9f,stroke:#333,color:#000
+    style APAC fill:#bbf,stroke:#333,color:#000
+    style SG_Desk fill:#c3e6cb,stroke:#333,color:#000
+    style MY_Desk fill:#c3e6cb,stroke:#333,color:#000
 ```
 
 *   **Global HQ:** Oversight of all regions (CSO).
@@ -28,18 +28,18 @@ graph TD
 
 We define specific roles to match the bank's operational and compliance needs.
 
-| Category | Role Name | Type | Description |
-| :--- | :--- | :--- | :--- |
-| **Leadership** | `surveillance_chief` | **Tenant** | C-Suite executive (CSO) with global oversight. |
-| **Leadership** | `regional_director` | **Tenant** | Senior management for a specific region. |
-| **Leadership** | `head_compliance` | **Tenant** | Global oversight (Head of Compliance). |
-| **Desk** | `surveillance_lead` | **Team** | Runs a specific desk (e.g., Head of SG). |
-| **Desk** | `surveillance_analyst` | **Team** | Standard investigator. |
-| **Operations** | `operations_maker` | **Team** | Can create cases but **cannot approve**. |
-| **Operations** | `operations_checker` | **Team** | Can approve cases but **cannot create**. |
-| **Support** | `surveillance_ops` | **Team** | Surveillance Operations (SurvOps) - Monitors pipelines and stats. |
-| **Audit** | `compliance_officer` | **Team** | Read-only regulatory oversight. |
-| **External** | `guest_analyst` | **Team** | Limited read-only access for auditors. |
+| S.No. | Category | Role Name | Type | Description |
+| :---: | :--- | :--- | :--- | :--- |
+| 1 | **Leadership** | `surveillance_chief` | **Tenant** | C-Suite executive (CSO) with global oversight. |
+| 2 | **Leadership** | `regional_director` | **Tenant** | Senior management for a specific region. |
+| 3 | **Leadership** | `head_compliance` | **Tenant** | Global oversight (Head of Compliance). |
+| 4 | **Desk** | `surveillance_lead` | **Team** | Runs a specific desk (e.g., Head of SG). |
+| 5 | **Desk** | `surveillance_analyst` | **Team** | Standard investigator. |
+| 6 | **Operations** | `operations_maker` | **Team** | Can create cases but **cannot approve**. |
+| 7 | **Operations** | `operations_checker` | **Team** | Can approve cases but **cannot create**. |
+| 8 | **Support** | `surveillance_ops` | **Team** | Surveillance Operations (SurvOps) - Monitors pipelines and stats. |
+| 9 | **Audit** | `compliance_officer` | **Team** | Read-only regulatory oversight. |
+| 10 | **External** | `guest_analyst` | **Team** | Limited read-only access for auditors. |
 
 ---
 
@@ -228,7 +228,33 @@ This "2-Layer RBAC" model is crucial for enterprise banking:
 
 ---
 
-## 10. Usage
+## 10. Technical Implementation: Policy Plugins
+The system uses a **Plugin Architecture** to enforce specific compliance rules at runtime. These are Python checks that run *after* standard RBAC.
+
+### A. Data Classification Plugin (Clearance)
+*   **Mechanism:** `User.Role.clearance_level` vs `Resource.confidentiality_level`.
+*   **Logic:**
+    1.  User makes a request (e.g., `GET /investigations/123`).
+    2.  Plugin fetches the user's **Tenant Role** from the DB (e.g., `surveillance_chief`).
+    3.  Plugin reads the role's `clearance_level` integer (Runtime Column).
+    4.  **Rule:** If `User.Clearance < Resource.Level`, access is **DENIED** even if RBAC says "Allow".
+*   **Source:** `b2b.roles` table has a `clearance_level` column.
+
+### B. Geographic Boundaries Plugin (Geo-Fencing)
+*   **Mechanism:** `User.geographic_scopes` vs `Resource.data_region_id`.
+*   **Logic:**
+    1.  **Enrichment:** On login, the system calculates the user's `geographic_scopes`. This is typically derived from their **Team's configuration** (stored in `Team.config_data['region_id']`).
+    2.  **Plugin Check:** The plugin inspects this enriched scope list.
+    3.  **Rule:** If `Resource.data_region_id` is NOT in `User.geographic_scopes`, access is **DENIED**.
+    *   *Bypass:* Global roles (CSO) are skipped via the `global_roles` config or `bypass_geographic_restrictions` context flag.
+
+### C. Hierarchical Teams Plugin (Manager Access)
+*   **Mechanism:** Recursive visibility.
+*   **Logic:** Allows a "Regional Director" (Who is in the **APAC Hub** team) to see resources owned by **Child Teams** (SG Desk, MY Desk) without being a direct member of those desks.
+
+---
+
+## 11. Usage
 
 ```bash
 # 1. Reset DB and seed RBAC with bank surveillance use case
