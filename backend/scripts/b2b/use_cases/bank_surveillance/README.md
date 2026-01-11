@@ -14,8 +14,8 @@ graph TD
     
     style Global fill:#f9f,stroke:#333
     style APAC fill:#bbf,stroke:#333
-    style SG_Desk fill:#bfb,stroke:#333
-    style MY_Desk fill:#bfb,stroke:#333
+    style SG_Desk fill:#c3e6cb,stroke:#333
+    style MY_Desk fill:#c3e6cb,stroke:#333
 ```
 
 *   **Global HQ:** Oversight of all regions (CSO).
@@ -51,11 +51,11 @@ We use a **Hybrid Model** to map these roles to the organization. This distingui
 
 ```mermaid
 graph TD
-    CSO[CSO: Global Oversight] -->|Reports to| Dir[Director: Regional Oversight]
+    CSO[CSO: Global Oversight] -->|Manages| Dir[Director: Regional Oversight]
     Dir -->|Manages| SG[SG Head: Restricted to SG Team]
     Dir -->|Manages| MY[MY Head: Restricted to MY Team]
 
-    subgraph Chinese Wall
+    subgraph "Segregated Desks"
     SG
     MY
     end
@@ -95,12 +95,21 @@ The `bank_surveillance_bulk_invite.csv` provisions **10 Users** ensuring 100% ro
 
 ---
 
+### D. Auxiliary & Support Staff
+| User | Email | **Invitation Tenant Role** | Team Role | Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| **SurvOps** | `surv.ops.apac@...` | **Member** | `surveillance_ops` | **SG & MY Teams** |
+| **MAS Liaison** | `liaison.sg.mas@...` | **Member** | `compliance_officer` | **SG Team Only** |
+| **Ext. Auditor** | `guest.auditor@...` | **Viewer** | `guest_analyst` | **SG Team Only** |
+
+---
+
 ## 5. Auxiliary Roles Mapping
 
 Special configurations for non-business users.
 
 ### Surveillance Operations (`surv.ops.apac@...`)
-*   **Mapping:** Appointed to both SG and MY teams.
+*   **Mapping:** Appointed to both SG or/and MY teams.
 *   **Invitation Tenant Role:** **Member**
 *   **Function:** Monitoring data pipeline health, processing volumes, and failure statistics.
 *   **Constraint:** Can **Manage Team Members** (for support access) and **Train Models** but strictly **No Access** to sensitive business data content (Comms, Investigations, Alerts). They focus on the **Data Ingestion Pipelines** dashboard.
@@ -164,7 +173,36 @@ tenant_permissions:
 
 ---
 
-## 8. FAQ
+## 8. Specifications: Bulk Invitation Logic
+
+Details on how the `bank_surveillance_bulk_invite.csv` is processed by the system.
+
+### A. CSV Format
+The loader expects the following columns:
+| Column | Description | Mandatory? |
+| :--- | :--- | :--- |
+| `email` | User's email address (Must match tenant domain). | **Yes** |
+| `name` | Full name (e.g., "Susan Martinez"). | No |
+| `role` | **Tenant Role** (System Role). Defines "Who you are".<br>Values: `owner`, `admin`, `member`, `surveillance_chief`, etc. | **Yes** |
+| `team_name`| Name of the team to join.<br>**Auto-Creation:** If the team does not exist, it is **created automatically**. | No |
+| `team_role`| **Team Role** (Context Role). Defines "What you do".<br>Values: `surveillance_lead`, `surveillance_analyst`, etc.<br>Default: `team_contributor` | No |
+
+### B. Logic Rules
+1.  **Role Assignment:** The `role` column maps directly to the **Tenant Role**. This is your global badge.
+2.  **Team Assignment:**
+    *   **One Team Limit:** The bulk loader only supports checking into **one primary team** per invitation.
+    *   **Missing Teams:** If `team_name` is "New Ops Team" and it doesn't exist, the system creates it immediately.
+3.  **No Team?** If `team_name` is blank, the user is invited with *only* their Tenant Role. For `member` role, this typically means they have **Zero Access** until added to a team manually later.
+
+### C. Multi-Team Assignment
+*   **Limitation:** A user cannot be assigned to multiple teams (e.g., SG *and* MY) in a single CSV row.
+*   **Workflow:**
+    1.  Invite user to their **Primary Team** (e.g., SG) via CSV.
+    2.  After they join, an Admin uses the **Team Members UI** to add them to secondary teams (e.g., MY).
+
+---
+
+## 9. FAQ
 
 **Q: Why do we have two layers of roles (Tenant vs. Team)?**
 This "2-Layer RBAC" model is crucial for enterprise banking:
@@ -190,7 +228,7 @@ This "2-Layer RBAC" model is crucial for enterprise banking:
 
 ---
 
-## 8. Usage
+## 10. Usage
 
 ```bash
 # 1. Reset DB and seed RBAC with bank surveillance use case
