@@ -39,9 +39,9 @@ team_roles:
       - resource: client_communications
         actions: [read, write]
   
-  - name: specialist
-    display_name: Marketing Specialist
-    description: Execute campaigns and create content
+  - name: content_writer
+    display_name: Content Writer
+    description: Standard contributor who can create and edit content
     is_system: false
     permissions:
       - resource: team_members
@@ -49,19 +49,19 @@ team_roles:
       - resource: team_settings
         actions: [read]
       - resource: campaigns
-        actions: [read, write, export]
+        actions: [read]
       - resource: social_posts
-        actions: [read, write, schedule, export]
+        actions: [read, write]
       - resource: creative_assets
-        actions: [read, write, export]
+        actions: [read, write]
       - resource: analytics_reports
         actions: [read]
       - resource: client_communications
-        actions: [read, write]
-  
-  - name: content_contributor
-    display_name: Content Contributor
-    description: Create content and assets, limited permissions
+        actions: [read]
+
+  - name: guest_review
+    display_name: Guest Reviewer
+    description: External client with read-only access
     is_system: false
     permissions:
       - resource: team_members
@@ -71,9 +71,9 @@ team_roles:
       - resource: campaigns
         actions: [read]
       - resource: social_posts
-        actions: [read, write]
+        actions: [read]
       - resource: creative_assets
-        actions: [read, write]
+        actions: [read]
       - resource: analytics_reports
         actions: [read]
       - resource: client_communications
