@@ -184,14 +184,14 @@ The loader expects the following columns:
 | `email` | User's email address (Must match tenant domain). | **Yes** |
 | `name` | Full name (e.g., "Susan Martinez"). | No |
 | `role` | **Tenant Role** (System Role). Defines "Who you are".<br>Values: `owner`, `admin`, `member`, `surveillance_chief`, etc. | **Yes** |
-| `team_name`| Name of the team to join.<br>**Auto-Creation:** If the team does not exist, it is **created automatically**. | No |
+| `team_name`| Name of the team to join.<br>**Strict Check:** Team **MUST exist** in the system. | No |
 | `team_role`| **Team Role** (Context Role). Defines "What you do".<br>Values: `surveillance_lead`, `surveillance_analyst`, etc.<br>Default: `team_contributor` | No |
 
 ### B. Logic Rules
 1.  **Role Assignment:** The `role` column maps directly to the **Tenant Role**. This is your global badge.
 2.  **Team Assignment:**
-    *   **One Team Limit:** The bulk loader only supports checking into **one primary team** per invitation.
-    *   **Missing Teams:** If `team_name` is "New Ops Team" and it doesn't exist, the system creates it immediately.
+    *   **Strict Validation:** The system **validates** that the team exists. If "New Ops Team" is not found in the DB, the row **FAILS**.
+    *   *Pre-Requisite:* Admins must create Teams (and configure Regions) via API/UI **before** running the bulk invite.
 3.  **No Team?** If `team_name` is blank, the user is invited with *only* their Tenant Role. For `member` role, this typically means they have **Zero Access** until added to a team manually later.
 
 ### C. Multi-Team Assignment

@@ -791,16 +791,15 @@ class InvitationService:
                         )
                         team = team_result.scalar_one_or_none()
                         
-                        if not team and auto_create_teams:
-                            # Create team
-                            team = Team(
-                                tenant_id=tenant_id,
-                                name=row.team_name,
-                                created_by=created_by
-                            )
-                            db.add(team)
-                            await db.flush()
-                            teams_created.append(row.team_name)
+                        if not team:
+                            # Strict Mode: Do not auto-create
+                            failed_count += 1
+                            results.append({
+                                "row": row.dict(),
+                                "status": "failed",
+                                "error": f"Team not found: {row.team_name}"
+                            })
+                            continue
                         
                         if team:
                             team_id = team.id
