@@ -1,4 +1,6 @@
 from .tenant import TenantModel
+from .investigation import Investigation
+from .communication import Communication
 from .user import UserModel
 from .rag_document import RagDocument
 from .invitation import InvitationModel
@@ -22,6 +24,8 @@ from .subscription import (
 from .subscription_plan import B2BSubscriptionPlan
 from .coupon import B2BCoupon, B2BCouponRedemption
 
+from .geographic_region import GeographicRegion
+
 # Backwards compatibility aliases
 Subscription = B2BSubscription
 Invoice = B2BInvoice
@@ -44,6 +48,9 @@ __all__ = [
     "AuthProvider",
     "TeamRoleDefinition",
     "AuditLog",
+    "GeographicRegion",
+    "Investigation",
+    "Communication",
     # Billing models
     "Subscription",
     "B2BSubscription",

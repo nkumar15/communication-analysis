@@ -1,32 +1,320 @@
 # Role-Based Access Control (RBAC) Guide
 
 **Audience:** Developers and System Architects  
-**Last Updated:** 2026-01-09
+**Last Updated:** 2026-01-11
 
-This guide explains the RBAC implementation in the SSO boilerplate, including configuration architecture, tenant roles, team roles, and customization workflows.
+This guide explains the **3-Layer RBAC** implementation in the SSO boilerplate, based on enterprise design principles for regulated industries.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Configuration Architecture](#configuration-architecture)
-3. [Role Architecture](#role-architecture)
-4. [Customization Workflows](#customization-workflows)
-5. [Use Case Examples](#use-case-examples)
-6. [Best Practices](#best-practices)
+1. [Core Principle](#core-principle)
+2. [The 3-Layer Model](#the-3-layer-model)
+3. [System Roles](#system-roles)
+4. [Tenant Roles](#tenant-roles)
+5. [Team Memberships](#team-memberships)
+6. [Permission Resolution](#permission-resolution)
+7. [User Assignment Model](#user-assignment-model)
+8. [UI/UX Best Practices](#uiux-best-practices)
+9. [Golden Rules](#golden-rules)
 
 ---
 
-## Overview
+## Core Principle
 
-The system implements a **two-level role system** with **flexible configuration**:
+> **Separate WHY the user exists from WHAT the user can do**
 
-1. **Tenant Roles** - Organization-wide permissions (owner, admin, surveillance_chief, etc.)
-2. **Team Roles** - Team-specific permissions (team_manager, desk_surveillance_manager, etc.)
-3. **Configuration System** - YAML-based, supports core/domain/use_cases pattern
+Your confusion comes from mixing identity existence with business authority. The system has **3 distinct layers**, not 2:
 
-This pattern is used by GitHub, Slack, and Google Workspace for multi-tenant collaboration, extended with domain-specific customization.
+| Layer | Purpose | Examples |
+|-------|---------|----------|
+| **System Role** | Platform-level baseline access | owner, admin, member, viewer |
+| **Tenant Role** | Business function authority | surveillance_chief, analyst |
+| **Team Membership** | Data scope | APAC, EMEA, India, SG |
+
+Each layer answers a different question:
+
+- **System role →** "Is this user allowed to use the system at all?"
+- **Tenant role →** "What business function do they perform?"
+- **Team →** "Which data are they allowed to see?"
+
+---
+
+## The 3-Layer Model
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  LAYER 1: SYSTEM ROLE (Platform Access)                    │
+│  • Required: Yes (exactly one)                             │
+│  • Purpose: Login access, platform UI sections             │
+│  • Examples: owner, admin, member, viewer                  │
+│  • Controls: Can login, see admin console, manage billing  │
+│  • Does NOT control: Business data access                  │
+├─────────────────────────────────────────────────────────────┤
+│  LAYER 2: TENANT ROLE (Business Authority)                 │
+│  • Required: No (0 to many)                                │
+│  • Purpose: What business actions are allowed              │
+│  • Examples: surveillance_chief, regional_director         │
+│  • Controls: Allowed actions (analyze, approve, export)    │
+│  • Does NOT control: Data scope                            │
+├─────────────────────────────────────────────────────────────┤
+│  LAYER 3: TEAM MEMBERSHIP (Data Scope)                     │
+│  • Required: No (0 to many)                                │
+│  • Purpose: Where permissions apply                        │
+│  • Examples: APAC, SG Desk, Special Investigations         │
+│  • Controls: Which data the user can see                   │
+│  • Rule: Tenant role without team = no data scope          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## System Roles
+
+System roles are **immutable** and limited to a small, fixed set. Every user must have exactly one.
+
+### Recommended System Roles
+
+| Role | Purpose |
+|------|---------|
+| **owner** | Legal + billing + ultimate authority |
+| **admin** | Tenant configuration & user management |
+| **member** | Can log in and use assigned features |
+| **viewer** | Read-only platform access |
+
+### What System Roles Control
+
+| Capability | owner | admin | member | viewer |
+|------------|:-----:|:-----:|:------:|:------:|
+| Login access | ✅ | ✅ | ✅ | ✅ |
+| Dashboard | ✅ | ✅ | ✅ | ✅ (read-only) |
+| Manage users | ✅ | ✅ | ❌ | ❌ |
+| Manage billing | ✅ | ❌ | ❌ | ❌ |
+| Platform settings | ✅ | ✅ | ❌ | ❌ |
+| Audit logs | ✅ | ✅ | ❌ | ❌ |
+
+> ⚠️ **Rule:** System roles **never** grant access to business resources directly.
+
+### What System Roles Do NOT Control
+
+❌ Business data permissions (alerts, cases, investigations)  
+❌ Resource-specific actions (analyze, approve, export)  
+❌ Data scope (which team's data to see)
+
+---
+
+## Tenant Roles
+
+Tenant roles define **what business actions are allowed**, independent of team scope.
+
+### Purpose
+
+These roles define:
+- **Allowed actions** (analyze, approve, export)
+- **Allowed resources** (alerts, cases, reports)
+
+They do **NOT** define scope (which data).
+
+### Examples
+
+| Tenant Role | Display Name | Business Authority |
+|-------------|--------------|-------------------|
+| surveillance_chief | Chief Surveillance Officer | Global oversight of all surveillance |
+| regional_director | Regional Director | Senior management for a region |
+| head_compliance | Head of Compliance | Global regulatory oversight |
+
+### Configuration
+
+```yaml
+# use_cases/bank_surveillance/tenant_roles.yaml
+tenant_roles:
+  - name: surveillance_chief
+    display_name: Chief Surveillance Officer
+    is_system_role: false  # Business role, not system role
+    permissions:
+      - resource: investigations
+        actions: [read, create, assign, approve, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, escalate, dismiss]
+```
+
+---
+
+## Team Memberships
+
+Teams answer **WHERE** permissions apply. They define the **data scope**.
+
+### Purpose
+
+| Concept | Example |
+|---------|---------|
+| Geographic | India, APAC, EMEA |
+| Departmental | FX Desk, Bonds Desk |
+| Functional | Special Investigations, Compliance |
+
+### Key Rule
+
+> **A tenant role without a team = no data scope**
+
+A user with `surveillance_analyst` tenant role but no team assignment cannot see any business data.
+
+### Team Roles
+
+Within each team, users have a **team role** that defines their capabilities:
+
+| Team Role | Capability |
+|-----------|------------|
+| surveillance_lead | Full management, approval authority |
+| surveillance_analyst | Create/investigate cases |
+| operations_maker | Create cases (no approval) |
+| operations_checker | Approve cases (no creation) |
+| guest_analyst | Read-only external access |
+
+---
+
+## Permission Resolution
+
+Effective permissions are computed as:
+
+```
+System Access (can login?)
+    + Tenant Role Permissions (what actions?)
+        + Team Scope Filter (which data?)
+```
+
+### Permission Evaluation Logic
+
+```python
+def can_access(user, resource, action, data_team):
+    # Layer 1: System Role Check
+    if not user.system_role.allows_login:
+        return False
+
+    # Admin bypass for platform operations only
+    if user.system_role.is_admin and resource.is_platform_resource:
+        return True
+
+    # Layer 2 + 3: Tenant Role + Team Scope
+    for tenant_role in user.tenant_roles:
+        if tenant_role.allows(resource, action):
+            if data_team in user.teams:
+                return True
+
+    return False
+```
+
+### Permission Flow Diagram
+
+```
+User Request: "Can I approve this investigation in SG Desk?"
+    │
+    ▼
+[LAYER 1] Does user have system role that allows login?
+    │ YES
+    ▼
+[LAYER 2] Does user have tenant role with 'investigations:approve'?
+    │ YES (surveillance_chief has this)
+    ▼
+[LAYER 3] Is user a member of 'SG Desk' team?
+    │ YES
+    ▼
+✅ ACCESS GRANTED
+```
+
+---
+
+## User Assignment Model
+
+A user has:
+
+```
+User
+ ├── System Role (required, exactly one)
+ ├── Tenant Roles (0..n)
+ └── Team Memberships (0..n)
+```
+
+### Default Assignment on User Creation
+
+```
+System Role = member
+Tenant Roles = []
+Teams = []
+```
+
+### What Default Users Can See
+
+With only `member` system role (no tenant roles, no teams):
+
+| Can See | Cannot See |
+|---------|------------|
+| ✅ Home / dashboard shell | ❌ Any business data |
+| ✅ Profile page | ❌ Alerts / cases / reports |
+| ✅ Notifications | ❌ Team-specific screens |
+| ✅ "Request access" / "Awaiting assignment" | ❌ Any write actions |
+| ✅ High-level tenant info (name, status) | |
+
+> This prevents data leakage while avoiding user lockout.
+
+### Common User Scenarios
+
+| Scenario | System Role | Tenant Roles | Teams | Visibility |
+|----------|-------------|--------------|-------|------------|
+| New joiner | member | [] | [] | Dashboard shell only |
+| External auditor | viewer | [compliance_officer] | [All] | Read-only reports |
+| SG Desk Analyst | member | [] | [SG Desk: analyst] | SG data only |
+| CSO | member | [surveillance_chief] | [Global] | All data |
+| IT Admin | admin | [] | [] | User management, no business data |
+
+---
+
+## UI/UX Best Practices
+
+### Situation-Based UI Behavior
+
+| User State | UI Behavior |
+|------------|-------------|
+| No tenant roles | Show "No access assigned" message |
+| Tenant role but no team | Show "Assign team to activate access" |
+| Team but no role | Show "Role required" message |
+| Viewer system role | Lock/hide write buttons |
+| Admin system role | Show admin console |
+| member with assignments | Show business data based on scope |
+
+### Role Display
+
+```json
+{
+  "user": {
+    "system_role": "member",
+    "tenant_roles": ["surveillance_chief"],
+    "team_memberships": [
+      {"team": "APAC Hub", "role": "oversight"},
+      {"team": "SG Desk", "role": "surveillance_lead"}
+    ]
+  }
+}
+```
+
+### Primary Display
+
+- **Header/Profile:** Show system role badge (Member, Admin, Owner)
+- **Secondary:** Show tenant role if assigned (Surveillance Chief)
+- **Team Context:** Show current team scope in UI
+
+---
+
+## Golden Rules
+
+1. **Every user must have exactly one system role**
+2. **System role ≠ business access**
+3. **Tenant roles define WHAT (actions)**
+4. **Teams define WHERE (data scope)**
+5. **No tenant role or no team = no business data**
+6. **Default system role = member**
+7. **Admins don't automatically get business data**
+8. **Viewers have read-only platform access, not business data**
 
 ---
 
@@ -38,481 +326,71 @@ This pattern is used by GitHub, Slack, and Google Workspace for multi-tenant col
 backend/scripts/b2b/
 ├── core/                           # Universal SaaS (don't edit)
 │   ├── actions.yaml
-│   ├── saas_roles.yaml             # owner, admin, member, viewer
-│   ├── saas_resources.yaml         # users, teams, billing, etc.
-│   ├── team_roles_base.yaml        # team_manager, team_contributor, team_reader
-│   └── README.md
+│   ├── saas_roles.yaml             # System roles: owner, admin, member, viewer
+│   ├── saas_resources.yaml         # Platform resources
+│   └── team_roles_base.yaml        # Base team roles
 │
 ├── domain/                         # YOUR customization
-│   ├── resources.yaml
-│   ├── tenant_roles.yaml
-│   ├── team_roles.yaml
-│   └── README.md
+│   ├── resources.yaml              # Business resources
+│   ├── tenant_roles.yaml           # Business tenant roles
+│   └── team_roles.yaml             # Custom team roles
 │
 ├── use_cases/                      # Demo templates
 │   ├── bank_surveillance/
 │   ├── marketing_agency/
 │   └── task_management/
-│
-├── demo_configs/                   # Demo tenant seeds
-│   ├── bank_surveillance_demo.json
-│   ├── marketing_agency_demo.json
-│   └── task_management_demo.json
-│
-├── subscription_plans.yaml
-├── seed_rbac.py                    # Main seeding script
-└── tenant_onboard.py
 ```
 
 ### Loading Logic
 
-**Development/Demo (with USE_CASE):**
 ```bash
+# Development/Demo (with USE_CASE):
 USE_CASE=bank_surveillance make b2b-seed-roles
 # Loads: core/* + use_cases/bank_surveillance/*
-```
 
-**Production (without USE_CASE):**
-```bash
+# Production (without USE_CASE):
 make b2b-seed-roles
 # Loads: core/* + domain/*
 ```
 
-**Key Rule:** If use case/domain defines custom team roles, base team roles are **automatically skipped** (prevents role pollution).
-
 ---
 
-## Role Architecture
+## Database Schema
 
 ### Three-Table Model
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ 1. role_templates (Global Blueprints)                  │
-│    - Seeded from YAML                                   │
-│    - Shared across all tenants                          │
-│    - Contains permissions JSONB                         │
-└─────────────────────────────────────────────────────────┘
-                          ↓ (tenant creation)
-┌─────────────────────────────────────────────────────────┐
-│ 2. roles (Tenant-Specific Instances)                   │
-│    - Created from templates                             │
-│    - One set per tenant                                 │
-│    - tenant_id + name unique                            │
-└─────────────────────────────────────────────────────────┘
-                          ↓ (user invitation)
-┌─────────────────────────────────────────────────────────┐
-│ 3. users (User Assignments)                            │
-│    - users.role_id → roles.id                          │
-│    - Each user has ONE tenant role                      │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Tenant Roles (Two Categories)
-
-**A. Platform/SaaS Roles** (`core/saas_roles.yaml`)
-- Universal across any business
-- IT/operational focus
-- Examples: `owner`, `admin`, `member`, `viewer`
-
-**B. Domain-Specific Roles** (`domain/tenant_roles.yaml` or `use_cases/*/tenant_roles.yaml`)
-- Business-specific roles
-- Examples: `surveillance_chief`, `regional_director`, `agency_owner`
-
-**Example Tenant Roles:**
-```yaml
-# core/saas_roles.yaml (Platform)
-role_templates:
-  - name: owner
-    permissions:
-      - resource: billing
-        actions: [read, write, manage]
-      - resource: users
-        actions: [read, write, invite, delete]
-
-# use_cases/bank_surveillance/tenant_roles.yaml (Domain)
-tenant_roles:
-  - name: surveillance_chief
-    permissions:
-      - resource: communications
-        actions: [read, analyze, flag, export, archive]
-      - resource: investigations
-        actions: [read, create, assign, approve, close, export]
-```
-
-### Team Roles (Domain-Specific)
-
-**Purpose:** Define capabilities within specific teams
-
-**Conditional Loading:**
-- If `domain/team_roles.yaml` is **empty** → Load base team roles
-- If `domain/team_roles.yaml` has **custom roles** → **Skip** base team roles
-
-**Example:**
-```yaml
-# use_cases/bank_surveillance/team_roles.yaml
-team_roles:
-  - name: desk_surveillance_manager
-    display_name: Desk Surveillance Manager
-    permissions:
-      - resource: team_members
-        actions: [manage]
-      - resource: communications
-        actions: [read, analyze, flag, export]
-      - resource: investigations
-        actions: [read, create, assign, approve, close]
-```
-
----
-
-## Customization Workflows
-
-### Workflow 1: Starting from Scratch (Generic SaaS)
-
-```bash
-# Use task_management (generic base)
-USE_CASE=task_management make b2b-seed-roles
-
-# Result:
-# - Tenant roles: owner, admin, member, viewer (from core/)
-# - Team roles: team_manager, team_contributor, team_reader (from core/)
-# - Resources: projects, tasks, comments (from use_cases/task_management/)
-```
-
-### Workflow 2: Copy from Demo Template
-
-```bash
-# Step 1: Choose template
-cp -r use_cases/marketing_agency/* domain/
-
-# Step 2: Customize for your client
-nano domain/resources.yaml
-nano domain/tenant_roles.yaml
-nano domain/team_roles.yaml
-
-# Step 3: Seed production
-make b2b-seed-roles  # Loads domain/
-```
-
-### Workflow 3: Add Custom Role to Existing Setup
-
-```yaml
-# domain/tenant_roles.yaml
-tenant_roles:
-  - name: supervisor
-    display_name: Supervisor
-    description: Oversees operations without full admin access
-    permissions:
-      - resource: projects
-        actions: [read, write]
-      - resource: tasks
-        actions: [read, write]
-      - resource: users
-        actions: [read]  # Can see but not modify users
-      - resource: teams
-        actions: [read, write]  # Can manage teams
-```
-
-Reseed:
-```bash
-make b2b-seed-roles
-```
-
-### Workflow 4: Add Custom Team Role
-
-```yaml
-# domain/team_roles.yaml
-team_roles:
-  - name: project_lead
-    display_name: Project Lead
-    permissions:
-      - resource: team_members
-        actions: [manage]  # Can add/remove team members
-      - resource: team_settings
-        actions: [manage]
-      - resource: projects
-        actions: [read, write, delete]
-      - resource: tasks
-        actions: [read, write, delete]
-```
-
-**Important:** Once you add ANY custom team role, base team roles are automatically skipped!
-
----
-
-## Use Case Examples
-
-### Bank Surveillance (Enterprise)
-
-**Demo Tenant:** Worldwide Bank (`worldwidebank.com`)  
-**Use Case:** `bank_surveillance`
-
-This use case implements a **Hybrid RBAC Model** to satisfy banking regulations:
-- Separation of Duties (Maker/Checker)
-- Data Segregation (Chinese Walls between regional teams)
-- Lead Privilege (Auditor access)
-
-👉 **For the full guide on this use case, see:** [Bank Surveillance README](/home/neeraj/codes/enterprisesso/backend/scripts/b2b/use_cases/bank_surveillance/README.md)
-
-### Marketing Agency (SME)
-
-**Demo Tenant:** Merlion Marketing (`merlionmarketing.com`)  
-**Use Case:** `marketing_agency`
-
-**Tenant-Level Roles** (Organization-wide access):
-
-| Role | Display Name | Example Email | Invitable? |
-|------|--------------|---------------|------------|
-| `owner` | Owner | `owner@merlionmarketing.com` | ❌ (Created at tenant setup) |
-| `account_manager` | Account Manager | `john.smith@merlionmarketing.com` | ✅ |
-| `creative_director` | Creative Director | `creative.director@merlionmarketing.com` | ✅ |
-| `content_creator` | Content Creator | `designer@merlionmarketing.com` | ✅ |
-| `marketing_specialist` | Marketing Specialist | `seo@merlionmarketing.com` | ✅ |
-
-**Simple Role Hierarchy:**
-```
-owner (full access)
-  ├── account_manager (client management, campaigns)
-  ├── creative_director (design oversight, brand strategy)
-  ├── content_creator (content production)
-  └── marketing_specialist (SEO, analytics, social media)
-```
-
-**Role Examples:**
-```yaml
-# Agency Owner
-email: owner@merlionmarketing.com
-tenant_role: owner
-can_access: everything (billing, users, all client data)
-can_invite: all roles
-
-# Account Manager
-email: john.smith@merlionmarketing.com
-tenant_role: account_manager
-can_access: client accounts, campaigns, team collaboration
-cannot_access: billing, platform settings
-can_invite: yes (content creators, specialists)
-
-# Creative Director
-email: creative.director@merlionmarketing.com
-tenant_role: creative_director
-can_access: design assets, brand guidelines, creative review
-cannot_access: billing, client contracts
-can_invite: yes (designers, content creators)
-
-# Content Creator
-email: designer@merlionmarketing.com
-tenant_role: content_creator
-can_access: content production, asset library
-cannot_access: billing, client management
-can_invite: no
-
-# Marketing Specialist (SEO)
-email: seo@merlionmarketing.com
-tenant_role: marketing_specialist
-can_access: analytics, campaign performance, SEO tools
-cannot_access: billing, design assets
-can_invite: no
-```
-
-**Test Invitation Examples:**
-```bash
-# After running: make b2b-demo-marketing
-# Login as: owner@merlionmarketing.com
-
-# Invite team members:
-john.smith@merlionmarketing.com → Account Manager
-creative.director@merlionmarketing.com → Creative Director
-designer@merlionmarketing.com → Content Creator
-writer@merlionmarketing.com → Content Creator
-seo@merlionmarketing.com → Marketing Specialist
-social@merlionmarketing.com → Marketing Specialist
-```
-
-**Demo Commands:**
-```bash
-make b2b-demo-marketing  # Creates tenant + owner user
-# UI: http://localhost:3001/b2b/users
-```
-
----
-
-## Best Practices
-
-### 1. Start with a Use Case Template
-
-**DON'T:**
-```bash
-# Start from scratch
-nano domain/resources.yaml  # Empty file, no guidance
-```
-
-**DO:**
-```bash
-# Copy closest use case
-cp -r use_cases/marketing_agency/* domain/
-# Now customize from working baseline
-```
-
-### 2. Understand SoD Requirements
-
-**Regulated Industries (Banks, Healthcare, Finance):**
-- ✅ Separate `owner` (IT) from domain roles (business)
-- ✅ Independent `compliance_officer` role
-- ✅ Clear audit trail
-
-**SMEs (Marketing, Consulting, Design):**
-- ✅ Merge owner permissions into top business role (simpler)
-- ✅ Fewer roles = easier to manage
-
-### 3. Conditional Team Role Loading
-
-**If using base team roles:**
-```yaml
-# domain/team_roles.yaml
-team_roles: []  # Empty = use base team_manager, team_contributor, team_reader
-```
-
-**If defining custom team roles:**
-```yaml
-# domain/team_roles.yaml
-team_roles:
-  - name: project_lead
-    # ... definition
-  - name: developer
-    # ... definition
-# Base team roles automatically skipped!
-```
-
-### 4. Testing Checklist
-
-- [ ] Owner can invite all roles
-- [ ] Admin cannot access billing
-- [ ] Member cannot invite users
-- [ ] Viewer has read-only access
-- [ ] Team manager can add team members
-- [ ] Team roles work within team scope
-- [ ] Switching USE_CASE loads correct resources
-- [ ] Production (no USE_CASE) loads domain/ correctly
-
----
-
-## Common Scenarios
-
-### Scenario 1: Add Resource to Existing Deployment
-
-```yaml
-# domain/resources.yaml
-resources:
-  # ... existing resources
-  
-  - name: invoices  # NEW
-    display_name: Invoices
-    category: Finance
-    description: Client invoicing and payments
-```
-
-**Grant permissions:**
-```yaml
-# domain/tenant_roles.yaml (add to relevant role)
-  - name: agency_owner
-    permissions:
-      # ... existing permissions
-      - resource: invoices  # NEW
-        actions: [read, write, delete, export]
-```
-
-Reseed:
-```bash
-make b2b-seed-roles
-```
-
-### Scenario 2: Change Existing Role Permissions
-
-```yaml
-# domain/tenant_roles.yaml
-# Change admin to have billing read access (not write):
-  - name: admin
-    permissions:
-      - resource: billing
-        actions: [read]  # Changed from no billing access
-```
-
-Reseed (idempotent):
-```bash
-make b2b-seed-roles
-```
-
-### Scenario 3: Client Needs Custom Approval Workflow
-
-**This requires plugin architecture** (future enhancement). Current 2D RBAC doesn't support:
-- Multi-step approval chains
-- Conditional permissions based on resource state
-- Time-based or location-based access
-
-**See:** [RBAC Plugin Architecture](/home/neeraj/.gemini/antigravity/brain/08ab7912-d441-4df9-96a1-b63018c1569e/rbac_plugin_architecture.md)
-
----
-
-## API Reference
-
-### Seed RBAC
-
-```bash
-# Development/Demo:
-USE_CASE=bank_surveillance make b2b-seed-roles
-
-# Production:
-make b2b-seed-roles
-```
-
-### Create Demo Tenant
-
-```bash
-make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
-```
-
-### Check User Permissions (Backend)
-
-```python
-from modules.b2b.rbac.permission_checker import has_permission
-
-# Tenant-level check
-if await has_permission(user_id, 'projects', 'write', db):
-    # User can write projects
-
-# Team-level check
-from modules.b2b.rbac.scope_checker import check_team_permission
-
-if await check_team_permission(user_id, team_id, 'tasks', 'delete', db):
-    # User can delete tasks in this team
+```sql
+-- 1. Users with System Role
+CREATE TABLE b2b.users (
+    id UUID PRIMARY KEY,
+    tenant_id UUID,
+    role_id UUID REFERENCES b2b.roles(id),  -- System/Tenant role
+    ...
+);
+
+-- 2. Team Memberships (Data Scope)
+CREATE TABLE b2b.team_members (
+    id UUID PRIMARY KEY,
+    team_id UUID REFERENCES b2b.teams(id),
+    user_id UUID REFERENCES b2b.users(id),
+    team_role VARCHAR(50),  -- Role within this team
+    ...
+);
+
+-- 3. Roles (System + Tenant)
+CREATE TABLE b2b.roles (
+    id UUID PRIMARY KEY,
+    tenant_id UUID,
+    name VARCHAR(50),
+    is_system_role BOOLEAN,  -- true = system, false = tenant/business
+    permissions JSONB,
+    ...
+);
 ```
 
 ---
 
 ## Related Documentation
 
-- [RBAC Specification](../specifications/b2b/rbac.md) - Technical specification
-- [Authorization Architecture](../architecture/b2b/authorization.md) - Deep technical dive
-- [Enterprise Use Cases](/home/neeraj/.gemini/antigravity/brain/08ab7912-d441-4df9-96a1-b63018c1569e/enterprise_sme_use_cases.md) - Bank & Marketing examples
-
----
-
-## FAQ
-
-
-
-**Q: When are base team roles loaded?**
-Only when use case/domain has NO custom team roles defined.
-
-**Q: Can I have both platform and domain roles for the same user?**
-Yes! User typically has: 1 platform role (e.g., `admin`) + can be assigned domain role (e.g., `regional_director`)
-
-**Q: How do I switch between demo use cases?**
-```bash
-make b2b-demo-bank       # Switch to bank
-make b2b-demo-marketing  # Switch to marketing
-```
-
-**Q: What if I need geographic boundaries or data classification?**
-Current 2D RBAC doesn't support this. See [Plugin Architecture](/home/neeraj/.gemini/antigravity/brain/08ab7912-d441-4df9-96a1-b63018c1569e/rbac_plugin_architecture.md) for future enhancements.
+- [Authorization Architecture](../architecture/b2b/authorization.md) - Technical implementation
+- [Bank Surveillance Use Case](../../backend/scripts/b2b/use_cases/bank_surveillance/README.md) - Enterprise example

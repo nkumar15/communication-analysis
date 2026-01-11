@@ -67,8 +67,8 @@ tenant_roles:
       - resource: teams
         actions: [read]
   
-  - name: compliance_officer
-    display_name: Compliance Officer
+  - name: head_compliance
+    display_name: Head of Compliance
     clearance_level: 4
     bypass_geographic_restrictions: true
     description: Oversight role for regulatory compliance and auditing

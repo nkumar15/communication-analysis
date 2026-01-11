@@ -32,6 +32,7 @@ We define specific roles to match the bank's operational and compliance needs.
 | :--- | :--- | :--- | :--- |
 | **Leadership** | `surveillance_chief` | **Tenant** | C-Suite executive (CSO) with global oversight. |
 | **Leadership** | `regional_director` | **Tenant** | Senior management for a specific region. |
+| **Leadership** | `head_compliance` | **Tenant** | Global oversight (Head of Compliance). |
 | **Desk** | `surveillance_lead` | **Team** | Runs a specific desk (e.g., Head of SG). |
 | **Desk** | `surveillance_analyst` | **Team** | Standard investigator. |
 | **Operations** | `operations_maker` | **Team** | Can create cases but **cannot approve**. |
@@ -138,7 +139,32 @@ Special configurations for non-business users.
 
 ---
 
-## 7. FAQ
+## 7. Configuration Architecture (Base + Overlay)
+
+The RBAC seeding system uses a **Modular "Base + Overlay" Pattern** to keep core definitions clean while allowing domain-specific customizations.
+
+### How it works
+1.  **Core Layer (Universal):** The platform loads immutable base roles (`Owner`, `Admin`, `Member`) from the core system.
+2.  **Domain Layer (Specific):** The use case loads its unique roles (e.g., `Surveillance Chief`) from `tenant_roles.yaml`.
+3.  **Overlay Layer (Patching):** *Optional.* The use case can inject new permissions into existing Core roles without modifying the core files.
+
+### Why use Overlays?
+Instead of redefining the `Member` role from scratch (which breaks updates), we can "patch" it.
+
+**Example (Not used in this demo):**
+If we wanted every standard **Member** to view High Priority Alerts, we would create a `tenant_permissions.yaml` overlay:
+```yaml
+tenant_permissions:
+  member:              # Target existing Core role
+    - resource: alerts # Inject new resource access
+      actions: [read]
+```
+
+*Note: This specific demo relies entirely on distinct roles defined in `tenant_roles.yaml` and does not currently use overlays, hence the "No tenant permission overlays to apply" message during seeding.*
+
+---
+
+## 8. FAQ
 
 **Q: Why do we have two layers of roles (Tenant vs. Team)?**
 This "2-Layer RBAC" model is crucial for enterprise banking:
@@ -158,6 +184,10 @@ This "2-Layer RBAC" model is crucial for enterprise banking:
 *   **Current State:** It is **Structurally Flat** but **Logically Hierarchical**. "SG Desk" and "APAC Hub" are sibling records in the database. Hierarchy is enforced by *who* is assigned *where* (e.g., Director gets "Tenant Role" visibility, Desk Head gets "Team Role" restriction).
 *   **Future (Plugin Extension):** Yes! The `teams` table includes a `config_data` JSONB column. A future **"Hierarchy Plugin"** will use `config_data['parent_id']` to enable recursive permissions (e.g., "Grant access to Team X and all its children").
 
+**Q: Why do we have `compliance_officer` in Team Roles if we have a Head of Compliance?**
+*   **Head of Compliance (`head_compliance`):** A **Tenant Role** with global power. They oversee the entire bank.
+*   **Compliance Liaison (`compliance_officer`):** A **Team Role** for local oversight. This corresponds to an officer physically sitting at the desk (e.g., "Singapore Desk Liaison"). They need access ONLY to that specific team's investigations, not the whole bank.
+
 ---
 
 ## 8. Usage
@@ -175,3 +205,4 @@ make b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo
 ```
 
 **Fixed Tenant ID:** `b5e1fa40-89f4-50c2-a3f4-4c122000beef`
+ 

@@ -1,268 +1,431 @@
 # Authorization & RBAC Architecture
 
 **Audience:** Backend Developers  
-**Last Updated:** 2026-01-09
+**Last Updated:** 2026-01-11
 
-This document details the **Role-Based Access Control (RBAC)** system implementation, including configuration architecture, seeding process, permission checks, and customization workflows.
+This document details the **3-Layer Role-Based Access Control (RBAC)** system implementation, including the design philosophy, database schema, permission resolution, and implementation patterns.
 
 For **Authentication**, see [Authentication Architecture](./authentication.md).
+For **RBAC Concepts**, see [RBAC Concepts Guide](../../guides/b2b-rbac-concepts.md).
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Configuration Architecture](#configuration-architecture)
-2. [Database Schema](#database-schema)
-3. [Seeding Process](#seeding-process)
-4. [Permission System](#permission-system)
-5. [Endpoint Protection](#endpoint-protection)
-6. [Separation of Duties](#separation-of-duties)
-7. [RBAC Plugin Architecture](#rbac-plugin-architecture)
+1. [Design Philosophy](#design-philosophy)
+2. [The 3-Layer Model](#the-3-layer-model)
+3. [Database Schema](#database-schema)
+4. [Permission Resolution](#permission-resolution)
+5. [Implementation Patterns](#implementation-patterns)
+6. [Endpoint Protection](#endpoint-protection)
+7. [Configuration Architecture](#configuration-architecture)
 
 ---
 
-## 🏗️ Configuration Architecture
+## 🎯 Design Philosophy
 
-### Directory Structure
+### Core Principle
 
-The RBAC system uses a layered configuration approach:
+> **Separate WHY the user exists from WHAT the user can do**
+
+The system distinguishes between:
+- **Identity existence** (can they log in?)
+- **Business authority** (what can they do?)
+- **Data scope** (which data can they see?)
+
+### The 3 Questions
+
+| Question | Layer | Answer |
+|----------|-------|--------|
+| "Is this user allowed to use the system at all?" | System Role | Yes/No |
+| "What business function do they perform?" | Tenant Role | Actions allowed |
+| "Which data are they allowed to see?" | Team | Data scope |
+
+---
+
+## 🏗️ The 3-Layer Model
 
 ```
-backend/scripts/b2b/
-├── core/                           # Universal SaaS boilerplate
-│   ├── actions.yaml                # Universal actions (read, write, etc.)
-│   ├── saas_roles.yaml             # Platform roles (owner, admin, member, viewer)
-│   ├── saas_resources.yaml         # Platform resources (users, teams, billing)
-│   ├── team_roles_base.yaml        # Generic team roles
-│   └── README.md
-│
-├── domain/                         # Production customization
-│   ├── resources.yaml
-│   ├── tenant_roles.yaml
-│   ├── team_roles.yaml
-│   └── README.md
-│
-├── use_cases/                      # Demo templates
-│   ├── bank_surveillance/
-│   ├── marketing_agency/
-│   └── task_management/
-│
-├── seed_rbac.py                    # Main seeding script
-└── tenant_onboard.py
+┌─────────────────────────────────────────────────────────────┐
+│  LAYER 1: SYSTEM ROLE                                       │
+│  ─────────────────────                                      │
+│  • Cardinality: Exactly ONE per user (required)             │
+│  • Values: owner, admin, member, viewer                     │
+│  • Stored: b2b.users.role_id → b2b.roles (is_system=true)   │
+│  • Purpose: Platform access, login, admin console           │
+│  • Rule: Does NOT grant business data access                │
+├─────────────────────────────────────────────────────────────┤
+│  LAYER 2: TENANT ROLE                                       │
+│  ─────────────────────                                      │
+│  • Cardinality: 0..N per user (optional)                    │
+│  • Values: surveillance_chief, regional_director, analyst   │
+│  • Stored: b2b.user_tenant_roles (future) or role_id        │
+│  • Purpose: Business action authority (WHAT)                │
+│  • Rule: Does NOT define data scope                         │
+├─────────────────────────────────────────────────────────────┤
+│  LAYER 3: TEAM MEMBERSHIP                                   │
+│  ─────────────────────                                      │
+│  • Cardinality: 0..N per user (optional)                    │
+│  • Values: APAC, SG Desk, India, Special Investigations     │
+│  • Stored: b2b.team_members (user_id, team_id, team_role)   │
+│  • Purpose: Data scope (WHERE)                              │
+│  • Rule: No team = no data access                           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Configuration Loading
+### Layer Responsibilities
 
-**Development/Demo (with USE_CASE):**
-```bash
-USE_CASE=bank_surveillance python seed_rbac.py
-# Loads: core/* + use_cases/bank_surveillance/*
-```
-
-**Production (without USE_CASE):**
-```bash
-python seed_rbac.py
-# Loads: core/* + domain/*
-```
-
-**Loading Priority:**
-1. Always: `core/` (actions, saas_roles, saas_resources)
-2. Conditionally: `use_cases/<USE_CASE>/` OR `domain/`
-3. Smart: Base team roles **skipped** if custom team roles defined
+| Layer | Controls | Does NOT Control |
+|-------|----------|------------------|
+| **System Role** | Login, platform UI, admin console, billing | Business data access |
+| **Tenant Role** | Resource permissions, actions | Data scope |
+| **Team** | Data visibility, team-specific operations | Global permissions |
 
 ---
 
 ## 💾 Database Schema
 
-### Three-Table Role Model
+### Core Tables
 
 ```sql
--- 1. Global Role Templates (Blueprints)
-CREATE TABLE b2b.role_templates (
-    id UUID PRIMARY KEY,
-    name VARCHAR(50) UNIQUE,
-    display_name VARCHAR(100),
-    is_system_role BOOLEAN,
-    is_default BOOLEAN,
-    permissions JSONB NOT NULL  -- [{"resource":"users","actions":["read","write"]}]
-);
-
--- 2. Tenant-Specific Role Instances
-CREATE TABLE b2b.roles (
-    id UUID PRIMARY KEY,
-    tenant_id UUID REFERENCES b2b.tenants(id),
-    name VARCHAR(50),
-    display_name VARCHAR(100),
-    is_system_role BOOLEAN,
-    is_active BOOLEAN,
-    UNIQUE(tenant_id, name)
-);
-
--- 3. User Role Assignments
+-- Users with System Role assignment
 CREATE TABLE b2b.users (
     id UUID PRIMARY KEY,
     tenant_id UUID REFERENCES b2b.tenants(id),
-    role_id UUID REFERENCES b2b.roles(id),  -- User's assigned role
-    ...
+    email VARCHAR(255) NOT NULL,
+    role_id UUID REFERENCES b2b.roles(id),  -- System or Tenant role
+    firebase_uid VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    UNIQUE(tenant_id, email)
+);
+
+-- Roles (System + Tenant roles)
+CREATE TABLE b2b.roles (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES b2b.tenants(id),
+    name VARCHAR(50) NOT NULL,
+    display_name VARCHAR(100),
+    is_system_role BOOLEAN DEFAULT FALSE,  -- true = owner/admin/member/viewer
+    is_active BOOLEAN DEFAULT TRUE,
+    permissions JSONB,
+    UNIQUE(tenant_id, name)
+);
+
+-- Team Memberships with Team Role
+CREATE TABLE b2b.team_members (
+    id UUID PRIMARY KEY,
+    team_id UUID REFERENCES b2b.teams(id),
+    user_id UUID REFERENCES b2b.users(id),
+    team_role VARCHAR(50) NOT NULL DEFAULT 'team_contributor',
+    team_role_id UUID REFERENCES b2b.team_role_definitions(id),
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(team_id, user_id)
+);
+
+-- Team Role Definitions
+CREATE TABLE b2b.team_role_definitions (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES b2b.tenants(id),
+    name VARCHAR(50) NOT NULL,
+    display_name VARCHAR(100),
+    permissions JSONB,
+    is_system BOOLEAN DEFAULT FALSE,
+    UNIQUE(tenant_id, name)
 );
 ```
+
+### Role Categories
+
+| is_system_role | Role Type | Examples |
+|----------------|-----------|----------|
+| TRUE | System Role | owner, admin, member, viewer |
+| FALSE | Tenant Role | surveillance_chief, regional_director |
 
 ### Data Flow
 
 ```
 SEED PHASE:
-    YAML files → role_templates (global)
+    YAML files → role_templates (global blueprints)
 
 TENANT CREATION:
     role_templates → roles (per-tenant instances)
+    seed_tenant_roles() creates system + tenant roles
 
 USER INVITATION:
-    roles → users.role_id (user assignment)
+    roles.id → users.role_id (user gets ONE role)
+    teams.id → team_members (user assigned to teams)
 ```
 
 ---
 
-## 🌱 Seeding Process
+## 🔐 Permission Resolution
 
-### seed_rbac.py Architecture
+### Evaluation Algorithm
 
 ```python
-# Key functions:
-async def seed_actions(db)              # Load core/actions.yaml
-async def seed_saas_resources(db)       # Load core/saas_resources.yaml
-async def seed_saas_roles(db)           # Load core/saas_roles.yaml → role_templates
-async def seed_base_team_roles(db)      # Load core/team_roles_base.yaml (conditional)
-async def seed_domain_resources(db)     # Load CONFIG_DIR/resources.yaml
-async def seed_additional_tenant_roles(db)  # Load CONFIG_DIR/tenant_roles.yaml
-async def seed_additional_team_roles(db)     # Load CONFIG_DIR/team_roles.yaml
+async def can_access(
+    user: User,
+    resource: str,
+    action: str,
+    data_team_id: UUID | None = None
+) -> bool:
+    """
+    3-Layer Permission Check
+    
+    Layer 1: System Role (can login?)
+    Layer 2: Tenant Role (action allowed?)
+    Layer 3: Team (data scope?)
+    """
+    
+    # LAYER 1: System Role Check
+    if not user.role or not user.role.is_active:
+        return False  # No role = no access
+    
+    # Admin bypass for platform operations only
+    if user.role.is_system_role and user.role.name in ('owner', 'admin'):
+        if is_platform_resource(resource):
+            return True
+    
+    # LAYER 2: Tenant Role Permission Check
+    role_permissions = user.role.permissions or []
+    has_permission = any(
+        p['resource'] == resource and action in p['actions']
+        for p in role_permissions
+    )
+    
+    if not has_permission:
+        return False
+    
+    # LAYER 3: Team Scope Check (for business data)
+    if is_business_resource(resource) and data_team_id:
+        team_membership = await get_team_membership(user.id, data_team_id)
+        if not team_membership:
+            return False
+    
+    return True
 ```
 
-### Conditional Team Role Loading
+### Resolution Flow Diagram
 
-**Key Logic:**
+```
+Request: "Can User X approve investigation in SG Desk?"
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ LAYER 1: SYSTEM ROLE                    │
+│ Does user have valid system role?       │
+│ → Yes (member)                          │
+└─────────────────────────────────────────┘
+    │ PASS
+    ▼
+┌─────────────────────────────────────────┐
+│ LAYER 2: TENANT ROLE                    │
+│ Does role have investigations:approve?  │
+│ → Yes (surveillance_chief)              │
+└─────────────────────────────────────────┘
+    │ PASS
+    ▼
+┌─────────────────────────────────────────┐
+│ LAYER 3: TEAM SCOPE                     │
+│ Is user member of SG Desk team?         │
+│ → Yes (surveillance_lead role)          │
+└─────────────────────────────────────────┘
+    │ PASS
+    ▼
+✅ ACCESS GRANTED
+```
+
+---
+
+## 🛠️ Implementation Patterns
+
+### 1. System Role Check (Login Guard)
+
 ```python
-async def seed_base_team_roles(db):
-    # Check if use case defines custom team roles
-    use_case_team_roles_data = load_yaml(CONFIG_DIR / 'team_roles.yaml')
-    use_case_team_roles = use_case_team_roles_data.get('team_roles', [])
+# middleware/auth.py
+async def require_login(user: User) -> bool:
+    """Layer 1: Can user log in?"""
+    if not user or not user.role:
+        return False
+    return user.role.is_active
+```
+
+### 2. Admin Check (Platform Operations)
+
+```python
+async def require_admin(user: User) -> bool:
+    """Check if user can perform admin operations"""
+    if not user.role or not user.role.is_system_role:
+        return False
+    return user.role.name in ('owner', 'admin')
+```
+
+### 3. Permission Check (Business Actions)
+
+```python
+async def check_permission(
+    user: User, 
+    resource: str, 
+    action: str,
+    db: AsyncSession
+) -> bool:
+    """Layer 2: Does user have permission for action?"""
+    role = await get_user_role(db, user.id)
+    if not role or not role.permissions:
+        return False
     
-    if use_case_team_roles:
-        # Skip base roles to prevent pollution
-        print("✓ Skipping base team roles (use case defines custom team roles)")
-        return
+    return any(
+        p.get('resource') == resource and action in p.get('actions', [])
+        for p in role.permissions
+    )
+```
+
+### 4. Team Scope Check (Data Access)
+
+```python
+async def check_team_access(
+    user_id: UUID,
+    team_id: UUID,
+    db: AsyncSession
+) -> bool:
+    """Layer 3: Is user member of this team?"""
+    result = await db.execute(
+        select(TeamMember)
+        .where(TeamMember.user_id == user_id)
+        .where(TeamMember.team_id == team_id)
+    )
+    return result.scalar_one_or_none() is not None
+```
+
+---
+
+## 🔒 Endpoint Protection
+
+### FastAPI Dependency Pattern
+
+```python
+from fastapi import Depends, HTTPException, status
+
+async def require_permission(
+    resource: str,
+    action: str
+):
+    """Decorator factory for permission checks"""
+    async def dependency(
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+    ):
+        if not await check_permission(current_user, resource, action, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: {resource}:{action}"
+            )
+        return current_user
+    return Depends(dependency)
+
+# Usage
+@router.post("/investigations/{investigation_id}/approve")
+async def approve_investigation(
+    investigation_id: UUID,
+    user: User = require_permission("investigations", "approve"),
+    db: AsyncSession = Depends(get_db)
+):
+    # Check team scope
+    investigation = await get_investigation(db, investigation_id)
+    if not await check_team_access(user.id, investigation.team_id, db):
+        raise HTTPException(403, "Not a member of this team")
     
-    # Load base team roles from core/
+    # Proceed with approval
     ...
 ```
 
----
+### RLS Integration
 
-## 🏛️ Separation of Duties (SoD)
-
-### Pattern A: Regulated Industries
-
-**Required for:** Banks, Healthcare, Finance (SOX, MiFID II, FINRA compliance)
-
-**Implementation:**
-```yaml
-# Separate IT and Business roles
-
-# IT Administrator (Platform)
-owner:
-  permissions:
-    - billing:manage
-    - users:write
-    - settings:manage
-    # NO business operations
-
-# Chief Surveillance Officer (Business)
-surveillance_chief:
-  permissions:
-    - communications:analyze
-    - investigations:approve
-    - alerts:escalate
-    # NO billing
-    # NO user provisioning (read only)
-
-# Independent Compliance Officer
-compliance_officer:
-  permissions:
-    - ALL resources: read, export
-    # NO write permissions
+```python
+# For automatic data scoping via Row-Level Security
+async def set_user_context(db: AsyncSession, user: User):
+    """Set RLS context for automatic data filtering"""
+    team_ids = await get_user_team_ids(db, user.id)
+    await db.execute(text(
+        f"SET LOCAL app.current_user_teams = '{{{','.join(str(t) for t in team_ids)}}}'"
+    ))
 ```
 
 ---
 
-## 🔄 Use Case Examples
+## ⚙️ Configuration Architecture
 
-### Bank Surveillance
-For a deep dive into the Enterprise Bank Surveillance RBAC implementation (Hybrid Model, SoD, Chinese Walls), please see the dedicated guide:
+### Directory Structure
 
-👉 **[Bank Surveillance Use Case README](/home/neeraj/codes/enterprisesso/backend/scripts/b2b/use_cases/bank_surveillance/README.md)**
+```
+backend/scripts/b2b/
+├── core/                           # System roles (don't edit)
+│   ├── actions.yaml
+│   ├── saas_roles.yaml             # owner, admin, member, viewer
+│   └── saas_resources.yaml         # Platform resources
+│
+├── domain/                         # Production: Tenant roles
+│   ├── resources.yaml              # Business resources
+│   ├── tenant_roles.yaml           # surveillance_chief, etc.
+│   └── team_roles.yaml             # Team-specific roles
+│
+├── use_cases/                      # Demo templates
+│   ├── bank_surveillance/
+│   │   ├── tenant_roles.yaml       # Business tenant roles
+│   │   ├── team_roles.yaml         # Team roles
+│   │   └── README.md
+│   └── marketing_agency/
+```
 
-### Marketing Agency
+### Seeding Process
 
-**Configuration:**
 ```bash
-USE_CASE=marketing_agency python seed_rbac.py
+# Development: Load use case
+USE_CASE=bank_surveillance make b2b-seed-roles
+
+# Production: Load domain
+make b2b-seed-roles
 ```
 
-**Roles Seeded:**
-- Tenant: `owner`, `admin`, `agency_owner`, `account_director`
-- Team: `account_manager`, `creative_lead`, `specialist`, `content_contributor`
+### Role Template Flow
+
+```
+YAML (role_templates) 
+    → role_templates table (global)
+        → roles table (per-tenant)
+            → users.role_id (assignment)
+```
 
 ---
 
-## 🔌 RBAC Plugin Architecture
+## 📊 Default User Behavior
 
-To support complex enterprise constraints (e.g., hierarchical permissions, geographic boundaries) without complicating the core RBAC model, the system uses an **Interceptor-based Plugin Layer**.
+### User with Only System Role (member)
 
-### High-Level Design
+| Capability | Allowed? |
+|------------|:--------:|
+| Login | ✅ |
+| Dashboard shell | ✅ |
+| Profile page | ✅ |
+| Notifications | ✅ |
+| Business data | ❌ |
+| Team screens | ❌ |
+| Write actions | ❌ |
 
-```
-┌──────────────────────────────────────────────┐
-│             PERMISSION CHECKER               │
-│                                              │
-│  1. Context Enrichment (Plugin.enrich)       │
-│  2. Pre-Check Hooks (Plugin.before)          │◄─── Short-circuit Allow/Deny
-│  3. CORE RBAC CHECK (DB Tables)              │
-│  4. Post-Check Hooks (Plugin.after)          │◄─── Filter/Override Result
-└──────────────────────────────────────────────┘
-```
+### UI States
 
-### Core Components
-
-#### 1. Plugin Registry
-The Registry is a singleton service that:
-1.  Loads enabled plugins from configuration.
-2.  Manages the execution order.
-3.  Injects the `PermissionContext` (User, Resource, Action, Metadata).
-
-#### 2. Plugin Interface
-All plugins implement the `RBACPlugin` interface:
-
-| Hook Method | Purpose | Implementation Example |
-| :--- | :--- | :--- |
-| `enrich_user_context` | Inject data before checks | Add `geographic_scopes` array to User object. |
-| `before_permission_check` | Logic **before** DB lookup | Deny access if `user.clearance < resource.sensitivity`. |
-| `after_permission_check` | Logic **after** DB lookup | **Hierarchy:** If core check fails, recursively check Parent Team. |
-
-### Reference Implementation: Bank Surveillance
-
-The **Bank Surveillance** use case demonstrates the need for the **Hierarchical Teams Plugin**.
-
-*   **Problem:** The `team_roles` table is flat. An APAC Director needs visibility into the "SG Bonds Desk" (Child Team) without explicit assignment.
-*   **Plugin Solution:**
-    1.  **Plugin:** `HierarchicalTeamsPlugin`
-    2.  **Logic:** Intercepts `check_team_permission`. If access is denied for "SG Desk", it checks `config_data['parent_id']` (APAC Hub).
-    3.  **Result:** If the user has permission on the Parent Team, access is granted to the Child.
-
-👉 **See Use Case:** [Bank Surveillance README](/home/neeraj/codes/enterprisesso/backend/scripts/b2b/use_cases/bank_surveillance/README.md)
+| User State | Expected UI |
+|------------|-------------|
+| No tenant role | "No access assigned" |
+| Tenant role, no team | "Assign team to activate" |
+| Team, no role | "Role required" |
+| viewer role | Read-only (hide write buttons) |
+| admin role | Show admin console |
 
 ---
 
 ## 📖 See Also
 
-- [RBAC Specification](../../specifications/b2b/rbac.md)
-- [RBAC Concepts Guide](../../guides/b2b-rbac-concepts.md)
-- [Enterprise Use Cases](/home/neeraj/.gemini/antigravity/brain/08ab7912-d441-4df9-96a1-b63018c1569e/enterprise_sme_use_cases.md)
+- [RBAC Concepts Guide](../../guides/b2b-rbac-concepts.md) - Overview and golden rules
+- [RBAC Plugin Architecture](./rbac-plugins.md) - Enterprise extensions (hierarchy, geography, classification)
+- [Bank Surveillance Use Case](../../../backend/scripts/b2b/use_cases/bank_surveillance/README.md) - Enterprise example
