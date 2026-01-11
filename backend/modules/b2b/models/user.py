@@ -1,6 +1,6 @@
 from core.db.base import Base, TimestampMixin, SoftDeleteMixin
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 
 class UserModel(Base, TimestampMixin, SoftDeleteMixin):
     """Customer Tenant User ORM model"""
@@ -15,6 +15,7 @@ class UserModel(Base, TimestampMixin, SoftDeleteMixin):
     
     # RBAC fields
     role_id = Column(UUID(as_uuid=True), ForeignKey('b2b.roles.id'), nullable=True, index=True)
+    geographic_scopes = Column(ARRAY(UUID(as_uuid=True)), default=list)
     
     is_active = Column(Boolean, default=True, nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)

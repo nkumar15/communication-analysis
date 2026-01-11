@@ -16,8 +16,8 @@ For **Authentication**, see [Authentication Architecture](./authentication.md).
 3. [Seeding Process](#seeding-process)
 4. [Permission System](#permission-system)
 5. [Endpoint Protection](#endpoint-protection)
-6. [Data Scoping](#data-scoping)
-7. [Separation of Duties](#separation-of-duties)
+6. [Separation of Duties](#separation-of-duties)
+7. [RBAC Plugin Architecture](#rbac-plugin-architecture)
 
 ---
 
@@ -210,6 +210,54 @@ USE_CASE=marketing_agency python seed_rbac.py
 **Roles Seeded:**
 - Tenant: `owner`, `admin`, `agency_owner`, `account_director`
 - Team: `account_manager`, `creative_lead`, `specialist`, `content_contributor`
+
+---
+
+## 🔌 RBAC Plugin Architecture
+
+To support complex enterprise constraints (e.g., hierarchical permissions, geographic boundaries) without complicating the core RBAC model, the system uses an **Interceptor-based Plugin Layer**.
+
+### High-Level Design
+
+```
+┌──────────────────────────────────────────────┐
+│             PERMISSION CHECKER               │
+│                                              │
+│  1. Context Enrichment (Plugin.enrich)       │
+│  2. Pre-Check Hooks (Plugin.before)          │◄─── Short-circuit Allow/Deny
+│  3. CORE RBAC CHECK (DB Tables)              │
+│  4. Post-Check Hooks (Plugin.after)          │◄─── Filter/Override Result
+└──────────────────────────────────────────────┘
+```
+
+### Core Components
+
+#### 1. Plugin Registry
+The Registry is a singleton service that:
+1.  Loads enabled plugins from configuration.
+2.  Manages the execution order.
+3.  Injects the `PermissionContext` (User, Resource, Action, Metadata).
+
+#### 2. Plugin Interface
+All plugins implement the `RBACPlugin` interface:
+
+| Hook Method | Purpose | Implementation Example |
+| :--- | :--- | :--- |
+| `enrich_user_context` | Inject data before checks | Add `geographic_scopes` array to User object. |
+| `before_permission_check` | Logic **before** DB lookup | Deny access if `user.clearance < resource.sensitivity`. |
+| `after_permission_check` | Logic **after** DB lookup | **Hierarchy:** If core check fails, recursively check Parent Team. |
+
+### Reference Implementation: Bank Surveillance
+
+The **Bank Surveillance** use case demonstrates the need for the **Hierarchical Teams Plugin**.
+
+*   **Problem:** The `team_roles` table is flat. An APAC Director needs visibility into the "SG Bonds Desk" (Child Team) without explicit assignment.
+*   **Plugin Solution:**
+    1.  **Plugin:** `HierarchicalTeamsPlugin`
+    2.  **Logic:** Intercepts `check_team_permission`. If access is denied for "SG Desk", it checks `config_data['parent_id']` (APAC Hub).
+    3.  **Result:** If the user has permission on the Parent Team, access is granted to the Child.
+
+👉 **See Use Case:** [Bank Surveillance README](/home/neeraj/codes/enterprisesso/backend/scripts/b2b/use_cases/bank_surveillance/README.md)
 
 ---
 

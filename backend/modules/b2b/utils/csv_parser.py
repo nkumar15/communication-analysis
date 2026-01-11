@@ -26,14 +26,10 @@ class BulkInviteRow(BaseModel):
     @field_validator('role')
     @classmethod
     def validate_role(cls, v: str) -> str:
-        """Validate role is one of the allowed values"""
-        allowed_roles = {'owner', 'admin', 'member', 'viewer'}
-        v_lower = v.lower().strip()
-        if v_lower not in allowed_roles:
-            raise ValueError(
-                f"Invalid role '{v}'. Must be one of: {', '.join(allowed_roles)}"
-            )
-        return v_lower
+        """Validate role format"""
+        # We allow dynamic custom roles (e.g. surveillance_chief), 
+        # so we just normalize to lowercase
+        return v.lower().strip()
     
     @field_validator('team_role')
     @classmethod
@@ -41,13 +37,9 @@ class BulkInviteRow(BaseModel):
         """Validate team role if provided"""
         if v is None or v.strip() == '':
             return None
-        allowed_team_roles = {'team_manager', 'team_contributor', 'team_reader'}
-        v_lower = v.lower().strip()
-        if v_lower not in allowed_team_roles:
-            raise ValueError(
-                f"Invalid team role '{v}'. Must be one of: {', '.join(allowed_team_roles)}"
-            )
-        return v_lower
+        # We allow dynamic custom team roles (e.g. surveillance_lead),
+        # so we just normalize to lowercase
+        return v.lower().strip()
     
     @field_validator('name')
     @classmethod

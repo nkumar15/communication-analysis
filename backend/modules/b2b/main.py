@@ -51,6 +51,13 @@ async def lifespan(app: FastAPI):
     from infrastructure.auth import get_auth_provider
     get_auth_provider().initialize()
 
+    # Startup: Initialize RBAC Plugins
+    from core.db.session import AsyncSessionLocal
+    from core.rbac.init_plugins import initialize_plugins
+    async with AsyncSessionLocal() as db:
+        await initialize_plugins(db)
+
+
     yield
     
     # Shutdown

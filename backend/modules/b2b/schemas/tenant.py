@@ -16,6 +16,7 @@ class Tenant(BaseModel):
     activated_by: Optional[UUID] = None  # User ID who completed activation
     activation_started_at: Optional[datetime] = None  # Prevent replay attacks
     is_active: bool = True
+    domain_type: str = 'default'  # Domain type for multi-domain SaaS (bank_surveillance, etc.)
     created_at: datetime
     updated_at: datetime
 

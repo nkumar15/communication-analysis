@@ -106,7 +106,8 @@ export const useAuth = () => {
             analytics: 'analytics:read',
             rag_documents: 'rag_documents:read',
             rag_nse: 'rag_nse:read',
-            rag_enron: 'rag_enron:read'
+            rag_enron: 'rag_enron:read',
+            surveillance: 'communications:read'  // Bank surveillance feature
         };
 
         const requiredPermission = featurePermissions[feature];

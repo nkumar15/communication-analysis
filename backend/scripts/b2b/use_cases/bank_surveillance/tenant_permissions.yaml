@@ -1,39 +1,17 @@
 # Bank Surveillance - Tenant Role Permission Overlays
-# Adds surveillance permissions to existing base roles (owner, admin, member, viewer)
+# Adds surveillance permissions to existing base roles (member, viewer)
+# Enforces Separation of Duties by restricting IT roles (owner, admin)
 
 tenant_permissions:
-  owner:
-    - resource: communications
-      actions: [read, analyze, flag, export, archive]
-    - resource: investigations
-      actions: [read, create, assign, investigate, approve, escalate, close, export]
-    - resource: alerts
-      actions: [read, acknowledge, investigate, escalate, dismiss, export]
-    - resource: surveillance_reports
-      actions: [read, create, submit, export, archive]
-    - resource: watchlist
-      actions: [read, approve, delete]
-    - resource: model_config
-      actions: [read, write, train]
-    - resource: analytics
-      actions: [read, export]
+  # =========================================================================
+  # IT/Platform Roles (Restricted from business data)
+  # =========================================================================
+  # owner: (Handled by design - No surveillance permissions added)
+  # admin: (Handled by design - No surveillance permissions added)
   
-  admin:
-    - resource: communications
-      actions: [read, analyze, flag, export]
-    - resource: investigations
-      actions: [read, create, assign, investigate, approve, close, export]
-    - resource: alerts
-      actions: [read, acknowledge, investigate, escalate, dismiss]
-    - resource: surveillance_reports
-      actions: [read, create, export]
-    - resource: watchlist
-      actions: [read, approve, delete]
-    - resource: model_config
-      actions: [read]
-    - resource: analytics
-      actions: [read, export]
-  
+  # =========================================================================
+  # Standard Base Roles (Read-only business visibility)
+  # =========================================================================
   member:
     - resource: communications
       actions: [read]

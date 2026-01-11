@@ -99,15 +99,25 @@ db-setup-auth: ## Setup app user and permissions
 	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/grant_permissions.sql"
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
-migrate: ## Run migrations for all products (USE_CASE=bank_surveillance|marketing_agency)
-	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
+migrate-only: ## Run SQL migrations only (no seeds) - requires just postgres
+	@echo "$(BLUE)Running database migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
+	@echo "$(GREEN)✓ Migrations applied$(NC)"
+
+seed-all: ## Run all seed scripts (requires API services running)
+	@echo "$(BLUE)Running seed scripts...$(NC)"
 	@$(MAKE) platform-seed-permissions
 	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
 	@$(MAKE) b2b-seed-plans
 	@$(MAKE) b2c-seed-plans
-	@echo "$(GREEN)✓ Migrations complete$(NC)"
+	@echo "$(GREEN)✓ Seed scripts complete$(NC)"
+
+migrate: ## Run migrations + seeds for all products (USE_CASE=bank_surveillance|marketing_agency)
+	@echo "$(BLUE)Running full database setup (all products)...$(NC)"
+	@$(MAKE) migrate-only
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@echo "$(GREEN)✓ Database setup complete$(NC)"
 
 b2b-migrate: ## Run migrations for B2B only (USE_CASE=bank_surveillance|marketing_agency)
 	@echo "$(BLUE)Running B2B migrations...$(NC)"
@@ -121,7 +131,7 @@ b2c-migrate: ## Run migrations for B2C only (platform + b2c)
 	@echo "$(BLUE)Running B2C migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
-	@$(MAKE) b2c-seed-plans	
+	@$(MAKE) b2c-seed-plans
 	@echo "$(GREEN)✓ B2C migrations complete$(NC)"
 
 reset-db: ## Reset database (WARNING: deletes all data!)
@@ -130,14 +140,17 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	read REPLY; \
 	case "$$REPLY" in \
 		[Yy]*) \
-			docker-compose down --remove-orphans; \
-			docker volume rm enterprisesso_postgres_data || true; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
+			docker-compose down -v --remove-orphans; \
+			echo "$(BLUE)Starting database...$(NC)"; \
+			docker-compose up -d postgres; \
+			echo "$(BLUE)Waiting for database to be ready...$(NC)"; \
 			sleep 5; \
-			$(MAKE) migrate; \
-			docker-compose restart postgres; \
-			sleep 5; \
-			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
+			$(MAKE) migrate-only; \
+			echo "$(BLUE)Starting API services...$(NC)"; \
+			docker-compose up -d platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
+			echo "$(BLUE)Waiting for services to be ready...$(NC)"; \
+			sleep 10; \
+			$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),); \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
 			$(MAKE) stop-web-all; \
 			;; \
@@ -175,6 +188,10 @@ b2c-seed-plans: ## Seed B2C subscription plans
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
+verify-seed: ## Verify B2B seed data completed successfully
+	@echo "$(BLUE)Verifying seed data...$(NC)"
+	@docker-compose exec -T b2b-api python /app/scripts/b2b/verify_seed.py
+
 b2b-invite: ## Invite B2B Tenant (f=bank_surveillance_demo.json|marketing_agency_demo.json|task_management_demo.json)
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
 	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/use_cases/task_management/task_management_demo.json)
@@ -196,6 +213,7 @@ endif
 b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant via UI)
 	@echo "$(BLUE)🏦 Resetting DB for Bank Surveillance Demo...$(NC)"
 	@$(MAKE) reset-db USE_CASE=bank_surveillance
+	@$(MAKE) verify-seed
 	@echo ""
 	@echo "$(GREEN)✅ Bank Surveillance RBAC Ready!$(NC)"
 	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
@@ -209,6 +227,7 @@ b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant v
 b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tenant via UI)
 	@echo "$(BLUE)📱 Resetting DB for Marketing Agency Demo...$(NC)"
 	@$(MAKE) reset-db USE_CASE=marketing_agency
+	@$(MAKE) verify-seed
 	@echo ""
 	@echo "$(GREEN)✅ Marketing Agency RBAC Ready!$(NC)"
 	@echo "  📋 Resources: campaigns, social_posts, creative_assets, analytics_reports, client_communications"
@@ -222,6 +241,7 @@ b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tena
 b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via UI)
 	@echo "$(BLUE)✅ Resetting DB for Task Management Demo...$(NC)"
 	@$(MAKE) reset-db USE_CASE=task_management
+	@$(MAKE) verify-seed
 	@echo ""
 	@echo "$(GREEN)✅ Task Management RBAC Ready!$(NC)"
 	@echo "  📋 Resources: projects, tasks, comments, rag_documents"

@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.b2b.models import UserModel, Role, Team, TeamMember
-from modules.b2b.rbac.permission_checker import has_permission
+from modules.b2b.rbac.permission_checker import has_permission_with_plugins as has_permission
 
 
 

@@ -464,6 +464,7 @@ class TenantService:
             activated_by=model.activated_by,
             activation_started_at=model.activation_started_at,
             is_active=model.is_active,
+            domain_type=getattr(model, 'domain_type', 'default'),
             created_at=model.created_at,
             updated_at=model.updated_at,
         )

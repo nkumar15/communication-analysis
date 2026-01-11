@@ -1,10 +1,10 @@
 # Bank Surveillance - Team-Level Roles
-# Roles: STL, SA, Maker, Checker, LCO, Guest
+# Roles: STL, SA, Maker, Checker, Compliance, SurvOps
 
 team_roles:
   - name: surveillance_lead
     display_name: Surveillance Team Lead (STL)
-    description: Full management and approval authority for the team
+    description: Full management and approval authority for the team data
     is_system: false
     permissions:
       - resource: team_members
@@ -12,13 +12,13 @@ team_roles:
       - resource: team_settings
         actions: [manage]
       - resource: communications
-        actions: [read, analyze, flag, export]
+        actions: [read]
       - resource: investigations
-        actions: [read, create, assign, approve, close, export]
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
       - resource: alerts
-        actions: [read, acknowledge, investigate, escalate, dismiss]
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
       - resource: surveillance_reports
-        actions: [read, create, export]
+        actions: [read, create, submit, export, archive]
       - resource: watchlist
         actions: [read, approve, delete]
       - resource: model_config
@@ -32,8 +32,6 @@ team_roles:
     is_system: false
     permissions:
       - resource: team_members
-        actions: [read]
-      - resource: team_settings
         actions: [read]
       - resource: communications
         actions: [read, analyze, flag]
@@ -76,12 +74,10 @@ team_roles:
 
   - name: compliance_officer
     display_name: Compliance Officer (LCO)
-    description: Read-only oversight access
+    description: Read-only oversight access at team level
     is_system: false
     permissions:
       - resource: team_members
-        actions: [read]
-      - resource: team_settings
         actions: [read]
       - resource: communications
         actions: [read]
@@ -92,32 +88,28 @@ team_roles:
       - resource: surveillance_reports
         actions: [read]
 
+  - name: surveillance_ops
+    display_name: Surveillance Ops (SurvOps)
+    description: Technical oversight for data pipelines and ingestion health
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage]
+      - resource: team_settings
+        actions: [manage]
+      - resource: data_pipelines
+        actions: [read, write, export] # Mission critical health
+      - resource: model_config
+        actions: [read, write, train]
+      - resource: audit_logs
+        actions: [read]
+
   - name: guest_analyst
     display_name: Guest Analyst
     description: Restricted read-only access for external parties
     is_system: false
     permissions:
-      - resource: investigation_details
+      - resource: investigations
         actions: [read]
-      - resource: public_reports
-        actions: [read]
-
-  - name: tech_support
-    display_name: Technical Support (GT)
-    description: Technical oversight for data processing and configuration
-    is_system: false
-    permissions:
-      - resource: team_settings
-        actions: [manage]
       - resource: surveillance_reports
-        actions: [read]
-      - resource: alerts
-        actions: [read]
-      - resource: communications
-        actions: [read]
-      - resource: audit_logs
-        actions: [read]
-      - resource: model_config
-        actions: [read, write, train]
-      - resource: analytics
         actions: [read]

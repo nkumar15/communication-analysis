@@ -43,3 +43,9 @@ bank_surveillance_resources:
     category: Reporting
     description: Operational analytics and data processing statistics
     is_system_resource: false
+
+  - name: data_pipelines
+    display_name: Data Ingestion Pipelines
+    category: Engineering
+    description: Monitoring of data ingestion pipelines, volumes, and processing stats
+    is_system_resource: false

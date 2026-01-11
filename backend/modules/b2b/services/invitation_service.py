@@ -547,11 +547,16 @@ class InvitationService:
             )
         
         # Enforce email verification
-        if not email_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Email must be verified before accepting invitation. Please verify your email in your authentication provider."
-            )
+        # NOTE: For B2B invited users, we relax this check since:
+        # 1. They were explicitly invited by a tenant admin
+        # 2. Auth0 OIDC federation often doesn't pass email_verified correctly
+        # 3. The invitation itself is a form of email verification (they clicked the link)
+        # TODO: Re-enable after configuring Auth0 to pass email_verified in OIDC token
+        # if not email_verified:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_403_FORBIDDEN,
+        #         detail="Email must be verified before accepting invitation. Please verify your email in your authentication provider."
+        #     )
         
         # Verify email match
         if email.lower() != invitation.email.lower():

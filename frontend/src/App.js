@@ -19,6 +19,9 @@ import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPag
 import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
 import RagKnowledgeBasePage from './modules/b2b/web/pages/RagKnowledgeBasePage';
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
+import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
+import CommunicationsPage from './modules/domains/surveillance/pages/CommunicationsPage';
+import InvestigationsPage from './modules/domains/surveillance/pages/InvestigationsPage';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
@@ -143,6 +146,11 @@ function App() {
                 <Route path="/b2b/teams/:teamId" element={<ProtectedRoute><TeamDetailsPage /></ProtectedRoute>} />
                 <Route path="/audit-logs" element={<ProtectedRoute><AuditLogsPage /></ProtectedRoute>} />
                 <Route path="/settings/account" element={<ProtectedRoute><AccountSettingsPage /></ProtectedRoute>} />
+
+                {/* Surveillance routes */}
+                <Route path="/b2b/surveillance" element={<ProtectedRoute><SurveillanceDashboardPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/communications" element={<ProtectedRoute><CommunicationsPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/investigations" element={<ProtectedRoute><InvestigationsPage /></ProtectedRoute>} />
 
                 {/* Billing routes */}
                 <Route path="/billing/subscription" element={<ProtectedRoute><SubscriptionSettingsPage /></ProtectedRoute>} />

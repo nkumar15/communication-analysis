@@ -18,13 +18,11 @@ import {
     IconButton,
     Button
 } from '@mui/material';
-import {
-    Download,
-    CheckCircle,
-    Schedule,
-    Cancel,
-    Receipt
-} from '@mui/icons-material';
+import Download from '@mui/icons-material/Download';
+import CheckCircle from '@mui/icons-material/CheckCircle';
+import Schedule from '@mui/icons-material/Schedule';
+import Cancel from '@mui/icons-material/Cancel';
+import Receipt from '@mui/icons-material/Receipt';
 import apiService from '../../../core/api/b2bClient';
 import AdminLayout from '../web/layouts/AdminLayout';
 

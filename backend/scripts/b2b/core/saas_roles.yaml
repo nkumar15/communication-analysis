@@ -46,6 +46,8 @@ role_templates:
         actions: [read, export]
       - resource: reports
         actions: [read, export]
+      - resource: roles
+        actions: [read, write, delete]
 
   - name: admin
     display_name: Administrator
@@ -53,7 +55,7 @@ role_templates:
       Platform administrator without billing access.
       Can manage users, teams, and settings but cannot access billing.
     is_system_role: true
-    is_default: false
+    is_default: true
     permissions:
       # Platform Management (no billing)
       - resource: dashboard
@@ -68,6 +70,8 @@ role_templates:
         actions: [read, export]
       - resource: reports
         actions: [read, export]
+      - resource: roles
+        actions: [read, write]
 
   - name: member
     display_name: Member
@@ -75,7 +79,7 @@ role_templates:
       Standard tenant member with read access across all teams.
       Can view data but limited write permissions.
     is_system_role: true
-    is_default: false
+    is_default: true
     permissions:
       - resource: dashboard
         actions: [read]
@@ -92,7 +96,7 @@ role_templates:
       Read-only access across tenant.
       Cannot modify any data.
     is_system_role: true
-    is_default: false
+    is_default: true
     permissions:
       - resource: dashboard
         actions: [read]

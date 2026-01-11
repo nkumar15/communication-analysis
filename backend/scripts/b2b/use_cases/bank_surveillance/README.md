@@ -36,7 +36,7 @@ We define specific roles to match the bank's operational and compliance needs.
 | **Desk** | `surveillance_analyst` | **Team** | Standard investigator. |
 | **Operations** | `operations_maker` | **Team** | Can create cases but **cannot approve**. |
 | **Operations** | `operations_checker` | **Team** | Can approve cases but **cannot create**. |
-| **Support** | `tech_support` | **Team** | IT support for tools (no business data write access). |
+| **Support** | `surveillance_ops` | **Team** | Surveillance Operations (SurvOps) - Monitors pipelines and stats. |
 | **Audit** | `compliance_officer` | **Team** | Read-only regulatory oversight. |
 | **External** | `guest_analyst` | **Team** | Limited read-only access for auditors. |
 
@@ -70,25 +70,27 @@ graph TD
 The `bank_surveillance_bulk_invite.csv` provisions **10 Users** ensuring 100% role coverage.
 
 ### A. Leadership (Global Scope)
-| User | Email | Tenant Role | Team Role | Scope |
+| User | Email | **Invitation Tenant Role** | Team Role | Scope |
 | :--- | :--- | :--- | :--- | :--- |
-| **Susan Martinez** | `cso@worldwidebank.com` | `surveillance_chief` | - | **ALL Data** |
-| **APAC Director** | `director.apac.surv@...` | `regional_director` | - | **ALL Data** |
+| **Susan Martinez** | `cso@worldwidebank.com` | **Surveillance Chief** | - | **ALL Data** |
+| **APAC Director** | `director.apac.surv@...` | **Regional Director** | - | **ALL Data** |
+
+> **Note:** If manual invitation UI does not show custom roles, invite as **Member** and update role via API or script.
 
 ### B. Desk Operations (Restricted Scope)
-| User | Email | Tenant Role | Team Role | Scope |
+| User | Email | **Invitation Tenant Role** | Team Role | Scope |
 | :--- | :--- | :--- | :--- | :--- |
-| **SG Head** | `head.sg.surv@...` | `member` | `surveillance_lead` | **SG Team Only** |
-| **MY Head** | `head.my.surv@...` | `member` | `surveillance_lead` | **MY Team Only** |
-| **MY Analyst** | `analyst.my.wealth@...` | `member` | `surveillance_analyst` | **MY Team Only** |
+| **SG Head** | `head.sg.surv@...` | **Member** | `surveillance_lead` | **SG Team Only** |
+| **MY Head** | `head.my.surv@...` | **Member** | `surveillance_lead` | **MY Team Only** |
+| **MY Analyst** | `analyst.my.wealth@...` | **Member** | `surveillance_analyst` | **MY Team Only** |
 
 ### C. Separation of Duties (SoD)
 *These users work in the "Special Investigations" team.*
 
-| User | Email | Role | Permission |
+| User | Email | **Invitation Tenant Role** | Team Permission |
 | :--- | :--- | :--- | :--- |
-| **Maker** | `analyst.global.forensic@...` | `operations_maker` | Can **Create**, Cannot Approve |
-| **Checker** | `checker.global.forensic@...` | `operations_checker` | Can **Approve**, Cannot Create |
+| **Maker** | `analyst.global.forensic@...` | **Member** | Can **Create**, Cannot Approve |
+| **Checker** | `checker.global.forensic@...` | **Member** | Can **Approve**, Cannot Create |
 
 ---
 
@@ -96,31 +98,43 @@ The `bank_surveillance_bulk_invite.csv` provisions **10 Users** ensuring 100% ro
 
 Special configurations for non-business users.
 
-### Tech Support (`tech.support.apac@...`)
+### Surveillance Operations (`surv.ops.apac@...`)
 *   **Mapping:** Appointed to both SG and MY teams.
-*   **Function:** Troubleshooting investigation tools and configuration.
-*   **Constraint:** Can **Manage Team Settings** and **Train Models** but strictly **Read-Only** for business communications (cannot delete/alter evidence).
+*   **Invitation Tenant Role:** **Member**
+*   **Function:** Monitoring data pipeline health, processing volumes, and failure statistics.
+*   **Constraint:** Can **Manage Team Members** (for support access) and **Train Models** but strictly **No Access** to sensitive business data content (Comms, Investigations, Alerts). They focus on the **Data Ingestion Pipelines** dashboard.
 
 ### External Auditors (`guest.auditor@...` / `liaison.sg.mas@...`)
 *   **Mapping:** `guest.auditor` is assigned `guest_analyst` role. `liaison.sg.mas` is `compliance_officer`.
+*   **Invitation Tenant Role:** **Member** (for Liaison) or **Viewer** (for Guest).
 *   **Function:** Regulatory review.
 *   **Constraint:** "Least Privilege". They can see reports and case details but cannot see raw sensitive comms or PII unless explicitly authorized.
 
 ---
 
-## 6. Permissions Summary
+## 6. Permissions Matrix
 
-| Role | Comms | Investigations | Alerts | Watchlist | Admin |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Chief (CSO)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ❌ |
-| **Director** | ✅ Full | ✅ Full | ✅ Full | ✅ Approve | ❌ |
-| **Lead (STL)** | 👁️ Read | ✅ Full | ✅ Full | ✅ Approve | ❌ |
-| **Analyst (SA)** | 👁️ Read | ➕ Create | 👁️ Read | ❌ | ❌ |
-| **Maker** | 👁️ Read | ➕ Create | 👁️ Read | ➕ Create | ❌ |
-| **Checker** | ❌ | ✅ Approve | 👁️ Read | ✅ Approve | ❌ |
-| **Tech Support** | 👁️ Read | ❌ | 👁️ Read | ❌ | ✅ Config |
+### A. Surveillance Mission Operations (Business)
 
-*Legend: ✅ Full Access, 👁️ Read Only, ➕ Create Only, ❌ No Access*
+| Role | Comms | Investigations | Alerts | Subjects (Watchlist) | Reports | Analytics | AI Models |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Chief (CSO)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Director** | ✅ Full | ✅ Full | ✅ Full | ✅ Approve | ✅ Full | ✅ Full | 👁️ Read |
+| **Lead (STL)** | 👁️ Read | ✅ Full | ✅ Full | ✅ Approve | ✅ Full | ✅ Full | 👁️ Read |
+| **Analyst (SA)** | 👁️ Read | ➕ Create | 👁️ Read | ❌ | 👁️ Read | ❌ | ❌ |
+| **Maker** | 👁️ Read | ➕ Create | 👁️ Read | ➕ Create | ❌ | ❌ | ❌ |
+| **Checker** | ❌ | ✅ Approve | 👁️ Read | ✅ Approve | ❌ | ❌ | ❌ |
+
+### B. Platform & Technical Support (Separation of Duties)
+
+| Role | Users/Teams | Roles/RBAC | Settings | Data Pipelines | AI Models | Billing | Audit Logs |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Owner (IT)** | ✅ Full | ✅ Full | ✅ Full | ❌ | ❌ | ✅ Full | ✅ Full |
+| **Admin (IT)** | ✅ Full | ✅ Full | ✅ Full | ❌ | ❌ | ❌ | ✅ Full |
+| **SurvOps** | ✅ Manage | ❌ | ✅ Manage | ✅ Full | ✅ Full | ❌ | 👁️ Read |
+| **Chief (CSO)** | 👁️ Read | ❌ | ❌ | ✅ Full | ✅ Full | ❌ | 👁️ Read |
+
+*Legend: ✅ Full Access, 👁️ Read Only, ➕ Create/Update Only, ❌ No Access*
 
 ---
 
@@ -129,7 +143,7 @@ Special configurations for non-business users.
 **Q: Why do we have two layers of roles (Tenant vs. Team)?**
 This "2-Layer RBAC" model is crucial for enterprise banking:
 1.  **Tenant Roles (The Badge):** Define *who you are* (e.g., Regional Director). These are broad, organization-wide badges.
-2.  **Team Roles (The Job):** Define *what you do* in a specific context (e.g., Surveillance Lead for SG Desk).
+2.  **Team Roles (The Job):** Define *what you do in a specific context* (e.g., Surveillance Lead for SG Desk).
 *   *Benefit:* A "Member" (standard employee) can be a "Lead" in Singapore but have no access to Malaysia, enforcing **Chinese Walls**.
 
 **Q: What is the difference between `owner` and `surveillance_chief`?**
@@ -137,6 +151,7 @@ This "2-Layer RBAC" model is crucial for enterprise banking:
 *   **`surveillance_chief` (Business Role):** Has full view of all investigations and alerts but cannot modify billing or delete the tenant.
 *   *Benefit:* Enforces **Separation of Duties** (IT admins shouldn't see insider trading investigations).
 
+**Q: What can auditors and compliance officers see?**
 *   They can *create* nothing and *approve* nothing, only *audit* existing records.
 
 **Q: Is the team structure structurally hierarchical (Nested Teams)?**

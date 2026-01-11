@@ -41,13 +41,16 @@ if __name__ == "__main__":
     import asyncio
     import yaml
     from pathlib import Path
-    from sqlalchemy import select
+    from sqlalchemy import select, text
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy.orm.attributes import flag_modified
     from core.db.session import database_url
     from modules.b2b.models.rbac import Resource, Action
     from modules.b2b.models.role_template import RoleTemplate
     from modules.b2b.models.team_role_definition import TeamRoleDefinition
+    from modules.b2b.models.geographic_region import GeographicRegion
+    from modules.b2b.models.tenant import TenantModel as Tenant
+    from typing import Dict, Any
 
     # Directory paths
     SCRIPT_DIR = Path(__file__).parent
@@ -462,6 +465,110 @@ if __name__ == "__main__":
         
         print("✓ Applied team permission overlays")
 
+    async def seed_geographic_regions(db: AsyncSession, config: Dict[str, Any]):
+        """Seed geographic regions from plugins.yaml config"""
+        regions_data = config.get('default_regions', [])
+        
+        if not regions_data:
+            print("  ⚠️  No default_regions in plugins.yaml")
+            return
+        
+        # Get tenant (assuming single tenant for demo)
+        # In production, this would be per-tenant
+        result = await db.execute(select(Tenant).limit(1))
+        tenant = result.scalar_one_or_none()
+        
+        if not tenant:
+            print("  ⚠️  No tenant found for geographic region seeding")
+            return
+        
+        print(f"\\n  📍 Seeding {len(regions_data)} geographic regions...")
+        
+        for region_data in regions_data:
+            # Check if exists
+            result = await db.execute(
+                select(GeographicRegion).where(
+                    GeographicRegion.tenant_id == tenant.id,
+                    GeographicRegion.code == region_data['code']
+                )
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                print(f"    ✓ {region_data['code']} already exists")
+                continue
+            
+            region = GeographicRegion(
+                tenant_id=tenant.id,
+                code=region_data['code'],
+                name=region_data['name'],
+                regulatory_jurisdiction=region_data.get('regulatory_jurisdiction')
+            )
+            db.add(region)
+            print(f"    ✓ Created region: {region_data['code']} ({region_data['name']})")
+        
+        await db.flush()
+        print(f"  ✓ Geographic regions seeded")
+
+    async def initialize_plugins_if_enabled(db):
+        """Load plugins only if RBAC_PLUGINS env var is set"""
+        enabled = os.getenv('RBAC_PLUGINS', '').strip()
+        if not enabled:
+            print("✓ No RBAC plugins enabled")
+            return
+        
+        # Manually load plugins.yaml from the CONFIG_DIR if valid
+        # Given we are inside main(), CONFIG_DIR is available in scope? 
+        # Yes, main() defines it but this function is outside. 
+        # We need to pass it or re-derive. 
+        
+        # Let's assume this is called inside main() loop or we pass config path.
+        # But CONFIG_DIR is global in the script scope? No, it's inside `if __name__`.
+        # We should define these funcs inside main() or pass arguments.
+        # The structure of this file is `if __name__ == "__main__": ... def functions ... async def main()`
+        # So CONFIG_DIR is available in the closure of `main()` but not outside `main`.
+        # Wait, `seed_actions` etc are defined inside `if __name__` but outside `async def main()`.
+        # `CONFIG_DIR` is defined at top level of `if __name__`.
+        # So `seed_geographic_regions` can access `CONFIG_DIR`.
+        
+        plugin_names = [p.strip() for p in enabled.split(',') if p.strip()]
+        
+        # Load plugin config
+        config_file = CONFIG_DIR / 'plugins.yaml'
+        # Check if file exists
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                plugin_config = yaml.safe_load(f) or {}
+        else:
+            plugin_config = {}
+        
+        print(f"\\n🔌 Initializing {len(plugin_names)} RBAC plugins...")
+        
+        from core.rbac.plugin_registry import plugin_registry
+        
+        # We only really need to REGISTER for logic checks, but for seeding 
+        # we strictly need to know which ones to run seeders for.
+        # The registry is for runtime interceptors.
+        
+        for name in plugin_names:
+            if name == 'geographic_boundaries':
+                # Register plugin for completeness
+                # from backend.plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin
+                # plugin_registry.register(GeographicBoundariesPlugin())
+                # Seed Data
+                await seed_geographic_regions(db, plugin_config.get(name, {}))
+            
+            elif name == 'data_classification':
+                # No seeding for now, only schema enums
+                pass
+            
+            elif name == 'hierarchical_teams':
+                # Seeding handled by logic or manual team creation
+                pass
+        
+        print(f"✓ {len(plugin_names)} plugins processed")
+
+
     async def main():
         """Main seeding function"""
         print("\n" + "="*60)
@@ -477,6 +584,9 @@ if __name__ == "__main__":
         try:
             async with AsyncSession(engine) as db:
                 async with db.begin():
+                    # Set admin context to bypass RLS for plugin tables
+                    await db.execute(text("SET app.is_platform_admin = 'true'"))
+
                     # Step 1: Core SaaS boilerplate (always)
                     print("📦 Loading core boilerplate...")
                     await seed_actions(db)
@@ -497,6 +607,11 @@ if __name__ == "__main__":
                     print("📦 Applying permission overlays...")
                     await apply_tenant_permissions(db)
                     await apply_team_permissions(db)
+                    await apply_team_permissions(db)
+                    print()
+                    
+                    # Step 4: Plugin Initialization & Seeding
+                    await initialize_plugins_if_enabled(db)
                     print()
                     
                     print("✓ All changes committed successfully")

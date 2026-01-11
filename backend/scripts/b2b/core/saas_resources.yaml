@@ -59,6 +59,12 @@ resources:
     description: Tenant configuration and preferences
     is_system_resource: true
 
+  - name: roles
+    display_name: Roles
+    category: Access Control
+    description: Role templates and permission management
+    is_system_resource: true
+
   - name: billing
     display_name: Billing
     category: Finance

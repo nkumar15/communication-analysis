@@ -128,6 +128,7 @@ async def get_current_user_info(
         role_display_name=user.role_display_name,
         tenant_id=tenant.id,
         tenant_name=tenant.name,
+        domain_type=getattr(tenant, 'domain_type', 'default'),
         permissions=permissions,
         teams=team_memberships
     )
