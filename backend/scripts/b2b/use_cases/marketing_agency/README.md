@@ -11,12 +11,14 @@ This use case demonstrates the **Core Platform Capabilities** without advanced c
 
 ```mermaid
 graph TD
-    Agency[Agency HQ] --> Nike[Nike Team]
-    Agency --> SBUX[Starbucks Team]
+    Agency[Agency HQ<br/>(Standard Admin Access)] --> Nike[Nike Team<br/>(Standard Workspace)]
+    Agency --> SBUX[Starbucks Team<br/>(Standard Workspace)]
     
-    style Agency fill:#f9f,stroke:#333,color:#000
-    style Nike fill:#bbf,stroke:#333,color:#000
-    style SBUX fill:#bbf,stroke:#333,color:#000
+    %% Note: No "Geo-Fencing" or "Clearance" barriers here
+    
+    style Agency fill:#e1f5fe,stroke:#333,color:#000
+    style Nike fill:#f5f5f5,stroke:#333,color:#000
+    style SBUX fill:#f5f5f5,stroke:#333,color:#000
 ```
 
 ---

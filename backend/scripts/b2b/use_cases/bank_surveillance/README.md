@@ -51,14 +51,24 @@ We use a **Hybrid Model** to map these roles to the organization. This distingui
 
 ```mermaid
 graph TD
-    CSO[CSO: Global Oversight] -->|Manages| Dir[Director: Regional Oversight]
-    Dir -->|Manages| SG[SG Head: Restricted to SG Team]
-    Dir -->|Manages| MY[MY Head: Restricted to MY Team]
+    %% Nodes with Clearance Levels
+    CSO[CSO: Global Oversight<br/>Clearance: L4 (Top Secret)<br/>Geo: Global Bypass] 
+    -->|Manages| Dir[Director: Regional Oversight<br/>Clearance: L3 (Confidential)<br/>Geo: Regional Scope]
+    
+    Dir -->|Manages| SG[SG Head<br/>Clearance: L2<br/>Geo: SG Only]
+    Dir -->|Manages| MY[MY Head<br/>Clearance: L2<br/>Geo: MY Only]
 
-    subgraph "Segregated Desks"
+    %% Plugin Boundary
+    subgraph "Geo-Fenced Zone (Strict Data Isolation)"
     SG
     MY
     end
+
+    %% Styles
+    style CSO fill:#ffcccc,stroke:#333,color:#000
+    style Dir fill:#fff2cc,stroke:#333,color:#000
+    style SG fill:#d4edda,stroke:#333,color:#000
+    style MY fill:#d4edda,stroke:#333,color:#000
 ```
 
 *   **Global Leaders (CSO/Director):** Have **Tenant-Level Roles** that grant visibility across all teams.
