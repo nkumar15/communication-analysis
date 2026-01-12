@@ -35,8 +35,8 @@ class TenantOnboardingService:
         domain: str,
         owner_email: str,
         # New optional params for local/test mode
-        firebase_tenant_id: Optional[str] = None,
-        tenant_id: Optional[UUID] = None
+        tenant_id: Optional[UUID] = None,
+        plugins: Optional[list] = None
     ) -> dict:
         """
         Complete tenant onboarding workflow (Step 1: Provisioning)
@@ -48,6 +48,7 @@ class TenantOnboardingService:
             owner_email: Owner email address
             firebase_tenant_id: Optional existing Firebase tenant ID (skips creation if provided)
             tenant_id: Optional UUID to force a specific tenant ID (for seeding)
+            plugins: Optional list of enabled plugins (e.g. ['geographic_boundaries'])
         """
 
         try:
@@ -65,6 +66,11 @@ class TenantOnboardingService:
                 
                 # If pending/inactive, we treat this as a resend/repair
                 print(f"♻️  Tenant exists (pending), resending activation for {domain}")
+                
+                # Update plugins if provided (for repair/updating existing demo tenant)
+                if plugins is not None:
+                     existing_tenant.plugins = plugins
+                
                 # Use existing logic to resend
                 # We return the existing tenant details to the caller
                 
@@ -137,7 +143,8 @@ class TenantOnboardingService:
                 "activation_token": activation_token,
                 "activation_status": 'pending',
                 "activation_expires_at": expires_at,
-                "is_active": True
+                "is_active": True,
+                "plugins": plugins or []  # Set initial plugins
             }
             if tenant_id:
                 tenant_model_args["id"] = tenant_id

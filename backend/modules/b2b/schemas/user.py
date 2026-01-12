@@ -37,6 +37,8 @@ class UserResponse(BaseModel):
     tenant_name: str
     domain_type: str = "default"  # Domain type for sidebar (bank_surveillance, marketing_agency, etc.)
     # Frontend permission checking
+    # Frontend permission checking
     permissions: List[str] = []  # ["projects:read", "users:invite", ...]
     teams: List[TeamMembership] = []  # Teams user belongs to
+    active_plugins: List[str] = []  # ["geographic_boundaries", "hierarchical_teams"]
 

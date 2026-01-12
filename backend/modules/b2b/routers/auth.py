@@ -106,7 +106,7 @@ async def get_current_user_info(
         )
     
     # Get or sync user
-    user, tenant, permissions, teams = await auth_service.get_or_sync_user(
+    user, tenant, permissions, teams, active_plugins = await auth_service.get_or_sync_user(
         db=db,
         firebase_uid=firebase_uid,
         email=email,
@@ -130,7 +130,8 @@ async def get_current_user_info(
         tenant_name=tenant.name,
         domain_type=getattr(tenant, 'domain_type', 'default'),
         permissions=permissions,
-        teams=team_memberships
+        teams=team_memberships,
+        active_plugins=active_plugins
     )
 
 
@@ -162,7 +163,7 @@ async def sync_user(
         )
     
     # Get or sync user
-    user, tenant, permissions, teams = await auth_service.get_or_sync_user(
+    user, tenant, permissions, teams, active_plugins = await auth_service.get_or_sync_user(
         db=db,
         firebase_uid=firebase_uid,
         email=email,
@@ -200,5 +201,6 @@ async def sync_user(
         "role": res_role,
         "role_display_name": res_role_display_name,
         "permissions": permissions,
-        "teams": teams
+        "teams": teams,
+        "active_plugins": active_plugins
     }

@@ -192,9 +192,11 @@ verify-seed: ## Verify B2B seed data completed successfully
 	@echo "$(BLUE)Verifying seed data...$(NC)"
 	@docker-compose exec -T b2b-api python /app/scripts/b2b/verify_seed.py
 
-b2b-invite: ## Invite B2B Tenant (f=bank_surveillance_demo.json|marketing_agency_demo.json|task_management_demo.json)
+b2b-invite: ## Invite B2B Tenant (f=file.json [PLUGINS=p1,p2])
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/use_cases/task_management/task_management_demo.json)
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local \
+		--file $(or $(f),scripts/b2b/use_cases/task_management/task_management_demo.json) \
+		$(if $(PLUGINS),--plugins $(PLUGINS),)
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -208,6 +210,15 @@ else
 	@echo "Example: make b2b-resend-invite d=acme.com"
 endif
 
+b2b-invite-bank: ## Invite Bank Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json
+
+b2b-invite-marketing: ## Invite Marketing Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json
+
+b2b-invite-task: ## Invite Task Management Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/task_management/task_management_demo.json
+
 ##@ B2B Demos
 
 b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant via UI)
@@ -220,7 +231,7 @@ b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant v
 	@echo "  👥 Roles: surveillance_lead (STL), surveillance_analyst (SA), operations_maker, operations_checker, compliance_officer (LCO), guest_analyst"
 	@echo ""
 	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
-	@echo "  make b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json"
+	@echo "  make b2b-invite-bank"
 	@echo ""
 	@echo "$(BLUE)Then login as:$(NC) owner@worldwidebank.com and invite users via UI"
 
@@ -234,7 +245,7 @@ b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tena
 	@echo "  👥 Roles: agency_owner, account_director, account_manager, creative_lead, specialist"
 	@echo ""
 	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
-	@echo "  make b2b-invite f=scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json"
+	@echo "  make b2b-invite-marketing"
 	@echo ""
 	@echo "$(BLUE)Then login as:$(NC) owner@merlionmarketing.com and invite users via UI"
 
@@ -248,7 +259,7 @@ b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via
 	@echo "  👥 Roles: owner, admin, member, viewer (base roles)"
 	@echo ""
 	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
-	@echo "  make b2b-invite f=scripts/b2b/use_cases/task_management/task_management_demo.json"
+	@echo "  make b2b-invite-task"
 	@echo ""
 	@echo "$(BLUE)Then login as tenant owner and invite users via UI$(NC)"
 

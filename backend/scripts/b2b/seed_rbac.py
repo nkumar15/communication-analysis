@@ -550,6 +550,16 @@ if __name__ == "__main__":
         # we strictly need to know which ones to run seeders for.
         # The registry is for runtime interceptors.
         
+        # 0. PERSIST CONFIGURATION TO TENANT
+        # This ensures AuthService picks it up at runtime (Per-Tenant Config)
+        result = await db.execute(select(Tenant).limit(1))
+        tenant = result.scalar_one_or_none()
+        if tenant:
+            print(f"  📝 updating tenant '{tenant.name}' plugins = {plugin_names}")
+            tenant.plugins = plugin_names
+            flag_modified(tenant, 'plugins')
+            await db.flush()
+        
         for name in plugin_names:
             if name == 'geographic_boundaries':
                 # Register plugin for completeness

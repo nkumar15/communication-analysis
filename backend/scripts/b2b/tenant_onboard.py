@@ -25,18 +25,23 @@ def cli():
 @click.option('--company', required=True, help='Company name')
 @click.option('--domain', required=True, help='Email domain (e.g., acme.com)')
 @click.option('--owner-email', required=True, help='Owner email address')
-def create(company, domain, owner_email):
+@click.option('--plugins', help='Comma-separated list of plugins (e.g., geographic_boundaries)')
+def create(company, domain, owner_email, plugins):
     """Create a new tenant (SSO configuration will be done by tenant admin)"""
+    plugin_list = [p.strip() for p in plugins.split(",")] if plugins else None
+    
     asyncio.run(create_tenant_async(
-        company, domain, owner_email
+        company, domain, owner_email, plugin_list
     ))
 
 
 async def create_tenant_async(
-    company, domain, owner_email
+    company, domain, owner_email, plugins=None
 ):
     """Async tenant creation logic"""
     click.echo(f"🚀 Creating tenant for {company}...\n")
+    if plugins:
+        click.echo(f"🔌 Plugins enabled: {plugins}")
     
     async with AsyncSessionLocal() as db:
         try:
@@ -48,7 +53,8 @@ async def create_tenant_async(
                 db=db,
                 company_name=company,
                 domain=domain,
-                owner_email=owner_email
+                owner_email=owner_email,
+                plugins=plugins
             )
             
             await db.commit()
@@ -67,8 +73,9 @@ async def create_tenant_async(
 @click.option('--domain', help='Email domain (e.g., test.com)')
 @click.option('--firebase-tenant-id', help='Existing Firebase tenant ID')
 @click.option('--owner-email', help='Owner email address')
+@click.option('--plugins', help='Comma-separated list of plugins')
 @click.option('--file', required=True, help='Path to JSON config file')
-def create_local(company, domain, firebase_tenant_id, owner_email, file):
+def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file):
     """Create tenant using existing Firebase tenant (DB only - for testing)"""
     import json
     import uuid
@@ -91,6 +98,26 @@ def create_local(company, domain, firebase_tenant_id, owner_email, file):
     domain = domain or existing_config.get("domain")
     owner_email = owner_email or existing_config.get("owner_email")
     firebase_tenant_id = firebase_tenant_id or existing_config.get("firebase_tenant_id")
+    
+    # Plugins from CLI > Config > Environment (Fallback)
+    plugin_str = plugins or existing_config.get("plugins")
+    
+    if plugin_str is not None:
+        # Explicit (List or String)
+        if isinstance(plugin_str, str):
+            plugin_list = [p.strip() for p in plugin_str.split(",")] if plugin_str.strip() else []
+        elif isinstance(plugin_str, list):
+            plugin_list = plugin_str
+        else:
+            plugin_list = []
+    else:
+        # Implicit Fallback to Environment (Single Source of Truth)
+        env_plugins = os.getenv("RBAC_PLUGINS", "")
+        if env_plugins:
+            click.echo(f"ℹ️  No plugins in config, inheriting RBAC_PLUGINS: {env_plugins}")
+            plugin_list = [p.strip() for p in env_plugins.split(",") if p.strip()]
+        else:
+            plugin_list = []
     
     tenant_id_str = existing_config.get("tenant_id")
     tenant_id = UUID(tenant_id_str) if tenant_id_str else None
@@ -116,7 +143,7 @@ def create_local(company, domain, firebase_tenant_id, owner_email, file):
     # Run Async Logic
     try:
         result = asyncio.run(create_local_async(
-            company, domain, firebase_tenant_id, owner_email, tenant_id
+            company, domain, firebase_tenant_id, owner_email, tenant_id, plugin_list
         ))
     except Exception as e:
         click.echo(f"\n❌ Error: {str(e)}", err=True)
@@ -130,6 +157,7 @@ def create_local(company, domain, firebase_tenant_id, owner_email, file):
         "company": company,
         "owner_email": owner_email,
         "firebase_tenant_id": result.get("firebase_tenant_id"),
+        "plugins": plugin_list,
         "last_updated": str(time.time()),
     })
     
@@ -144,9 +172,11 @@ def create_local(company, domain, firebase_tenant_id, owner_email, file):
 
 
 async def create_local_async(
-    company, domain, firebase_tenant_id, owner_email, tenant_id=None):
+    company, domain, firebase_tenant_id, owner_email, tenant_id=None, plugins=None):
     """Create tenant using API service (Local Mode) - Pure Logic"""
     click.echo(f"🚀 Creating local tenant for {company} ({domain})...")
+    if plugins:
+        click.echo(f"🔌 Plugins enabled: {plugins}")
     
     async with AsyncSessionLocal() as db:
         try:

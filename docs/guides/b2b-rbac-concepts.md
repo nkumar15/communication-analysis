@@ -324,11 +324,10 @@ With only `member` system role (no tenant roles, no teams):
 
 ```
 backend/scripts/b2b/
-├── core/                           # Universal SaaS (don't edit)
+├── core/                           # System roles (don't edit)
 │   ├── actions.yaml
-│   ├── saas_roles.yaml             # System roles: owner, admin, member, viewer
-│   ├── saas_resources.yaml         # Platform resources
-│   └── team_roles_base.yaml        # Base team roles
+│   ├── saas_roles.yaml             # owner, admin, member, viewer
+│   └── saas_resources.yaml         # Platform resources
 │
 ├── domain/                         # YOUR customization
 │   ├── resources.yaml              # Business resources
@@ -340,6 +339,44 @@ backend/scripts/b2b/
 │   ├── marketing_agency/
 │   └── task_management/
 ```
+
+### Plugin UI Integration (Boilerplate Ready)
+
+To support diverse use cases (e.g., Bank vs. Marketing) without code changes, the UI behaves dynamically based on **Feature Flags** derived from active plugins.
+
+**1. The Source of Truth**
+The backend exposes the active plugin list via the `bootstrap` or `tenant` API endpoint:
+
+```json
+// GET /api/b2b/bootstrap
+{
+  "tenant": {
+    "name": "Acme Bank",
+    "active_plugins": ["geographic_boundaries", "hierarchical_teams"]
+  }
+}
+```
+
+**2. Conditional Rendering Logic**
+The UI components check this list to toggle fields.
+
+*   **Bank Logic:** `active_plugins.includes('geographic_boundaries')` == **True** → **Show** "Data Region" dropdown.
+*   **Marketing Logic:** `active_plugins` is empty → **Hide** "Data Region" dropdown.
+
+**3. Implementation Guide**
+
+| Entity | Plugin | UI Field | Location |
+| :--- | :--- | :--- | :--- |
+| **User** | `geographic_boundaries` | **Geographic Scope** (Multi-select) | User Management > Security Settings |
+| **Team** | `geographic_boundaries` | **Data Region** (Single-select) | Create/Edit Team Modal |
+| **Role** | `data_classification` | **Clearance Level** (1-4) | Role Editor > Permissions |
+
+**4. How to Configure**
+You never change frontend code to toggle these. You only change the backend configuration:
+
+1.  **Standard SaaS:** Disable plugins in `backend/scripts/b2b/domain/plugins.yaml`.
+2.  **Enterprise:** Enable plugins in `backend/scripts/b2b/domain/plugins.yaml`.
+3.  **Result:** The UI automatically adapts on the next page load.
 
 ### Loading Logic
 

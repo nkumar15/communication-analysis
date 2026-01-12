@@ -6,5 +6,6 @@
   "owner_email": "owner@merlionmarketing.com",
   "last_updated": "1768011790.1375804",
   "description": "SME Marketing Agency Demo Tenant",
-  "use_case": "marketing_agency"
+  "use_case": "marketing_agency",
+  "plugins": []
 }
