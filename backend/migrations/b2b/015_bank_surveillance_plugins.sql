@@ -1,22 +1,28 @@
 -- ============================================================================
--- BANK SURVEILLANCE PLUGIN TABLES
+-- BANK SURVEILLANCE PLUGIN TABLES & BUSINESS DATA
 -- ============================================================================
--- Geographic Regions, Data Sensitivity, Hierarchical Teams
--- Requires: RBAC_PLUGINS env var to be set
+-- 1. Plugin Config Tables (Sensitivity, Regions)
+-- 2. Business Tables (Investigations, Communications)
+-- 3. Team Hierarchy View
 -- ============================================================================
 
--- Sensitivity enum
-DO $$ BEGIN
-    CREATE TYPE b2b.sensitivity_level AS ENUM (
-        'PUBLIC',
-        'INTERNAL',
-        'CONFIDENTIAL',
-        'RESTRICTED',
-        'TOP_SECRET'
-    );
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- A. PLUGIN CONFIGURATION TABLES
+
+-- Sensitivity Levels Table (Configuration Driven)
+CREATE TABLE IF NOT EXISTS b2b.sensitivity_levels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES b2b.tenants(id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL, -- e.g. TOP_SECRET
+    level INTEGER NOT NULL,    -- e.g. 4
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id, name),
+    UNIQUE(tenant_id, level)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sensitivity_levels_tenant 
+ON b2b.sensitivity_levels(tenant_id);
 
 -- Geographic Regions table
 CREATE TABLE IF NOT EXISTS b2b.geographic_regions (
@@ -38,38 +44,7 @@ ON b2b.geographic_regions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_geographic_regions_parent 
 ON b2b.geographic_regions(parent_region_id);
 
--- Add data_region_id to surveillance resources
--- (Only if these tables exist - for bank surveillance use case)
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'b2b' AND table_name = 'communications') THEN
-        ALTER TABLE b2b.communications 
-        ADD COLUMN IF NOT EXISTS data_region_id UUID REFERENCES b2b.geographic_regions(id);
-        
-        ALTER TABLE b2b.communications 
-        ADD COLUMN IF NOT EXISTS sensitivity b2b.sensitivity_level DEFAULT 'INTERNAL';
-        
-        CREATE INDEX IF NOT EXISTS idx_communications_region 
-        ON b2b.communications(data_region_id);
-        
-        CREATE INDEX IF NOT EXISTS idx_communications_sensitivity 
-        ON b2b.communications(sensitivity);
-    END IF;
-    
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'b2b' AND table_name = 'investigations') THEN
-        ALTER TABLE b2b.investigations 
-        ADD COLUMN IF NOT EXISTS data_region_id UUID REFERENCES b2b.geographic_regions(id);
-        
-        ALTER TABLE b2b.investigations 
-        ADD COLUMN IF NOT EXISTS sensitivity b2b.sensitivity_level DEFAULT 'CONFIDENTIAL';
-        
-        CREATE INDEX IF NOT EXISTS idx_investigations_region 
-        ON b2b.investigations(data_region_id);
-        
-        CREATE INDEX IF NOT EXISTS idx_investigations_sensitivity 
-        ON b2b.investigations(sensitivity);
-    END IF;
-END $$;
+-- C. TEAM HIERARCHY
 
 -- Team hierarchy materialized view
 CREATE MATERIALIZED VIEW IF NOT EXISTS b2b.team_hierarchy AS
@@ -125,11 +100,11 @@ CREATE POLICY geographic_region_isolation_policy ON b2b.geographic_regions
 -- ============================================================================
 
 COMMENT ON TABLE b2b.geographic_regions IS 'Regional boundaries for data access control (bank surveillance plugin)';
-COMMENT ON TYPE b2b.sensitivity_level IS 'Data classification levels (bank surveillance plugin)';
+COMMENT ON TABLE b2b.sensitivity_levels IS 'Data classification levels (bank surveillance plugin)';
 COMMENT ON MATERIALIZED VIEW b2b.team_hierarchy IS 'Hierarchical team structure (bank surveillance plugin)';
 
-COMMENT ON COLUMN b2b.geographic_regions.code IS 'Region code (e.g., AMER, EMEA, APAC)';
-COMMENT ON COLUMN b2b.geographic_regions.regulatory_jurisdiction IS 'Primary regulator (e.g., SEC, FCA, MAS)';
+COMMENT ON COLUMN b2b.geographic_regions.code IS 'Region code (e.g., US, SG, MY)';
+COMMENT ON COLUMN b2b.geographic_regions.regulatory_jurisdiction IS 'Primary regulator (e.g., SEC, MAS)';
 COMMENT ON COLUMN b2b.geographic_regions.data_residency_rules IS 'JSON config for data residency compliance';
 
--- Note: RLS on communications/investigations tables handled by their respective migration files
+

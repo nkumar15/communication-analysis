@@ -42,4 +42,8 @@ plans:
       audit_logs: true
       dedicated_support: true
       custom_branding: true
+      plugins:
+        - geographic_boundaries
+        - hierarchical_teams
+        - data_classification
     contact_required: true

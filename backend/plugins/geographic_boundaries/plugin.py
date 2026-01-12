@@ -74,3 +74,18 @@ class GeographicBoundariesPlugin(RBACPlugin):
             return False
             
         return True
+
+    async def on_tenant_enable(self, tenant_id: str, db) -> None:
+        """
+        Lifecycle hook when plugin is enabled.
+        Configuration is now strictly driven by external sources (CLI/YAML) 
+        or Admin API, so we do not seed hardcoded defaults here.
+        """
+        logger.info(f"Plugin Hook: Enabling geographic_boundaries for {tenant_id}")
+        # Logic moved to tenant_onboard.py (seed_plugin_config_from_yaml)
+        pass
+
+
+
+    async def on_tenant_disable(self, tenant_id: str, db) -> None:
+        logger.info(f"Plugin Hook: Disabling geographic_boundaries for {tenant_id} (No data purge)")

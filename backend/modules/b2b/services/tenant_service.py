@@ -571,5 +571,81 @@ class TenantService:
         }
 
 
+    async def update_tenant_plugins(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        new_plugin_list: list[str]
+    ) -> dict:
+        """
+        Update tenant plugins with lifecycle hooks.
+        Calculates diff, runs enable/disable hooks, and updates DB.
+        
+        Args:
+            db: Database session
+            tenant_id: Tenant UUID
+            new_plugin_list: List of plugin names that SHOULD be active
+            
+        Returns:
+            Dict with added and removed, and current active list
+        """
+        from core.rbac.plugin_registry import plugin_registry
+        from sqlalchemy.orm.attributes import flag_modified
+        
+        tenant = await db.get(TenantModel, tenant_id)
+        if not tenant:
+            raise ValueError(f"Tenant {tenant_id} not found")
+        
+        old_plugins = set(tenant.plugins or [])
+        new_plugins = set(new_plugin_list)
+        
+        added = new_plugins - old_plugins
+        removed = old_plugins - new_plugins
+
+        added = new_plugins - old_plugins
+        removed = old_plugins - new_plugins
+
+        # 1. Run Enable Hooks (Additions)
+        for plugin_name in added:
+            plugin = plugin_registry.get_plugin(plugin_name)
+            if plugin:
+
+                # Idempotent seed/init
+                try:
+                    await plugin.on_tenant_enable(str(tenant_id), db)
+                except Exception as e:
+                    # If hook fails, we should probably abort the whole transaction to be safe?
+                    # Or log and continue? Safe approach -> abort.
+                    raise Exception(f"Failed to enable plugin {plugin_name}: {str(e)}")
+            else:
+                # Warning: Enabling a plugin that isn't registered in the code
+                # This might happen if code is old but config is new, or plugin removed.
+                pass
+
+        # 2. Run Disable Hooks (Removals)
+        for plugin_name in removed:
+            plugin = plugin_registry.get_plugin(plugin_name)
+            if plugin:
+                try:
+                    await plugin.on_tenant_disable(str(tenant_id), db)
+                except Exception as e:
+                    # Log error but proceed with disabling?
+                    # Usually better to fail loudly.
+                    raise Exception(f"Failed to disable plugin {plugin_name}: {str(e)}")
+
+        # 3. Update DB
+        if added or removed:
+            tenant.plugins = sorted(list(new_plugins))
+            flag_modified(tenant, 'plugins')
+            await db.flush()
+        
+        return {
+            "tenant_id": str(tenant_id),
+            "added": sorted(list(added)),
+            "removed": sorted(list(removed)),
+            "active_plugins": sorted(list(new_plugins))
+        }
+
+
 # Global tenant service instance
 tenant_service = TenantService()

@@ -5,8 +5,12 @@
 -- 2. Communications (Evidence)
 -- ============================================================================
 
+CREATE SCHEMA IF NOT EXISTS bank_surveillance;
+
+-- A. BUSINESS DATA TABLES
+
 -- INVESTIGATIONS
-CREATE TABLE IF NOT EXISTS b2b.investigations (
+CREATE TABLE IF NOT EXISTS bank_surveillance.investigations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES b2b.tenants(id) ON DELETE CASCADE,
     team_id UUID REFERENCES b2b.teams(id) ON DELETE SET NULL, -- Owning Desk (e.g. SG Team)
@@ -19,23 +23,23 @@ CREATE TABLE IF NOT EXISTS b2b.investigations (
     
     -- PLUGIN COLUMNS
     data_region_id UUID REFERENCES b2b.geographic_regions(id),
-    sensitivity b2b.sensitivity_level DEFAULT 'CONFIDENTIAL',
+    sensitivity_level_id UUID REFERENCES b2b.sensitivity_levels(id),
     
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
     closed_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_investigations_tenant_id ON b2b.investigations(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_investigations_team_id ON b2b.investigations(team_id);
-CREATE INDEX IF NOT EXISTS idx_investigations_region ON b2b.investigations(data_region_id);
-CREATE INDEX IF NOT EXISTS idx_investigations_sensitivity ON b2b.investigations(sensitivity);
+CREATE INDEX IF NOT EXISTS idx_investigations_tenant_id ON bank_surveillance.investigations(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_investigations_team_id ON bank_surveillance.investigations(team_id);
+CREATE INDEX IF NOT EXISTS idx_investigations_region ON bank_surveillance.investigations(data_region_id);
+CREATE INDEX IF NOT EXISTS idx_investigations_sensitivity ON bank_surveillance.investigations(sensitivity_level_id);
 
 -- COMMUNICATIONS
-CREATE TABLE IF NOT EXISTS b2b.communications (
+CREATE TABLE IF NOT EXISTS bank_surveillance.communications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES b2b.tenants(id) ON DELETE CASCADE,
-    investigation_id UUID REFERENCES b2b.investigations(id) ON DELETE SET NULL,
+    investigation_id UUID REFERENCES bank_surveillance.investigations(id) ON DELETE SET NULL,
     
     channel VARCHAR(50) NOT NULL, -- email, chat, voice
     sender VARCHAR(200) NOT NULL,
@@ -46,28 +50,34 @@ CREATE TABLE IF NOT EXISTS b2b.communications (
     
     -- PLUGIN COLUMNS
     data_region_id UUID REFERENCES b2b.geographic_regions(id),
-    sensitivity b2b.sensitivity_level DEFAULT 'INTERNAL',
+    sensitivity_level_id UUID REFERENCES b2b.sensitivity_levels(id),
     
     timestamp TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_communications_tenant_id ON b2b.communications(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_communications_investigation ON b2b.communications(investigation_id);
-CREATE INDEX IF NOT EXISTS idx_communications_region ON b2b.communications(data_region_id);
+CREATE INDEX IF NOT EXISTS idx_communications_tenant_id ON bank_surveillance.communications(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_communications_investigation ON bank_surveillance.communications(investigation_id);
+CREATE INDEX IF NOT EXISTS idx_communications_region ON bank_surveillance.communications(data_region_id);
+CREATE INDEX IF NOT EXISTS idx_communications_sensitivity ON bank_surveillance.communications(sensitivity_level_id);
 
--- RLS POLICIES (Tenant Isolation)
-ALTER TABLE b2b.investigations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE b2b.communications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY tenant_isolation_investigations ON b2b.investigations
+-- B. RLS POLICIES
+
+-- INVESTIGATIONS
+ALTER TABLE bank_surveillance.investigations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_investigations ON bank_surveillance.investigations
     USING (
         current_setting('app.is_platform_admin', true) = 'true'
         OR
         tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     );
 
-CREATE POLICY tenant_isolation_communications ON b2b.communications
+-- COMMUNICATIONS
+ALTER TABLE bank_surveillance.communications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_communications ON bank_surveillance.communications
     USING (
         current_setting('app.is_platform_admin', true) = 'true'
         OR

@@ -219,6 +219,18 @@ b2b-invite-marketing: ## Invite Marketing Tenant (Shortcut)
 b2b-invite-task: ## Invite Task Management Tenant (Shortcut)
 	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/task_management/task_management_demo.json
 
+b2b-update-plugin-bank: ## Update Bank Tenant Plugins from Config
+	@echo "$(BLUE)Updating Bank Tenant Config...$(NC)"
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py manage-plugins --file scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json
+
+b2b-update-plugin-marketing: ## Update Marketing Tenant Plugins from Config
+	@echo "$(BLUE)Updating Marketing Tenant Config...$(NC)"
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py manage-plugins --file scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json
+
+b2b-update-plugin-task: ## Update Task Tenant Plugins from Config
+	@echo "$(BLUE)Updating Task Management Tenant Config...$(NC)"
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py manage-plugins --file scripts/b2b/use_cases/task_management/task_management_demo.json
+
 ##@ B2B Demos
 
 b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant via UI)

@@ -36,7 +36,8 @@ class TenantOnboardingService:
         owner_email: str,
         # New optional params for local/test mode
         tenant_id: Optional[UUID] = None,
-        plugins: Optional[list] = None
+        plugins: Optional[list] = None,
+        subscription_tier: Optional[str] = None
     ) -> dict:
         """
         Complete tenant onboarding workflow (Step 1: Provisioning)
@@ -46,15 +47,31 @@ class TenantOnboardingService:
             company_name: Company name
             domain: Domain name
             owner_email: Owner email address
-            firebase_tenant_id: Optional existing Firebase tenant ID (skips creation if provided)
             tenant_id: Optional UUID to force a specific tenant ID (for seeding)
-            plugins: Optional list of enabled plugins (e.g. ['geographic_boundaries'])
+            plugins: Optional list of enabled plugins (manual override)
+            subscription_tier: Optional tier key (e.g. 'enterprise') to init subscription
         """
+        from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
+        from modules.b2b.models.subscription import B2BSubscription
+        from modules.b2b.services.tenant_service import tenant_service
 
         try:
             # Initialize Firebase if not already done
             get_auth_provider().initialize()
             
+            # Resolve Plan & Plugins if Tier provided
+            target_plan = None
+            tier_plugins = []
+            
+            if subscription_tier:
+                stmt_plan = select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == subscription_tier)
+                res_plan = await db.execute(stmt_plan)
+                target_plan = res_plan.scalar_one_or_none()
+                if target_plan:
+                    tier_plugins = target_plan.features.get('plugins', [])
+            
+            # Merge plugins: Manual overrides + Plan plugins
+            final_plugins = list(set((plugins or []) + tier_plugins))
             # Check for existing tenant in DB first to handle idempotency
             stmt = select(TenantModel).where(TenantModel.domain == domain.lower())
             result = await db.execute(stmt)
@@ -62,17 +79,62 @@ class TenantOnboardingService:
             
             if existing_tenant:
                 if existing_tenant.activation_status == 'active':
+
                     raise Exception(f"Tenant for domain {domain} is already active.")
                 
-                # If pending/inactive, we treat this as a resend/repair
                 print(f"♻️  Tenant exists (pending), resending activation for {domain}")
                 
                 # Update plugins if provided (for repair/updating existing demo tenant)
-                if plugins is not None:
-                     existing_tenant.plugins = plugins
-                
-                # Use existing logic to resend
-                # We return the existing tenant details to the caller
+                if final_plugins:
+                     # Use service to ensure hooks run even on repair
+                     # We explicitly call the service update logic.
+                     # However, to FORCE hooks for existing plugins (e.g. seeding new regions), 
+                     # we need to manually invoke them or modify the service.
+                     # Let's manually invoke ensure logic here for robustness.
+                     from core.rbac.plugin_registry import plugin_registry
+                     for p_name in final_plugins:
+                         plugin = plugin_registry.get_plugin(p_name)
+                         if plugin:
+                             try:
+                                 # This hook is idempotent now
+                                 await plugin.on_tenant_enable(str(existing_tenant.id), db)
+                             except Exception as e:
+                                 print(f"WARN: Failed to re-run hook for {p_name}: {e}")
+                     
+                     # Still call update to persist list if changed
+                     await tenant_service.update_tenant_plugins(db, existing_tenant.id, final_plugins)
+
+
+                # Update/Ensure Subscription if Tier provided (Repair/Upgrade)
+                if target_plan:
+                    stmt_sub = select(B2BSubscription).where(B2BSubscription.tenant_id == existing_tenant.id)
+                    res_sub = await db.execute(stmt_sub)
+                    existing_sub = res_sub.scalar_one_or_none()
+                    
+                    if existing_sub:
+                        # Update if different
+                        if existing_sub.tier != target_plan.tier_key:
+                             existing_sub.plan_id = target_plan.id
+                             existing_sub.tier = target_plan.tier_key
+                             # Update prices? Maybe preserve legacy pricing? 
+                             # For onboarding/demo fix, verification is key -> Update it.
+                             existing_sub.base_price_cents = target_plan.base_price_monthly
+                             existing_sub.per_seat_price_cents = target_plan.per_seat_price_monthly
+                             existing_sub.total_amount_cents = target_plan.base_price_monthly
+                    else:
+                        # Create missing subscription
+                        new_sub = B2BSubscription(
+                             tenant_id=existing_tenant.id,
+                             plan_id=target_plan.id,
+                             tier=target_plan.tier_key,
+                             status='active',
+                             seat_count=1,
+                             base_price_cents=target_plan.base_price_monthly,
+                             per_seat_price_cents=target_plan.per_seat_price_monthly,
+                             total_amount_cents=target_plan.base_price_monthly,
+                             billing_interval='monthly'
+                        )
+                        db.add(new_sub)
                 
                 # Ensure we have an owner invitation to update
                 from modules.b2b.models import InvitationModel
@@ -84,10 +146,6 @@ class TenantOnboardingService:
                 invitation = inv_result.scalar_one_or_none()
                 
                 # Regenerate token if needed or just resend current
-                # Let's verify if we need to call resend_activation logic
-                # For simplicity, we can just call self.resend_activation logic here or reuse code
-                
-                # Update expiration
                 new_token = secrets.token_urlsafe(32)
                 expires_at = get_utc_now() + timedelta(hours=48)
                 
@@ -98,7 +156,6 @@ class TenantOnboardingService:
                     invitation.invitation_token = new_token
                     invitation.expires_at = expires_at
                 else:
-                     # Create missing invitation if it got lost?
                      pass 
 
                 await db.flush()
@@ -126,6 +183,7 @@ class TenantOnboardingService:
                 }
 
             # 1. Create OR Use Firebase tenant
+            firebase_tenant_id = None # Logic simplified, assuming usually None for local
             if not firebase_tenant_id:
                 # Use domain for uniqueness as requested
                 provisioner = get_tenant_provisioner()
@@ -144,7 +202,7 @@ class TenantOnboardingService:
                 "activation_status": 'pending',
                 "activation_expires_at": expires_at,
                 "is_active": True,
-                "plugins": plugins or []  # Set initial plugins
+                "plugins": [] # We set plugins via service below
             }
             if tenant_id:
                 tenant_model_args["id"] = tenant_id
@@ -152,8 +210,31 @@ class TenantOnboardingService:
             tenant = TenantModel(**tenant_model_args)
             db.add(tenant)
             await db.flush()
-            await db.refresh(tenant)
+            # No refresh yet
             
+            # 3.5 Create Subscription if plan found
+            if target_plan:
+                 sub = B2BSubscription(
+                     tenant_id=tenant.id,
+                     plan_id=target_plan.id,
+                     tier=target_plan.tier_key,
+                     status='active',
+                     seat_count=1, # Default
+                     base_price_cents=target_plan.base_price_monthly,
+                     per_seat_price_cents=target_plan.per_seat_price_monthly,
+                     total_amount_cents=target_plan.base_price_monthly, # Initial
+                     billing_interval='monthly'
+                 )
+                 db.add(sub)
+            else:
+                # Fallback to starter if no tier specified? Or leave null? 
+                # Better to leave null or create default if business logic requires.
+                pass
+
+            # 3.6 Apply Plugins via Service (Hooks)
+            if final_plugins:
+                await tenant_service.update_tenant_plugins(db, tenant.id, final_plugins)
+
             # 4. Seed roles from templates
             await role_template_service.seed_tenant_roles(db, tenant.id)
             
@@ -188,9 +269,6 @@ class TenantOnboardingService:
                 expires_at
             )
             
-            # Commit handled by caller
-            # await db.commit()
-            
             return {
                 "tenant_id": str(tenant.id),
                 "tenant_name": company_name,
@@ -203,7 +281,7 @@ class TenantOnboardingService:
             }
             
         except Exception as e:
-            await db.rollback()
+            # await db.rollback() # Logic handled by caller
             raise Exception(f"Tenant onboarding failed: {str(e)}")
     
     

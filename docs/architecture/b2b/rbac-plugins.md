@@ -328,6 +328,52 @@ async def initialize_plugins(tenant_id: UUID, db: AsyncSession):
 
 ---
 
+## Plugin Lifecycle Management
+
+The plugin system supports a **Split Lifecycle** to handle multi-tenancy efficiently:
+1.  **Global Initialization:** Loaded once at application startup.
+2.  **Tenant Activation:** Enabled/Disabled per tenant dynamically.
+
+### 1. The `TenantService` Controller
+The `TenantService.update_tenant_plugins()` method is the single source of truth for managing lifecycle. It calculates the diff between current and desired state and triggers the appropriate hooks.
+
+### 2. Lifecycle Hooks
+The `RBACPlugin` interface includes hooks for data management:
+
+```python
+async def on_tenant_enable(self, tenant_id: str, db) -> None:
+    """
+    Called when plugin is added to a tenant.
+    Use this to seed default data (e.g., Default Geographic Regions).
+    Must be Idempotent.
+    """
+    pass
+
+async def on_tenant_disable(self, tenant_id: str, db) -> None:
+    """
+    Called when plugin is removed.
+    Do NOT delete user data here (soft cleanup only).
+    """
+    pass
+```
+
+### 3. Configuration Hierarchy
+Plugins can be enabled via multiple sources, cascading down to the Tenant DB:
+
+1.  **Subscription Plans (DB Table):** "Enterprise" plan defines `["geographic_boundaries", "hierarchical_teams"]` in its features.
+2.  **Tenant Configuration (JSON):** `bank_surveillance_demo.json` can explicitly list plugins.
+3.  **Management CLI:** `tenant_onboard.py set-subscription` or `manage-plugins` commands.
+
+### 4. Example: Subscription Upgrade Flow
+1.  User upgrades to **Enterprise Tier** (e.g., via Stripe).
+2.  Webhook calls `TenantService`.
+3.  Service detects new plugins: `geographic_boundaries`.
+4.  Service calls `GeographicBoundariesPlugin.on_tenant_enable()`.
+5.  Plugin seeds default regions ("US", "EU", "APAC") for that tenant.
+6.  Core RBAC now enforces regions for that tenant.
+
+---
+
 ## Related Documentation
 
 - [Authorization Architecture](./authorization.md) - 3-Layer RBAC core

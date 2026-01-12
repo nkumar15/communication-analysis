@@ -2,15 +2,23 @@ geographic_boundaries:
   enforce_strict: true
   global_roles: [surveillance_chief, compliance_officer]
   default_regions:
-    - code: AMER
-      name: Americas
-      regulatory_jurisdiction: SEC
-    - code: EMEA
-      name: Europe Middle East Africa
-      regulatory_jurisdiction: FCA
-    - code: APAC
-      name: Asia Pacific
+    - code: US
+      name: United States (Global HQ)
+      regulatory_jurisdiction: SEC/Fed
+    - code: SG
+      name: Singapore (APAC Hub)
       regulatory_jurisdiction: MAS
+    - code: MY
+      name: Malaysia (Wealth Desk)
+      regulatory_jurisdiction: BNM
+    - code: UK
+      name: United Kingdom
+      regulatory_jurisdiction: FCA
+    - code: HK
+      name: Hong Kong
+      regulatory_jurisdiction: HKMA
+
+
 
 data_classification:
   enforce_strict: true

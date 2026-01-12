@@ -64,3 +64,19 @@ class RBACPlugin(ABC):
         Example: Adding 'geographic_scopes' or 'clearance_level'.
         """
         return {}
+
+    async def on_tenant_enable(self, tenant_id: str, db) -> None:
+        """
+        Lifecycle Hook: Called when a tenant Enables this plugin.
+        Use this to seed default data (e.g. Default Regions) or validate dependencies.
+        Implementation MUST be Idempotent (safe to run multiple times).
+        """
+        pass
+
+    async def on_tenant_disable(self, tenant_id: str, db) -> None:
+        """
+        Lifecycle Hook: Called when a tenant Disables this plugin.
+        Use for minimal cleanup or status updates. 
+        CRITICAL: Do NOT delete user data by default to prevent data loss on accidental downgrade.
+        """
+        pass
