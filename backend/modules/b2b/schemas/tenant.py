@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 
@@ -17,6 +17,7 @@ class Tenant(BaseModel):
     activation_started_at: Optional[datetime] = None  # Prevent replay attacks
     is_active: bool = True
     domain_type: str = 'default'  # Domain type for multi-domain SaaS (bank_surveillance, etc.)
+    plugins: List[str] = []  # Active plugins
     created_at: datetime
     updated_at: datetime
 

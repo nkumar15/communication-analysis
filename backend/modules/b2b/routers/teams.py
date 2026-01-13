@@ -108,7 +108,8 @@ async def list_teams(
             description=team.description,
             is_default=team.is_default,
             member_count=member_count,
-            created_at=team.created_at
+            created_at=team.created_at,
+            parent_team_id=team.parent_team_id
         ))
     
     return response

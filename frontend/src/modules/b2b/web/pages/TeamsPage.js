@@ -6,6 +6,9 @@ import { useAuth } from '../../../../core/hooks/useAuth';
 import { formatDateTime } from '../../../../utils/dateUtils';
 import { DashboardSkeleton } from '../../../../core/components/LoadingSkeleton';
 
+import TeamParentSelector from '../components/TeamParentSelector';
+import RegionSelector from '../components/RegionSelector';
+
 const TeamsPage = () => {
     const [teams, setTeams] = useState([]);
     const [stats, setStats] = useState(null);
@@ -13,12 +16,21 @@ const TeamsPage = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
+
+    // Form State
     const [newTeamName, setNewTeamName] = useState('');
     const [newTeamDesc, setNewTeamDesc] = useState('');
+    const [parentId, setParentId] = useState(null);
+    const [regionCode, setRegionCode] = useState('');
     const [creating, setCreating] = useState(false);
 
     const navigate = useNavigate();
     const { user } = useAuth();
+
+    // Check Plugins
+    const plugins = user?.active_plugins || [];
+    const hasHierarchy = plugins.includes('hierarchical_teams');
+    const hasGeo = plugins.includes('geographic_boundaries');
 
     useEffect(() => {
         loadData();
@@ -46,14 +58,33 @@ const TeamsPage = () => {
         setCreating(true);
         setError('');
         setSuccess('');
+
         try {
-            await teamApi.createTeam({
+            // Construct Payload
+            const payload = {
                 name: newTeamName,
-                description: newTeamDesc
-            });
+                description: newTeamDesc,
+                config_data: {}
+            };
+
+            // Add Hierarchy
+            if (hasHierarchy && parentId) {
+                payload.parent_team_id = parentId;
+                payload.team_type = 'hierarchical';
+            }
+
+            // Add Geography
+            if (hasGeo && regionCode) {
+                payload.config_data.region_code = regionCode;
+            }
+
+            await teamApi.createTeam(payload);
+
             setShowCreateModal(false);
             setNewTeamName('');
             setNewTeamDesc('');
+            setParentId(null);
+            setRegionCode('');
             setSuccess('Team created successfully');
             loadData();
         } catch (err) {
@@ -63,20 +94,232 @@ const TeamsPage = () => {
         }
     };
 
-    const handleDeleteTeam = async (teamId) => {
-        if (!window.confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
-            return;
-        }
-        setError('');
-        setSuccess('');
-        try {
-            await teamApi.deleteTeam(teamId);
-            setSuccess('Team deleted successfully');
-            loadData();
-        } catch (err) {
-            setError(err.message || 'Failed to delete team');
-        }
+    // Recursive Tree Builder
+    const getTeamTree = (allTeams) => {
+        const teamMap = {};
+        allTeams.forEach(t => teamMap[t.id] = { ...t, children: [] });
+
+        const roots = [];
+        allTeams.forEach(t => {
+            if (t.parent_team_id && teamMap[t.parent_team_id]) {
+                teamMap[t.parent_team_id].children.push(teamMap[t.id]);
+            } else {
+                roots.push(teamMap[t.id]);
+            }
+        });
+        return roots;
     };
+
+    const rootTeams = getTeamTree(teams);
+
+    const handleAddChild = (e, parentTeamId) => {
+        e.stopPropagation();
+        setParentId(parentTeamId);
+        setShowCreateModal(true);
+    };
+
+    // Recursive Item Component
+    const TeamTreeItem = ({ team, level = 0, isLast = false, onAddChild }) => {
+        const [expanded, setExpanded] = useState(true);
+        const hasChildren = team.children && team.children.length > 0;
+
+        return (
+            <div style={{ position: 'relative' }}>
+                <div
+                    onClick={() => navigate(`/b2b/teams/${team.id}`)}
+                    style={{
+                        padding: '16px 24px',
+                        paddingLeft: `${level * 40 + 24}px`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #F3F4F6',
+                        transition: 'background-color 0.15s',
+                        position: 'relative',
+                        backgroundColor: 'white'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#F9FAFB';
+                        // Show actions
+                        const actions = e.currentTarget.querySelector('.team-actions');
+                        if (actions) actions.style.opacity = '1';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                        const actions = e.currentTarget.querySelector('.team-actions');
+                        if (actions) actions.style.opacity = '0';
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                        {/* Network Lines */}
+                        {level > 0 && (
+                            <div style={{
+                                position: 'absolute',
+                                left: `${(level - 1) * 40 + 44}px`,
+                                top: '-20px',
+                                bottom: '50%',
+                                width: '2px',
+                                backgroundColor: '#E5E7EB',
+                                zIndex: 0
+                            }} />
+                        )}
+                        {level > 0 && (
+                            <div style={{
+                                position: 'absolute',
+                                left: `${(level - 1) * 40 + 44}px`,
+                                top: '50%',
+                                width: '20px',
+                                height: '2px',
+                                backgroundColor: '#E5E7EB',
+                                zIndex: 0
+                            }} />
+                        )}
+
+                        {/* Expander */}
+                        <div
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setExpanded(!expanded);
+                            }}
+                            style={{
+                                width: '24px',
+                                height: '24px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                cursor: hasChildren ? 'pointer' : 'default',
+                                color: '#6B7280',
+                                zIndex: 1
+                            }}
+                        >
+                            {hasChildren ? (
+                                <svg
+                                    style={{
+                                        width: '14px',
+                                        height: '14px',
+                                        transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.2s'
+                                    }}
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                </svg>
+                            ) : (
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#E5E7EB' }}></span>
+                            )}
+                        </div>
+
+                        {/* Icon & Name */}
+                        <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            backgroundColor: level === 0 ? '#EEF2FF' : '#F3F4F6',
+                            color: level === 0 ? '#4F46E5' : '#6B7280',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '16px'
+                        }}>
+                            {level === 0 ? '🏢' : '📂'}
+                        </div>
+
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: '#111827' }}>
+                                    {team.name}
+                                </h3>
+                                {team.is_default && (
+                                    <span style={{
+                                        padding: '2px 8px',
+                                        borderRadius: '9999px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        backgroundColor: '#ecfdf5',
+                                        color: '#059669',
+                                        border: '1px solid #10b981'
+                                    }}>
+                                        Default
+                                    </span>
+                                )}
+                            </div>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6B7280' }}>
+                                {team.description || 'No description'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Right Side Info & Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                                {team.member_count} members
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                                Created {formatDateTime(team.created_at).split(',')[0]}
+                            </div>
+                        </div>
+
+                        {/* Hover Actions */}
+                        <div className="team-actions" style={{ opacity: 0, transition: 'opacity 0.2s', display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={(e) => onAddChild(e, team.id)}
+                                title="Add Child Team"
+                                style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #E5E7EB',
+                                    backgroundColor: 'white',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#4B5563',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#667eea'; e.currentTarget.style.color = '#667eea'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#4B5563'; }}
+                            >
+                                <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Recursive Children */}
+                {expanded && hasChildren && (
+                    <div style={{ position: 'relative' }}>
+                        {/* Vertical line connecting children */}
+                        <div style={{
+                            position: 'absolute',
+                            left: `${level * 40 + 44}px`,
+                            top: '0',
+                            bottom: '24px', // Stop before last item center
+                            width: '2px',
+                            backgroundColor: '#E5E7EB',
+                            zIndex: 0
+                        }} />
+
+                        {team.children.map((child, idx) => (
+                            <TeamTreeItem
+                                key={child.id}
+                                team={child}
+                                level={level + 1}
+                                isLast={idx === team.children.length - 1}
+                                onAddChild={onAddChild}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
 
     if (loading) {
         return (
@@ -101,11 +344,14 @@ const TeamsPage = () => {
                             🏢 Teams
                         </h1>
                         <p style={{ fontSize: '14px', color: '#6B7280', margin: 0 }}>
-                            Manage teams and their members
+                            Manage hierarchical teams and permissions
                         </p>
                     </div>
                     <button
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={() => {
+                            setParentId(null);
+                            setShowCreateModal(true);
+                        }}
                         style={{
                             padding: '12px 20px',
                             borderRadius: '8px',
@@ -125,7 +371,7 @@ const TeamsPage = () => {
                         <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                        Create Team
+                        New Root Team
                     </button>
                 </div>
 
@@ -168,6 +414,7 @@ const TeamsPage = () => {
                     gap: '20px',
                     marginBottom: '32px'
                 }}>
+                    {/* ... stats kept same ... */}
                     <div style={{
                         backgroundColor: 'white',
                         padding: '24px',
@@ -208,7 +455,7 @@ const TeamsPage = () => {
                     </div>
                 </div>
 
-                {/* Teams List */}
+                {/* Tree View */}
                 <div style={{
                     backgroundColor: 'white',
                     borderRadius: '12px',
@@ -216,69 +463,14 @@ const TeamsPage = () => {
                     border: '1px solid #E5E7EB',
                     overflow: 'hidden'
                 }}>
-                    {teams.length === 0 ? (
+                    {rootTeams.length === 0 ? (
                         <div style={{ padding: '60px 24px', textAlign: 'center', color: '#9CA3AF' }}>
                             <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
                             <p style={{ fontSize: '16px', margin: 0 }}>No teams found. Create one to get started.</p>
                         </div>
                     ) : (
-                        teams.map((team, index) => (
-                            <div
-                                key={team.id}
-                                onClick={() => navigate(`/b2b/teams/${team.id}`)}
-                                style={{
-                                    padding: '20px 24px',
-                                    borderBottom: index < teams.length - 1 ? '1px solid #F3F4F6' : 'none',
-                                    cursor: 'pointer',
-                                    transition: 'background-color 0.15s'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <h3 style={{
-                                            margin: 0,
-                                            fontSize: '16px',
-                                            fontWeight: '600',
-                                            color: '#3b82f6'
-                                        }}>
-                                            {team.name}
-                                        </h3>
-                                        {team.is_default && (
-                                            <span style={{
-                                                padding: '4px 12px',
-                                                borderRadius: '9999px',
-                                                fontSize: '12px',
-                                                fontWeight: '600',
-                                                backgroundColor: '#d1fae5',
-                                                color: '#065f46',
-                                                border: '1px solid #10b981'
-                                            }}>
-                                                ✓ Default
-                                            </span>
-                                        )}
-                                    </div>
-                                    <span style={{
-                                        padding: '4px 12px',
-                                        borderRadius: '9999px',
-                                        fontSize: '12px',
-                                        fontWeight: '600',
-                                        backgroundColor: '#f3f4f6',
-                                        color: '#374151'
-                                    }}>
-                                        👤 {team.member_count || 0} members
-                                    </span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <p style={{ margin: 0, fontSize: '14px', color: '#6B7280' }}>
-                                        {team.description || 'No description'}
-                                    </p>
-                                    <p style={{ margin: 0, fontSize: '13px', color: '#9CA3AF' }}>
-                                        Created {formatDateTime(team.created_at)}
-                                    </p>
-                                </div>
-                            </div>
+                        rootTeams.map((team) => (
+                            <TeamTreeItem key={team.id} team={team} onAddChild={handleAddChild} />
                         ))
                     )}
                 </div>
@@ -417,6 +609,21 @@ const TeamsPage = () => {
                                     }}
                                 />
                             </div>
+
+                            {/* DYNAMIC PLUGIN FIELDS */}
+                            {hasHierarchy && (
+                                <TeamParentSelector
+                                    value={parentId}
+                                    onChange={setParentId}
+                                />
+                            )}
+
+                            {hasGeo && (
+                                <RegionSelector
+                                    value={regionCode}
+                                    onChange={setRegionCode}
+                                />
+                            )}
 
                             {/* Action Buttons */}
                             <div style={{

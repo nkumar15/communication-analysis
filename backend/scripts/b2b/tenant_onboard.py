@@ -24,6 +24,58 @@ def cli():
     """Enterprise SSO Tenant Management CLI"""
 # ...
 
+async def _seed_teams_recursive(db, tenant_id, team_list, parent_id=None, level=0):
+    """Recursively seed teams with parent-child relationships"""
+    from modules.b2b.models.team import Team
+    from sqlalchemy import select
+    
+    for t_config in team_list:
+        name = t_config['name']
+        desc = t_config.get('description')
+        
+        # Prepare config_data
+        config_data = {}
+        if t_config.get('region_code'):
+             config_data['region_code'] = t_config.get('region_code')
+
+        # Check if team exists by name within tenant
+        stmt = select(Team).where(
+            Team.tenant_id == tenant_id,
+            Team.name == name
+        )
+        existing = (await db.execute(stmt)).scalar_one_or_none()
+        
+        if not existing:
+            new_team = Team(
+                tenant_id=tenant_id,
+                name=name,
+                description=desc,
+                parent_team_id=parent_id,
+                hierarchy_level=level,
+                team_type='hierarchical',
+                config_data=config_data
+            )
+            db.add(new_team)
+            await db.flush() # Need ID for children
+            team_id = new_team.id
+            click.echo(f"      + Created Team: {name} (Level {level})")
+        else:
+            team_id = existing.id
+            # Update parent/level if needed
+            if existing.parent_team_id != parent_id or existing.hierarchy_level != level:
+                existing.parent_team_id = parent_id
+                existing.hierarchy_level = level
+                db.add(existing)
+                await db.flush()
+                click.echo(f"      ~ Updated Team Hierarchy: {name}")
+            else:
+                 click.echo(f"      . Team {name} exists")
+        
+        # Process Children
+        if t_config.get('children'):
+            await _seed_teams_recursive(db, tenant_id, t_config['children'], team_id, level + 1)
+
+
 async def seed_plugin_config_from_yaml(db, tenant_id, yaml_path):
     """Seed plugin configuration (e.g. Regions) from YAML file"""
     import yaml
@@ -91,11 +143,15 @@ async def seed_plugin_config_from_yaml(db, tenant_id, yaml_path):
                     click.echo(f"      + Created Level: {lvl['name']} ({lvl['level']})")
                 else:
                     click.echo(f"      . Level {lvl['name']} exists")
-                    
+
+        # 3. Hierarchical Teams
+        if config.get("hierarchical_teams") and config["hierarchical_teams"].get("seed_data"):
+            teams_data = config["hierarchical_teams"]["seed_data"]
+            click.echo(f"   -> Seeding Team Hierarchy from config...")
+            await _seed_teams_recursive(db, tenant_id, teams_data)
+
     except Exception as e:
         click.echo(f"⚠️  Failed to seed plugin config: {e}", err=True)
-
-
 
 async def create_local_async(
     company, domain, firebase_tenant_id, owner_email, tenant_id=None, plugins=None, subscription_tier=None, plugins_yaml_path=None):
@@ -397,10 +453,19 @@ def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file
     if tenant_id:
         click.echo(f"   Using Tenant ID: {tenant_id}")
 
+    # Infer plugins.yaml path from config file path
+    # Convention: If 'file' is '.../bank_surveillance_demo.json', look for '.../plugins.yaml'
+    plugins_yaml_path = None
+    config_dir = os.path.dirname(os.path.abspath(file))
+    potential_yaml = os.path.join(config_dir, "plugins.yaml")
+    if os.path.exists(potential_yaml):
+        click.echo(f"   found companion config: {potential_yaml}")
+        plugins_yaml_path = potential_yaml
+
     # Run Async Logic
     try:
         result = asyncio.run(create_local_async(
-            company, domain, firebase_tenant_id, owner_email, tenant_id, plugin_list, subscription_tier
+            company, domain, firebase_tenant_id, owner_email, tenant_id, plugin_list, subscription_tier, plugins_yaml_path
         ))
     except Exception as e:
         click.echo(f"\n❌ Error: {str(e)}", err=True)

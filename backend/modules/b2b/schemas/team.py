@@ -11,6 +11,8 @@ class TeamBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Team name")
     description: Optional[str] = Field(None, max_length=1000, description="Team description")
     config_data: Dict[str, Any] = Field(default_factory=dict, description="Additional team configuration")
+    parent_team_id: Optional[UUID] = Field(None, description="Parent team ID for hierarchy")
+    team_type: str = Field("standard", description="Team type (standard/hierarchical)")
 
 class TeamCreate(TeamBase):
     """Schema for creating a new team"""
@@ -43,6 +45,7 @@ class TeamListResponse(BaseModel):
     is_default: bool
     member_count: int = 0
     created_at: datetime
+    parent_team_id: Optional[UUID] = None
     
     class Config:
         from_attributes = True

@@ -21,6 +21,60 @@ class GeographicBoundariesPlugin(RBACPlugin):
         self.config = config
         return True
     
+    async def enrich_user_context(self, user: Dict[str, Any], db) -> Dict[str, Any]:
+        """
+        Enrich user with geographical scopes based on their TEAM membership.
+        Logic:
+           User -> Teams -> Team.config_data['region_code'] -> GeographicRegion.id
+        """
+        user_id = user.get("id")
+        if not user_id:
+            return {}
+            
+        from sqlalchemy import text
+        
+        # 1. Get Region Codes from User's Teams
+        # We join team_members -> teams -> access config_data
+        stmt = text("""
+            SELECT DISTINCT t.config_data ->> 'region_code' as code
+            FROM b2b.team_members tm
+            JOIN b2b.teams t ON tm.team_id = t.id
+            WHERE tm.user_id = :user_id
+            AND t.config_data ->> 'region_code' IS NOT NULL
+        """)
+        
+        result = await db.execute(stmt, {"user_id": user_id})
+        codes = [row.code for row in result]
+        
+        if not codes:
+            return {}
+            
+        # 2. Resolve Codes to UUIDs (GeographicRegion.id)
+        # We need the UUIDs because resource.data_region_id is a UUID
+        # Note: We assume regions are scoped to the tenant, but user context has tenant_id?
+        # Usually yes. But safer to query by code + tenant_id if possible. 
+        # Here we just query by code for simplicity as codes like 'SG' are standard? 
+        # Actually codes are unique per tenant usually.
+        # But wait, we need tenant_id. user['tenant_id']?
+        
+        tenant_id = user.get("tenant_id")
+        if not tenant_id:
+             return {}
+             
+        stmt_regions = text("""
+            SELECT id FROM b2b.geographic_regions
+            WHERE tenant_id = :tenant_id
+            AND code = ANY(:codes)
+        """)
+        
+        region_result = await db.execute(stmt_regions, {"tenant_id": tenant_id, "codes": codes})
+        region_ids = [str(row.id) for row in region_result]
+        
+        logger.info(f"Geographic Enrichment for {user_id}: Codes={codes} -> IDs={region_ids}")
+        
+        return {"geographic_scopes": region_ids}
+
+    
     async def after_permission_check(
         self, context: PermissionContext, core_result: bool, db
     ) -> bool:

@@ -41,5 +41,35 @@ data_classification:
   default_level: INTERNAL
 
 hierarchical_teams:
-  max_depth: 3  # Region → Desk → Unit
+  max_depth: 3  # Region -> Desk -> Unit
   allow_cross_hierarchy: false
+  seed_data:
+    - name: "Global Surveillance"
+      description: "Global Head of Surveillance"
+      region_code: "US"
+      children:
+        - name: "APAC Surveillance"
+          description: "Regional Surveillance for Asia Pacific"
+          region_code: "SG"
+          children:
+            - name: "SG Desk"
+              description: "Singapore Trading Desk Surveillance"
+              region_code: "SG"
+            - name: "HK Desk"
+              description: "Hong Kong Trading Desk Surveillance"
+              region_code: "HK"
+        - name: "EMEA Surveillance"
+          description: "Regional Surveillance for Europe, Middle East, Africa"
+          region_code: "UK"
+          children: 
+            - name: "UK Desk"
+              description: "London Trading Desk Surveillance"
+              region_code: "UK"
+        - name: "Americas Surveillance"
+          description: "Regional Surveillance for North/South America"
+          region_code: "US"
+          children:
+            - name: "US Desk"
+              description: "New York Trading Desk Surveillance"
+              region_code: "US"
+

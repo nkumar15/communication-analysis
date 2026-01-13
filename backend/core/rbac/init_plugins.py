@@ -18,43 +18,40 @@ async def initialize_plugins(db: AsyncSession):
     """
     Load plugins based on RBAC_PLUGINS env var and plugins.yaml config.
     """
-    enabled_plugins_str = os.getenv("RBAC_PLUGINS", "")
-    if not enabled_plugins_str:
-        logger.info("No RBAC plugins enabled.")
-        return
-
-    enabled_plugins = [p.strip() for p in enabled_plugins_str.split(",") if p.strip()]
-    
-    # 1. Register Plugins
-    # We could implement dynamic loading, but manual registration is safer/simpler for now
+    # 1. Register All Available Plugins
+    # We register all known plugins so they can be activated per-tenant via DB
     available_plugins = {
         "hierarchical_teams": HierarchicalTeamsPlugin(),
         "geographic_boundaries": GeographicBoundariesPlugin(),
         "data_classification": DataClassificationPlugin(),
     }
     
-    for name in enabled_plugins:
-        if name in available_plugins:
-            plugin_registry.register(available_plugins[name])
-        else:
-            logger.warning(f"Unknown plugin enabled: {name}")
+    for name, plugin in available_plugins.items():
+        plugin_registry.register(plugin)
 
     # 2. Load Configuration
-    # Ideally load from plugins.yaml
     config = {}
     try:
-        # Assuming path relative to backend root or configured location
-        # Plan says: backend/scripts/b2b/use_cases/bank_surveillance/plugins.yaml
-        # But that's specific to the use case. In prod, we'd have a standard config location.
-        # For this demo/task, we'll try to load that specific file if it exists, or a default.
+        # Check potential paths for config (Docker vs Local)
+        # 1. Docker: /app/scripts/... -> scripts/...
+        # 2. Local: backend/scripts/...
+        paths_to_check = [
+            "scripts/b2b/use_cases/bank_surveillance/plugins.yaml",
+            "backend/scripts/b2b/use_cases/bank_surveillance/plugins.yaml"
+        ]
         
-        # Hardcoding path for the "Bank Surveillance" context of this task
-        config_path = "backend/scripts/b2b/use_cases/bank_surveillance/plugins.yaml"
-        if os.path.exists(config_path):
+        config_path = None
+        for p in paths_to_check:
+            if os.path.exists(p):
+                config_path = p
+                break
+        
+        if config_path:
+             logger.info(f"Loading plugin config from {config_path}")
              with open(config_path, 'r') as f:
                  config = yaml.safe_load(f)
         else:
-            logger.warning(f"Plugin config not found at {config_path}, using defaults")
+            logger.warning("Plugin config not found in standard locations, using defaults")
             
     except Exception as e:
         logger.error(f"Failed to load plugin config: {e}")
