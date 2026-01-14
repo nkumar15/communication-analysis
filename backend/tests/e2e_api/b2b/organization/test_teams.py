@@ -392,48 +392,61 @@ class TestTeamManagement:
         Test that when a user is removed from their LAST team, 
         they are automatically moved to the Default Team to prevent orphaned state.
         
-        Test Steps:
-        1. Create a new custom team (e.g., "Engineering")
-        2. Create a new user and add them ONLY to the custom team
-        3. Verify user is member of exactly 1 team (the custom team)
-        4. Remove user from the custom team
-        5. Verify user is now automatically a member of Default Team
-        6. Verify user is a member of exactly 1 team (Default Team)
-        7. Verify team role in Default Team is 'team_contributor' (basic role)
-        
         This ensures the "Quarantine/Lobby" pattern is maintained - 
         users are never in a teamless state.
         """
-        # TODO: Implement this test
-        # setup = b2b_test_setup
-        # token = setup["token"]
-        # tenant = setup["tenant"]
-        # session = setup["session"]
-        # 
-        # # Step 1: Create custom team
-        # team_resp = await api_client.post(...)
-        # 
-        # # Step 2: Create user and add to custom team ONLY
-        # user = await create_test_user(...)
-        # await api_client.post(f"/api/b2b/teams/{team_id}/members", ...)
-        # 
-        # # Step 3: Verify user has 1 team
-        # user_teams = await get_user_teams(session, user.id)
-        # assert len(user_teams) == 1
-        # 
-        # # Step 4: Remove from custom team
-        # await api_client.delete(f"/api/b2b/teams/{team_id}/members/{user.id}", ...)
-        # 
-        # # Step 5 & 6: Verify auto-moved to Default Team
-        # user_teams = await get_user_teams(session, user.id)
-        # assert len(user_teams) == 1
-        # assert user_teams[0][0].is_default == True
-        # 
-        # # Step 7: Verify team role is team_contributor
-        # # NOTE: team_contributor is the default/fallback role for Default Team assignments.
-        # # It provides minimal permissions (read-only access to team_members and team_settings)
-        # # and NO access to business resources, making it safe for the "Lobby/Quarantine" pattern.
-        # assert user_teams[0][1].team_role == "team_contributor"
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
+        session = setup["session"]
         
-        pytest.skip("Test skeleton - implementation pending")
+        # Step 1: Create a custom team (Engineering)
+        team_resp = await api_client.post(
+            "/api/b2b/teams/",
+            json={"name": "Engineering", "description": "Engineering team"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert team_resp.status_code == 201
+        custom_team_id = team_resp.json()["id"]
+        
+        # Step 2: Create a new user and add them ONLY to the custom team
+        user = await create_test_user(
+            session,
+            tenant_id=setup["tenant_id"],
+            email=f"orphan_test@{tenant.domain}",
+            role_slug="member"
+        )
+        
+        # Add user to custom team
+        add_resp = await api_client.post(
+            f"/api/b2b/teams/{custom_team_id}/members",
+            json={"user_id": str(user.id), "team_role": "team_contributor"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert add_resp.status_code == 201
+        
+        # Step 3: Verify user is member of exactly 1 team (the custom team)
+        from modules.b2b.services.team_service import get_user_teams
+        user_teams_before = await get_user_teams(session, user.id)
+        assert len(user_teams_before) == 1
+        assert str(user_teams_before[0][0].id) == custom_team_id
+        
+        # Step 4: Remove user from the custom team
+        remove_resp = await api_client.delete(
+            f"/api/b2b/teams/{custom_team_id}/members/{user.id}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert remove_resp.status_code == 200
+        
+        # Step 5 & 6: Verify user is now automatically a member of Default Team
+        user_teams_after = await get_user_teams(session, user.id)
+        assert len(user_teams_after) == 1
+        assert user_teams_after[0][0].is_default == True
+        
+        # Step 7: Verify team role is team_contributor
+        # NOTE: team_contributor is the default/fallback role for Default Team assignments.
+        # It provides minimal permissions (read-only access to team_members and team_settings)
+        # and NO access to business resources, making it safe for the "Lobby/Quarantine" pattern.
+        assert user_teams_after[0][1].team_role == "team_contributor"
+
 

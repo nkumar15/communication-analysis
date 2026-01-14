@@ -66,7 +66,6 @@ async def has_permission(
         .where(Action.name == action)
     )
     
-    
     permission = result.scalar_one_or_none()
     return permission is not None
 

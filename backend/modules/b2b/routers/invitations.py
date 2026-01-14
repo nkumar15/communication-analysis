@@ -338,8 +338,7 @@ async def bulk_invite_users(
         tenant_id=current_user['tenant_id'],
         file=file,
         current_user=current_user,
-        send_emails=send_emails,
-        auto_create_teams=auto_create_teams
+        send_emails=send_emails
     )
     
     # Commit all changes

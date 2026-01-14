@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.b2b.models import InvitationModel, TenantModel, Role
 from modules.b2b.schemas import Invitation
+from modules.b2b.utils.csv_parser import BulkInviteRow
 from core.utils import get_utc_now
 import secrets  # For timing-attack resistant comparison
 
@@ -552,11 +553,11 @@ class InvitationService:
         # 2. Auth0 OIDC federation often doesn't pass email_verified correctly
         # 3. The invitation itself is a form of email verification (they clicked the link)
         # TODO: Re-enable after configuring Auth0 to pass email_verified in OIDC token
-        # if not email_verified:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_403_FORBIDDEN,
-        #         detail="Email must be verified before accepting invitation. Please verify your email in your authentication provider."
-        #     )
+        if not email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email must be verified before accepting invitation. Please verify your email in your authentication provider."
+            )
         
         # Verify email match
         if email.lower() != invitation.email.lower():
@@ -659,8 +660,7 @@ class InvitationService:
         tenant_id: UUID,
         file: Any,  # UploadFile
         current_user: dict,
-        send_emails: bool = True,
-        auto_create_teams: bool = True
+        send_emails: bool = True
     ) -> dict:
         """
         Orchestrate bulk invite process: Parse -> Validate -> Create -> Queue Emails
@@ -721,9 +721,7 @@ class InvitationService:
             db=db,
             tenant_id=tenant_id,
             rows=parsed_csv.rows,
-            created_by=current_user['id'],
-            tenant_domain=tenant.domain,
-            auto_create_teams=auto_create_teams
+            created_by=current_user['id']
         )
         
         # We don't commit here, we let the caller (router) commit, OR we commit here.
@@ -740,21 +738,17 @@ class InvitationService:
         self,
         db: AsyncSession,
         tenant_id: UUID,
-        rows: List,  # List[BulkInviteRow]
-        created_by: UUID,
-        tenant_domain: str,
-        auto_create_teams: bool = True
-    ) -> dict:
+        rows: List[BulkInviteRow],
+        created_by: UUID
+    ):
         """
-        Create multiple invitations from bulk upload.
+        Process bulk invitation rows
         
         Args:
             db: Database session
             tenant_id: Tenant ID
-            rows: List of validated BulkInviteRow objects
-            created_by: User ID who created bulk invite
-            tenant_domain: Tenant's email domain
-            auto_create_teams: Whether to auto-create teams if they don't exist
+            rows: Validated rows
+            created_by: User ID of uploadere
             
         Returns:
             Dict with job_id, results, successful_count, failed_count, teams_created

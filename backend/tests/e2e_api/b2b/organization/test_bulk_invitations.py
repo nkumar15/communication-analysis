@@ -56,6 +56,12 @@ carol@{tenant.domain},Sales,team_reader,Carol White
             'file': ('bulk_invite.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
         }
         
+        # Pre-create teams since auto-creation is removed
+        from modules.b2b.services.team_service import create_team
+        await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
+        await create_team(db_session, tenant.id, "Sales", created_by=admin.id)
+        await db_session.commit()
+        
         # Upload
         response = await api_client.post(
             "/api/b2b/invitations/bulk",
@@ -72,8 +78,8 @@ carol@{tenant.domain},Sales,team_reader,Carol White
         assert data['successful'] == 3
         assert data['failed'] == 0
         assert len(data['results']) == 3
-        assert 'Engineering' in data['teams_created']
-        assert 'Sales' in data['teams_created']
+        # Teams are no longer auto-created, so this list should be empty
+        assert len(data.get('teams_created', [])) == 0
         
         # Verify download URLs
         assert '/download' in data['download_url']
@@ -115,7 +121,8 @@ bob@wrongdomain.com,team_contributor
         assert response.status_code == 400
         data = response.json()
         
-        assert 'validation_failed' in str(data).lower() or 'error' in str(data).lower()
+        # Check for missing columns error
+        assert 'missing' in str(data).lower() or 'required' in str(data).lower()
     
     @pytest.mark.asyncio
     async def test_csv_domain_mismatch(self, api_client: AsyncClient, db_session: AsyncSession):
@@ -494,12 +501,22 @@ test@{tenant.domain},NewTeam,team_contributor
             files=files,
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
-        
+        # Auto-creation is REMOVED. This should now fail for non-existent teams.
         assert response.status_code == 200
         data = response.json()
         
-        # Verify team was created
-        assert 'NewTeam' in data.get('teams_created', [])
+        # Expect failures
+        assert data['successful'] == 0
+        assert data['failed'] == 2 # Both rows fail
+        assert len(data['results']) == 2
+        
+        # Verify no teams were created
+        assert len(data.get('teams_created', [])) == 0
+        
+        # Verify error messages
+        for result in data['results']:
+            assert result['status'] == 'failed'
+            assert 'Team not found' in result['error']
     
     @pytest.mark.asyncio
     async def test_download_failures_only(self, api_client: AsyncClient, db_session: AsyncSession):

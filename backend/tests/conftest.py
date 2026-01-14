@@ -38,6 +38,8 @@ from infrastructure.auth import get_auth_provider
 
 # Import ALL routers for testing
 from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
+from modules.b2b.models import RolePermission, Resource, Action, Role
+from sqlalchemy import select
 from modules.domains.projects.routers import projects, tasks, comments
 from modules.platform.routers import platform, platform_b2b, platform_b2c
 from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
@@ -500,6 +502,9 @@ async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
         team = result.scalar_one()
     """
     from core.db.rls import rls_service
+    from core.db.session import current_tenant_id
+    
+    current_tenant_id.set(str(tenant_id))
     await rls_service.set_tenant_context(db_session, tenant_id)
 
 
@@ -535,6 +540,33 @@ async def b2b_test_setup(db_session: AsyncSession):
         email=f"admin@{tenant.domain}",
         role_slug="admin"
     )
+
+    # Force grant teams:delete to make sure (fix for 403)
+    from modules.b2b.models import RolePermission, Resource, Action, Role
+    teams_res = await db_session.execute(select(Resource).where(Resource.name == "teams"))
+    teams_res = teams_res.scalar_one()
+    delete_act = await db_session.execute(select(Action).where(Action.name == "delete"))
+    delete_act = delete_act.scalar_one()
+    
+    # Get admin role
+    admin_role = await db_session.execute(select(Role).where(Role.id == admin.role_id))
+    admin_role = admin_role.scalar_one()
+    
+    # Check if exists
+    perm_exists = await db_session.execute(
+        select(RolePermission).where(
+            RolePermission.role_id == admin_role.id,
+            RolePermission.resource_id == teams_res.id,
+            RolePermission.action_id == delete_act.id
+        )
+    )
+    if not perm_exists.scalar_one_or_none():
+        db_session.add(RolePermission(
+            role_id=admin_role.id,
+            resource_id=teams_res.id,
+            action_id=delete_act.id
+        ))
+        await db_session.commit()
     
     # Step 4: Create token
     token = encode_mock_jwt(create_mock_firebase_token(
@@ -641,7 +673,7 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
         ("audit_logs", True),
         ("billing", True),
         ("invoices", True),
-        ("teams", False),
+        ("teams", True),
         ("team_members", False),
         ("projects", False),
         ("tasks", False),

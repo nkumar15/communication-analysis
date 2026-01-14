@@ -558,14 +558,103 @@ class TestInvitationFlow:
         Test case to validate System Role assignment logic during invitation.
         
         Objective:
-        - Ensure that if a user is invited with ONLY a Team Role, the System Role is NOT automatically inferred
-          but rather defaults to a specific safe value (e.g. MEMBER) or the API rejects it if configured to be strict.
+        - Ensure that when a user is invited WITHOUT specifying a role, 
+          the System Role defaults to 'member' (not 'viewer').
+        - Verify that Team Role and System Role are independent layers.
         
-        Current Analysis:
-        - Single User Invite (API): Defaults to 'member' if 'role' field is omitted.
-        - Bulk Invite (CSV): 'role' field is MANDATORY.
-        
-        This test serves as a placeholder to enforce and verify this policy in the future.
+        Scenarios:
+        1. Single User Invite (API): Defaults to 'member' if 'role' field is omitted
+        2. Invitation with only team_id/team_role should still default System Role to 'member'
         """
-        # Placeholder for validation logic
-        pass
+        # Setup: Create tenant and admin user
+        tenant = await create_test_tenant(db_session)
+        admin = await create_test_user(
+            db_session,
+            tenant_id=tenant.id,
+            email=f"admin@{tenant.domain}",
+            role_slug=B2BRoleName.ADMIN
+        )
+        
+        # Create JWT token
+        jwt_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=admin.firebase_uid,
+            email=admin.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
+        
+        # Scenario 1: Invite user WITHOUT specifying role (should default to MEMBER)
+        response = await api_client.post(
+            "/api/b2b/invitations/invite",
+            json={
+                "email": f"newuser@{tenant.domain}",
+                # "role" is intentionally omitted
+            },
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        # NOTE: Endpoint returns 200 OK, not 201 Created (existing behavior)
+        assert response.status_code == 200
+        data = response.json()
+        
+        # API response doesn't include 'role' field, but we can verify email
+        assert data["email"] == f"newuser@{tenant.domain}"
+        assert data["status"] == "sent"
+        
+        # Set RLS context for DB queries
+        from tests.conftest import set_tenant_context
+        await set_tenant_context(db_session, tenant.id)
+        
+        # Verify in DB that the invitation was created with MEMBER role (not VIEWER)
+        from modules.b2b.models import InvitationModel
+        result = await db_session.execute(
+            select(InvitationModel).where(
+                InvitationModel.email == f"newuser@{tenant.domain}",
+                InvitationModel.tenant_id == tenant.id
+            )
+        )
+        invitation = result.scalar_one()
+        assert invitation.role == B2BRoleName.MEMBER
+        
+        # Scenario 2: Invite user with team assignment but no System Role
+        # Create a team first
+        from modules.b2b.services.team_service import create_team
+        team = await create_team(
+            db=db_session,
+            tenant_id=tenant.id,
+            name="Engineering",
+            description="Engineering team"
+        )
+        
+        response2 = await api_client.post(
+            "/api/b2b/invitations/invite",
+            json={
+                "email": f"engineer@{tenant.domain}",
+                "team_id": str(team.id),
+                "team_role": "team_contributor"
+                # "role" is intentionally omitted
+            },
+            headers={"Authorization": f"Bearer {jwt_token}"}
+        )
+        
+        # NOTE: Endpoint returns 200 OK, not 201 Created  (existing behavior)
+        assert response2.status_code == 200
+        data2 = response2.json()
+        
+        # API response doesn't include role/team_role, verify from database
+        assert data2["email"] == f"engineer@{tenant.domain}"
+        assert data2["status"] == "sent"
+        assert data2["team_id"] == str(team.id)
+        
+        # Verify System Role still defaults to MEMBER (independent of Team Role) - from DB
+        result2 = await db_session.execute(
+            select(InvitationModel).where(
+                InvitationModel.email == f"engineer@{tenant.domain}",
+                InvitationModel.tenant_id == tenant.id
+            )
+        )
+        invitation2 = result2.scalar_one()
+        assert invitation2.role == B2BRoleName.MEMBER
+        assert invitation2.team_id == team.id
+        assert invitation2.team_role == "team_contributor"
+
+
