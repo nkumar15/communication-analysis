@@ -40,6 +40,7 @@ We define specific roles to match the bank's operational and compliance needs.
 | 8 | **Support** | `surveillance_ops` | **Team** | Surveillance Operations (SurvOps) - Monitors pipelines and stats. |
 | 9 | **Audit** | `compliance_officer` | **Team** | Read-only regulatory oversight. |
 | 10 | **External** | `guest_analyst` | **Team** | Limited read-only access for auditors. |
+| 11 | **Base** | `member` | **Tenant** | **Safe Default.** Read-only listing of Users/Teams. **NO** access to surveillance data. |
 
 ---
 
@@ -153,6 +154,7 @@ Special configurations for non-business users.
 | **Admin (IT)** | ✅ Full | ✅ Full | ✅ Full | ❌ | ❌ | ❌ | ✅ Full |
 | **SurvOps** | ✅ Manage | ❌ | ✅ Manage | ✅ Full | ✅ Full | ❌ | 👁️ Read |
 | **Chief (CSO)** | 👁️ Read | ❌ | ❌ | ✅ Full | ✅ Full | ❌ | 👁️ Read |
+| **Member** | 👁️ Read | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 *Legend: ✅ Full Access, 👁️ Read Only, ➕ Create/Update Only, ❌ No Access*
 
