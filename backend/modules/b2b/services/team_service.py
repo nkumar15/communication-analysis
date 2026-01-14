@@ -369,6 +369,10 @@ async def remove_team_member(
         
     Raises:
         HTTPException: If membership not found
+        
+    Note:
+        If this is the user's last team, they will be automatically moved to 
+        the Default Team to prevent orphaned user state.
     """
     result = await db.execute(
         select(TeamMember).where(
@@ -384,8 +388,36 @@ async def remove_team_member(
             detail="User is not a member of this team"
         )
     
+    # Delete the membership
     await db.delete(member)
     await db.flush()
+    
+    # Check if user has any remaining teams
+    remaining_teams = await get_user_teams(db, user_id)
+    
+    if len(remaining_teams) == 0:
+        # User is now orphaned - move them to Default Team
+        # Get user's tenant_id
+        user = await db.get(UserModel, user_id)
+        if user:
+            default_team = await get_or_create_default_team(
+                db=db,
+                tenant_id=user.tenant_id
+            )
+            
+            # Get the default team role from service (fallback to team_contributor)
+            from modules.b2b.services.team_role_service import team_role_service
+            default_role_def = await team_role_service.get_default_role(db, user.tenant_id)
+            default_team_role = default_role_def.name if default_role_def else "team_contributor"
+            
+            # Add to default team with basic role
+            await add_team_member(
+                db=db,
+                team_id=default_team.id,
+                user_id=user_id,
+                team_role=default_team_role
+            )
+
 
 
 async def update_team_member_role(
