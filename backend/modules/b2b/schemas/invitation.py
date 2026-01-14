@@ -42,7 +42,7 @@ class InvitationResponse(BaseModel):
 class InviteUserRequest(BaseModel):
     """Request to invite a new user"""
     email: str
-    role: str = B2BRoleName.VIEWER
+    role: str = B2BRoleName.MEMBER
     team_id: Optional[UUID] = None
     team_role: Optional[str] = None
 

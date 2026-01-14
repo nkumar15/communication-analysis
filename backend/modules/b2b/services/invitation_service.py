@@ -810,7 +810,7 @@ class InvitationService:
                 invitation = InvitationModel(
                     tenant_id=tenant_id,
                     email=row.email.lower(),
-                    role=row.role,
+                    role=row.role or B2BRoleName.MEMBER,
                     invitation_token=invitation_token,
                     invited_by=created_by,
                     team_id=team_id,

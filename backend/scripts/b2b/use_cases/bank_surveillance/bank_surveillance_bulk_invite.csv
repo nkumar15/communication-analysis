@@ -1,11 +1,11 @@
-email,name,role,team_name,team_role
-cso@worldwidebank.com,Susan Martinez (CSO),surveillance_chief,,
-director.apac.surv@worldwidebank.com,Head of APAC Surveillance (SH),regional_director,,
-head.sg.surv@worldwidebank.com,Head of SG (Bonds Lead),member,SG T&M Surveillance,surveillance_lead
-guest.auditor@worldwidebank.com,External Auditor (Guest),viewer,SG T&M Surveillance,guest_analyst
-liaison.sg.mas@worldwidebank.com,MAS Liaison Officer (LCO),member,SG T&M Surveillance,compliance_officer
-surv.ops.apac@worldwidebank.com,Surveillance Ops (SurvOps),member,SG T&M Surveillance,surveillance_ops
-head.my.surv@worldwidebank.com,Head of MY (Wealth Lead),member,MY T&M Surveillance,surveillance_lead
-analyst.my.wealth@worldwidebank.com,MY Wealth Analyst (SA),member,MY T&M Surveillance,surveillance_analyst
-analyst.global.forensic@worldwidebank.com,Forensic Analyst (Maker),member,Special Investigations,operations_maker
-checker.global.forensic@worldwidebank.com,Forensic Checker (Checker),member,Special Investigations,operations_checker
+email,team_name,team_role,name
+cso@worldwidebank.com,Global Surveillance,surveillance_chief,Susan Martinez (CSO)
+director.apac.surv@worldwidebank.com,APAC Hub,regional_director,Head of APAC Surveillance (SH)
+head.sg.surv@worldwidebank.com,SG T&M Surveillance,surveillance_lead,Head of SG (Bonds Lead)
+guest.auditor@worldwidebank.com,SG T&M Surveillance,guest_analyst,External Auditor (Guest)
+liaison.sg.mas@worldwidebank.com,SG T&M Surveillance,compliance_officer,MAS Liaison Officer (LCO)
+surv.ops.apac@worldwidebank.com,SG T&M Surveillance,surveillance_ops,Surveillance Ops (SurvOps)
+head.my.surv@worldwidebank.com,MY T&M Surveillance,surveillance_lead,Head of MY (Wealth Lead)
+analyst.my.wealth@worldwidebank.com,MY T&M Surveillance,surveillance_analyst,MY Wealth Analyst (SA)
+analyst.global.forensic@worldwidebank.com,Special Investigations,operations_maker,Forensic Analyst (Maker)
+checker.global.forensic@worldwidebank.com,Special Investigations,operations_checker,Forensic Checker (Checker)

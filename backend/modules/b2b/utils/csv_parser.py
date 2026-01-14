@@ -18,26 +18,30 @@ class BulkInviteRow(BaseModel):
     """Single row from bulk invite CSV"""
     row_number: int
     email: EmailStr
-    role: str
-    team_name: Optional[str] = None
-    team_role: Optional[str] = None
+    role: Optional[str] = None
+    team_name: str
+    team_role: str
     name: Optional[str] = None
     
     @field_validator('role')
     @classmethod
-    def validate_role(cls, v: str) -> str:
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
         """Validate role format"""
+        if v is None or v.strip() == '':
+            return None
         # We allow dynamic custom roles (e.g. surveillance_chief), 
         # so we just normalize to lowercase
         return v.lower().strip()
     
     @field_validator('team_role')
     @classmethod
-    def validate_team_role(cls, v: Optional[str]) -> Optional[str]:
+    def validate_team_role(cls, v: str) -> str:
         """Validate team role if provided"""
         if v is None or v.strip() == '':
-            return None
+            raise ValueError('Team role is required')
         # We allow dynamic custom team roles (e.g. surveillance_lead),
+        # so we just normalize to lowercase
+        return v.lower().strip()
         # so we just normalize to lowercase
         return v.lower().strip()
     
@@ -76,8 +80,8 @@ class ParsedCSV(BaseModel):
 class BulkInviteCSVParser:
     """Parser for bulk invitation CSV files"""
     
-    REQUIRED_COLUMNS = ['email', 'role']
-    OPTIONAL_COLUMNS = ['team_name', 'team_role', 'name']
+    REQUIRED_COLUMNS = ['email', 'team_name', 'team_role']
+    OPTIONAL_COLUMNS = ['role', 'name']
     ALL_COLUMNS = REQUIRED_COLUMNS + OPTIONAL_COLUMNS
     
     MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
@@ -161,9 +165,9 @@ class BulkInviteCSVParser:
                 
                 # Extract fields
                 email = row_normalized.get('email', '').strip()
-                role = row_normalized.get('role', '').strip()
-                team_name = row_normalized.get('team_name', '').strip() or None
-                team_role = row_normalized.get('team_role', '').strip() or None
+                role = row_normalized.get('role', '').strip() or None
+                team_name = row_normalized.get('team_name', '').strip()
+                team_role = row_normalized.get('team_role', '').strip()
                 name = row_normalized.get('name', '').strip() or None
                 
                 # Check for duplicate emails in file
@@ -201,6 +205,8 @@ class BulkInviteCSVParser:
                         field = 'email'
                     elif 'role' in error_msg.lower():
                         field = 'role'
+                    elif 'team_name' in error_msg.lower():
+                        field = 'team_name'
                     elif 'team_role' in error_msg.lower():
                         field = 'team_role'
                     elif 'name' in error_msg.lower():

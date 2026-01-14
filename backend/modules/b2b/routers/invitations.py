@@ -368,11 +368,11 @@ async def bulk_invite_users(
 @router.get("/bulk/template")
 async def download_template():
     """Download CSV template for bulk invitations"""
-    template = """email,role,team_name,team_role,name
+    template = """email,team_name,team_role,role,name
 # Example rows (remove these before uploading):
-alice@yourdomain.com,admin,Engineering,team_manager,Alice Smith
-bob@yourdomain.com,member,Engineering,team_contributor,Bob Jones
-carol@yourdomain.com,viewer,Sales,team_reader,Carol White
+alice@yourdomain.com,Engineering,team_manager,,Alice Smith
+bob@yourdomain.com,Engineering,team_contributor,admin,Bob Jones
+carol@yourdomain.com,Sales,team_reader,,Carol White
 """
     
     return StreamingResponse(

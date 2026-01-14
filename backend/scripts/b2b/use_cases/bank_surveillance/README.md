@@ -81,36 +81,36 @@ graph TD
 The `bank_surveillance_bulk_invite.csv` provisions **10 Users** ensuring 100% role coverage.
 
 ### A. Leadership (Global Scope)
-| User | Email | **Invitation Tenant Role** | Team Role | Scope |
+| User | Email | **Team Role** | Scope | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Susan Martinez** | `cso@worldwidebank.com` | **Surveillance Chief** | - | **ALL Data** |
-| **APAC Director** | `director.apac.surv@...` | **Regional Director** | - | **ALL Data** |
+| **Susan Martinez** | `cso@...` | - | **NULL** | *Manually assign 'Surveillance Chief' after invite* |
+| **APAC Director** | `director.apac...` | - | **NULL** | *Manually assign 'Regional Director' after invite* |
 
-> **Note:** If manual invitation UI does not show custom roles, invite as **Member** and update role via API or script.
+> **Note:** All users are invited as **Member**. Use the Admin UI to assign special Tenant Roles like `Surveillance Chief`.
 
 ### B. Desk Operations (Restricted Scope)
-| User | Email | **Invitation Tenant Role** | Team Role | Scope |
-| :--- | :--- | :--- | :--- | :--- |
-| **SG Head** | `head.sg.surv@...` | **Member** | `surveillance_lead` | **SG Team Only** |
-| **MY Head** | `head.my.surv@...` | **Member** | `surveillance_lead` | **MY Team Only** |
-| **MY Analyst** | `analyst.my.wealth@...` | **Member** | `surveillance_analyst` | **MY Team Only** |
+| User | Email | Team Role | Scope |
+| :--- | :--- | :--- | :--- |
+| **SG Head** | `head.sg.surv@...` | `surveillance_lead` | **SG Team Only** |
+| **MY Head** | `head.my.surv@...` | `surveillance_lead` | **MY Team Only** |
+| **MY Analyst** | `analyst.my.wealth@...` | `surveillance_analyst` | **MY Team Only** |
 
 ### C. Separation of Duties (SoD)
 *These users work in the "Special Investigations" team.*
 
-| User | Email | **Invitation Tenant Role** | Team Permission |
-| :--- | :--- | :--- | :--- |
-| **Maker** | `analyst.global.forensic@...` | **Member** | Can **Create**, Cannot Approve |
-| **Checker** | `checker.global.forensic@...` | **Member** | Can **Approve**, Cannot Create |
+| User | Email | Team Permission |
+| :--- | :--- | :--- |
+| **Maker** | `analyst.global.forensic@...` | Can **Create**, Cannot Approve |
+| **Checker** | `checker.global.forensic@...` | Can **Approve**, Cannot Create |
 
 ---
 
 ### D. Auxiliary & Support Staff
-| User | Email | **Invitation Tenant Role** | Team Role | Scope |
-| :--- | :--- | :--- | :--- | :--- |
-| **SurvOps** | `surv.ops.apac@...` | **Member** | `surveillance_ops` | **SG & MY Teams** |
-| **MAS Liaison** | `liaison.sg.mas@...` | **Member** | `compliance_officer` | **SG Team Only** |
-| **Ext. Auditor** | `guest.auditor@...` | **Viewer** | `guest_analyst` | **SG Team Only** |
+| User | Email | Team Role | Scope |
+| :--- | :--- | :--- | :--- |
+| **SurvOps** | `surv.ops.apac@...` | `surveillance_ops` | **SG & MY Teams** |
+| **MAS Liaison** | `liaison.sg.mas@...` | `compliance_officer` | **SG Team Only** |
+| **Ext. Auditor** | `guest.auditor@...` | `guest_analyst` | **SG Team Only** |
 
 ---
 
@@ -193,16 +193,14 @@ The loader expects the following columns:
 | :--- | :--- | :--- |
 | `email` | User's email address (Must match tenant domain). | **Yes** |
 | `name` | Full name (e.g., "Susan Martinez"). | No |
-| `role` | **Tenant Role** (System Role). Defines "Who you are".<br>Values: `owner`, `admin`, `member`, `surveillance_chief`, etc. | **Yes** |
-| `team_name`| Name of the team to join.<br>**Strict Check:** Team **MUST exist** in the system. | No |
-| `team_role`| **Team Role** (Context Role). Defines "What you do".<br>Values: `surveillance_lead`, `surveillance_analyst`, etc.<br>Default: `team_contributor` | No |
+| `team_name`| Name of the team to join.<br>**Strict Check:** Team **MUST exist** in the system. | **Yes** |
+| `team_role`| **Team Role** (Context Role). Defines "What you do".<br>Values: `surveillance_lead`, `surveillance_analyst`, etc.<br>Default: `team_contributor` | **Yes** |
 
 ### B. Logic Rules
-1.  **Role Assignment:** The `role` column maps directly to the **Tenant Role**. This is your global badge.
+1.  **System Role Default:** All bulk invited users are automatically assigned the **Member** system role. To elevate someone to **Admin** or **Tenant Role** (e.g. `surveillance_chief`), you must edit them in the UI after invitation.
 2.  **Team Assignment:**
-    *   **Strict Validation:** The system **validates** that the team exists. If "New Ops Team" is not found in the DB, the row **FAILS**.
+3.  **Strict Validation:** The system **validates** that the team exists. If "New Ops Team" is not found in the DB, the row **FAILS**.
     *   *Pre-Requisite:* Admins must create Teams (and configure Regions) via API/UI **before** running the bulk invite.
-3.  **No Team?** If `team_name` is blank, the user is invited with *only* their Tenant Role. For `member` role, this typically means they have **Zero Access** until added to a team manually later.
 
 ### C. Multi-Team Assignment
 *   **Limitation:** A user cannot be assigned to multiple teams (e.g., SG *and* MY) in a single CSV row.

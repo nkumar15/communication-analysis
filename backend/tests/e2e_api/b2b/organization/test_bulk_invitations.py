@@ -44,10 +44,11 @@ class TestBulkInvitations:
         ))
         
         # Create CSV content
-        csv_content = f"""email,role,team_name,team_role,name
-alice@{tenant.domain},admin,Engineering,team_manager,Alice Smith
-bob@{tenant.domain},member,Engineering,team_contributor,Bob Jones
-carol@{tenant.domain},viewer,Sales,team_reader,Carol White
+        # Create CSV content (role is optional, team fields mandatory)
+        csv_content = f"""email,team_name,team_role,name
+alice@{tenant.domain},Engineering,team_manager,Alice Smith
+bob@{tenant.domain},Engineering,team_contributor,Bob Jones
+carol@{tenant.domain},Sales,team_reader,Carol White
 """
         
         # Create file
@@ -95,9 +96,10 @@ carol@{tenant.domain},viewer,Sales,team_reader,Carol White
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
-        csv_content = """email,role,team_name
-invalid-email,admin,Engineering
-bob@wrongdomain.com,member,Sales
+        # Missing team_name (Validation Error)
+        csv_content = """email,team_role
+invalid-email,team_manager
+bob@wrongdomain.com,team_contributor
 """
         
         files = {
@@ -132,8 +134,8 @@ bob@wrongdomain.com,member,Sales
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
-        csv_content = """email,role
-bob@wrongdomain.com,member
+        csv_content = """email,team_name,team_role
+bob@wrongdomain.com,Engineering,team_contributor
 """
         
         files = {
@@ -167,7 +169,7 @@ bob@wrongdomain.com,member
         ))
         
         # Create a CSV larger than 2MB
-        large_content = f"email,role\n" + f"test@{tenant.domain},member\n" * 100000
+        large_content = f"email,team_name,team_role\n" + f"test@{tenant.domain},Engineering,team_contributor\n" * 100000
         
         files = {
             'file': ('large.csv', io.BytesIO(large_content.encode('utf-8')), 'text/csv')
@@ -200,9 +202,9 @@ bob@wrongdomain.com,member
         ))
         
         # Create CSV with 101 rows
-        rows = ["email,role\n"]
+        rows = ["email,team_name,team_role\n"]
         for i in range(101):
-            rows.append(f"user{i}@{tenant.domain},member\n")
+            rows.append(f"user{i}@{tenant.domain},Engineering,team_contributor\n")
         csv_content = "".join(rows)
         
         files = {
@@ -227,9 +229,9 @@ bob@wrongdomain.com,member
         assert response.headers['content-type'] == 'text/csv; charset=utf-8'
         assert 'bulk_invite_template.csv' in response.headers['content-disposition']
         
-        # Verify template content
+        # Verify template content (updated columns)
         content = response.text
-        assert 'email,role,team_name,team_role,name' in content
+        assert 'email,team_name,team_role,role,name' in content or 'email,team_name,team_role' in content
         assert '@yourdomain.com' in content
     
     @pytest.mark.asyncio
@@ -250,9 +252,9 @@ bob@wrongdomain.com,member
         ))
         
         # First, upload a CSV
-        csv_content = f"""email,role
-test1@{tenant.domain},member
-test2@{tenant.domain},viewer
+        csv_content = f"""email,team_name,team_role
+test1@{tenant.domain},Engineering,team_contributor
+test2@{tenant.domain},Sales,team_reader
 """
         files = {
             'file': ('test.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -299,8 +301,8 @@ test2@{tenant.domain},viewer
         ))
         
         # Upload CSV first
-        csv_content = f"""email,role
-test@{tenant.domain},member
+        csv_content = f"""email,team_name,team_role
+test@{tenant.domain},Engineering,team_contributor
 """
         files = {
             'file': ('test.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -380,8 +382,8 @@ test@{tenant.domain},member
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
-        csv_content = f"""email,role
-newowner@{tenant.domain},owner
+        csv_content = f"""email,role,team_name,team_role
+newowner@{tenant.domain},owner,Engineering,team_contributor
 """
         files = {
             'file': ('owner.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -413,8 +415,8 @@ newowner@{tenant.domain},owner
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
-        csv_content = f"""email,role
-test@{tenant.domain},member
+        csv_content = f"""email,team_name,team_role
+test@{tenant.domain},Engineering,team_contributor
 """
         files = {
             'file': ('test.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -446,9 +448,9 @@ test@{tenant.domain},member
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
-        csv_content = f"""email,role
-duplicate@{tenant.domain},member
-duplicate@{tenant.domain},admin
+        csv_content = f"""email,team_name,team_role
+duplicate@{tenant.domain},Engineering,team_contributor
+duplicate@{tenant.domain},Sales,team_manager
 """
         files = {
             'file': ('duplicate.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -480,8 +482,8 @@ duplicate@{tenant.domain},admin
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
-        csv_content = f"""email,role,team_name,team_role
-test@{tenant.domain},member,NewTeam,team_contributor
+        csv_content = f"""email,team_name,team_role
+test@{tenant.domain},NewTeam,team_contributor
 """
         files = {
             'file': ('with_team.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -517,8 +519,8 @@ test@{tenant.domain},member,NewTeam,team_contributor
         ))
         
         # Upload CSV that will succeed (no failures)
-        csv_content = f"""email,role
-valid@{tenant.domain},member
+        csv_content = f"""email,team_name,team_role
+valid@{tenant.domain},Engineering,team_contributor
 """
         files = {
             'file': ('valid.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')

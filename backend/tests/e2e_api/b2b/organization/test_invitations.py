@@ -546,3 +546,26 @@ class TestInvitationFlow:
         assert role.name == B2BRoleName.ADMIN
         assert role.name != B2BRoleName.VIEWER
 
+
+    
+    @pytest.mark.asyncio
+    async def test_invitation_system_role_validation_logic(
+        self,
+        api_client: AsyncClient,
+        db_session: AsyncSession
+    ):
+        """
+        Test case to validate System Role assignment logic during invitation.
+        
+        Objective:
+        - Ensure that if a user is invited with ONLY a Team Role, the System Role is NOT automatically inferred
+          but rather defaults to a specific safe value (e.g. MEMBER) or the API rejects it if configured to be strict.
+        
+        Current Analysis:
+        - Single User Invite (API): Defaults to 'member' if 'role' field is omitted.
+        - Bulk Invite (CSV): 'role' field is MANDATORY.
+        
+        This test serves as a placeholder to enforce and verify this policy in the future.
+        """
+        # Placeholder for validation logic
+        pass
