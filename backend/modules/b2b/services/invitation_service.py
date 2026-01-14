@@ -605,12 +605,12 @@ class InvitationService:
         # Handle team assignment
         if invitation.team_id:
             try:
-                team_role = invitation.team_role if invitation.team_role else "team_contributor"
+                # team_role can be None, add_team_member will resolve default
                 await team_service.add_team_member(
                     db=db,
                     team_id=invitation.team_id,
                     user_id=user_id,
-                    team_role=team_role
+                    team_role=invitation.team_role
                 )
             except Exception:
                 pass  # Don't fail if team assignment fails
@@ -620,11 +620,12 @@ class InvitationService:
                     db=db,
                     tenant_id=tenant.id
                 )
+                
                 await team_service.add_team_member(
                     db=db,
                     team_id=default_team.id,
                     user_id=user_id,
-                    team_role="team_contributor"
+                    team_role=None
                 )
             except Exception:
                 pass
@@ -798,6 +799,23 @@ class InvitationService:
                         if team:
                             team_id = team.id
                             team_cache[row.team_name.lower()] = team_id
+                            
+                        # Validation: Check Default Team constraint
+                        if team.is_default:
+                            # Lazy load default role name
+                            from modules.b2b.services.team_role_service import team_role_service
+                            
+                            def_role = await team_role_service.get_default_role(db, tenant_id)
+                            allowed_role = def_role.name if def_role else "team_contributor"
+                            
+                            if row.team_role and row.team_role != allowed_role:
+                                failed_count += 1
+                                results.append({
+                                    "row": row.dict(),
+                                    "status": "failed",
+                                    "error": f"Restricted: Default Team only accepts role '{allowed_role}'"
+                                })
+                                continue
                 
                 # Generate token and create invitation
                 invitation_token = secrets.token_urlsafe(32)

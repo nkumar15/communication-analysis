@@ -131,6 +131,20 @@ async def get_or_create_default_team(
     return default_team
 
 
+async def get_default_team_role(db: AsyncSession) -> str:
+    """
+    Get the name of the default team role (is_default=True)
+    Fallback to 'team_contributor' if not found (legacy behavior)
+    """
+    result = await db.execute(
+        select(TeamRoleDefinition.name).where(
+            TeamRoleDefinition.is_default == True
+        ).limit(1)
+    )
+    role_name = result.scalar_one_or_none()
+    return role_name or "team_contributor"
+
+
 async def get_tenant_teams(
     db: AsyncSession,
     tenant_id: UUID,
@@ -281,7 +295,7 @@ async def add_team_member(
     db: AsyncSession,
     team_id: UUID,
     user_id: UUID,
-    team_role: str = "team_contributor"
+    team_role: Optional[str] = None
 ) -> TeamMember:
     """
     Add a user to a team
@@ -290,7 +304,7 @@ async def add_team_member(
         db: Database session
         team_id: Team ID
         user_id: User ID
-        team_role: Role within the team
+        team_role: Role within the team (if None, uses configured default)
         
     Returns:
         Created team member
@@ -327,6 +341,21 @@ async def add_team_member(
             detail="User is already a member of this team"
         )
     
+    # Determine team_role if not provided
+    if not team_role:
+         # Find default role
+         def_result = await db.execute(
+            select(TeamRoleDefinition).where(
+                TeamRoleDefinition.is_default == True,
+                (TeamRoleDefinition.tenant_id == team.tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
+            ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last()).limit(1)
+         )
+         def_role_obj = def_result.scalars().first()
+         if def_role_obj:
+             team_role = def_role_obj.name
+         else:
+             team_role = "team_contributor" # Final fallback if no default configured
+
     # Look up team_role_id from team_role_definitions
     # First try to find by name, checking both system roles and tenant-specific roles
     team = await get_team_by_id(db, team_id)
@@ -338,6 +367,15 @@ async def add_team_member(
     )
     role_def = role_def_result.scalars().first()
     
+    # Validation: Hard Quarantine for Default Team
+    # If the team is the Default Team, ONLY allow roles flagged as 'is_default'
+    # This prevents accidental assignment of privileged roles to the holding area
+    if team.is_default and role_def and not role_def.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Restricted: The Default Team only supports the designated default role."
+        )
+
     member = TeamMember(
         team_id=team_id,
         user_id=user_id,
@@ -465,6 +503,13 @@ async def update_team_member_role(
         ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())
     )
     role_def = role_def_result.scalars().first()
+    
+    # Validation: Hard Quarantine for Default Team
+    if team.is_default and role_def and not role_def.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Restricted: The Default Team only supports the designated default role."
+        )
     
     member.team_role = new_role
     member.team_role_id = role_def.id if role_def else None

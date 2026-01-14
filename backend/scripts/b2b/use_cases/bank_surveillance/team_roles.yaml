@@ -113,3 +113,17 @@ team_roles:
         actions: [read]
       - resource: surveillance_reports
         actions: [read]
+
+  # =========================================================================
+  # DEFAULT / QUARANTINE ROLE
+  # =========================================================================
+  - name: provisional_analyst
+    display_name: Provisional Analyst
+    description: New team member with restricted access pending approval (Quarantine)
+    is_system: true
+    is_default: true
+    permissions:
+      - resource: team_members
+        actions: [read]
+      # No access to investigations or alerts by default
+

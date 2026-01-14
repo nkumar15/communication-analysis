@@ -336,6 +336,7 @@ if __name__ == "__main__":
                 existing.display_name = role_data['display_name']
                 existing.description = role_data.get('description')
                 existing.is_system = role_data.get('is_system', False)
+                existing.is_default = role_data.get('is_default', False)
                 existing.permissions = role_data.get('permissions', [])
                 flag_modified(existing, 'permissions')
             else:
@@ -344,6 +345,7 @@ if __name__ == "__main__":
                     display_name=role_data['display_name'],
                     description=role_data.get('description'),
                     is_system=role_data.get('is_system', False),
+                    is_default=role_data.get('is_default', False),
                     tenant_id=None,
                     permissions=role_data.get('permissions', [])
                 )
@@ -376,6 +378,7 @@ if __name__ == "__main__":
                 existing.display_name = role_data['display_name']
                 existing.description = role_data.get('description')
                 existing.is_system = role_data.get('is_system', False)
+                existing.is_default = role_data.get('is_default', False)
                 existing.permissions = role_data.get('permissions', [])
                 flag_modified(existing, 'permissions')
             else:
@@ -384,6 +387,7 @@ if __name__ == "__main__":
                     display_name=role_data['display_name'],
                     description=role_data.get('description'),
                     is_system=role_data.get('is_system', False),
+                    is_default=role_data.get('is_default', False),
                     tenant_id=None,
                     permissions=role_data.get('permissions', [])
                 )
