@@ -236,6 +236,11 @@ This "2-Layer RBAC" model is crucial for enterprise banking:
 *   **Head of Compliance (`head_compliance`):** A **Tenant Role** with global power. They oversee the entire bank.
 *   **Compliance Liaison (`compliance_officer`):** A **Team Role** for local oversight. This corresponds to an officer physically sitting at the desk (e.g., "Singapore Desk Liaison"). They need access ONLY to that specific team's investigations, not the whole bank.
 
+**Q: What is the "Default Team" created by the system?**
+*   **Source:** It is hard-coded in `TenantOnboardingService` (Code-Level). It is **NOT** defined in YAML.
+*   **Purpose:** A "Holding Area" for users who have just joined but aren't assigned to a Desk yet.
+*   **Access:** It has **ZERO** special permissions. It has no `region_id` (so no geo-specific access) and no sensitive data scope. It is effectively an empty container.
+
 ---
 
 ## 10. Technical Implementation: Policy Plugins
