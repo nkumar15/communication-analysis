@@ -430,32 +430,31 @@ class TestInvitationFlow:
     
     
     @pytest.mark.asyncio
-    async def test_invite_without_team_adds_to_default_team(
+    async def test_invite_without_team_creates_no_team_membership(
         self,
         api_client: AsyncClient,
         db_session: AsyncSession
     ):
-        """User invited without team assignment is added to default team"""
-        from modules.b2b.models import Team, TeamMember
+        """
+        User invited without team assignment has ZERO team memberships.
         
-        # Setup - create_test_tenant already creates a default team
+        This validates the "No default team" design principle:
+        - No __unassigned__ team pattern
+        - Empty team list is the valid unassigned state
+        - User can login but has no business data access
+        """
+        from modules.b2b.models import TeamMember
+        from sqlalchemy import func
+        
+        # Setup
         tenant = await create_test_tenant(db_session)
         
-        # Get the default team (created by create_test_tenant)
-        result = await db_session.execute(
-            select(Team).where(
-                Team.tenant_id == tenant.id,
-                Team.is_default == True
-            )
-        )
-        default_team = result.scalar_one()
-        
-        # Create invitation without team assignment
+        # Create invitation WITHOUT team assignment
         invitation = await create_test_invitation(
             db_session,
             tenant_id=tenant.id,
             email=f"newuser@{tenant.domain}",
-            role=B2BRoleName.VIEWER
+            role=B2BRoleName.MEMBER  # Default safe role
         )
         
         # Accept invitation
@@ -473,7 +472,7 @@ class TestInvitationFlow:
         
         assert response.status_code == 200
         
-        # Verify user was added to default team
+        # Verify user was created
         from tests.conftest import set_tenant_context
         await set_tenant_context(db_session, tenant.id)
         
@@ -484,16 +483,21 @@ class TestInvitationFlow:
         )
         user = result.scalar_one()
         
-        # Check team membership
-        member_result = await db_session.execute(
-            select(TeamMember).where(
-                TeamMember.team_id == default_team.id,
+        # CRITICAL CHECK: User should have ZERO team memberships
+        # This validates "No default team" design principle
+        member_count_result = await db_session.execute(
+            select(func.count()).select_from(TeamMember).where(
                 TeamMember.user_id == user.id
             )
         )
-        team_member = member_result.scalar_one()
+        team_membership_count = member_count_result.scalar()
         
-        assert team_member.team_role == "team_contributor"  # Default role
+        assert team_membership_count == 0, (
+            f"Expected 0 team memberships for user without team assignment, "
+            f"got {team_membership_count}. "
+            "This violates the 'No default team' design principle."
+        )
+
 
     @pytest.mark.asyncio
     async def test_accept_invitation_assigns_correct_role(

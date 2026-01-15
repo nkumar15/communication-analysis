@@ -305,10 +305,10 @@ class UserService:
         List all users accessible to the current user based on hierarchy
         
         Returns:
-            List of dictionaries with user information and role names
+            List of dictionaries with user information, role names, and team memberships
         """
         from modules.b2b.rbac import get_accessible_user_ids
-        from modules.b2b.models import Role
+        from modules.b2b.models import Role, TeamMember, Team
         
         # Get accessible user IDs based on hierarchy
         accessible_ids = await get_accessible_user_ids(user_id, db)
@@ -322,6 +322,28 @@ class UserService:
         )
         users = users_result.all()
         
+        # Get team memberships for all accessible users
+        team_memberships_result = await db.execute(
+            select(TeamMember, Team)
+            .join(Team, TeamMember.team_id == Team.id)
+            .where(
+                TeamMember.user_id.in_(accessible_ids),
+                Team.deleted_at.is_(None)
+            )
+        )
+        team_memberships = team_memberships_result.all()
+        
+        # Build user_id -> teams mapping
+        user_teams_map = {}
+        for tm, team in team_memberships:
+            if tm.user_id not in user_teams_map:
+                user_teams_map[tm.user_id] = []
+            user_teams_map[tm.user_id].append({
+                "team_id": team.id,
+                "team_name": team.name,
+                "team_role": tm.team_role
+            })
+        
         return [
             {
                 "id": u[0].id,
@@ -330,7 +352,8 @@ class UserService:
                 "role": u[1].name if u[1] else None,
                 "is_active": u[0].is_active,
                 "last_login": u[0].last_login,
-                "created_at": u[0].created_at
+                "created_at": u[0].created_at,
+                "teams": user_teams_map.get(u[0].id, [])
             }
             for u in users
         ]

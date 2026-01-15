@@ -42,8 +42,6 @@ class BulkInviteRow(BaseModel):
         # We allow dynamic custom team roles (e.g. surveillance_lead),
         # so we just normalize to lowercase
         return v.lower().strip()
-        # so we just normalize to lowercase
-        return v.lower().strip()
     
     @field_validator('name')
     @classmethod

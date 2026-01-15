@@ -413,22 +413,21 @@ const TeamDetailsPage = () => {
                                                             cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <option value="team_manager">Manager</option>
-                                                        <option value="team_contributor">Contributor</option>
-                                                        <option value="team_reader">Reader</option>
+                                                        {/* Always show current role first if not in list */}
+                                                        {!teamRoles.some(r => (r.value || r.name) === member.team_role) && (
+                                                            <option value={member.team_role}>
+                                                                {member.team_role} (current)
+                                                            </option>
+                                                        )}
+                                                        {teamRoles.map(role => (
+                                                            <option key={role.value || role.name} value={role.value || role.name}>
+                                                                {role.label || role.display_name || role.name}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 ) : (
                                                     <TeamRoleBadge role={member.team_role} />
                                                 )}
-
-                                                {/* If editable, badge is shown inside select or hidden. 
-                                                    Wait, design shows badge NEXT to Select. 
-                                                    If readonly, we definitely show badge. 
-                                                    If editable, we show BOTH? The screenshot showed BOTH. 
-                                                    Let's keep badge always visible for clarity, or just when readonly.
-                                                    Actually, screenshot has Badge AND Select. 
-                                                */}
-                                                {canEditMember && <TeamRoleBadge role={member.team_role} />}
 
                                                 {canEditMember && (
                                                     <button

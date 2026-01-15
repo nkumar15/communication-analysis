@@ -385,15 +385,17 @@ class TestTeamManagement:
         assert not any(u["id"] == str(user2.id) for u in data)
 
     @pytest.mark.asyncio
-    async def test_remove_user_from_last_team_auto_fallback_to_default(
+    async def test_remove_user_from_last_team_allows_zero_memberships(
         self, api_client: AsyncClient, b2b_test_setup
     ):
         """
         Test that when a user is removed from their LAST team, 
-        they are automatically moved to the Default Team to prevent orphaned state.
+        they are allowed to have ZERO team memberships (valid "unassigned" state).
         
-        This ensures the "Quarantine/Lobby" pattern is maintained - 
-        users are never in a teamless state.
+        This validates the "No default team" design principle:
+        - No __unassigned__ team pattern
+        - Empty team list is the valid unassigned state
+        - User can login but has no business data access
         """
         setup = b2b_test_setup
         token = setup["token"]
@@ -438,15 +440,13 @@ class TestTeamManagement:
         )
         assert remove_resp.status_code == 200
         
-        # Step 5 & 6: Verify user is now automatically a member of Default Team
+        # Step 5: Verify user now has ZERO team memberships (valid unassigned state)
+        # This validates "No default team" design - no auto-fallback
         user_teams_after = await get_user_teams(session, user.id)
-        assert len(user_teams_after) == 1
-        assert user_teams_after[0][0].is_default == True
-        
-        # Step 7: Verify team role is team_contributor
-        # NOTE: team_contributor is the default/fallback role for Default Team assignments.
-        # It provides minimal permissions (read-only access to team_members and team_settings)
-        # and NO access to business resources, making it safe for the "Lobby/Quarantine" pattern.
-        assert user_teams_after[0][1].team_role == "team_contributor"
+        assert len(user_teams_after) == 0, (
+            f"Expected 0 team memberships after removal from last team, "
+            f"got {len(user_teams_after)}. "
+            "This violates the 'No default team' design principle."
+        )
 
 

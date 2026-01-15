@@ -238,23 +238,18 @@ class TenantOnboardingService:
             # 4. Seed roles from templates
             await role_template_service.seed_tenant_roles(db, tenant.id)
             
-            # 5. Create default team (auth provider creation moved to activation phase)
-            default_team = await create_team(
-                db=db,
-                tenant_id=tenant.id,
-                name="Default Team",
-                description="Default team for all users",
-                is_default=True
-            )
+            # 5. REMOVED: Default Team creation
+            # Per "No default team" design principle - owner starts __unassigned__
+            # Teams are created explicitly by admin, users assigned to teams as needed
             
-            # 8. Create admin invitation
+            # 8. Create owner invitation (no team assignment - __unassigned__ state)
             admin_invitation = await invitation_service.create_invitation(
                 db=db,
                 tenant_id=tenant.id,
                 email=owner_email,
                 role=B2BRoleName.OWNER,
                 invitation_token=activation_token,  # Reuse activation token
-                team_id=default_team.id,
+                team_id=None,  # Owner starts __unassigned__
                 expires_in_days=2  # 48 hours
             )
             

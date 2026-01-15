@@ -30,34 +30,34 @@ We define specific roles to match the bank's operational and compliance needs.
 
 | S.No. | Category | Role Name | Type | Description |
 | :---: | :--- | :--- | :--- | :--- |
-| 1 | **Leadership** | `surveillance_chief` | **Tenant** | C-Suite executive (CSO) with global oversight. |
-| 2 | **Leadership** | `regional_director` | **Tenant** | Senior management for a specific region. |
-| 3 | **Leadership** | `head_compliance` | **Tenant** | Global oversight (Head of Compliance). |
+| 1 | **Leadership** | `surveillance_chief` | **Team** | C-Suite executive (CSO). Assigned to "Global HQ" team. |
+| 2 | **Leadership** | `regional_director` | **Team** | Regional management. Assigned to "APAC Hub". |
+| 3 | **Leadership** | `head_compliance` | **Team** | Global oversight. Assigned to "Global HQ". |
 | 4 | **Desk** | `surveillance_lead` | **Team** | Runs a specific desk (e.g., Head of SG). |
 | 5 | **Desk** | `surveillance_analyst` | **Team** | Standard investigator. |
 | 6 | **Operations** | `operations_maker` | **Team** | Can create cases but **cannot approve**. |
 | 7 | **Operations** | `operations_checker` | **Team** | Can approve cases but **cannot create**. |
-| 8 | **Support** | `surveillance_ops` | **Team** | Surveillance Operations (SurvOps) - Monitors pipelines and stats. |
+| 8 | **Support** | `surveillance_ops` | **Team** | Surveillance Operations (SurvOps). |
 | 9 | **Audit** | `compliance_officer` | **Team** | Read-only regulatory oversight. |
 | 10 | **External** | `guest_analyst` | **Team** | Limited read-only access for auditors. |
-| 11 | **Base** | `member` | **Tenant** | **Safe Default.** Read-only listing of Users/Teams. **NO** access to surveillance data. |
+| 11 | **Base** | `member` | **System** | **Safe Default.** Read-only listing of Users/Teams. |
 
 ---
 
-## 3. Organizational Fit (Hybrid RBAC)
+## 3. Organizational Fit (Strict 2-Layer RBAC)
 
-We use a **Hybrid Model** to map these roles to the organization. This distinguishes between *who you are* (Tenant Role) and *what you do* (Team Role).
+We use a **Strict 2-Layer Model** to map these roles. This distinguishes between **Platform Access** (System Role) and **Business Context** (Team Role).
 
 ### The "Access Pyramid"
 
 ```mermaid
 graph TD
     %% Nodes with Clearance Levels
-    CSO["CSO: Global Oversight<br/>Clearance: L4 (Top Secret)<br/>Geo: Global Bypass"] 
-    -->|Manages| Dir["Director: Regional Oversight<br/>Clearance: L3 (Confidential)<br/>Geo: Regional Scope"]
+    CSO["CSO: Global Oversight<br/>Role: Surveillance Chief<br/>Team: Global HQ"] 
+    -->|Manages| Dir["Director: Regional Oversight<br/>Role: Regional Director<br/>Team: APAC Hub"]
     
-    Dir -->|Manages| SG["SG Head<br/>Clearance: L2<br/>Geo: SG Only"]
-    Dir -->|Manages| MY["MY Head<br/>Clearance: L2<br/>Geo: MY Only"]
+    Dir -->|Manages| SG["SG Head<br/>Role: Surveillance Lead<br/>Team: SG Desk"]
+    Dir -->|Manages| MY["MY Head<br/>Role: Surveillance Lead<br/>Team: MY Desk"]
 
     %% Plugin Boundary
     subgraph "Geo-Fenced Zone (Strict Data Isolation)"
@@ -72,8 +72,11 @@ graph TD
     style MY fill:#d4edda,stroke:#333,color:#000
 ```
 
-*   **Global Leaders (CSO/Director):** Have **Tenant-Level Roles** that grant visibility across all teams.
-*   **Desk Heads:** Have the **Member** tenant role (no special power) but the **Surveillance Lead** team role. This restricts their power *strictly* to their assigned desk (Singapore vs Malaysia).
+*   **Global Leaders (CSO):** Assigned the `surveillance_chief` role in the **Global HQ** team. (Plugins grant them visibility down the tree).
+*   **Regional Directors:** Assigned `regional_director` in **APAC Regional Hub**.
+*   **Desk Heads:** Assigned `surveillance_lead` in their specific desks (Singapore vs Malaysia).
+
+**Key Change:** "Tenant Roles" no longer exist. Everyone, even the CSO, derives their business authority from their **Team Membership**.
 
 ---
 
@@ -160,28 +163,16 @@ Special configurations for non-business users.
 
 ---
 
-## 7. Configuration Architecture (Base + Overlay)
+## 7. Configuration Architecture
 
-The RBAC seeding system uses a **Modular "Base + Overlay" Pattern** to keep core definitions clean while allowing domain-specific customizations.
+The RBAC seeding system uses a **Modular Pattern** to keep core definitions clean while allowing domain-specific customizations.
 
 ### How it works
 1.  **Core Layer (Universal):** The platform loads immutable base roles (`Owner`, `Admin`, `Member`) from the core system.
-2.  **Domain Layer (Specific):** The use case loads its unique roles (e.g., `Surveillance Chief`) from `tenant_roles.yaml`.
-3.  **Overlay Layer (Patching):** *Optional.* The use case can inject new permissions into existing Core roles without modifying the core files.
+2.  **Domain Layer (Specific):** The use case loads its unique roles (e.g., `Surveillance Chief`) from `tenant_roles.yaml` with **inline permissions**.
 
-### Why use Overlays?
-Instead of redefining the `Member` role from scratch (which breaks updates), we can "patch" it.
-
-**Example (Not used in this demo):**
-If we wanted every standard **Member** to view High Priority Alerts, we would create a `tenant_permissions.yaml` overlay:
-```yaml
-tenant_permissions:
-  member:              # Target existing Core role
-    - resource: alerts # Inject new resource access
-      actions: [read]
-```
-
-*Note: This specific demo relies entirely on distinct roles defined in `tenant_roles.yaml` and does not currently use overlays, hence the "No tenant permission overlays to apply" message during seeding.*
+> [!NOTE]
+> **No Overlay Files.** Permissions are defined inline in role templates. The legacy "overlay" pattern (`tenant_permissions.yaml`) has been removed in favor of explicit inline permissions.
 
 ---
 
@@ -214,16 +205,16 @@ The loader expects the following columns:
 
 ## 9. FAQ
 
-**Q: Why do we have two layers of roles (Tenant vs. Team)?**
-This "2-Layer RBAC" model is crucial for enterprise banking:
-1.  **Tenant Roles (The Badge):** Define *who you are* (e.g., Regional Director). These are broad, organization-wide badges.
-2.  **Team Roles (The Job):** Define *what you do in a specific context* (e.g., Surveillance Lead for SG Desk).
-*   *Benefit:* A "Member" (standard employee) can be a "Lead" in Singapore but have no access to Malaysia, enforcing **Chinese Walls**.
+**Q: Why do we have two layers of roles (System vs. Business)?**
+This "2-Layer RBAC" model separates **Platform Management** from **Business Operations**:
+1.  **System Roles (IT):** Control the platform (Billing, Settings, User Management).
+2.  **Business Roles (Operations):** Control the work (Investigations, Alerts).
+*   *Benefit:* An IT Admin can manage the SaaS tenant without seeing sensitive banking data.
 
-**Q: What is the difference between `owner` and `surveillance_chief`?**
-*   **`owner` (IT Platform Role):** Has technical control (billing, inviting users) but **NO** access to sensitive surveillance data.
-*   **`surveillance_chief` (Business Role):** Has full view of all investigations and alerts but cannot modify billing or delete the tenant.
-*   *Benefit:* Enforces **Separation of Duties** (IT admins shouldn't see insider trading investigations).
+**Q: Where are the "Tenant Roles" like Regional Director?**
+*   They are now **Business Roles** (Team Roles) assigned to a high-level team (e.g., "APAC Hub" or "Global HQ").
+*   Using Plugins (Hierarchy), a Director in "APAC Hub" gains visibility into child teams ("SG Desk").
+*   *Benefit:* Simplifies the model. Everyone has 1 System Role + N Team Roles.
 
 **Q: What can auditors and compliance officers see?**
 *   They can *create* nothing and *approve* nothing, only *audit* existing records.
@@ -236,10 +227,14 @@ This "2-Layer RBAC" model is crucial for enterprise banking:
 *   **Head of Compliance (`head_compliance`):** A **Tenant Role** with global power. They oversee the entire bank.
 *   **Compliance Liaison (`compliance_officer`):** A **Team Role** for local oversight. This corresponds to an officer physically sitting at the desk (e.g., "Singapore Desk Liaison"). They need access ONLY to that specific team's investigations, not the whole bank.
 
-**Q: What is the "Default Team" created by the system?**
-*   **Source:** It is hard-coded in `TenantOnboardingService` (Code-Level). It is **NOT** defined in YAML.
-*   **Purpose:** A "Holding Area" for users who have just joined but aren't assigned to a Desk yet.
-*   **Access:** It has **ZERO** special permissions. It has no `region_id` (so no geo-specific access) and no sensitive data scope. It is effectively an empty container.
+**Q: What happens to users invited without a team assignment?**
+*   **State:** They exist in the system with **0 rows in `team_members`** table.
+*   **Access:** They can log in and see the dashboard shell, but have **NO business data access**.
+*   **UI Message:** "Welcome! Awaiting team assignment."
+*   **Philosophy:** This is a **safe holding state**, not an error. Users remain here until explicitly assigned to a team by an admin.
+
+> [!IMPORTANT]
+> **No `__unassigned__` team pattern.** We do NOT create a "Default Team" or "Holding Area" team. Empty team list is the valid unassigned state.
 
 ---
 

@@ -43,33 +43,55 @@ The system distinguishes between:
 
 ---
 
-## 🏗️ The 3-Layer Model
+## 🎯 Default Assignment Rules
+
+> [!IMPORTANT]
+> **"No implicit privilege escalation"** — Users are never auto-assigned business authority or data scope.
+
+### Invitation Matrix
+
+| Scenario | System Role | Tenant Role | Team |
+|----------|:-----------:|:-----------:|:----:|
+| Invite (email only) | `member` | none | none |
+| Invite with role | `member` | assigned | none |
+| Invite with team | `member` | none | assigned |
+| Invite with role + team | `member` | assigned | assigned |
+
+### Core Rules
+
+1. **System Role is ALWAYS required** — Default: `member`
+2. **Tenant Roles are NEVER implicit** — Must be explicitly assigned
+3. **Teams are NEVER implicit** — No team = 0 rows in `team_members` table
+4. **`__unassigned__` team pattern** — Empty team list is the valid "__unassigned__" state
+5. **Admins manage access, not consume data** — `admin` role has no business data access
+
+### Stakeholder Explanation
+
+> "We separate identity, authority, and scope to avoid implicit access. Users may exist in a safe, non-operational state until explicitly assigned."
+
+This language passes security, audit, and banking reviews.
+
+---
+
+## 7. The 2-Layer Model
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  LAYER 1: SYSTEM ROLE                                       │
+│  LAYER 1: SYSTEM ROLE (Platform Access)                     │
 │  ─────────────────────                                      │
 │  • Cardinality: Exactly ONE per user (required)             │
 │  • Values: owner, admin, member, viewer                     │
 │  • Stored: b2b.users.role_id → b2b.roles (is_system=true)   │
-│  • Purpose: Platform access, login, admin console           │
+│  • Purpose: Platform authentication, admin console access   │
 │  • Rule: Does NOT grant business data access                │
 ├─────────────────────────────────────────────────────────────┤
-│  LAYER 2: TENANT ROLE                                       │
+│  LAYER 2: BUSINESS ROLE (Team Context)                      │
 │  ─────────────────────                                      │
-│  • Cardinality: 0..N per user (optional)                    │
-│  • Values: surveillance_chief, regional_director, analyst   │
-│  • Stored: b2b.user_tenant_roles (future) or role_id        │
-│  • Purpose: Business action authority (WHAT)                │
-│  • Rule: Does NOT define data scope                         │
-├─────────────────────────────────────────────────────────────┤
-│  LAYER 3: TEAM MEMBERSHIP                                   │
-│  ─────────────────────                                      │
-│  • Cardinality: 0..N per user (optional)                    │
-│  • Values: APAC, SG Desk, India, Special Investigations     │
-│  • Stored: b2b.team_members (user_id, team_id, team_role)   │
-│  • Purpose: Data scope (WHERE)                              │
-│  • Rule: No team = no data access                           │
+│  • Cardinality: 0..N per user (via Team Membership)         │
+│  • Values: surveillance_chief, analyst, agency_owner        │
+│  • Stored: b2b.team_members.team_role                       │
+│  • Purpose: Business authority & Data Scope                 │
+│  • Rule: All business logic lives here                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,9 +99,12 @@ The system distinguishes between:
 
 | Layer | Controls | Does NOT Control |
 |-------|----------|------------------|
-| **System Role** | Login, platform UI, admin console, billing | Business data access |
-| **Tenant Role** | Resource permissions, actions | Data scope |
-| **Team** | Data visibility, team-specific operations | Global permissions |
+| **1. System Role** | Login, platform UI, IT admin, billing | Business data, investigations, campaigns |
+| **2. Business Role** | **Everything else** (Permissions + Data Scope) | Platform settings, subscription management |
+
+> [!NOTE]
+> **What happened to Tenant Roles?**
+> We simplified the architecture. Roles like `Chief Surveillance Officer` are now implemented as **Business Roles** assigned to a "Global" or "HQ" team. This unifies the permission model into a single, consistent layer.
 
 ---
 
@@ -408,19 +433,29 @@ YAML (role_templates)
 | Dashboard shell | ✅ |
 | Profile page | ✅ |
 | Notifications | ✅ |
+| View tenant name/status | ✅ |
 | Business data | ❌ |
 | Team screens | ❌ |
 | Write actions | ❌ |
+
+### Access States Matrix
+
+| State | Can Login | Business Data | Actions |
+|-------|:---------:|:-------------:|:-------:|
+| `member` only | ✅ | ❌ | ❌ |
+| `member` + tenant role (no team) | ✅ | ❌ (no scope) | ❌ |
+| `member` + team role (no tenant role) | ✅ | Team scoped | Team limited |
+| `member` + tenant role + team | ✅ | ✅ Full scope | ✅ Full actions |
 
 ### UI States
 
 | User State | Expected UI |
 |------------|-------------|
-| No tenant role | "No access assigned" |
-| Tenant role, no team | "Assign team to activate" |
-| Team, no role | "Role required" |
+| No tenant role, no team | "Welcome! Awaiting access assignment" |
+| Tenant role, no team | "Assign team to activate access" |
+| Team, no tenant role | "Limited access: Team data only" |
 | viewer role | Read-only (hide write buttons) |
-| admin role | Show admin console |
+| admin role | Show admin console, no business data |
 
 ---
 

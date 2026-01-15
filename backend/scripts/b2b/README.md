@@ -13,9 +13,9 @@ This directory contains YAML configuration files for RBAC (Role-Based Access Con
 - **`role_templates.yaml`** - Default tenant-level roles (owner, admin, member, viewer)
 - **`team_role_definitions.yaml`** - Default team-level roles (team_manager, team_contributor, team_reader)
 
-### Domain Permissions Overlays
-- **`domain_role_permissions.yaml`** - Domain permissions for tenant roles
-- **`domain_team_permissions.yaml`** - Domain permissions for team roles
+### Domain Permissions
+> [!NOTE]
+> Permissions are now defined **inline** within role templates (in `role_templates.yaml` and `team_role_definitions.yaml`). Overlay files are no longer used.
 
 ## Usage
 
@@ -32,10 +32,8 @@ The script will:
 1. ✅ Seed actions from `actions.yaml`
 2. ✅ Seed SaaS resources from `resources.yaml`
 3. ✅ Seed domain resources from `domain_resources.yaml`
-4. ✅ Create/update role templates from `role_templates.yaml`
-5. ✅ Create/update team role definitions from `team_role_definitions.yaml`
-6. ✅ Apply domain permissions to role templates
-7. ✅ Apply domain permissions to team roles
+4. ✅ Create/update role templates from `role_templates.yaml` (includes inline permissions)
+5. ✅ Create/update team role definitions from `team_role_definitions.yaml` (includes inline permissions)
 
 ### Modifying RBAC Configuration
 
@@ -49,9 +47,8 @@ The script will:
 3. Run seed script
 
 **To modify role permissions:**
-1. For base permissions: Edit `role_templates.yaml` or `team_role_definitions.yaml`
-2. For domain permissions: Edit `domain_role_permissions.yaml` or `domain_team_permissions.yaml`
-3. Run seed script (updates existing roles)
+1. Edit `role_templates.yaml` or `team_role_definitions.yaml` directly (inline permissions)
+2. Run seed script (updates existing roles)
 
 ## File Formats
 

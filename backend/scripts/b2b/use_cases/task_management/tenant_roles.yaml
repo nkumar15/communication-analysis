@@ -1,3 +1,0 @@
-# No additional tenant roles needed for task management
-# Uses base owner/admin/member/viewer roles
-tenant_roles: []

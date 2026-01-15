@@ -2,7 +2,97 @@
 # Roles: STL, SA, Maker, Checker, Compliance, SurvOps
 
 team_roles:
-  - name: surveillance_lead
+  # =========================================================================
+  # GLOBAL / REGIONAL ROLES
+  # =========================================================================
+  - name: surveillance_chief
+    display_name: Chief Surveillance Officer
+    clearance_level: 4  # Top Secret
+    bypass_geographic_restrictions: true
+    description: C-Suite executive with global oversight of all surveillance operations
+    is_system: false
+    permissions:
+      # Business Surveillance
+      - resource: communications
+        actions: [read, analyze, flag, export, archive]
+      - resource: investigations
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export, archive]
+      - resource: watchlist
+        actions: [read, create, approve, delete]
+      - resource: model_config
+        actions: [read, write, train]
+      - resource: analytics
+        actions: [read, export]
+      - resource: data_pipelines
+        actions: [read, export]
+      - resource: dashboard
+        actions: [read]
+      # Platform Visibility (No Management)
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read]
+      - resource: audit_logs
+        actions: [read, export] # Critical for Chief to audit IT
+
+  - name: regional_director
+    display_name: Regional Surveillance Director
+    clearance_level: 3  # Restricted
+    description: Senior management overseeing surveillance for a geographic region
+    is_system: false
+    permissions:
+      # Business Surveillance
+      - resource: communications
+        actions: [read, analyze, flag, export]
+      - resource: investigations
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export]
+      - resource: watchlist
+        actions: [read, approve]
+      - resource: model_config
+        actions: [read]
+      - resource: analytics
+        actions: [read, export]
+      - resource: dashboard
+        actions: [read]
+      # Platform Visibility
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read]
+
+  - name: head_compliance
+    display_name: Head of Compliance
+    clearance_level: 4
+    bypass_geographic_restrictions: true
+    description: Oversight role for regulatory compliance and auditing
+    is_system: false
+    permissions:
+      - resource: communications
+        actions: [read, export]
+      - resource: investigations
+        actions: [read, export]
+      - resource: alerts
+        actions: [read, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export]
+      - resource: dashboard
+        actions: [read]
+      - resource: reports
+        actions: [read, export]
+      - resource: audit_logs
+        actions: [read, export]
+      - resource: watchlist
+        actions: [read]
+      - resource: analytics
+        actions: [read]
     display_name: Surveillance Team Lead (STL)
     description: Full management and approval authority for the team data
     is_system: false
@@ -113,17 +203,4 @@ team_roles:
         actions: [read]
       - resource: surveillance_reports
         actions: [read]
-
-  # =========================================================================
-  # DEFAULT / QUARANTINE ROLE
-  # =========================================================================
-  - name: provisional_analyst
-    display_name: Provisional Analyst
-    description: New team member with restricted access pending approval (Quarantine)
-    is_system: true
-    is_default: true
-    permissions:
-      - resource: team_members
-        actions: [read]
-      # No access to investigations or alerts by default
 

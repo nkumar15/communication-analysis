@@ -235,15 +235,28 @@ User
  └── Team Memberships (0..n)
 ```
 
-### Default Assignment on User Creation
+### Invitation Matrix
 
-```
-System Role = member
-Tenant Roles = []
-Teams = []
-```
+> [!IMPORTANT]
+> Users are never auto-assigned business authority or data scope.
 
-### What Default Users Can See
+| Scenario | System Role | Tenant Role | Team |
+|----------|:-----------:|:-----------:|:----:|
+| Invite (email only) | `member` | none | none |
+| Invite with role | `member` | assigned | none |
+| Invite with team | `member` | none | assigned |
+| Invite with role + team | `member` | assigned | assigned |
+
+### Access States
+
+| State | Can Login | Business Data | Actions |
+|-------|:---------:|:-------------:|:-------:|
+| `member` only | ✅ | ❌ | ❌ |
+| `member` + tenant role (no team) | ✅ | ❌ (no scope) | ❌ |
+| `member` + team role (no tenant role) | ✅ | Team scoped | Team limited |
+| `member` + tenant role + team | ✅ | ✅ Full scope | ✅ Full actions |
+
+### What Members Can See (No Role/No Team)
 
 With only `member` system role (no tenant roles, no teams):
 
@@ -253,18 +266,18 @@ With only `member` system role (no tenant roles, no teams):
 | ✅ Profile page | ❌ Alerts / cases / reports |
 | ✅ Notifications | ❌ Team-specific screens |
 | ✅ "Request access" / "Awaiting assignment" | ❌ Any write actions |
-| ✅ High-level tenant info (name, status) | |
+| ✅ Tenant name and status | |
 
-> This prevents data leakage while avoiding user lockout.
+> This is a **safe holding state**, not an error. Users wait here until explicitly assigned.
 
 ### Common User Scenarios
 
 | Scenario | System Role | Tenant Roles | Teams | Visibility |
 |----------|-------------|--------------|-------|------------|
 | New joiner | member | [] | [] | Dashboard shell only |
-| External auditor | viewer | [compliance_officer] | [All] | Read-only reports |
-| SG Desk Analyst | member | [] | [SG Desk: analyst] | SG data only |
-| CSO | member | [surveillance_chief] | [Global] | All data |
+| External auditor | viewer | [] | [SG: compliance_officer] | SG reports only |
+| SG Desk Analyst | member | [] | [SG: analyst] | SG data only |
+| CSO | member | [surveillance_chief] | [Global: oversight] | All data |
 | IT Admin | admin | [] | [] | User management, no business data |
 
 ---
@@ -309,12 +322,14 @@ With only `member` system role (no tenant roles, no teams):
 
 1. **Every user must have exactly one system role**
 2. **System role ≠ business access**
-3. **Tenant roles define WHAT (actions)**
-4. **Teams define WHERE (data scope)**
-5. **No tenant role or no team = no business data**
-6. **Default system role = member**
-7. **Admins don't automatically get business data**
-8. **Viewers have read-only platform access, not business data**
+3. **Tenant roles define WHAT (actions)** — Never auto-assigned
+4. **Teams define WHERE (data scope)** — Never auto-assigned
+5. **No tenant role = no business actions**
+6. **No team = 0 rows in team_members** — No `__unassigned__` team pattern
+7. **Default system role = member**
+8. **Admins don't automatically get business data**
+9. **Viewers have read-only platform access, not business data**
+10. **Unassigned state is first-class** — Safe holding state, not an error
 
 ---
 

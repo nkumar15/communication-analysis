@@ -613,7 +613,7 @@ if __name__ == "__main__":
                     print(f"📦 Loading configuration from {CONFIG_DIR.name}/...")
                     await seed_domain_actions(db)
                     await seed_domain_resources(db)
-                    await seed_additional_tenant_roles(db)
+                    # await seed_additional_tenant_roles(db)  # REMOVED: Tenant roles merged into team roles
                     await seed_additional_team_roles(db)
                     print()
                     

@@ -9,10 +9,18 @@ This document describes the **Plugin Layer** that extends the 3-Layer RBAC model
 
 ## Overview
 
-The core 3-Layer RBAC model handles:
+## Overview
+The core **2-Layer RBAC** model handles:
 - **Layer 1:** System Role (can login?)
-- **Layer 2:** Tenant Role (what actions?)
-- **Layer 3:** Team (which data?)
+- **Layer 2:** Business Role (what actions + which data?)
+
+For enterprise use cases, additional constraints are needed:
+- **Hierarchical Teams:** Director sees child desks without explicit membership
+- **Geographic Boundaries:** User can only access data from their region
+- **Data Classification:** User clearance must match data sensitivity
+
+> [!NOTE]
+> **No `__unassigned__` team pattern.** Users without team assignment simply have 0 rows in `team_members`. This is the valid "unassigned" state.
 
 For enterprise use cases, additional constraints are needed:
 - **Hierarchical Teams:** Director sees child desks without explicit membership
@@ -237,16 +245,15 @@ The configuration is loaded during tenant setup and stored in tenant settings.
 
 ---
 
-## How Plugins Extend the 3-Layer Model
+## How Plugins Extend the 2-Layer Model
 
-The 3-Layer model becomes a **4-Layer model** with plugins:
+The 2-Layer model becomes a **3-Layer model** with plugins:
 
 | Layer | Purpose | Example |
 |-------|---------|---------|
 | **Layer 1:** System Role | Can login? | member, admin, viewer |
-| **Layer 2:** Tenant Role | What actions? | surveillance_chief → investigations:approve |
-| **Layer 3:** Team | Which team data? | SG Desk, APAC Hub |
-| **Layer 4:** Plugins | Enterprise constraints | Geographic, Hierarchy, Classification |
+| **Layer 2:** Business Role | Actions + Data Scope | surveillance_chief (Global Team) |
+| **Layer 3:** Plugins | Enterprise constraints | Geographic, Hierarchy, Classification |
 
 ### Permission Resolution with Plugins
 

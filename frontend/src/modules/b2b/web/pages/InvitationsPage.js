@@ -79,7 +79,8 @@ const InvitationsPage = () => {
                     const roles = rolesData.map(r => ({
                         value: r.name,
                         label: r.display_name || r.name.charAt(0).toUpperCase() + r.name.slice(1),
-                        disabled: false  // Backend already filters invitable roles
+                        disabled: false,  // Backend already filters invitable roles
+                        isSystemRole: r.is_system_role  // Preserve for filtering
                     }));
 
                     console.log('📋 Formatted roles for dropdown:', roles);
@@ -516,6 +517,7 @@ const InvitationsPage = () => {
                                         <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>User</th>
                                         <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Email</th>
                                         <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Role</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Teams</th>
                                         <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Status</th>
                                         <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Last Login</th>
                                         <th style={{ padding: '12px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Actions</th>
@@ -548,6 +550,35 @@ const InvitationsPage = () => {
                                             <td style={{ padding: '16px 24px', color: '#6B7280' }}>{user.email}</td>
                                             <td style={{ padding: '16px 24px' }}>
                                                 <RoleBadge role={user.role} />
+                                            </td>
+                                            <td style={{ padding: '16px 24px' }}>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                    {user.teams && user.teams.length > 0 ? (
+                                                        user.teams.map((team, idx) => (
+                                                            <span
+                                                                key={idx}
+                                                                style={{
+                                                                    padding: '3px 8px',
+                                                                    backgroundColor: '#EEF2FF',
+                                                                    color: '#4338CA',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '12px',
+                                                                    fontWeight: '500',
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                            >
+                                                                {team.team_name}
+                                                                {team.team_role && (
+                                                                    <span style={{ color: '#6366F1', fontWeight: '400' }}>
+                                                                        {' '}({team.team_role})
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span style={{ color: '#9CA3AF', fontSize: '13px', fontStyle: 'italic' }}>__unassigned__</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td style={{ padding: '16px 24px' }}>
                                                 <StatusBadge status={user.is_active} type="user" />
@@ -1120,7 +1151,8 @@ const InvitationsPage = () => {
                                         transition: 'all 0.2s'
                                     }}
                                 >
-                                    {availableRoles.map(role => (
+                                    {/* Only show system roles - tenant roles are assigned per team */}
+                                    {availableRoles.filter(role => role.isSystemRole).map(role => (
                                         <option key={role.value} value={role.value} disabled={role.disabled}>
                                             {role.label}
                                         </option>

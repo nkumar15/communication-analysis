@@ -602,7 +602,9 @@ class InvitationService:
         invitation.accepted_from_ip = client_ip
         await db.flush()
         
-        # Handle team assignment
+        # Handle team assignment - only if invitation specifies a team
+        # NOTE: Per RBAC design, users without team assignment have 0 team memberships
+        # This is the valid "unassigned" state - no __unassigned__ team pattern
         if invitation.team_id:
             try:
                 # team_role can be None, add_team_member will resolve default
@@ -614,21 +616,8 @@ class InvitationService:
                 )
             except Exception:
                 pass  # Don't fail if team assignment fails
-        else:
-            try:
-                default_team = await team_service.get_or_create_default_team(
-                    db=db,
-                    tenant_id=tenant.id
-                )
-                
-                await team_service.add_team_member(
-                    db=db,
-                    team_id=default_team.id,
-                    user_id=user_id,
-                    team_role=None
-                )
-            except Exception:
-                pass
+        # REMOVED: Default team auto-assignment (contradicts "No default team" design)
+        # Users without team can login but have no business data access
         
         return {
             "tenant_id": invitation.tenant_id,
@@ -757,6 +746,7 @@ class InvitationService:
         from fastapi import HTTPException, status
         from modules.b2b.models import Team
         from modules.b2b.models.bulk_invite_job import BulkInviteJob
+        from core.constants import B2BRoleName
         import secrets
         from datetime import timedelta
         
@@ -790,7 +780,11 @@ class InvitationService:
                             # Strict Mode: Do not auto-create
                             failed_count += 1
                             results.append({
-                                "row": row.dict(),
+                                "row": row.row_number,
+                                "email": row.email,
+                                "name": row.name,
+                                "role": row.role,
+                                "team_name": row.team_name,
                                 "status": "failed",
                                 "error": f"Team not found: {row.team_name}"
                             })
@@ -811,7 +805,11 @@ class InvitationService:
                             if row.team_role and row.team_role != allowed_role:
                                 failed_count += 1
                                 results.append({
-                                    "row": row.dict(),
+                                    "row": row.row_number,
+                                    "email": row.email,
+                                    "name": row.name,
+                                    "role": row.role,
+                                    "team_name": row.team_name,
                                     "status": "failed",
                                     "error": f"Restricted: Default Team only accepts role '{allowed_role}'"
                                 })
@@ -850,7 +848,10 @@ class InvitationService:
                 results.append({
                     "row": row.row_number,
                     "email": row.email,
-                    "status": "error",
+                    "name": row.name,
+                    "role": row.role,
+                    "team_name": row.team_name,
+                    "status": "failed",
                     "error": str(e)
                 })
         

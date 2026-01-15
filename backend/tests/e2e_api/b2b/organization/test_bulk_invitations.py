@@ -238,7 +238,8 @@ bob@wrongdomain.com,Engineering,team_contributor
         
         # Verify template content (updated columns)
         content = response.text
-        assert 'email,team_name,team_role,role,name' in content or 'email,team_name,team_role' in content
+        assert 'email,team_name,team_role,name' in content
+        assert 'role' not in content
         assert '@yourdomain.com' in content
     
     @pytest.mark.asyncio
@@ -372,38 +373,10 @@ test@{tenant.domain},Engineering,team_contributor
         assert 'page_size' in data
         assert isinstance(data['jobs'], list)
     
-    @pytest.mark.asyncio
-    async def test_admin_cannot_invite_owner(self, api_client: AsyncClient, db_session: AsyncSession):
-        """Test that admin cannot invite users with owner role"""
-        tenant = await create_test_tenant(db_session)
-        admin = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
-            email=f"admin@{tenant.domain}",
-            role_slug=B2BRoleName.ADMIN
-        )
-        
-        jwt_token = encode_mock_jwt(create_mock_firebase_token(
-            uid=admin.firebase_uid,
-            email=admin.email,
-            firebase_tenant_id=tenant.firebase_tenant_id
-        ))
-        
-        csv_content = f"""email,role,team_name,team_role
-newowner@{tenant.domain},owner,Engineering,team_contributor
-"""
-        files = {
-            'file': ('owner.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
-        }
-        
-        response = await api_client.post(
-            "/api/b2b/invitations/bulk",
-            files=files,
-            headers={"Authorization": f"Bearer {jwt_token}"}
-        )
-        
-        assert response.status_code == 400
-        assert 'owner' in str(response.json()).lower() or 'admin' in str(response.json()).lower()
+    
+    # test_admin_cannot_invite_owner REMOVED: 'role' column is no longer supported in bulk invite CSV.
+    # By design, bulk invite only invites 'members', so owner invitation is impossible.
+
     
     @pytest.mark.asyncio
     async def test_viewer_cannot_bulk_invite(self, api_client: AsyncClient, db_session: AsyncSession):

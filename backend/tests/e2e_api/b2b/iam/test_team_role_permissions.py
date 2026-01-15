@@ -172,7 +172,7 @@ class TestTeamRolePermissionMatrix:
             "display_name": "Invalid Role",
             "permissions": [
                 {"resource": "roles", "action": "read"},  # 'roles' is a system resource
-                {"resource": "audit_logs", "action": "read"}  # Also system resource
+                {"resource": "billing", "action": "read"}  # 'billing' is definitely system resource
             ]
         }
         

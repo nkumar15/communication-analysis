@@ -2,9 +2,16 @@
 User Management Schemas
 """
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+
+
+class TeamMembership(BaseModel):
+    """Team membership info for a user"""
+    team_id: UUID
+    team_name: str
+    team_role: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -16,6 +23,7 @@ class UserResponse(BaseModel):
     is_active: bool
     last_login: Optional[datetime] = None
     created_at: datetime
+    teams: List[TeamMembership] = []
     
     class Config:
         from_attributes = True

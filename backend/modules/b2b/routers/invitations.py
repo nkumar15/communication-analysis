@@ -505,7 +505,7 @@ async def download_failures(
     
     failures = [
         row for row in job.results.get('rows', [])
-        if row.get('status') == 'error'
+        if row.get('status') == 'failed'
     ]
     
     if not failures:
