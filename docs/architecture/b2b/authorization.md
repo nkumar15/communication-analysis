@@ -13,7 +13,7 @@ For **RBAC Concepts**, see [RBAC Concepts Guide](../../guides/b2b-rbac-concepts.
 ## 📋 Table of Contents
 
 1. [Design Philosophy](#design-philosophy)
-2. [The 3-Layer Model](#the-3-layer-model)
+2. [The 2-Layer Model](#the-2-layer-model)
 3. [Database Schema](#database-schema)
 4. [Permission Resolution](#permission-resolution)
 5. [Implementation Patterns](#implementation-patterns)
@@ -111,8 +111,15 @@ This language passes security, audit, and banking reviews.
 
 | Layer | Controls | Does NOT Control |
 |-------|----------|------------------|
-| **1. System Role** | Login, platform UI, IT admin, billing | Business data, investigations, campaigns |
-| **2. Business Role** | **Everything else** (Permissions + Data Scope) | Platform settings, subscription management |
+| **1. System Role** | Login, billing, **Tenant Structure (Create/Delete Teams)** | Business data, investigations, campaigns |
+| **2. Business Role** | **Work within Teams** (Permissions + Data Scope) | Platform settings, subscription management, team existence |
+
+> [!TIP]
+> **Who creates the Team?**
+> Creating a team changes the *structure* of the tenant, so it is a **System Role** responsibility (e.g., `owner`).
+> - The creator uses their **System Role** authority to create the team.
+> - They are added as a member (`team_role=None`) for **visibility/scope**.
+> - They do **not** need a specific **Business Role** (like `manager`) to have created it. This prevents circular dependencies.
 
 > [!NOTE]
 > **What happened to Tenant Roles?**
@@ -153,7 +160,7 @@ CREATE TABLE b2b.team_members (
     id UUID PRIMARY KEY,
     team_id UUID REFERENCES b2b.teams(id),
     user_id UUID REFERENCES b2b.users(id),
-    team_role VARCHAR(50) NOT NULL DEFAULT 'team_contributor',
+    team_role VARCHAR(50) DEFAULT NULL,
     team_role_id UUID REFERENCES b2b.team_role_definitions(id),
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(team_id, user_id)

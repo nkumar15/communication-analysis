@@ -1,5 +1,9 @@
 email,name,role,team_name,team_role
-jennifer@creativeedge.com,Jennifer Blake,agency_owner,,
-sarah.mgr@creativeedge.com,Sarah Miller,member,Nike Team,account_manager
-dave.writer@creativeedge.com,Dave Wilson,member,Nike Team,content_writer
-cmo@nike.com,Nike CMO,guest,Nike Team,guest_review
+owner@merlionmarketing.com,Merlion Owner,agency_owner,,
+director@merlionmarketing.com,Alice Director,member,Nike Team,account_director
+manager@merlionmarketing.com,Charlie Manager,member,Nike Team,account_manager
+designer@merlionmarketing.com,Bob Designer,member,Nike Team,creative_lead
+copywriter@merlionmarketing.com,Dave Writer,member,Nike Team,content_writer
+client@nike.com,Nike Client,guest,Nike Team,guest_review
+sbux.manager@merlionmarketing.com,Sarah Starbucks,member,Starbucks Team,account_manager
+sbux.client@starbucks.com,Starbucks Client,guest,Starbucks Team,guest_review

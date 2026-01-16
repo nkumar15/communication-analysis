@@ -17,7 +17,7 @@ class Tenant(BaseModel):
     activation_started_at: Optional[datetime] = None  # Prevent replay attacks
     is_active: bool = True
     domain_type: str = 'default'  # Domain type for multi-domain SaaS (bank_surveillance, etc.)
-    plugins: List[str] = []  # Active plugins
+    features: dict = {}  # Active features and plugins
     created_at: datetime
     updated_at: datetime
 

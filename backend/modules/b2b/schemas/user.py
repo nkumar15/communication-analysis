@@ -40,5 +40,6 @@ class UserResponse(BaseModel):
     # Frontend permission checking
     permissions: List[str] = []  # ["projects:read", "users:invite", ...]
     teams: List[TeamMembership] = []  # Teams user belongs to
-    active_plugins: List[str] = []  # ["geographic_boundaries", "hierarchical_teams"]
+    active_plugins: List[str] = []  # Legacy: List of plugin names
+    active_features: dict = {}  # New: Full feature configuration incl. plugins
 

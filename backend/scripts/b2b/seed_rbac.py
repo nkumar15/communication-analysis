@@ -71,6 +71,35 @@ if __name__ == "__main__":
         CONFIG_DIR = DOMAIN_DIR
         print("📦 Loading domain configuration")
 
+    def flatten_permissions(permissions: list) -> list:
+        """
+        Flatten permissions from YAML format (resource + actions list) to frontend format (resource + action pairs).
+        
+        Input: [{'resource': 'crm', 'actions': ['read', 'write']}]
+        Output: [{'resource': 'crm', 'action': 'read'}, {'resource': 'crm', 'action': 'write'}]
+        """
+        flattened = []
+        for p in permissions:
+            resource = p.get('resource')
+            # Handle both 'actions' (list) and 'action' (single)
+            actions = p.get('actions', [])
+            action = p.get('action')
+            
+            if action:
+                flattened.append({'resource': resource, 'action': action})
+                
+            if actions:
+                for a in actions:
+                    flattened.append({'resource': resource, 'action': a})
+            
+            # If neither, maybe it's already flattened? Or keep as is?
+            if not action and not actions:
+                # Fallback: strict pass-through if structure is unknown, 
+                # but explicit check is better.
+                flattened.append(p)
+                
+        return flattened
+
     def load_yaml(filepath: Path) -> dict:
         """Load and parse a YAML file"""
         if not filepath.exists():
@@ -276,7 +305,7 @@ if __name__ == "__main__":
                 existing.description = template_data.get('description')
                 existing.is_system_role = template_data.get('is_system_role', False)
                 existing.is_default = template_data.get('is_default', False)
-                existing.permissions = template_data.get('permissions', [])
+                existing.permissions = flatten_permissions(template_data.get('permissions', []))
                 flag_modified(existing, 'permissions')
             else:
                 template = RoleTemplate(
@@ -314,7 +343,7 @@ if __name__ == "__main__":
                 existing.description = role_data.get('description')
                 existing.is_system_role = role_data.get('is_system_role', False)
                 existing.is_default = role_data.get('is_default', False)
-                existing.permissions = role_data.get('permissions', [])
+                existing.permissions = flatten_permissions(role_data.get('permissions', []))
                 flag_modified(existing, 'permissions')
             else:
                 role = RoleTemplate(
@@ -375,7 +404,7 @@ if __name__ == "__main__":
                 existing.description = role_data.get('description')
                 existing.is_system = role_data.get('is_system', False)
                 existing.is_default = role_data.get('is_default', False)
-                existing.permissions = role_data.get('permissions', [])
+                existing.permissions = flatten_permissions(role_data.get('permissions', []))
                 flag_modified(existing, 'permissions')
             else:
                 role = TeamRoleDefinition(
@@ -385,7 +414,7 @@ if __name__ == "__main__":
                     is_system=role_data.get('is_system', False),
                     is_default=role_data.get('is_default', False),
                     tenant_id=None,
-                    permissions=role_data.get('permissions', [])
+                    permissions=flatten_permissions(role_data.get('permissions', []))
                 )
                 db.add(role)
         
@@ -417,7 +446,7 @@ if __name__ == "__main__":
                 existing.description = role_data.get('description')
                 existing.is_system = role_data.get('is_system', False)
                 existing.is_default = role_data.get('is_default', False)
-                existing.permissions = role_data.get('permissions', [])
+                existing.permissions = flatten_permissions(role_data.get('permissions', []))
                 existing.allowed_org_tiers = role_data.get('allowed_org_tiers', [])
                 flag_modified(existing, 'permissions')
                 flag_modified(existing, 'allowed_org_tiers')
@@ -429,7 +458,7 @@ if __name__ == "__main__":
                     is_system=role_data.get('is_system', False),
                     is_default=role_data.get('is_default', False),
                     tenant_id=None,
-                    permissions=role_data.get('permissions', []),
+                    permissions=flatten_permissions(role_data.get('permissions', [])),
                     allowed_org_tiers=role_data.get('allowed_org_tiers', [])
                 )
                 db.add(role)
@@ -464,7 +493,7 @@ if __name__ == "__main__":
             
             # Remove old overlays for these resources
             filtered_perms = [p for p in current_perms if p.get('resource') not in resources_to_update]
-            filtered_perms.extend(perms)
+            filtered_perms.extend(flatten_permissions(perms))
             
             if filtered_perms != current_perms:
                 role.permissions = filtered_perms
@@ -502,7 +531,7 @@ if __name__ == "__main__":
             
             # Remove old overlays for these resources
             filtered_perms = [p for p in current_perms if p.get('resource') not in resources_to_update]
-            filtered_perms.extend(perms)
+            filtered_perms.extend(flatten_permissions(perms))
             
             if filtered_perms != current_perms:
                 role.permissions = filtered_perms

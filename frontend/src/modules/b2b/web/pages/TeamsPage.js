@@ -27,8 +27,9 @@ const TeamsPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // Check Plugins
-    const plugins = user?.active_plugins || [];
+    // Check Features & Plugins
+    const features = user?.active_features || {};
+    const plugins = features.plugins || [];
     const hasHierarchy = plugins.includes('hierarchical_teams');
     const hasGeo = plugins.includes('geographic_boundaries');
 
@@ -263,30 +264,34 @@ const TeamsPage = () => {
                         </div>
 
                         {/* Hover Actions */}
+                        {/* Hover Actions */}
                         <div className="team-actions" style={{ opacity: 0, transition: 'opacity 0.2s', display: 'flex', gap: '8px' }}>
-                            <button
-                                onClick={(e) => onAddChild(e, team.id)}
-                                title="Add Child Team"
-                                style={{
-                                    width: '32px',
-                                    height: '32px',
-                                    borderRadius: '6px',
-                                    border: '1px solid #E5E7EB',
-                                    backgroundColor: 'white',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#4B5563',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#667eea'; e.currentTarget.style.color = '#667eea'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#4B5563'; }}
-                            >
-                                <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                            </button>
+                            {/* Only show Add Child button if hierarchy plugin is enabled */}
+                            {hasHierarchy && (
+                                <button
+                                    onClick={(e) => onAddChild(e, team.id)}
+                                    title="Add Child Team"
+                                    style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #E5E7EB',
+                                        backgroundColor: 'white',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#4B5563',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#667eea'; e.currentTarget.style.color = '#667eea'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#4B5563'; }}
+                                >
+                                    <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -371,7 +376,7 @@ const TeamsPage = () => {
                         <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                        New Root Team
+                        New Team
                     </button>
                 </div>
 

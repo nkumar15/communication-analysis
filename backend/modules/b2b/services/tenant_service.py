@@ -465,7 +465,7 @@ class TenantService:
             activation_started_at=model.activation_started_at,
             is_active=model.is_active,
             domain_type=getattr(model, 'domain_type', 'default'),
-            plugins=model.plugins or [],
+            features=model.features or {},
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -572,23 +572,23 @@ class TenantService:
         }
 
 
-    async def update_tenant_plugins(
+    async def update_tenant_features(
         self,
         db: AsyncSession,
         tenant_id: UUID,
-        new_plugin_list: list[str]
+        new_features: dict
     ) -> dict:
         """
-        Update tenant plugins with lifecycle hooks.
-        Calculates diff, runs enable/disable hooks, and updates DB.
+        Update tenant features with lifecycle hooks for plugins.
+        Calculates diff for 'plugins' list, runs enable/disable hooks for plugins, and updates DB features.
         
         Args:
             db: Database session
             tenant_id: Tenant UUID
-            new_plugin_list: List of plugin names that SHOULD be active
+            new_features: Dict of features that SHOULD be active (includes 'plugins' list)
             
         Returns:
-            Dict with added and removed, and current active list
+            Dict with added/removed plugins, and current active features
         """
         from core.rbac.plugin_registry import plugin_registry
         from sqlalchemy.orm.attributes import flag_modified
@@ -597,12 +597,12 @@ class TenantService:
         if not tenant:
             raise ValueError(f"Tenant {tenant_id} not found")
         
-        old_plugins = set(tenant.plugins or [])
+        current_features = tenant.features or {}
+        
+        old_plugins = set(current_features.get('plugins', []))
+        new_plugin_list = new_features.get('plugins', [])
         new_plugins = set(new_plugin_list)
         
-        added = new_plugins - old_plugins
-        removed = old_plugins - new_plugins
-
         added = new_plugins - old_plugins
         removed = old_plugins - new_plugins
 
@@ -634,17 +634,19 @@ class TenantService:
                     # Usually better to fail loudly.
                     raise Exception(f"Failed to disable plugin {plugin_name}: {str(e)}")
 
-        # 3. Update DB
-        if added or removed:
-            tenant.plugins = sorted(list(new_plugins))
-            flag_modified(tenant, 'plugins')
-            await db.flush()
+        # 3. Update DB (Full Replace of Features, as caller handles merge)
+        # Ensure plugins list is sorted for consistency
+        new_features['plugins'] = sorted(list(new_plugins))
+        
+        tenant.features = new_features
+        flag_modified(tenant, 'features')
+        await db.flush()
         
         return {
             "tenant_id": str(tenant_id),
-            "added": sorted(list(added)),
-            "removed": sorted(list(removed)),
-            "active_plugins": sorted(list(new_plugins))
+            "added_plugins": sorted(list(added)),
+            "removed_plugins": sorted(list(removed)),
+            "active_features": new_features
         }
 
 

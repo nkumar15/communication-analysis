@@ -67,82 +67,17 @@ async def create_team(
     result = await db.execute(select(Team).where(Team.id == team.id))
     team = result.scalar_one()
     
-    # Add creator as team manager (if created_by is provided)
-    if created_by:
-        # Get or create team_manager role definition
-        from modules.b2b.models import TeamRoleDefinition
-        role_def_result = await db.execute(
-            select(TeamRoleDefinition).where(
-                TeamRoleDefinition.name == "team_manager",
-                (TeamRoleDefinition.tenant_id == tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
-            ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())
-        )
-        role_def = role_def_result.scalars().first()
-        
-        creator_member = TeamMember(
-            team_id=team.id,
-            user_id=created_by,
-            team_role="team_manager",
-            team_role_id=role_def.id if role_def else None
-        )
-        db.add(creator_member)
-        await db.flush()
+    # NOTE: We do NOT automatically add the creator as a team member.
+    # The creator (usually Owner/Admin) has System Role authority to manage the team.
+    # They should only be added as a member if they explicitly assign themselves
+    # a Business Role (e.g., to work on a campaign).
     
     return team
 
 
-async def get_or_create_default_team(
-    db: AsyncSession,
-    tenant_id: UUID,
-    created_by: Optional[UUID] = None
-) -> Team:
-    """
-    Get the default team for a tenant, creating it if it doesn't exist
-    
-    Args:
-        db: Database session
-        tenant_id: Tenant ID
-        created_by: User ID (for creation only)
-        
-    Returns:
-        Default team
-    """
-    # Try to find existing default team
-    result = await db.execute(
-        select(Team).where(
-            Team.tenant_id == tenant_id,
-            Team.is_default == True,
-            Team.deleted_at.is_(None)
-        )
-    )
-    default_team = result.scalar_one_or_none()
-    
-    if not default_team:
-        # Create default team
-        default_team = await create_team(
-            db=db,
-            tenant_id=tenant_id,
-            name="Default Team",
-            description="Default team for all users",
-            created_by=created_by,
-            is_default=True
-        )
-    
-    return default_team
 
 
-async def get_default_team_role(db: AsyncSession) -> str:
-    """
-    Get the name of the default team role (is_default=True)
-    Returns None if not found - caller must handle this case
-    """
-    result = await db.execute(
-        select(TeamRoleDefinition.name).where(
-            TeamRoleDefinition.is_default == True
-        ).limit(1)
-    )
-    role_name = result.scalar_one_or_none()
-    return role_name  # May be None - caller must handle
+
 
 
 async def get_tenant_teams(

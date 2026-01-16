@@ -196,7 +196,7 @@ async def create_local_async(
                 domain=domain,
                 owner_email=owner_email,
                 tenant_id=tenant_id,
-                plugins=plugins,
+                features={'plugins': plugins} if plugins else {},
                 subscription_tier=subscription_tier
             )
             
@@ -318,20 +318,28 @@ async def manage_plugins_async(tenant_id, domain, enable, disable, list_only, fi
             
             if target_list != sorted(list(original_db_set)):
                 click.echo(f"⚡ Applying changes via TenantService...")
-                result = await tenant_onboarding_service.tenant_service.update_tenant_plugins(
+                
+                # Construct features dict (preserving existing features would require fetching them first if we care about others)
+                # But manage_plugins CLI is specifically for PLUGINS.
+                # Ideally we should fetch current features and only update plugins key.
+                current_features = tenant.features or {}
+                new_features = current_features.copy()
+                new_features['plugins'] = target_list
+                
+                result = await tenant_onboarding_service.tenant_service.update_tenant_features(
                     db=db,
                     tenant_id=tenant.id,
-                    new_plugin_list=target_list
+                    new_features=new_features
                 )
                 
                 await db.commit()
                 
-                if result['added']:
-                    click.echo(f"   🟢 Enabled: {result['added']}")
-                if result['removed']:
-                    click.echo(f"   🔴 Disabled: {result['removed']}")
+                if result.get('added_plugins'):
+                    click.echo(f"   🟢 Enabled: {result['added_plugins']}")
+                if result.get('removed_plugins'):
+                    click.echo(f"   🔴 Disabled: {result['removed_plugins']}")
                     
-                click.echo(f"✅ State Updated: {result['active_plugins']}")
+                click.echo(f"✅ State Updated: {result['active_features'].get('plugins')}")
             else:
                 click.echo(f"ℹ️  State matches Target. No changes. Active: {target_list}")
                 
@@ -375,7 +383,7 @@ async def create_tenant_async(
                 company_name=company,
                 domain=domain,
                 owner_email=owner_email,
-                plugins=plugins
+                features={'plugins': plugins} if plugins else {}
             )
             
             await db.commit()
@@ -788,9 +796,9 @@ async def manage_plugins_async(tenant_id, domain, enable, disable, list_only, fi
                 click.echo(f"🔄 Syncing plugins from file: {file_plugins}")
                 target_plugins = set(file_plugins)
             else:
-                target_plugins = set(tenant.plugins or [])
+                target_plugins = set((tenant.features or {}).get('plugins', []))
             
-            original_db_set = set(tenant.plugins or [])
+            original_db_set = set((tenant.features or {}).get('plugins', []))
             
             if list_only:
                 click.echo(f"🔌 Active Plugins (DB): {sorted(list(original_db_set))}")

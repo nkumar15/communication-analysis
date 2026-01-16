@@ -59,20 +59,20 @@ class TeamListResponse(BaseModel):
 class TeamMemberAdd(BaseModel):
     """Schema for adding a user to a team"""
     user_id: UUID
-    team_role: str = Field(
-        ...,  # Required - no default, frontend must select a role
+    team_role: Optional[str] = Field(
+        None,
         min_length=1,
         max_length=50,
-        description="Role within the team (from team_role_definitions)"
+        description="Role within the team (optional, can be None)"
     )
 
 class TeamMemberUpdate(BaseModel):
     """Schema for updating team member role"""
-    team_role: str = Field(
-        ..., 
+    team_role: Optional[str] = Field(
+        None, 
         min_length=1,
         max_length=50,
-        description="New role for the team member (from team_role_definitions)"
+        description="New role for the team member (optional)"
     )
 
 class TeamMemberResponse(BaseModel):
@@ -80,7 +80,7 @@ class TeamMemberResponse(BaseModel):
     id: UUID
     team_id: UUID
     user_id: UUID
-    team_role: str
+    team_role: Optional[str] = None
     user_email: Optional[EmailStr] = None
     user_name: Optional[str] = None
     joined_at: datetime
@@ -92,8 +92,8 @@ class MoveUserRequest(BaseModel):
     """Schema for moving user between teams"""
     from_team_id: UUID
     to_team_id: UUID
-    team_role: str = Field(
-        ...,
+    team_role: Optional[str] = Field(
+        None,
         min_length=1,
         max_length=50,
         description="Role in the destination team"

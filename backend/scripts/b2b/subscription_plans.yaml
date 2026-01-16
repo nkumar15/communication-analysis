@@ -10,8 +10,11 @@ plans:
       projects: 5
       storage_gb: 10
     features:
-      sso: false
-      audit_logs: false
+      sso: true
+      audit_logs: true
+      bulk_invite: false
+      dedicated_support: false
+      custom_branding: false
 
   - tier_key: professional
     name: Professional
@@ -24,8 +27,9 @@ plans:
       projects: -1
       storage_gb: 100
     features:
-      sso: true
-      audit_logs: true
+      dedicated_support: true
+      custom_branding: true
+      # Inherits sso: true, audit_logs: true
 
   - tier_key: enterprise
     name: Enterprise
@@ -38,10 +42,8 @@ plans:
       projects: -1
       storage_gb: -1
     features:
-      sso: true
-      audit_logs: true
-      dedicated_support: true
-      custom_branding: true
+      bulk_invite: true
+      # Inherits sso, audit, support, branding
       plugins:
         - geographic_boundaries
         - hierarchical_teams

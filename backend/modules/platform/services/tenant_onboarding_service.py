@@ -36,7 +36,7 @@ class TenantOnboardingService:
         owner_email: str,
         # New optional params for local/test mode
         tenant_id: Optional[UUID] = None,
-        plugins: Optional[list] = None,
+        features: Optional[dict] = None,
         subscription_tier: Optional[str] = None
     ) -> dict:
         """
@@ -59,19 +59,28 @@ class TenantOnboardingService:
             # Initialize Firebase if not already done
             get_auth_provider().initialize()
             
-            # Resolve Plan & Plugins if Tier provided
+            # Resolve Plan & Features if Tier provided
             target_plan = None
-            tier_plugins = []
+            tier_features = {}
             
             if subscription_tier:
                 stmt_plan = select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == subscription_tier)
                 res_plan = await db.execute(stmt_plan)
                 target_plan = res_plan.scalar_one_or_none()
                 if target_plan:
-                    tier_plugins = target_plan.features.get('plugins', [])
+                    tier_features = target_plan.features or {}
             
-            # Merge plugins: Manual overrides + Plan plugins
-            final_plugins = list(set((plugins or []) + tier_plugins))
+            # Merge features: Plan Features + Manual overrides
+            # Using simple update logic (manual overrides plan)
+            final_features = tier_features.copy()
+            if features:
+                # We need a proper merge for 'plugins' list if present in both
+                for key, val in features.items():
+                    if key == 'plugins' and 'plugins' in final_features:
+                         # Union
+                         final_features['plugins'] = sorted(list(set(final_features['plugins'] + val)))
+                    else:
+                         final_features[key] = val
             # Check for existing tenant in DB first to handle idempotency
             stmt = select(TenantModel).where(TenantModel.domain == domain.lower())
             result = await db.execute(stmt)
@@ -84,25 +93,10 @@ class TenantOnboardingService:
                 
                 print(f"♻️  Tenant exists (pending), resending activation for {domain}")
                 
-                # Update plugins if provided (for repair/updating existing demo tenant)
-                if final_plugins:
+                # Update features if provided (for repair/updating existing demo tenant)
+                if final_features:
                      # Use service to ensure hooks run even on repair
-                     # We explicitly call the service update logic.
-                     # However, to FORCE hooks for existing plugins (e.g. seeding new regions), 
-                     # we need to manually invoke them or modify the service.
-                     # Let's manually invoke ensure logic here for robustness.
-                     from core.rbac.plugin_registry import plugin_registry
-                     for p_name in final_plugins:
-                         plugin = plugin_registry.get_plugin(p_name)
-                         if plugin:
-                             try:
-                                 # This hook is idempotent now
-                                 await plugin.on_tenant_enable(str(existing_tenant.id), db)
-                             except Exception as e:
-                                 print(f"WARN: Failed to re-run hook for {p_name}: {e}")
-                     
-                     # Still call update to persist list if changed
-                     await tenant_service.update_tenant_plugins(db, existing_tenant.id, final_plugins)
+                     await tenant_service.update_tenant_features(db, existing_tenant.id, final_features)
 
 
                 # Update/Ensure Subscription if Tier provided (Repair/Upgrade)
@@ -202,7 +196,8 @@ class TenantOnboardingService:
                 "activation_status": 'pending',
                 "activation_expires_at": expires_at,
                 "is_active": True,
-                "plugins": [] # We set plugins via service below
+                "is_active": True,
+                "features": {} # We set features via service below
             }
             if tenant_id:
                 tenant_model_args["id"] = tenant_id
@@ -231,9 +226,9 @@ class TenantOnboardingService:
                 # Better to leave null or create default if business logic requires.
                 pass
 
-            # 3.6 Apply Plugins via Service (Hooks)
-            if final_plugins:
-                await tenant_service.update_tenant_plugins(db, tenant.id, final_plugins)
+            # 3.6 Apply Features via Service (Hooks for plugins)
+            if final_features:
+                await tenant_service.update_tenant_features(db, tenant.id, final_features)
 
             # 4. Seed roles from templates
             await role_template_service.seed_tenant_roles(db, tenant.id)

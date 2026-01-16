@@ -2,36 +2,14 @@ team_roles:
   # =========================================================================
   # GLOBAL / AGENCY ROLES
   # =========================================================================
-  - name: agency_owner
-    display_name: Agency Owner
-    description: Owner with full control over agency operations
-    is_system: false
-    permissions:
-      - resource: campaigns
-        actions: [read, write, delete, export, archive]
-      - resource: social_posts
-        actions: [read, write, delete, publish, schedule, export]
-      - resource: creative_assets
-        actions: [read, write, delete, export, archive]
-      - resource: analytics_reports
-        actions: [read, create, export]
-      - resource: client_communications
-        actions: [read, write, delete, export]
-      - resource: dashboard
-        actions: [read]
-      - resource: users
-        actions: [read, write, invite, delete]
-      - resource: teams
-        actions: [read, write, delete]
-      - resource: billing
-        actions: [read, write, manage]
+
 
   # =========================================================================
   # TEAM ROLES
   # =========================================================================
-  - name: account_manager
-    display_name: Account Manager
-    description: Lead manager for a specific client account
+  - name: account_director
+    display_name: Account Director
+    description: "STRATEGIST: Approves campaigns & manages the team."
     is_system: false
     permissions:
       - resource: team_members
@@ -39,9 +17,28 @@ team_roles:
       - resource: team_settings
         actions: [manage]
       - resource: campaigns
-        actions: [read, write, delete, export, archive]
+        actions: [read, write, delete, export, approve] # Key: Can APPROVE
       - resource: social_posts
-        actions: [read, write, delete, publish, schedule, export]
+        actions: [read, write, delete, publish, schedule, approve] # Key: Can APPROVE
+      - resource: creative_assets
+        actions: [read, write, delete, export, archive]
+      - resource: analytics_reports
+        actions: [read, create, export]
+      - resource: client_communications
+        actions: [read, write, delete, export]
+  - name: account_manager
+    display_name: Account Manager
+    description: "ORGANIZER: Manages team roster & settings. No approval authority."
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage] # Key: Can invite/remove members
+      - resource: team_settings
+        actions: [manage] # Key: Can change team settings
+      - resource: campaigns
+        actions: [read, write, delete, export] # No approve
+      - resource: social_posts
+        actions: [read, write, delete, schedule, export] # No approve/publish (Director/Lead does that)
       - resource: creative_assets
         actions: [read, write, delete, export, archive]
       - resource: analytics_reports
@@ -51,17 +48,17 @@ team_roles:
   
   - name: creative_lead
     display_name: Creative Lead
-    description: Senior creative role for client account
+    description: "PUBLISHER: Creates & Publishes content. Cannot manage team."
     is_system: false
     permissions:
       - resource: team_members
-        actions: [read]
+        actions: [read] # Read-only roster
       - resource: team_settings
-        actions: [read]
+        actions: [read] # Read-only settings
       - resource: campaigns
         actions: [read, write, export]
       - resource: social_posts
-        actions: [read, write, publish, schedule, export]
+        actions: [read, write, publish, schedule, export] # Key: Can PUBLISH
       - resource: creative_assets
         actions: [read, write, delete, export, archive]
       - resource: analytics_reports
@@ -71,7 +68,7 @@ team_roles:
   
   - name: content_writer
     display_name: Content Writer
-    description: Standard contributor who can create and edit content
+    description: "DRAFTER: Writes content. Cannot publish or manage."
     is_system: false
     permissions:
       - resource: team_members
@@ -81,7 +78,7 @@ team_roles:
       - resource: campaigns
         actions: [read]
       - resource: social_posts
-        actions: [read, write]
+        actions: [read, write] # Key: Write only (Draft). No publish.
       - resource: creative_assets
         actions: [read, write]
       - resource: analytics_reports

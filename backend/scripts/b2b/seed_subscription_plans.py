@@ -36,16 +36,47 @@ async def seed_b2b_plans():
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as db:
-        print("Seeding B2B Plans...")
+        print("Seeding B2B Plans (with Feature Inheritance)...")
         
         # Set RLS context for seeding (simulate platform admin)
         await db.execute(text("SELECT set_config('app.current_user_role', 'platform_admin', false)"))
         
-        plans = load_plans_from_yaml()
+        raw_plans = load_plans_from_yaml()
         
-        for plan_data in plans:
+        # Define hierarchy order
+        hierarchy = ['starter', 'professional', 'enterprise']
+        
+        # Sort plans by hierarchy to ensure correct processing order
+        plans_map = {p['tier_key']: p for p in raw_plans}
+        sorted_plans = []
+        for key in hierarchy:
+            if key in plans_map:
+                sorted_plans.append(plans_map[key])
+        
+        # Accumulated state
+        inherited_features = {}
+        inherited_limits = {}
+
+        for plan_data in sorted_plans:
             tier = plan_data['tier_key']
+            print(f"Processing {tier}...")
+
+            # 1. Merge Features (Deep Merge + List Union)
+            current_features = plan_data.get('features', {})
+            # Start with a copy of inherited
+            final_features = deep_merge_features(inherited_features, current_features)
             
+            # Update inheritance for next tier
+            inherited_features = final_features.copy()
+            
+            # 2. Merge Limits (Simple Override)
+            # Logic: If defined in current, use current. Else use inherited.
+            current_limits = plan_data.get('limits', {})
+            final_limits = inherited_limits.copy()
+            final_limits.update(current_limits)
+            
+            inherited_limits = final_limits.copy()
+
             # Construct provider config from settings
             stripe_config = {}
             if tier == 'starter':
@@ -78,8 +109,8 @@ async def seed_b2b_plans():
                     base_price_yearly=plan_data['base_price_yearly'],
                     per_seat_price_monthly=plan_data['per_seat_price_monthly'],
                     per_seat_price_yearly=plan_data['per_seat_price_yearly'],
-                    limits=plan_data['limits'],
-                    features=plan_data['features'],
+                    limits=final_limits,
+                    features=final_features,
                     contact_required=plan_data.get('contact_required', False),
                     provider_config=provider_config
                 )
@@ -94,15 +125,44 @@ async def seed_b2b_plans():
                 plan.base_price_yearly = plan_data['base_price_yearly']
                 plan.per_seat_price_monthly = plan_data['per_seat_price_monthly']
                 plan.per_seat_price_yearly = plan_data['per_seat_price_yearly']
-                plan.limits = plan_data['limits']
-                plan.features = plan_data['features']
+                plan.limits = final_limits
+                plan.features = final_features
                 plan.contact_required = plan_data.get('contact_required', False)
                 plan.provider_config = provider_config
                 print(f"  ↻ Updated plan: {plan_data['name']}")
+                
+                # Debug Output
+                import json
+                print(f"    -> Final Features: {json.dumps(final_features, sort_keys=True)}")
         
         await db.commit()
     
     print("✅ B2B Plans Seeded")
+
+def deep_merge_features(base, override):
+    """
+    Merge override features into base features.
+    - Dicts: Recursive merge
+    - Lists: Union (Set-based)
+    - Scalars: Override
+    """
+    import copy
+    result = copy.deepcopy(base)
+    
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = deep_merge_features(result[key], value)
+        elif key in result and isinstance(result[key], list) and isinstance(value, list):
+            # Union for lists (e.g. plugins)
+            base_set = set(result[key])
+            for item in value:
+                base_set.add(item)
+            result[key] = sorted(list(base_set))
+        else:
+            # Scalar or type mismatch -> Override
+            result[key] = value
+            
+    return result
 
 if __name__ == "__main__":
     asyncio.run(seed_b2b_plans())

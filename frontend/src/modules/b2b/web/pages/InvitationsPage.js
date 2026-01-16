@@ -51,6 +51,10 @@ const InvitationsPage = () => {
     const navigate = useNavigate();
     const { user, getInvitableRoles, getScopeLabel, hasPermission } = useAuth();
 
+    // Check Features
+    const features = user?.active_features || {};
+    const showBulkInvite = features.bulk_invite === true;
+
     useEffect(() => {
         loadData();
     }, []);
@@ -370,7 +374,7 @@ const InvitationsPage = () => {
                                 tabs={[
                                     { id: 'users', label: 'Users', count: users.length },
                                     { id: 'invitations', label: 'Pending Invitations', count: pendingInvitations.length },
-                                    { id: 'bulk_history', label: 'Bulk History', count: bulkJobs.length }
+                                    ...(showBulkInvite ? [{ id: 'bulk_history', label: 'Bulk History', count: bulkJobs.length }] : [])
                                 ]}
                                 activeTab={activeTab}
                                 onTabChange={setActiveTab}
@@ -407,35 +411,37 @@ const InvitationsPage = () => {
                                         <span style={{ fontSize: '16px', fontWeight: 'bold' }}>+</span>
                                         Invite User
                                     </button>
-                                    <button
-                                        onClick={() => setShowBulkInviteModal(true)}
-                                        style={{
-                                            backgroundColor: '#10B981',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            padding: '10px 20px',
-                                            fontSize: '14px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.backgroundColor = '#059669';
-                                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(16, 185, 129, 0.3)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.backgroundColor = '#10B981';
-                                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.2)';
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '16px' }}>📋</span>
-                                        Bulk Invite
-                                    </button>
+                                    {showBulkInvite && (
+                                        <button
+                                            onClick={() => setShowBulkInviteModal(true)}
+                                            style={{
+                                                backgroundColor: '#10B981',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                padding: '10px 20px',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#059669';
+                                                e.currentTarget.style.boxShadow = '0 4px 6px rgba(16, 185, 129, 0.3)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#10B981';
+                                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.2)';
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '16px' }}>📋</span>
+                                            Bulk Invite
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
