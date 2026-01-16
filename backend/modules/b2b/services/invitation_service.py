@@ -299,6 +299,37 @@ class InvitationService:
                 detail="Pending invitation already exists for this email"
             )
         
+        # Validate team role if provided
+        if team_id and team_role:
+            # Fetch role definition to check allowed tiers
+            role_def_result = await db.execute(
+                select(TeamRoleDefinition).where(
+                    TeamRoleDefinition.name == team_role,
+                    (TeamRoleDefinition.tenant_id == tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
+                )
+            )
+            role_def = role_def_result.scalar_one_or_none()
+            
+            if not role_def:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid team role: {team_role}"
+                )
+                
+            # Validate Org Tier Constraints
+            if role_def.allowed_org_tiers:
+                if not team.org_tier:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Team '{team.name}' has no organization tier configured, but role '{role_def.display_name}' requires one of: {', '.join(role_def.allowed_org_tiers)}"
+                    )
+                
+                if team.org_tier not in role_def.allowed_org_tiers:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Role '{role_def.display_name}' is restricted to tiers {role_def.allowed_org_tiers}, but team '{team.name}' is '{team.org_tier}'"
+                    )
+
         # Generate token and create invitation
         invitation_token = secrets.token_urlsafe(32)
         invitation = InvitationModel(
@@ -800,7 +831,7 @@ class InvitationService:
                             from modules.b2b.services.team_role_service import team_role_service
                             
                             def_role = await team_role_service.get_default_role(db, tenant_id)
-                            allowed_role = def_role.name if def_role else "team_contributor"
+                            allowed_role = def_role.name if def_role else None
                             
                             if row.team_role and row.team_role != allowed_role:
                                 failed_count += 1

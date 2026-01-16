@@ -22,25 +22,35 @@ graph TD
 *   **APAC Hub:** Management of Asian markets (Regional Director).
 *   **Trading Desks:** Isolated operational units (Singapore & Malaysia).
 
+
+### Scope Levels
+
+| Level | Description | Example |
+|-------|-------------|---------|
+| **GLOBAL** | Headquarters, cross-border oversight | Global HQ |
+| **REGIONAL** | Multi-country management | APAC Hub |
+| **COUNTRY** | Single juristiction | Singapore Office |
+| **BRANCH** | Local operational unit | SG Trading Desk |
+
 ---
 
 ## 2. Role Portfolio
 
 We define specific roles to match the bank's operational and compliance needs.
 
-| S.No. | Category | Role Name | Type | Description |
-| :---: | :--- | :--- | :--- | :--- |
-| 1 | **Leadership** | `surveillance_chief` | **Team** | C-Suite executive (CSO). Assigned to "Global HQ" team. |
-| 2 | **Leadership** | `regional_director` | **Team** | Regional management. Assigned to "APAC Hub". |
-| 3 | **Leadership** | `head_compliance` | **Team** | Global oversight. Assigned to "Global HQ". |
-| 4 | **Desk** | `surveillance_lead` | **Team** | Runs a specific desk (e.g., Head of SG). |
-| 5 | **Desk** | `surveillance_analyst` | **Team** | Standard investigator. |
-| 6 | **Operations** | `operations_maker` | **Team** | Can create cases but **cannot approve**. |
-| 7 | **Operations** | `operations_checker` | **Team** | Can approve cases but **cannot create**. |
-| 8 | **Support** | `surveillance_ops` | **Team** | Surveillance Operations (SurvOps). |
-| 9 | **Audit** | `compliance_officer` | **Team** | Read-only regulatory oversight. |
-| 10 | **External** | `guest_analyst` | **Team** | Limited read-only access for auditors. |
-| 11 | **Base** | `member` | **System** | **Safe Default.** Read-only listing of Users/Teams. |
+| S.No. | Category | Role Name | Type | Allowed Scope | Description |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | **Leadership** | `surveillance_chief` | **Team** | `GLOBAL` | C-Suite executive (CSO). Assigned to "Global HQ" team. |
+| 2 | **Leadership** | `regional_director` | **Team** | `REGIONAL` | Regional management. Assigned to "APAC Hub". |
+| 3 | **Leadership** | `head_compliance` | **Team** | `GLOBAL` | Global oversight. Assigned to "Global HQ". |
+| 4 | **Desk** | `surveillance_country_lead` | **Team** | `COUNTRY`, `BRANCH` | runs specific desk (e.g., Head of SG). |
+| 5 | **Desk** | `surveillance_analyst` | **Team** | `COUNTRY`, `BRANCH` | Standard investigator. |
+| 6 | **Operations** | `operations_maker` | **Team** | `GLOBAL`, `REGIONAL` | Can create cases but **cannot approve**. |
+| 7 | **Operations** | `operations_checker` | **Team** | `GLOBAL`, `REGIONAL` | Can approve cases but **cannot create**. |
+| 8 | **Support** | `surveillance_ops` | **Team** | `ANY` | Surveillance Operations (SurvOps). |
+| 9 | **Audit** | `compliance_officer` | **Team** | `COUNTRY`, `BRANCH` | Read-only regulatory oversight. |
+| 10 | **External** | `guest_analyst` | **Team** | `COUNTRY`, `BRANCH` | Limited read-only access for auditors. |
+| 11 | **Base** | `member` | **System** | N/A | **Safe Default.** Read-only listing of Users/Teams. |
 
 ---
 
@@ -56,8 +66,8 @@ graph TD
     CSO["CSO: Global Oversight<br/>Role: Surveillance Chief<br/>Team: Global HQ"] 
     -->|Manages| Dir["Director: Regional Oversight<br/>Role: Regional Director<br/>Team: APAC Hub"]
     
-    Dir -->|Manages| SG["SG Head<br/>Role: Surveillance Lead<br/>Team: SG Desk"]
-    Dir -->|Manages| MY["MY Head<br/>Role: Surveillance Lead<br/>Team: MY Desk"]
+    Dir -->|Manages| SG["SG Head<br/>Role: Country Surveillance Lead<br/>Team: SG Desk"]
+    Dir -->|Manages| MY["MY Head<br/>Role: Country Surveillance Lead<br/>Team: MY Desk"]
 
     %% Plugin Boundary
     subgraph "Geo-Fenced Zone (Strict Data Isolation)"
@@ -74,7 +84,7 @@ graph TD
 
 *   **Global Leaders (CSO):** Assigned the `surveillance_chief` role in the **Global HQ** team. (Plugins grant them visibility down the tree).
 *   **Regional Directors:** Assigned `regional_director` in **APAC Regional Hub**.
-*   **Desk Heads:** Assigned `surveillance_lead` in their specific desks (Singapore vs Malaysia).
+*   **Desk Heads:** Assigned `surveillance_country_lead` in their specific desks (Singapore vs Malaysia).
 
 **Key Change:** "Tenant Roles" no longer exist. Everyone, even the CSO, derives their business authority from their **Team Membership**.
 
@@ -82,39 +92,38 @@ graph TD
 
 ## 4. User Roster & Configuration
 
-The `bank_surveillance_bulk_invite.csv` provisions **10 Users** ensuring 100% role coverage.
+The `bank_surveillance_bulk_invite.csv` provisions **11 Users** ensuring 100% role coverage.
 
 ### A. Leadership (Global Scope)
 | User | Email | **Team Role** | Scope | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Susan Martinez** | `cso@...` | - | **NULL** | *Manually assign 'Surveillance Chief' after invite* |
-| **APAC Director** | `director.apac...` | - | **NULL** | *Manually assign 'Regional Director' after invite* |
-
-> **Note:** All users are invited as **Member**. Use the Admin UI to assign special Tenant Roles like `Surveillance Chief`.
+| **Susan Martinez** | `cso@...` | `surveillance_chief` | **Global Surveillance** | Global Oversight |
+| **APAC Director** | `director.apac.surv@...` | `regional_director` | **APAC Surveillance** | Regional Oversight |
 
 ### B. Desk Operations (Restricted Scope)
 | User | Email | Team Role | Scope |
 | :--- | :--- | :--- | :--- |
-| **SG Head** | `head.sg.surv@...` | `surveillance_lead` | **SG Team Only** |
-| **MY Head** | `head.my.surv@...` | `surveillance_lead` | **MY Team Only** |
-| **MY Analyst** | `analyst.my.wealth@...` | `surveillance_analyst` | **MY Team Only** |
+| **SG Head** | `head.sg.surv@...` | `surveillance_country_lead` | **SG Desk** |
+| **SG Analyst** | `analyst.sg.wealth@...` | `surveillance_analyst` | **SG Desk** |
+| **MY Head** | `head.my.surv@...` | `surveillance_country_lead` | **MY Desk** |
+| **MY Analyst** | `analyst.my.wealth@...` | `surveillance_analyst` | **MY Desk** |
 
 ### C. Separation of Duties (SoD)
-*These users work in the "Special Investigations" team.*
+*These users work in the "Special Investigations" (Global) team.*
 
-| User | Email | Team Permission |
-| :--- | :--- | :--- |
-| **Maker** | `analyst.global.forensic@...` | Can **Create**, Cannot Approve |
-| **Checker** | `checker.global.forensic@...` | Can **Approve**, Cannot Create |
+| User | Email | Team Role | Team Permission |
+| :--- | :--- | :--- | :--- |
+| **Maker** | `analyst.global.forensic@...` | `operations_maker` | Can **Create**, Cannot Approve |
+| **Checker** | `checker.global.forensic@...` | `operations_checker` | Can **Approve**, Cannot Create |
 
 ---
 
 ### D. Auxiliary & Support Staff
 | User | Email | Team Role | Scope |
 | :--- | :--- | :--- | :--- |
-| **SurvOps** | `surv.ops.apac@...` | `surveillance_ops` | **SG & MY Teams** |
-| **MAS Liaison** | `liaison.sg.mas@...` | `compliance_officer` | **SG Team Only** |
-| **Ext. Auditor** | `guest.auditor@...` | `guest_analyst` | **SG Team Only** |
+| **SurvOps** | `surv.ops.apac@...` | `surveillance_ops` | **SG Desk** |
+| **MAS Liaison** | `liaison.sg.mas@...` | `compliance_officer` | **SG Desk** |
+| **Ext. Auditor** | `guest.auditor@...` | `guest_analyst` | **SG Desk** |
 
 ---
 
@@ -187,7 +196,7 @@ The loader expects the following columns:
 | `email` | User's email address (Must match tenant domain). | **Yes** |
 | `name` | Full name (e.g., "Susan Martinez"). | No |
 | `team_name`| Name of the team to join.<br>**Strict Check:** Team **MUST exist** in the system. | **Yes** |
-| `team_role`| **Team Role** (Context Role). Defines "What you do".<br>Values: `surveillance_lead`, `surveillance_analyst`, etc.<br>Default: `team_contributor` | **Yes** |
+| `team_role`| **Team Role** (Context Role). Defines "What you do".<br>Values: `surveillance_country_lead`, `surveillance_analyst`, etc.<br>Default: `team_contributor` | **Yes** |
 
 ### B. Logic Rules
 1.  **System Role Default:** All bulk invited users are automatically assigned the **Member** system role. To elevate someone to **Admin** or **Tenant Role** (e.g. `surveillance_chief`), you must edit them in the UI after invitation.

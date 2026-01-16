@@ -134,7 +134,7 @@ async def get_or_create_default_team(
 async def get_default_team_role(db: AsyncSession) -> str:
     """
     Get the name of the default team role (is_default=True)
-    Fallback to 'team_contributor' if not found (legacy behavior)
+    Returns None if not found - caller must handle this case
     """
     result = await db.execute(
         select(TeamRoleDefinition.name).where(
@@ -142,7 +142,7 @@ async def get_default_team_role(db: AsyncSession) -> str:
         ).limit(1)
     )
     role_name = result.scalar_one_or_none()
-    return role_name or "team_contributor"
+    return role_name  # May be None - caller must handle
 
 
 async def get_tenant_teams(
@@ -354,7 +354,11 @@ async def add_team_member(
          if def_role_obj:
              team_role = def_role_obj.name
          else:
-             team_role = "team_contributor" # Final fallback if no default configured
+             from fastapi import HTTPException, status as http_status
+             raise HTTPException(
+                 status_code=http_status.HTTP_400_BAD_REQUEST,
+                 detail="team_role is required. No default role is configured."
+             )
 
     # Look up team_role_id from team_role_definitions
     # First try to find by name, checking both system roles and tenant-specific roles
@@ -366,6 +370,15 @@ async def add_team_member(
         ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())  # Prefer tenant-specific
     )
     role_def = role_def_result.scalars().first()
+    
+    # Validation: Org Tier Enforcement
+    # A role may only be assigned to a team whose org_tier matches the role's allowed tiers.
+    if role_def and role_def.allowed_org_tiers and team.org_tier:
+        if team.org_tier not in role_def.allowed_org_tiers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role '{role_def.display_name}' cannot be assigned to teams with tier '{team.org_tier}'. Allowed tiers: {role_def.allowed_org_tiers}"
+            )
     
     # Validation: Hard Quarantine for Default Team
     # If the team is the Default Team, ONLY allow roles flagged as 'is_default'
@@ -482,6 +495,15 @@ async def update_team_member_role(
     )
     role_def = role_def_result.scalars().first()
     
+    # Validation: Org Tier Enforcement
+    # A role may only be assigned to a team whose org_tier matches the role's allowed tiers.
+    if role_def and role_def.allowed_org_tiers and team.org_tier:
+        if team.org_tier not in role_def.allowed_org_tiers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role '{role_def.display_name}' cannot be assigned to teams with tier '{team.org_tier}'. Allowed tiers: {role_def.allowed_org_tiers}"
+            )
+    
     # Validation: Hard Quarantine for Default Team
     if team.is_default and role_def and not role_def.is_default:
         raise HTTPException(
@@ -524,7 +546,7 @@ async def move_user_to_team(
     user_id: UUID,
     from_team_id: UUID,
     to_team_id: UUID,
-    team_role: str = "team_contributor"
+    team_role: str  # Required - no default
 ) -> TeamMember:
     """
     Move a user from one team to another

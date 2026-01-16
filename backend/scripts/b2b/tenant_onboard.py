@@ -37,6 +37,8 @@ async def _seed_teams_recursive(db, tenant_id, team_list, parent_id=None, level=
         config_data = {}
         if t_config.get('region_code'):
              config_data['region_code'] = t_config.get('region_code')
+        
+        org_tier = t_config.get('org_tier')
 
         # Check if team exists by name within tenant
         stmt = select(Team).where(
@@ -53,7 +55,8 @@ async def _seed_teams_recursive(db, tenant_id, team_list, parent_id=None, level=
                 parent_team_id=parent_id,
                 hierarchy_level=level,
                 team_type='hierarchical',
-                config_data=config_data
+                config_data=config_data,
+                org_tier=org_tier
             )
             db.add(new_team)
             await db.flush() # Need ID for children
@@ -61,13 +64,21 @@ async def _seed_teams_recursive(db, tenant_id, team_list, parent_id=None, level=
             click.echo(f"      + Created Team: {name} (Level {level})")
         else:
             team_id = existing.id
-            # Update parent/level if needed
+            # Update parent/level/org_tier if needed
+            changed = False
             if existing.parent_team_id != parent_id or existing.hierarchy_level != level:
                 existing.parent_team_id = parent_id
                 existing.hierarchy_level = level
+                changed = True
+            
+            if existing.org_tier != org_tier:
+                existing.org_tier = org_tier
+                changed = True
+                
+            if changed:
                 db.add(existing)
                 await db.flush()
-                click.echo(f"      ~ Updated Team Hierarchy: {name}")
+                click.echo(f"      ~ Updated Team Hierarchy/Tier: {name}")
             else:
                  click.echo(f"      . Team {name} exists")
         

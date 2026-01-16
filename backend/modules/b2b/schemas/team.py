@@ -33,6 +33,7 @@ class TeamResponse(TeamBase):
     created_at: datetime
     updated_at: datetime
     member_count: int = 0
+    org_tier: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -46,6 +47,7 @@ class TeamListResponse(BaseModel):
     member_count: int = 0
     created_at: datetime
     parent_team_id: Optional[UUID] = None
+    org_tier: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -58,17 +60,19 @@ class TeamMemberAdd(BaseModel):
     """Schema for adding a user to a team"""
     user_id: UUID
     team_role: str = Field(
-        default="team_contributor", 
-        pattern="^(team_manager|team_contributor|team_reader)$",
-        description="Role within the team"
+        ...,  # Required - no default, frontend must select a role
+        min_length=1,
+        max_length=50,
+        description="Role within the team (from team_role_definitions)"
     )
 
 class TeamMemberUpdate(BaseModel):
     """Schema for updating team member role"""
     team_role: str = Field(
         ..., 
-        pattern="^(team_manager|team_contributor|team_reader)$",
-description="New role for the team member"
+        min_length=1,
+        max_length=50,
+        description="New role for the team member (from team_role_definitions)"
     )
 
 class TeamMemberResponse(BaseModel):
@@ -89,8 +93,10 @@ class MoveUserRequest(BaseModel):
     from_team_id: UUID
     to_team_id: UUID
     team_role: str = Field(
-        default="team_contributor",
-        pattern="^(team_manager|team_contributor|team_reader)$"
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Role in the destination team"
     )
 
 # ============================================================================

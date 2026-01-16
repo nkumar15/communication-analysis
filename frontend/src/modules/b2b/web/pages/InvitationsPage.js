@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import invitationApi from '../../../../core/api/invitationClient';
 import b2bClient from '../../../../core/api/b2bClient';
+import teamApi from '../../../../core/api/teamClient';
 import StatCard from '../../../../core/components/StatCard';
 import TabNav from '../../../../shared/TabNav';
 import RoleBadge from '../../../../core/components/RoleBadge';
@@ -22,6 +23,7 @@ const InvitationsPage = () => {
     const [activeTab, setActiveTab] = useState('users');
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+    const [teamFilter, setTeamFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [email, setEmail] = useState('');
@@ -34,7 +36,8 @@ const InvitationsPage = () => {
     const [success, setSuccess] = useState('');
     const [selectedRole, setSelectedRole] = useState(TENANT_ROLES.MEMBER);
     const [selectedTeam, setSelectedTeam] = useState('');
-    const [selectedTeamRole, setSelectedTeamRole] = useState('team_contributor');
+    const [selectedTeamRole, setSelectedTeamRole] = useState('');  // Will be set from available roles
+    const [teamRoles, setTeamRoles] = useState([]);  // Loaded from API
 
     // Edit User Modal State
     const [showEditUserModal, setShowEditUserModal] = useState(false);
@@ -102,6 +105,20 @@ const InvitationsPage = () => {
                 // Keep default roles on error
             }
 
+            // Fetch team roles
+            try {
+                const teamRolesData = await teamApi.getTeamRoles();
+                if (Array.isArray(teamRolesData) && teamRolesData.length > 0) {
+                    setTeamRoles(teamRolesData);
+                    // Set default team role to first available
+                    if (!selectedTeamRole && teamRolesData.length > 0) {
+                        setSelectedTeamRole(teamRolesData[0].value);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load team roles:', err);
+            }
+
             // Try to load invitations (admin only)
             try {
                 const invitationsData = await invitationApi.listInvitations();
@@ -149,7 +166,7 @@ const InvitationsPage = () => {
             setSuccess(`Invitation sent to ${email}`);
             setEmail('');
             setSelectedTeam('');
-            setSelectedTeamRole('team_contributor');  // Reset team role
+            setSelectedTeamRole('');  // Reset team role to empty
             setShowInviteModal(false);
             await loadData();
         } catch (err) {
@@ -263,6 +280,17 @@ const InvitationsPage = () => {
         // Role filter
         if (roleFilter !== 'all') {
             filtered = filtered.filter(item => item.role === roleFilter);
+        }
+
+        // Team filter (users only)
+        if (teamFilter !== 'all' && type === 'users') {
+            if (teamFilter === '__unassigned__') {
+                filtered = filtered.filter(item => !item.teams || item.teams.length === 0);
+            } else {
+                filtered = filtered.filter(item =>
+                    item.teams && item.teams.some(t => t.team_name === teamFilter)
+                );
+            }
         }
 
         // Status filter
@@ -440,10 +468,31 @@ const InvitationsPage = () => {
                             }}
                         >
                             <option value="all">All Roles</option>
+                            <option value="owner">Owner</option>
                             <option value="admin">Admin</option>
                             <option value="member">Member</option>
                             <option value="viewer">Viewer</option>
                         </select>
+                        {activeTab === 'users' && (
+                            <select
+                                value={teamFilter}
+                                onChange={(e) => setTeamFilter(e.target.value)}
+                                style={{
+                                    padding: '10px 16px',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    backgroundColor: 'white'
+                                }}
+                            >
+                                <option value="all">All Teams</option>
+                                <option value="__unassigned__">Unassigned</option>
+                                {/* Dynamically extract unique team names from users */}
+                                {[...new Set(users.flatMap(u => u.teams?.map(t => t.team_name) || []))].map(teamName => (
+                                    <option key={teamName} value={teamName}>{teamName}</option>
+                                ))}
+                            </select>
+                        )}
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
@@ -514,13 +563,13 @@ const InvitationsPage = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
-                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>User</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Email</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Role</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Teams</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Status</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Last Login</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase' }}>Actions</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', width: '180px' }}>User</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', width: '200px' }}>Email</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', width: '90px' }}>Role</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', maxWidth: '280px' }}>Teams</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', width: '80px' }}>Status</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', width: '120px', whiteSpace: 'nowrap' }}>Last Login</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', width: '80px' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -551,39 +600,44 @@ const InvitationsPage = () => {
                                             <td style={{ padding: '16px 24px' }}>
                                                 <RoleBadge role={user.role} />
                                             </td>
-                                            <td style={{ padding: '16px 24px' }}>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                            <td style={{ padding: '16px', maxWidth: '280px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     {user.teams && user.teams.length > 0 ? (
                                                         user.teams.map((team, idx) => (
                                                             <span
                                                                 key={idx}
+                                                                title={`${team.team_name} (${team.team_role_display || team.team_role})`}
                                                                 style={{
                                                                     padding: '3px 8px',
                                                                     backgroundColor: '#EEF2FF',
                                                                     color: '#4338CA',
                                                                     borderRadius: '4px',
-                                                                    fontSize: '12px',
+                                                                    fontSize: '11px',
                                                                     fontWeight: '500',
-                                                                    whiteSpace: 'nowrap'
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    maxWidth: '260px',
+                                                                    display: 'block'
                                                                 }}
                                                             >
                                                                 {team.team_name}
-                                                                {team.team_role && (
+                                                                {team.team_role_display && (
                                                                     <span style={{ color: '#6366F1', fontWeight: '400' }}>
-                                                                        {' '}({team.team_role})
+                                                                        {' '}({team.team_role_display})
                                                                     </span>
                                                                 )}
                                                             </span>
                                                         ))
                                                     ) : (
-                                                        <span style={{ color: '#9CA3AF', fontSize: '13px', fontStyle: 'italic' }}>__unassigned__</span>
+                                                        <span style={{ color: '#9CA3AF', fontSize: '12px', fontStyle: 'italic' }}>—</span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '16px 24px' }}>
                                                 <StatusBadge status={user.is_active} type="user" />
                                             </td>
-                                            <td style={{ padding: '16px 24px', color: '#6B7280', fontSize: '14px' }}>
+                                            <td style={{ padding: '16px', whiteSpace: 'nowrap', color: '#6B7280', fontSize: '13px' }}>
                                                 {formatDate(user.last_login)}
                                             </td>
                                             <td style={{ padding: '16px 24px', textAlign: 'right' }}>
@@ -943,7 +997,7 @@ const InvitationsPage = () => {
                                         onChange={(teamId) => {
                                             setSelectedTeam(teamId);
                                             // Reset team role when team changes
-                                            if (!teamId) setSelectedTeamRole('team_contributor');
+                                            if (!teamId) setSelectedTeamRole('');  // Clear role when no team
                                         }}
                                         label="Assign to Team (Optional)"
                                     />
@@ -994,9 +1048,10 @@ const InvitationsPage = () => {
                                                 e.target.style.backgroundColor = '#f9fafb';
                                             }}
                                         >
-                                            <option value="team_contributor">Team Contributor</option>
-                                            <option value="team_manager">Team Manager</option>
-                                            <option value="team_reader">Team Reader</option>
+                                            <option value="">-- Select Role --</option>
+                                            {teamRoles.map(role => (
+                                                <option key={role.value} value={role.value}>{role.label}</option>
+                                            ))}
                                         </select>
                                         <small style={{
                                             color: '#6B7280',

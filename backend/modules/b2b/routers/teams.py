@@ -65,16 +65,16 @@ async def get_team_roles(
         include_system=True
     )
     
-    # If no roles found, return hardcoded defaults as fallback
+    # If no roles found, return empty - frontend should handle this gracefully
     if not roles:
-        return [
-            {"value": "team_manager", "label": "Team Manager"},
-            {"value": "team_contributor", "label": "Contributor"},
-            {"value": "team_reader", "label": "Reader"}
-        ]
+        return []
     
     return [
-        {"value": r.name, "label": r.display_name}
+        {
+            "value": r.name, 
+            "label": r.display_name,
+            "allowed_org_tiers": r.allowed_org_tiers or []
+        }
         for r in roles
     ]
 
@@ -109,7 +109,8 @@ async def list_teams(
             is_default=team.is_default,
             member_count=member_count,
             created_at=team.created_at,
-            parent_team_id=team.parent_team_id
+            parent_team_id=team.parent_team_id,
+            org_tier=team.org_tier
         ))
     
     return response
@@ -157,7 +158,8 @@ async def create_team(
         config_data=created_team.config_data,
         created_at=created_team.created_at,
         updated_at=created_team.updated_at,
-        member_count=member_count
+        member_count=member_count,
+        org_tier=created_team.org_tier
     )
 
 
@@ -205,7 +207,8 @@ async def get_team(
         config_data=team.config_data,
         created_at=team.created_at,
         updated_at=team.updated_at,
-        member_count=member_count
+        member_count=member_count,
+        org_tier=team.org_tier
     )
 
 

@@ -49,6 +49,7 @@ if __name__ == "__main__":
     from modules.b2b.models.role_template import RoleTemplate
     from modules.b2b.models.team_role_definition import TeamRoleDefinition
     from modules.b2b.models.geographic_region import GeographicRegion
+    from modules.b2b.models.scope_level import OrgTier
     from modules.b2b.models.tenant import TenantModel as Tenant
     from typing import Dict, Any
 
@@ -77,6 +78,43 @@ if __name__ == "__main__":
         
         with open(filepath, 'r') as f:
             return yaml.safe_load(f) or {}
+
+    async def seed_org_tiers(db: AsyncSession, config: dict) -> None:
+        """Seed org tiers from hierarchical_teams plugin config"""
+        tiers_data = config.get('org_tiers', [])
+        
+        if not tiers_data:
+            print("  ⚠️  No org tiers in hierarchical_teams config")
+            return
+        
+        print(f"  📊 Seeding {len(tiers_data)} org tiers...")
+        seeded_count = 0
+        
+        for tier_data in tiers_data:
+            result = await db.execute(
+                select(OrgTier).where(OrgTier.name == tier_data['name'])
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                existing.display_name = tier_data['display_name']
+                existing.description = tier_data.get('description')
+                existing.hierarchy_order = tier_data.get('hierarchy_order', 0)
+            else:
+                org_tier = OrgTier(
+                    name=tier_data['name'],
+                    display_name=tier_data['display_name'],
+                    description=tier_data.get('description'),
+                    hierarchy_order=tier_data.get('hierarchy_order', 0)
+                )
+                db.add(org_tier)
+                seeded_count += 1
+        
+        await db.flush()
+        if seeded_count > 0:
+            print(f"    ✓ Seeded {seeded_count} org tiers")
+        else:
+            print("    ✓ Org tiers already seeded")
 
     async def seed_actions(db: AsyncSession) -> None:
         """Seed RBAC actions from core/actions.yaml"""
@@ -380,7 +418,9 @@ if __name__ == "__main__":
                 existing.is_system = role_data.get('is_system', False)
                 existing.is_default = role_data.get('is_default', False)
                 existing.permissions = role_data.get('permissions', [])
+                existing.allowed_org_tiers = role_data.get('allowed_org_tiers', [])
                 flag_modified(existing, 'permissions')
+                flag_modified(existing, 'allowed_org_tiers')
             else:
                 role = TeamRoleDefinition(
                     name=role_data['name'],
@@ -389,7 +429,8 @@ if __name__ == "__main__":
                     is_system=role_data.get('is_system', False),
                     is_default=role_data.get('is_default', False),
                     tenant_id=None,
-                    permissions=role_data.get('permissions', [])
+                    permissions=role_data.get('permissions', []),
+                    allowed_org_tiers=role_data.get('allowed_org_tiers', [])
                 )
                 db.add(role)
         
@@ -577,8 +618,8 @@ if __name__ == "__main__":
                 pass
             
             elif name == 'hierarchical_teams':
-                # Seeding handled by logic or manual team creation
-                pass
+                # Seed org tiers from plugin config
+                await seed_org_tiers(db, plugin_config.get(name, {}))
         
         print(f"✓ {len(plugin_names)} plugins processed")
 

@@ -115,6 +115,8 @@ class RBACPlugin(ABC):
 - Without plugin: Director needs explicit membership in both
 - With plugin: Director auto-inherits access to children of managed teams
 
+**Note:** This plugin leverages the native `parent_team_id` and `scope_level` columns in the `b2b.teams` table.
+
 **Implementation:**
 
 ```python
@@ -131,7 +133,7 @@ class HierarchicalTeamsPlugin(RBACPlugin):
             accessible_teams.add(team_id)
             
             # 2. If user is a manager, add children
-            if role_name in ['surveillance_lead', 'regional_director']:
+            if role_name in ['surveillance_country_lead', 'regional_director']:
                 children = await self._get_child_teams(team_id, db)
                 accessible_teams.update(children)
         

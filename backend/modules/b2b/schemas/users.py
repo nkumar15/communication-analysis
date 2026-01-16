@@ -12,6 +12,7 @@ class TeamMembership(BaseModel):
     team_id: UUID
     team_name: str
     team_role: Optional[str] = None
+    team_role_display: Optional[str] = None
 
 
 class UserResponse(BaseModel):

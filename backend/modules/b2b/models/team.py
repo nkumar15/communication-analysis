@@ -19,6 +19,10 @@ class Team(Base, TimestampMixin, SoftDeleteMixin):
     # Management
     created_by = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id'), nullable=True, index=True)
     
+    # Organizational Tier: GLOBAL, REGIONAL, COUNTRY, BRANCH
+    org_tier = Column(String(20), nullable=True)
+    org_tier_id = Column(UUID(as_uuid=True), ForeignKey('b2b.org_tiers.id'), nullable=True)
+    
     # Hierarchy
     parent_team_id = Column(UUID(as_uuid=True), ForeignKey('b2b.teams.id'))
     team_type = Column(String(50))

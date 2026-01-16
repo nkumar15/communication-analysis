@@ -43,36 +43,64 @@ data_classification:
 hierarchical_teams:
   max_depth: 3  # Region -> Desk -> Unit
   allow_cross_hierarchy: false
+  
+  # Org tier definitions (database-driven)
+  org_tiers:
+    - name: GLOBAL
+      display_name: Global
+      description: Headquarters, cross-border oversight. Full visibility across all regions.
+      hierarchy_order: 1
+    - name: REGIONAL
+      display_name: Regional
+      description: Multi-country management. Oversight of countries within a geographic region.
+      hierarchy_order: 2
+    - name: COUNTRY
+      display_name: Country
+      description: Single jurisdiction. Authority within one country.
+      hierarchy_order: 3
+    - name: BRANCH
+      display_name: Branch
+      description: Local operational unit. Specific desk or branch operations.
+      hierarchy_order: 4
+  
   seed_data:
     - name: "Global Surveillance"
       description: "Global Head of Surveillance"
       region_code: "US"
+      org_tier: GLOBAL
       children:
         - name: "APAC Surveillance"
           description: "Regional Surveillance for Asia Pacific"
           region_code: "SG"
+          org_tier: REGIONAL
           children:
             - name: "SG Desk"
               description: "Singapore Trading Desk Surveillance"
               region_code: "SG"
+              org_tier: COUNTRY
             - name: "HK Desk"
               description: "Hong Kong Trading Desk Surveillance"
               region_code: "HK"
+              org_tier: COUNTRY
             - name: "MY Desk"
               description: "Malaysia Trading Desk Surveillance"
-              region_code: "MY"              
+              region_code: "MY"
+              org_tier: COUNTRY
         - name: "EMEA Surveillance"
           description: "Regional Surveillance for Europe, Middle East, Africa"
           region_code: "UK"
+          org_tier: REGIONAL
           children: 
             - name: "UK Desk"
               description: "London Trading Desk Surveillance"
               region_code: "UK"
+              org_tier: COUNTRY
         - name: "Americas Surveillance"
           description: "Regional Surveillance for North/South America"
           region_code: "US"
+          org_tier: REGIONAL
           children:
             - name: "US Desk"
               description: "New York Trading Desk Surveillance"
               region_code: "US"
-
+              org_tier: COUNTRY

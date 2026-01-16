@@ -40,6 +40,7 @@ The system distinguishes between:
 | "Is this user allowed to use the system at all?" | System Role | Yes/No |
 | "What business function do they perform?" | Tenant Role | Actions allowed |
 | "Which data are they allowed to see?" | Team | Data scope |
+| "Where is this role valid?" | Scope Level | Global, Regional, Country, Local |
 
 ---
 
@@ -48,7 +49,7 @@ The system distinguishes between:
 > [!IMPORTANT]
 > **"No implicit privilege escalation"** — Users are never auto-assigned business authority or data scope.
 
-### Invitation Matrix
+### Invitiation Matrix
 
 | Scenario | System Role | Tenant Role | Team |
 |----------|:-----------:|:-----------:|:----:|
@@ -56,6 +57,17 @@ The system distinguishes between:
 | Invite with role | `member` | assigned | none |
 | Invite with team | `member` | none | assigned |
 | Invite with role + team | `member` | assigned | assigned |
+
+### Scope Levels
+
+Every team exists at a specific scope level, and roles are restricted to specific levels.
+
+| Level | Description | Example |
+|-------|-------------|---------|
+| **GLOBAL** | Headquarters, cross-border oversight | Global HQ |
+| **REGIONAL** | Multi-country management | APAC Hub |
+| **COUNTRY** | Single juristiction | Singapore Office |
+| **BRANCH** | Local operational unit | SG Trading Desk |
 
 ### Core Rules
 
@@ -88,7 +100,7 @@ This language passes security, audit, and banking reviews.
 │  LAYER 2: BUSINESS ROLE (Team Context)                      │
 │  ─────────────────────                                      │
 │  • Cardinality: 0..N per user (via Team Membership)         │
-│  • Values: surveillance_chief, analyst, agency_owner        │
+│  • Values: surveillance_chief, surveillance_country_lead, analyst   │
 │  • Stored: b2b.team_members.team_role                       │
 │  • Purpose: Business authority & Data Scope                 │
 │  • Rule: All business logic lives here                      │
@@ -147,13 +159,25 @@ CREATE TABLE b2b.team_members (
     UNIQUE(team_id, user_id)
 );
 
--- Team Role Definitions
+-- Teams with Scope Level
+CREATE TABLE b2b.teams (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES b2b.tenants(id),
+    name VARCHAR(100) NOT NULL,
+    scope_level VARCHAR(20) NOT NULL, -- GLOBAL, REGIONAL, COUNTRY, BRANCH
+    org_tier VARCHAR(20), -- [NEW] For validation (e.g. 'COUNTRY')
+    parent_team_id UUID REFERENCES b2b.teams(id),
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Team Role Definitions with Definition of Valid Scopes
 CREATE TABLE b2b.team_role_definitions (
     id UUID PRIMARY KEY,
     tenant_id UUID REFERENCES b2b.tenants(id),
     name VARCHAR(50) NOT NULL,
     display_name VARCHAR(100),
     permissions JSONB,
+    allowed_org_tiers VARCHAR[], -- Array of allowed tiers e.g. ['GLOBAL', 'REGIONAL']
     is_system BOOLEAN DEFAULT FALSE,
     UNIQUE(tenant_id, name)
 );
@@ -227,7 +251,26 @@ async def can_access(
         if not team_membership:
             return False
     
+    
     return True
+
+async def can_assign(
+    role: TeamRoleDefinition,
+    team: Team
+) -> bool:
+    """
+    Assignment Validation Logic
+    
+    A role may only be assigned to a team if the team's org_tier matches
+    one of the role's allowed org tiers.
+    """
+    if not role.allowed_org_tiers:
+        return True # Allowed everywhere if undefined
+    
+    if not team.org_tier:
+        return False # Team must have a tier if role is restricted
+        
+    return team.org_tier in role.allowed_org_tiers
 ```
 
 ### Resolution Flow Diagram
@@ -253,7 +296,7 @@ Request: "Can User X approve investigation in SG Desk?"
 ┌─────────────────────────────────────────┐
 │ LAYER 3: TEAM SCOPE                     │
 │ Is user member of SG Desk team?         │
-│ → Yes (surveillance_lead role)          │
+│ → Yes (surveillance_country_lead role)  │
 └─────────────────────────────────────────┘
     │ PASS
     ▼

@@ -20,8 +20,8 @@ async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]
     Get all user IDs that are accessible to this user based on permissions
     
     Hierarchy:
-    - Users with users:write permission: All users in tenant
-    - Viewers (users:read only): Only themselves
+    - Users with users:read or users:write permission: All users in tenant
+    - No permission: Only themselves
     
     Args:
         user_id: User ID to check
@@ -34,17 +34,12 @@ async def get_accessible_user_ids(user_id: UUID, db: AsyncSession) -> list[UUID]
     if not user:
         return []
     
-    # Check if user has write access to users (admin-level)
-    if await has_permission(user_id, 'users', 'write', db):
+    # Check if user has read OR write access to users - both can view all users
+    if await has_permission(user_id, 'users', 'read', db) or await has_permission(user_id, 'users', 'write', db):
         result = await db.execute(
             select(UserModel.id).where(UserModel.tenant_id == user.tenant_id)
         )
         return [row[0] for row in result]
-    
-    # Check if user has read-only access (viewer)
-    if await has_permission(user_id, 'users', 'read', db):
-        # Viewers only see themselves
-        return [user_id]
     
     # No permission - only see self
     return [user_id]
