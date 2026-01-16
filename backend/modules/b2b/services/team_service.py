@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
-from modules.b2b.models import Team, TeamMember, UserModel
+from modules.b2b.models import Team, TeamMember, UserModel, TenantModel, B2BSubscription, B2BSubscriptionPlan
 from modules.b2b.models.team_role_definition import TeamRoleDefinition
 
 
@@ -36,8 +36,42 @@ async def create_team(
         Created team
         
     Raises:
-        HTTPException: If team name already exists in tenant
+        HTTPException: If team name already exists or plan limit reached
     """
+    # 1. Enforce Plan Limits (Max Teams)
+    # Count existing teams
+    count_result = await db.execute(
+        select(func.count(Team.id)).where(
+            Team.tenant_id == tenant_id,
+            Team.deleted_at.is_(None)
+        )
+    )
+    current_team_count = count_result.scalar() or 0
+    
+    # Get active subscription plan
+    plan_result = await db.execute(
+        select(B2BSubscriptionPlan)
+        .join(B2BSubscription, B2BSubscription.plan_id == B2BSubscriptionPlan.id)
+        .where(
+            B2BSubscription.tenant_id == tenant_id,
+            B2BSubscription.status.in_(['active', 'trialing'])
+        )
+    )
+    plan = plan_result.scalars().first()
+    
+    if plan and plan.limits:
+        # Default to 5 if not specified (legacy safety), or use new max_teams key
+        # Handle both 'projects' (legacy) and 'max_teams' keys for backward compat check
+        max_teams = plan.limits.get('max_teams')
+        if max_teams is None:
+             max_teams = plan.limits.get('projects', 5)
+             
+        if max_teams != -1 and current_team_count >= max_teams:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Team creation failed. Your plan limit is {max_teams} teams. Upgrade to add more."
+            )
+
     # Check if team name already exists
     existing = await db.execute(
         select(Team).where(
