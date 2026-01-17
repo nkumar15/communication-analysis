@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Python Developer Rules
 
 ## Scope
@@ -37,3 +41,4 @@ Applies to: **Code Style, FastAPI, SQLAlchemy, Testing**
 - **Fixtures**: Use `conftest.py` fixtures (`api_client`, `db_session`).
 - **RLS Testing**: Use `TenantAwareSession` or `set_tenant_context` helper in tests.
 - **Mocking**: Mock external services (Stripe, Firebase, Email) in unit tests.
+- **Reference**: Refer to pytest-testing.md rule 
