@@ -1,56 +1,29 @@
 # Scripts Directory
 
-This directory contains utility scripts for managing the application.
+Utility scripts for managing the application.
 
-## Domain Data Seeding
+## B2B Scripts
 
-### `seed_domain_data.py`
+See [`b2b/README.md`](b2b/README.md) for details.
 
-Seeds domain-specific resources and role templates that are unique to your business.
+**Main scripts:**
+- `b2b/seed_rbac.py` - Seed RBAC data (resources, actions, roles)
+- `b2b/seed_subscription_plans.py` - Seed subscription tiers
+- `b2b/tenant_onboard.py` - Create and onboard tenants
 
-**Purpose**: Separates domain-specific data (e.g., shops) from core boilerplate data (users, roles, tenants) to make the codebase reusable for different businesses.
-
-**What it seeds**:
-- Domain resources (e.g., `shops`)
-- Domain role templates (e.g., `shop_manager`, `shop_agent`)
-
-**Usage**:
+**Usage:**
 ```bash
-# Via Makefile (recommended)
-make seed-domain
+# Default configuration
+python scripts/b2b/seed_rbac.py
 
-# Or directly
-docker-compose run --rm b2b-api python scripts/seed_domain_data.py
+# Specific use case (bank_surveillance, marketing_agency, task_management)
+USE_CASE=bank_surveillance python scripts/b2b/seed_rbac.py
 ```
 
-**When to run**:
-- After initial `make migrate`
-- When adding new domain resources
-- When setting up a new environment
+## Testing with Use Cases
 
-**Customization**:
-To adapt this boilerplate for a different business:
-1. Edit `scripts/seed_domain_data.py`
-2. Replace domain resources with your business-specific ones
-3. Update role templates as needed
-4. Run `make seed-domain`
+**Primary test use case: `bank_surveillance`**
 
-**Idempotent**: Safe to run multiple times - checks if data already exists before seeding.
+Tests run against bank_surveillance because it has all features enabled.
 
-## Full Setup Flow
-
-```bash
-# 1. Setup environment
-make setup
-
-# 2. Start services
-make up
-
-# 3. Run core migrations (users, roles, tenants)
-make migrate
-
-# 4. Seed domain data (shops, etc.)
-make seed-domain
-
-# Done! Your app is ready
-```
+See [b2b/README.md](b2b/README.md#testing) for testing policy.

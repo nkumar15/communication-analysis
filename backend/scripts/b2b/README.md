@@ -1,160 +1,74 @@
-# RBAC Configuration - YAML Files
+# B2B Scripts
 
-This directory contains YAML configuration files for RBAC (Role-Based Access Control) seeding. All data is now managed in easy-to-edit YAML files instead of SQL INSERT statements.
+RBAC and tenant configuration for multi-tenant B2B SaaS.
 
-## Files Overview
+## Directory Structure
 
-### Core RBAC Data
-- **`actions.yaml`** - Universal actions (read, write, delete, invite, export, manage)
-- **`resources.yaml`** - SaaS boilerplate resources (dashboard, users, teams, billing, etc.)
-- **`domain_resources.yaml`** - Domain-specific resources (projects, tasks, comments)
+```
+scripts/b2b/
+├── base/                          # Base SaaS layer (always loaded)
+│   ├── actions.yaml               # Universal actions (read, write, delete, etc.)
+│   ├── saas_resources.yaml        # Platform resources (users, teams, billing, etc.)
+│   ├── saas_roles.yaml            # Tenant roles (owner, admin, member, viewer)
+│   └── team_roles_fallback.yaml   # Team roles (used if use case has none)
+│
+├── use_cases/                     # Business-specific configurations
+│   ├── bank_surveillance/         # ⭐ PRIMARY (plugins, custom roles)
+│   ├── marketing_agency/          # Marketing domain
+│   └── task_management/           # Project/task domain
+│
+├── seed_rbac.py                   # Main seeding script
+├── seed_subscription_plans.py     # Subscription tier seeding
+├── tenant_onboard.py              # Tenant creation workflow
+└── subscription_plans.yaml        # Tier definitions
+```
 
-### Role Configurations
-- **`role_templates.yaml`** - Default tenant-level roles (owner, admin, member, viewer)
-- **`team_role_definitions.yaml`** - Default team-level roles (team_manager, team_contributor, team_reader)
+## Seeding Flow
 
-### Domain Permissions
-> [!NOTE]
-> Permissions are now defined **inline** within role templates (in `role_templates.yaml` and `team_role_definitions.yaml`). Overlay files are no longer used.
+```
+Base Layer (always)          Use Case Layer (configurable)
+─────────────────────        ────────────────────────────
+base/actions.yaml        +   {use_case}/resources.yaml
+base/saas_resources.yaml +   {use_case}/team_roles.yaml  (replaces fallback)
+base/saas_roles.yaml     +   {use_case}/plugins.yaml     (if applicable)
+base/team_roles_fallback.yaml (skipped if use case has team_roles)
+```
 
 ## Usage
 
-### Seeding RBAC Data
+```bash
+# USE_CASE is required
+USE_CASE=bank_surveillance python scripts/b2b/seed_rbac.py
+USE_CASE=marketing_agency python scripts/b2b/seed_rbac.py
+USE_CASE=task_management python scripts/b2b/seed_rbac.py
+```
 
-After running database migrations, execute the seed script:
+## Testing
+
+For detailed testing documentation, see [backend/tests/README.md](../../tests/README.md).
+
+Tests are organized into:
+1.  **Core Platform** (Auth, Billing, Teams)
+2.  **Use Cases** (Bank Surveillance, Task Management)
 
 ```bash
-# From backend directory
-python scripts/b2b/seed_domain_data.py
+# Run all B2B tests
+make test-b2b
 ```
 
-The script will:
-1. ✅ Seed actions from `actions.yaml`
-2. ✅ Seed SaaS resources from `resources.yaml`
-3. ✅ Seed domain resources from `domain_resources.yaml`
-4. ✅ Create/update role templates from `role_templates.yaml` (includes inline permissions)
-5. ✅ Create/update team role definitions from `team_role_definitions.yaml` (includes inline permissions)
+## Use Case Feature Matrix
 
-### Modifying RBAC Configuration
+| Use Case | Team Roles | Plugins | Domain Resources |
+|----------|-----------|---------|------------------|
+| `bank_surveillance` | Custom | All 3 | communications, investigations |
+| `marketing_agency` | Custom | None | campaigns, social_posts |
+| `task_management` | Fallback | None | projects, tasks, comments |
 
-**To add a new action:**
-1. Edit `actions.yaml`
-2. Run seed script (idempotent)
+## Customization
 
-**To add a new resource:**
-1. For SaaS features: Edit `resources.yaml`
-2. For domain features: Edit `domain_resources.yaml`
-3. Run seed script
+To create a new use case:
 
-**To modify role permissions:**
-1. Edit `role_templates.yaml` or `team_role_definitions.yaml` directly (inline permissions)
-2. Run seed script (updates existing roles)
-
-## File Formats
-
-### Actions Format
-```yaml
-actions:
-  - name: read
-    display_name: View
-  - name: write
-    display_name: Create/Edit
-```
-
-### Resources Format
-```yaml
-resources:
-  - name: dashboard
-    display_name: Dashboard
-    category: Analytics
-    description: Statistics, metrics, and overview
-```
-
-### Role Templates Format
-```yaml
-role_templates:
-  - name: owner
-    display_name: Owner
-    description: Full administrator access
-    is_system_role: true
-    is_default: true
-    permissions:
-      - resource: dashboard
-        actions: [read]
-      - resource: users
-        actions: [read, write, delete, invite]
-```
-
-### Team Role Definitions Format
-```yaml
-team_roles:
-  - name: team_manager
-    display_name: Team Manager
-    description: Full team management
-    is_system_role: true
-    permissions:
-      - resource: team_members
-        actions: [read, write, delete]
-```
-
-### Domain Permissions Format
-```yaml
-domain_permissions:
-  owner:
-    - resource: projects
-      actions: [read, write, delete]
-  admin:
-    - resource: projects
-      actions: [read, write, delete]
-```
-
-## Migration from SQL
-
-**Before:** INSERT statements in `migrations/004_b2b_rbac.sql` (~150 lines)  
-**After:** YAML files (~200 lines, much more readable)
-
-The migration SQL file now contains **only schema definitions** (CREATE TABLE, CREATE INDEX).  
-All seed data has been moved to YAML files for easier editing and version control.
-
-## Benefits
-
-✅ **Readable** - YAML is easier to read and edit than SQL  
-✅ **Maintainable** - Changes don't require SQL knowledge  
-✅ **Version Controlled** - Clear diffs in git  
-✅ **Idempotent** - Safe to run multiple times  
-✅ **Separation** - Schema (migrations) vs Data (YAML)  
-✅ **Flexible** - Easy to customize per deployment
-
-## Customization for Different Domains
-
-**For E-commerce:**
-```yaml
-# domain_resources.yaml
-resources:
-  - name: products
-    display_name: Products
-    category: Domain
-  - name: orders
-    display_name: Orders
-    category: Domain
-  - name: inventory
-    display_name: Inventory
-    category: Domain
-```
-
-**For Healthcare:**
-```yaml
-# domain_resources.yaml
-resources:
-  - name: patients
-    display_name: Patients
-    category: Domain
-  - name: appointments
-    display_name: Appointments
-    category: Domain
-  - name: medical_records
-    display_name: Medical Records
-    category: Domain
-```
-
-Simply edit the YAML files and run the seed script!
+1. Copy an existing one: `cp -r use_cases/task_management use_cases/your_domain`
+2. Edit `resources.yaml` with your domain resources
+3. Edit `team_roles.yaml` if you need custom team roles
+4. Run: `USE_CASE=your_domain python scripts/b2b/seed_rbac.py`
