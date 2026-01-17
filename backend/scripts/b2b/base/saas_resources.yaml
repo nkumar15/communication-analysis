@@ -82,18 +82,3 @@ resources:
     category: Analytics
     description: System reports and analytics
     is_system_resource: true
-
-# =========================================================================
-# NOTE: Domain-Specific Resources
-# =========================================================================
-# Business-specific resources are defined in:
-# - use_cases/bank_surveillance/resources.yaml
-#   (communications, investigations, alerts, surveillance_reports)
-#
-# - use_cases/marketing_agency/resources.yaml
-#   (campaigns, social_posts, creative_assets, analytics_reports, client_communications)
-#
-# - use_cases/task_management/resources.yaml
-#   (projects, tasks, comments, rag_documents)
-#
-# These are loaded ONLY when using that specific USE_CASE.
