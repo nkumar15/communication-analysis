@@ -378,12 +378,14 @@ class SubscriptionService:
         self.db.add(event)
         await self.db.flush()
 
-        # SYNC PLUGINS from Plan
-        # This ensures b2b.tenants.plugins (Runtime Source of Truth) matches the new Subscription Entitlement
-        plan_plugins = plan.features.get('plugins', [])
+        # SYNC PLAN CONFIG (Plugins + Features + Limits)
+        # This ensures b2b.tenants.features (Runtime Source of Truth) matches the new Subscription Entitlement
+        plan_features = plan.features or {}
+        plan_limits = plan.limits or {}
+        
         from modules.b2b.services.tenant_service import tenant_service
-        logger.info(f"Syncing plugins for tenant {tenant_id} based on new plan {tier.value}: {plan_plugins}")
-        await tenant_service.update_tenant_plugins(self.db, tenant_id, plan_plugins)
+        logger.info(f"Syncing plan config for tenant {tenant_id} based on new plan {tier.value}")
+        await tenant_service.update_tenant_subscription_config(self.db, tenant_id, plan_features, plan_limits)
         
         logger.info(f"✅ Subscription activated: {subscription.id} (tier: {tier.value}, seats: {seat_count})")
 

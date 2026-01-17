@@ -649,6 +649,40 @@ class TenantService:
             "active_features": new_features
         }
 
+    async def update_tenant_subscription_config(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        plan_features: dict,
+        plan_limits: dict
+    ) -> dict:
+        """
+        Update tenant configuration based on subscription plan.
+        Syncs plugins, features, and limits while preserving other custom tenant flags.
+        
+        Args:
+            db: Database session
+            tenant_id: Tenant UUID
+            plan_features: Features dict from Plan (includes 'plugins', 'sso', etc.)
+            plan_limits: Limits dict from Plan
+        """
+        tenant = await db.get(TenantModel, tenant_id)
+        if not tenant:
+            raise ValueError(f"Tenant {tenant_id} not found")
+            
+        current_features = tenant.features or {}
+        
+        # 1. Update Features (Overlay Plan features on top of current)
+        # This allows Plan to enforce 'sso': True, while keeping 'custom_beta': True if not in Plan.
+        current_features.update(plan_features)
+        
+        # 2. Update Limits
+        # We store limits under a 'limits' key in the features JSONB
+        current_features['limits'] = plan_limits
+        
+        # 3. Commit via core method (handles plugin lifecycle hooks)
+        return await self.update_tenant_features(db, tenant_id, current_features)
+
 
 # Global tenant service instance
 tenant_service = TenantService()
