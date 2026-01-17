@@ -30,6 +30,7 @@ const Sidebar = () => {
             { id: 'surv-dashboard', label: 'Overview', icon: '📊', path: '/b2b/surveillance', feature: 'surveillance' },
             { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
             { id: 'investigations', label: 'Investigations', icon: '🔍', path: '/b2b/surveillance/investigations', feature: 'surveillance' },
+            { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron', feature: 'surveillance' },
         ],
         marketing_agency: [
             { isHeader: true, label: 'Campaigns' },
@@ -47,7 +48,6 @@ const Sidebar = () => {
         { isHeader: true, label: 'Domains' },
         { id: 'projects', label: 'Projects', icon: '📋', path: '/projects', feature: 'projects' },
         { id: 'rag-nse', label: 'NSE Earnings', icon: '📈', path: '/b2b/c/nse/rag', feature: 'rag_nse' },
-        { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron', feature: 'rag_enron' },
     ];
 
     // Organization & Config (always shown)
@@ -61,9 +61,32 @@ const Sidebar = () => {
         { id: 'team-roles', label: 'Team Roles', icon: '🎯', path: '/team-roles', feature: 'roles' }
     ];
 
-    // Get domain type from user, fallback to 'default'
-    const domainType = user?.domain_type || 'default';
-    const domainItems = domainMenus[domainType] || domainMenus.default;
+    // Determine domain menu items
+    // Hybrid approach: Respect explicit tenant domain_type, but also allow permissions to unlock domains
+    // This supports "Default" tenants having teams that use specific domain features (like Surveillance)
+
+    let domainItems = [];
+    const userDomainType = user?.domain_type || 'default';
+
+    // 1. Start with tenant's configured domain menu (if not default/empty)
+    if (userDomainType !== 'default' && domainMenus[userDomainType]) {
+        domainItems = domainMenus[userDomainType];
+    }
+
+    // 2. Add Surveillance menu if user has access (via specific Team Role)
+    // even if tenant is 'default'
+    if (canAccess('surveillance') && userDomainType !== 'bank_surveillance') {
+        const surveillanceMenu = domainMenus.bank_surveillance;
+        // Avoid duplicates if we already added it (rare case of overlapping types)
+        if (domainItems !== surveillanceMenu) {
+            domainItems = [...domainItems, ...surveillanceMenu];
+        }
+    }
+
+    // 3. Fallback: if absolutely nothing is selected, use default
+    if (domainItems.length === 0) {
+        domainItems = domainMenus.default;
+    }
 
     // Build complete menu
     const allMenuItems = [

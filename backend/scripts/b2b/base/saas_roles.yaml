@@ -50,12 +50,12 @@ role_templates:
         actions: [read, write, delete]
 
       # Common Domains
-      - resource: projects
-        actions: [read, write, delete]
-      - resource: rag_nse
-        actions: [read, write, delete]
-      - resource: rag_enron
-        actions: [read, write, delete]
+      # - resource: projects
+      #   actions: [read, write, delete]
+      # - resource: rag_nse
+      #   actions: [read, write, delete]
+      # - resource: rag_enron
+      #   actions: [read, write, delete]
 
   - name: admin
     display_name: Administrator
@@ -82,12 +82,12 @@ role_templates:
         actions: [read, write]
 
       # Common Domains
-      - resource: projects
-        actions: [read, write, delete]
-      - resource: rag_nse
-        actions: [read, write, delete]
-      - resource: rag_enron
-        actions: [read, write, delete]
+      # - resource: projects
+      #   actions: [read, write, delete]
+      # - resource: rag_nse
+      #   actions: [read, write, delete]
+      # - resource: rag_enron
+      #   actions: [read, write, delete]
 
   - name: member
     display_name: Member
@@ -107,12 +107,12 @@ role_templates:
         actions: [read]
 
       # Common Domains
-      - resource: projects
-        actions: [read]
-      - resource: rag_nse
-        actions: [read]
-      - resource: rag_enron
-        actions: [read]
+      # - resource: projects
+      #   actions: [read]
+      # - resource: rag_nse
+      #   actions: [read]
+      # - resource: rag_enron
+      #   actions: [read]
 
   - name: viewer
     display_name: Viewer
@@ -132,12 +132,12 @@ role_templates:
         actions: [read]
 
       # Common Domains
-      - resource: projects
-        actions: [read]
-      - resource: rag_nse
-        actions: [read]
-      - resource: rag_enron
-        actions: [read]
+      # - resource: projects
+      #   actions: [read]
+      # - resource: rag_nse
+      #   actions: [read]
+      # - resource: rag_enron
+      #   actions: [read]
 
 # =========================================================================
 # NOTE: Domain-Specific Tenant Roles

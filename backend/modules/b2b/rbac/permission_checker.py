@@ -152,6 +152,7 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
 
     # 1. Get Tenant Role Permissions
     result = await db.execute(
+
         select(Resource.name, Action.name)
         .select_from(UserModel)
         .join(Role, UserModel.role_id == Role.id)
@@ -169,7 +170,7 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     # Join TeamMember -> TeamRoleDefinition to get the JSONB permissions list
     from modules.b2b.models.team_member import TeamMember
     from modules.b2b.models.team_role_definition import TeamRoleDefinition
-
+    
     team_roles_result = await db.execute(
         select(TeamRoleDefinition.permissions)
         .join(TeamMember, TeamMember.team_role == TeamRoleDefinition.name)
@@ -181,14 +182,13 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     # checking seed_rbac.py: flatten_permissions converts to [{'resource': 'r', 'action': 'a'}] ?
     # Let's handle the structure safely.
     
+    # Each row is a JSONB list of permissions
     for row in team_roles_result.scalars():
         if not row:
             continue
             
         for perm in row:
             # Handle flattened format from TeamRoleDefinition
-            # Expected: {'resource': '...', 'actions': [...]} OR {'resource': '...', 'action': '...'}
-            
             res = perm.get('resource')
             if not res:
                 continue
