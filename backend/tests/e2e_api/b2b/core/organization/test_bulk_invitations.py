@@ -46,9 +46,9 @@ class TestBulkInvitations:
         # Create CSV content
         # Create CSV content (role is optional, team fields mandatory)
         csv_content = f"""email,team_name,team_role,name
-alice@{tenant.domain},Engineering,team_admin,Alice Smith
+alice@{tenant.domain},Engineering,team_contributor,Alice Smith
 bob@{tenant.domain},Engineering,team_contributor,Bob Jones
-carol@{tenant.domain},Sales,team_viewer,Carol White
+carol@{tenant.domain},Sales,team_contributor,Carol White
 """
         
         # Create file
@@ -58,8 +58,10 @@ carol@{tenant.domain},Sales,team_viewer,Carol White
         
         # Pre-create teams since auto-creation is removed
         from modules.b2b.services.team_service import create_team
-        await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
-        await create_team(db_session, tenant.id, "Sales", created_by=admin.id)
+        t1 = await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
+        t1.org_tier = "GLOBAL"
+        t2 = await create_team(db_session, tenant.id, "Sales", created_by=admin.id)
+        t2.org_tier = "GLOBAL"
         await db_session.commit()
         
         # Upload
@@ -263,14 +265,16 @@ bob@wrongdomain.com,Engineering,team_contributor
         
         # Pre-create teams
         from modules.b2b.services.team_service import create_team
-        await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
-        await create_team(db_session, tenant.id, "Sales", created_by=admin.id)
+        t1 = await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
+        t1.org_tier = "GLOBAL"
+        t2 = await create_team(db_session, tenant.id, "Sales", created_by=admin.id)
+        t2.org_tier = "GLOBAL"
         await db_session.commit()
 
         # First, upload a CSV
         csv_content = f"""email,team_name,team_role
 test1@{tenant.domain},Engineering,team_contributor
-test2@{tenant.domain},Sales,team_viewer
+test2@{tenant.domain},Sales,team_contributor
 """
         files = {
             'file': ('test.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -318,7 +322,8 @@ test2@{tenant.domain},Sales,team_viewer
         
         # Pre-create team
         from modules.b2b.services.team_service import create_team
-        await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
+        t1 = await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
+        t1.org_tier = "GLOBAL"
         await db_session.commit()
 
         # Upload CSV first

@@ -37,7 +37,10 @@ base/team_roles_fallback.yaml (skipped if use case has team_roles)
 ## Usage
 
 ```bash
-# USE_CASE is required
+# Base-only seeding (for core platform testing)
+python scripts/b2b/seed_rbac.py  # No USE_CASE = base roles only
+
+# Domain seeding (for production or use case testing)
 USE_CASE=bank_surveillance python scripts/b2b/seed_rbac.py
 USE_CASE=marketing_agency python scripts/b2b/seed_rbac.py
 USE_CASE=task_management python scripts/b2b/seed_rbac.py
@@ -47,13 +50,19 @@ USE_CASE=task_management python scripts/b2b/seed_rbac.py
 
 For detailed testing documentation, see [backend/tests/README.md](../../tests/README.md).
 
-Tests are organized into:
-1.  **Core Platform** (Auth, Billing, Teams)
-2.  **Use Cases** (Bank Surveillance, Task Management)
+Tests are organized into **2 layers**:
+1. **Core Platform** (base roles only) - `tests/e2e_api/b2b/core/`
+2. **Use Cases** (domain roles) - `tests/e2e_api/b2b/use_cases/`
 
 ```bash
-# Run all B2B tests
-make test-b2b
+# Core tests (no USE_CASE)
+make test-b2b-core-only
+
+# Use case tests (with USE_CASE)
+make test-b2b-bank-use-case
+
+# Full suite
+make test-b2b-all
 ```
 
 ## Use Case Feature Matrix

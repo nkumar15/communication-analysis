@@ -306,7 +306,8 @@ class TestInvitationFlow:
             name="Engineering",
             description="Engineering team",
             is_default=False,
-            created_by=admin.id
+            created_by=admin.id,
+            org_tier="GLOBAL"
         )
         db_session.add(team)
         db_session.add(team)
@@ -331,6 +332,8 @@ class TestInvitationFlow:
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
+        if response.status_code != 200:
+            print(f"DEBUG INVITE 400: {response.json()}")
         assert response.status_code == 200
         data = response.json()
         assert data["email"] == f"newuser@{tenant.domain}"
@@ -346,6 +349,7 @@ class TestInvitationFlow:
             )
         )
         invitation = result.scalar_one()
+        assert invitation.team_id == team.id
         assert invitation.team_id == team.id
         assert invitation.team_role == "team_contributor"
     
@@ -630,6 +634,9 @@ class TestInvitationFlow:
             name="Engineering",
             description="Engineering team"
         )
+        # Manually update org_tier
+        team.org_tier = "GLOBAL"
+        await db_session.flush()
         await db_session.commit()
         
         response2 = await api_client.post(
@@ -644,6 +651,8 @@ class TestInvitationFlow:
         )
         
         # NOTE: Endpoint returns 200 OK, not 201 Created  (existing behavior)
+        if response2.status_code != 200:
+            print(f"DEBUG SYSTEM ROLE 400: {response2.json()}")
         assert response2.status_code == 200
         data2 = response2.json()
         

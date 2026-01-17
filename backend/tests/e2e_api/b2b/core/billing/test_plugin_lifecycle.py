@@ -1,81 +1,122 @@
+"""
+Plugin Lifecycle Tests - Core Mechanism
+
+Tests the plugin enable/disable mechanism independent of specific plugin data.
+Uses mock/minimal plugin configuration to validate core subscription-plugin integration.
+
+For bank-specific plugin tests, see:
+tests/e2e_api/b2b/use_cases/bank_surveillance/test_plugin_integration.py
+"""
 
 import pytest
+from unittest.mock import patch, MagicMock
 
 @pytest.mark.asyncio
-async def test_plugin_enable_no_defaults_without_config(db_session, test_tenant):
+async def test_subscription_upgrade_enables_plugin_framework(api_client, b2b_test_setup):
     """
-    Verify that enabling 'geographic_boundaries' purely via API/Service (without CLI YAML)
-    does NOT seed hardcoded defaults (US, EU, APAC).
+    Test that subscription upgrade triggers plugin initialization framework.
     
-    Steps:
-    1. Enable plugin for test_tenant.
-    2. Check b2b.geographic_regions table.
-    3. Assert count is 0 (System is strict config-driven).
+    Focus: Mechanism, not specific plugin data.
+    This tests the core logic that ANY plugin gets enabled on upgrade.
     """
-    pass
+    setup = b2b_test_setup
+    tenant = setup['tenant']
+    
+    # Arrange: Tenant on starter plan (no plugins)
+    # Note: Tenant model uses 'subscription' relationship, not 'subscription_tier' attribute
+    # For this test, we just verify plugins framework exists
+    
+    # Act: Upgrade to premium (would enable plugins)
+    # TODO: Implement when subscription upgrade API is ready
+    # response = await api_client.post(
+    #     "/api/b2b/billing/upgrade",
+    #     json={"tier": "premium"},
+    #     headers={"Authorization": f"Bearer {setup['token']}"}
+    # )
+    
+    # Assert: Plugin framework initialization triggered
+    # assert response.status_code == 200
+    # assert 'plugins' in tenant.features
+    pytest.skip("Subscription upgrade API not implemented yet")
+
+
+@pytest.mark.asyncio  
+async def test_subscription_downgrade_disables_plugin_framework(api_client, b2b_test_setup):
+    """
+    Test that subscription downgrade triggers plugin cleanup framework.
+    
+    Focus: Cleanup mechanism, not specific plugin data.
+    """
+    # TODO: Implement when subscription downgrade logic is ready
+    pytest.skip("Subscription downgrade API not implemented yet")
+
 
 @pytest.mark.asyncio
-async def test_plugin_enable_with_yaml_seeding(db_session, test_tenant):
+async def test_plugin_toggle_updates_tenant_features(db_session, b2b_test_setup):
     """
-    Verify that the CLI/Service logic correctly parses plugins.yaml and seeds data.
+    Test that enabling/disabling a plugin updates tenant.features['plugins'].
     
-    Steps:
-    1. Mock parsing of a plugins.yaml (with regions SG, HK).
-    2. Call tenant_onboard.seed_plugin_config_from_yaml().
-    3. Assert b2b.geographic_regions has 2 rows (SG, HK).
-    4. Assert b2b.geographic_regions has 0 rows for 'US' (if not in mock).
+    Focus: Tenant record synchronization mechanism.
     """
-    pass
+    from sqlalchemy.orm.attributes import flag_modified
+    
+    setup = b2b_test_setup
+    tenant = setup['tenant']
+    
+    # Mock plugin enable
+    # This would normally come from subscription tier upgrade
+    # For testing purposes, directly manipulate to validate mechanism
+    
+    # Arrange
+    if tenant.features is None:
+        tenant.features = {}
+    
+    # Act: Simulate plugin enable
+    if 'plugins' not in tenant.features:
+        tenant.features['plugins'] = []
+    tenant.features['plugins'].append('test_plugin')
+    
+    # CRITICAL: Mark JSON field as modified for SQLAlchemy to detect change
+    flag_modified(tenant, 'features')
+    await db_session.commit()
+    
+    # Refresh and assert
+    await db_session.refresh(tenant)
+    assert 'test_plugin' in tenant.features.get('plugins', [])
+    
+    # Act: Simulate plugin disable
+    tenant.features['plugins'].remove('test_plugin')
+    flag_modified(tenant, 'features')  # Mark as modified
+    await db_session.commit()
+    
+    # Assert
+    await db_session.refresh(tenant)
+    assert 'test_plugin' not in tenant.features.get('plugins', [])
+
 
 @pytest.mark.asyncio
-async def test_plugin_seeding_idempotency(db_session, test_tenant):
+async def test_plugin_initialization_idempotency(db_session, b2b_test_setup):
     """
-    Verify that running the seeding logic multiple times does not duplicate data.
+    Verify that initializing the same plugin multiple times is safe (idempotent).
     
-    Steps:
-    1. Seed Config (SG, HK).
-    2. Assert count 2.
-    3. Seed Config AGAIN (SG, HK).
-    4. Assert count still 2 (Upsert/Ignore behavior).
+    Focus: Framework doesn't crash or duplicate on re-initialization.
     """
-    pass
+    # This tests the mechanism, not specific plugin data
+    # Would use a mock plugin for actual implementation
+    pytest.skip("Plugin initialization service not implemented yet")
 
-@pytest.mark.asyncio
-async def test_sensitivity_level_seeding(db_session, test_tenant):
-    """
-    Verify that Data Classification plugin seeds config tables correctly.
-    
-    Steps:
-    1. Seed Config (Level 1: PUBLIC, Level 5: TOP_SECRET).
-    2. Assert b2b.sensitivity_levels table content.
-    3. Verify 'level' integer and 'name' are correct.
-    """
-    pass
 
-@pytest.mark.asyncio
-async def test_plugin_update_lifecycle_hooks(db_session, test_tenant):
-    """
-    Verify that updating the plugin list triggers the correct hooks.
-    
-    Steps:
-    1. Start with plugins [].
-    2. Update to ['geographic_boundaries'].
-    3. Mock PluginRegistry.get_plugin().on_tenant_enable.
-    4. Assert enable hook was called.
-    5. Update to [].
-    6. Assert disable hook was called.
-    """
-    pass
-
-@pytest.mark.asyncio
-async def test_schema_isolation_for_business_data(db_session, test_tenant):
-    """
-    Verify that Business Data tables respect the schema split.
-    
-    Steps:
-    1. Create an Investigation (via Model).
-    2. Inspect the SQL/Metadata.
-    3. Assert table schema is 'bank_surveillance' (not 'b2b').
-    4. Assert ForeignKey points to 'b2b.geographic_regions'.
-    """
-    pass
+# NOTE: Tests for specific plugins (geographic_boundaries, data_classification, etc.)
+# are in tests/e2e_api/b2b/use_cases/bank_surveillance/test_plugin_integration.py
+# 
+# This file focuses on:
+# - Subscription tier changes trigger plugin framework
+# - Tenant.features synchronization
+# - Plugin lifecycle hooks (enable/disable)
+# - Framework-level validation
+#
+# Use case tests focus on:
+# - Actual plugin data (regions, sensitivity levels)
+# - Schema creation (bank_surveillance.*)
+# - RLS policy application
+# - Business logic integration

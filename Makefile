@@ -421,6 +421,37 @@ test-b2b-bank: ## Run bank surveillance specific tests only
 test-b2b-task: ## Run task management tests only
 	docker-compose run --rm e2e-tests env USE_CASE=task_management pytest tests/e2e_api/b2b/use_cases/task_management -v
 
+test-b2b-core-only: ## Run core platform tests with base roles only
+	@echo "$(BLUE)Running Core Platform Tests (base roles only)...$(NC)"
+	@echo "$(YELLOW)Resetting database and seeding base layer...$(NC)"
+	@$(MAKE) reset-db
+	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
+	@$(MAKE) db-setup-auth
+	@docker-compose run --rm b2b-api python scripts/b2b/seed_rbac.py
+	@docker-compose run --rm b2b-api python scripts/b2b/seed_subscription_plans.py
+	@echo "$(YELLOW)Running core tests...$(NC)"
+	@docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/core/ -v
+	@echo "$(GREEN)✓ Core platform tests complete$(NC)"
+
+test-b2b-bank-use-case: ## Run bank surveillance tests (core + domain with base + bank roles)
+	@echo "$(BLUE)Running Bank Surveillance Use Case Tests...$(NC)"
+	@echo "$(YELLOW)Resetting database and seeding base + bank roles...$(NC)"
+	@$(MAKE) reset-db
+	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
+	@$(MAKE) db-setup-auth
+	@docker-compose run -e USE_CASE=bank_surveillance -e INCLUDE_BASE_ROLES=true --rm b2b-api python scripts/b2b/seed_rbac.py
+	@docker-compose run --rm b2b-api python scripts/b2b/seed_subscription_plans.py
+	@echo "$(YELLOW)Running core + bank surveillance tests...$(NC)"
+	@docker-compose run -e USE_CASE=bank_surveillance --rm e2e-tests pytest tests/e2e_api/b2b/core/ tests/e2e_api/b2b/use_cases/bank_surveillance/ -v
+	@echo "$(GREEN)✓ Bank surveillance tests complete$(NC)"
+
+test-b2b-all-new: ## Run complete B2B test suite (core + all use cases)
+	@echo "$(BLUE)Running Full B2B Test Suite...$(NC)"
+	@$(MAKE) test-b2b-core-only
+	@$(MAKE) test-b2b-bank-use-case
+	@echo "$(GREEN)✓ Full B2B test suite complete$(NC)"
+
+
 # Test Runner Config
 ifdef LOCAL
 TEST_CMD := cd backend && pytest

@@ -57,22 +57,22 @@ SCRIPT_DIR = Path(__file__).parent
 BASE_DIR = SCRIPT_DIR / "base"
 USE_CASES_DIR = SCRIPT_DIR / "use_cases"
 
-def get_config_dir() -> Path:
+def get_config_dir() -> Path | None:
     """Get the configuration directory based on USE_CASE env var."""
     # Look for scripts-local use_cases first (where we are)
-    use_case = os.getenv("USE_CASE", "")
+    use_case = os.getenv("USE_CASE", "").strip()
     
-    # If not set, try to default to 'bank_surveillance' if it exists, 
-    # OR better: require it to be explicit to avoid accidental seeding of wrong demo data.
+    # If not set or empty, return None (base-only seeding mode)
     if not use_case:
-        # Default behavior: if no USE_CASE, perhaps fallback to something or raise error?
-        # The original script says USE_CASE is required if we want to load specific config.
-        # But if imported via tests, we rely on env var being set.
-        raise ValueError("USE_CASE environment variable is required (Available: bank_surveillance, marketing_agency, task_management)")
+        return None
     
     config_dir = USE_CASES_DIR / use_case
     if not config_dir.exists():
-        raise ValueError(f"Use case '{use_case}' not found in {USE_CASES_DIR}")
+        available = [d.name for d in USE_CASES_DIR.iterdir() if d.is_dir() and not d.name.startswith('_')]
+        raise ValueError(
+            f"Use case '{use_case}' not found. "
+            f"Available: {', '.join(available)}"
+        )
     
     return config_dir
 
@@ -227,7 +227,12 @@ async def seed_actions(db: AsyncSession) -> None:
 
 async def seed_domain_actions(db: AsyncSession) -> None:
     """Seed domain-specific actions from config/actions.yaml"""
-    data = load_yaml(get_config_dir() / 'actions.yaml')
+    config_dir = get_config_dir()
+    if not config_dir:
+        print("✓ No use case - skipping domain actions")
+        return
+    
+    data = load_yaml(config_dir / 'actions.yaml')
     actions_data = data.get('actions', [])
     
     if not actions_data:
@@ -297,8 +302,12 @@ async def seed_saas_resources(db: AsyncSession) -> None:
 
 async def seed_domain_resources(db: AsyncSession) -> None:
     """Seed domain resources from config directory"""
+    config_dir = get_config_dir()
+    if not config_dir:
+        return  # No use case - skip domain resources
+    
     # Try different possible keys in resources.yaml
-    data = load_yaml(get_config_dir() / 'resources.yaml')
+    data = load_yaml(config_dir / 'resources.yaml')
     resources_data = (
         data.get('resources', []) or
         data.get('bank_surveillance_resources', []) or
@@ -374,7 +383,11 @@ async def seed_saas_roles(db: AsyncSession) -> None:
 
 async def seed_additional_tenant_roles(db: AsyncSession) -> None:
     """Seed additional tenant roles from config/tenant_roles.yaml"""
-    data = load_yaml(get_config_dir() / 'tenant_roles.yaml')
+    config_dir = get_config_dir()
+    if not config_dir:
+        return  # No use case
+    
+    data = load_yaml(config_dir / 'tenant_roles.yaml')
     roles_data = data.get('tenant_roles', [])
     
     if not roles_data:
@@ -414,25 +427,35 @@ async def seed_base_team_roles(db: AsyncSession) -> None:
     """
     Seed fallback team roles from base/team_roles_fallback.yaml
     
-    BEHAVIOR: Mutually exclusive with use case team roles.
+    BEHAVIOR: Conditional additive seeding based on INCLUDE_BASE_ROLES flag.
     
-    - If use case defines team roles → This function does NOTHING (base roles skipped)
-    - If use case has NO team roles → Base roles loaded as fallback
+    Scenarios:
+    1. No USE_CASE: Always seed base roles (core testing)
+    2. USE_CASE + INCLUDE_BASE_ROLES=true: Seed base + domain roles (use case testing)
+    3. USE_CASE + INCLUDE_BASE_ROLES unset/false: Skip base, only domain (demo/production)
     
     This ensures:
-    - bank_surveillance gets ONLY: desk_surveillance_manager, analyst, etc.
-    - task_management gets ONLY: team_manager, team_contributor, team_reader
-    
-    NO role pollution between base and use-case-specific roles.
+    - Clean demo UI: bank_surveillance seeds ONLY domain roles
+    - Comprehensive testing: Tests verify core features work with domain roles
+    - Core independence: Core tests use only base roles
     """
     # Check if use case defines its own team roles
-    use_case_team_roles_data = load_yaml(get_config_dir() / 'team_roles.yaml')
-    use_case_team_roles = use_case_team_roles_data.get('team_roles', [])
-    
-    if use_case_team_roles:
-        # Use case defines custom team roles - skip base roles entirely
-        print("✓ Skipping base team roles (use case defines replacements)")
-        return
+    config_dir = get_config_dir()
+    if config_dir:
+        use_case_team_roles_data = load_yaml(config_dir / 'team_roles.yaml')
+        use_case_team_roles = use_case_team_roles_data.get('team_roles', [])
+        
+        if use_case_team_roles:
+            # Use case has custom team roles - check INCLUDE_BASE_ROLES flag
+            include_base = os.getenv('INCLUDE_BASE_ROLES', 'false').lower() == 'true'
+            
+            if not include_base:
+                # Demo/Production mode: Skip base roles for clean UI
+                print("✓ Skipping base team roles (use case defines replacements)")
+                return
+            else:
+                # Test mode: Include base roles alongside domain roles
+                print("✓ Including base team roles alongside use case roles (test mode)")
     
     # Use case has NO custom team roles - load base roles
     data = load_yaml(BASE_DIR / 'team_roles_fallback.yaml')
@@ -490,7 +513,11 @@ async def seed_use_case_team_roles(db: AsyncSession) -> None:
     - marketing_agency: account_manager, creative_lead, etc.
     - task_management: (empty) → falls back to base roles
     """
-    data = load_yaml(get_config_dir() / 'team_roles.yaml')
+    config_dir = get_config_dir()
+    if not config_dir:
+        return  # No use case
+    
+    data = load_yaml(config_dir / 'team_roles.yaml')
     roles_data = data.get('team_roles', [])
     
     if not roles_data:
@@ -535,7 +562,12 @@ async def seed_use_case_team_roles(db: AsyncSession) -> None:
 
 async def apply_tenant_permissions(db: AsyncSession) -> None:
     """Apply tenant permission overlays from config/tenant_permissions.yaml"""
-    data = load_yaml(get_config_dir() / 'tenant_permissions.yaml')
+    config_dir = get_config_dir()
+    if not config_dir:
+        print("✓ No use case - skipping tenant permission overlays")
+        return
+    
+    data = load_yaml(config_dir / 'tenant_permissions.yaml')
     perms_by_role = data.get('tenant_permissions', {})
     
     if not perms_by_role:
@@ -570,7 +602,12 @@ async def apply_tenant_permissions(db: AsyncSession) -> None:
 
 async def apply_team_permissions(db: AsyncSession) -> None:
     """Apply team permission overlays from config/team_permissions.yaml"""
-    data = load_yaml(get_config_dir() / 'team_permissions.yaml')
+    config_dir = get_config_dir()
+    if not config_dir:
+        print("✓ No use case - skipping team permission overlays")
+        return
+    
+    data = load_yaml(config_dir / 'team_permissions.yaml')
     perms_by_role = data.get('team_permissions', {})
     
     if not perms_by_role:
@@ -656,7 +693,12 @@ async def initialize_plugins_if_enabled(db):
     enabled = os.getenv('RBAC_PLUGINS', '').strip()
     
     # Load plugin config
-    config_file = get_config_dir() / 'plugins.yaml'
+    config_dir = get_config_dir()
+    if not config_dir:
+        print("✓ No use case - skipping plugins")
+        return
+    
+    config_file = config_dir / 'plugins.yaml'
     # Check if file exists
     if config_file.exists():
         with open(config_file, 'r') as f:
@@ -733,14 +775,11 @@ async def seed_b2b_rbac_data(db: AsyncSession) -> None:
     print()
     
     # Step 2: Domain OR Use Case configuration
-    try:
-        config_dir = get_config_dir()
+    config_dir = get_config_dir()
+    if not config_dir:
+        print("📦 Base-only mode (no USE_CASE set)")
+    else:
         print(f"📦 Loading configuration from {config_dir.name}/...")
-    except ValueError as e:
-        print(f"❌ Error: {str(e)}")
-        # If called from script, we might exit. If called from test, we might propagate.
-        # But get_config_dir raises ValueError. Let's re-raise to let caller handle or fail hard.
-        raise
 
     await seed_domain_actions(db)
     await seed_domain_resources(db)
