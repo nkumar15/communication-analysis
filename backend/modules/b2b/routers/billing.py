@@ -151,8 +151,8 @@ async def create_checkout_session(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Checkout error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create checkout session")
+        logger.error(f"Checkout error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create checkout session. Please try again or contact support.")
 
 
 class PortalSessionRequest(BaseModel):
@@ -193,8 +193,8 @@ async def create_portal_session(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Portal creation failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create portal session")
+        logger.error(f"Portal creation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create portal session. Please try again or contact support.")
 
 
 # ============================================================================
@@ -205,12 +205,12 @@ async def create_portal_session(
 async def list_invoices(
     status: Optional[str] = None,
     limit: int = 50,
-    current_user=require_permission("invoices", "read"),
+    current_user=require_permission("billing", "read"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     List invoices for the current tenant.
-    Requires invoices:read permission (Admin/Owner).
+    Requires billing:read permission (Admin/Owner).
     """
     tenant_id = current_user.get('tenant_id') if isinstance(current_user, dict) else current_user.tenant_id
     service = InvoiceService(db)
@@ -251,13 +251,13 @@ async def list_invoices(
 @router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
 async def get_invoice(
     invoice_id: UUID,
-    current_user=require_permission("invoices", "read"),
+    current_user=require_permission("billing", "read"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get specific invoice details.
     RLS will enforce tenant isolation.
-    Requires invoices:read permission (Admin/Owner).
+    Requires billing:read permission (Admin/Owner).
     """
     service = InvoiceService(db)
     invoice = await service.get_invoice_by_id(invoice_id)
@@ -379,9 +379,9 @@ async def stripe_webhook(
         return {"status": "success"}
         
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        logger.error(f"Webhook error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
 
 # ============================================================================
 # Billing Profile Endpoints
@@ -398,7 +398,7 @@ class BillingProfileResponse(BaseModel):
 class BillingProfileUpdate(BaseModel):
     tax_id: Optional[str] = None
     vat_number: Optional[str] = None
-    billing_address: Optional[str] = None
+    billing_address: Optional[dict] = None
     billing_email: Optional[str] = None
 
 @router.get("/profile", response_model=BillingProfileResponse)

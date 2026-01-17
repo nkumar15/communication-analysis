@@ -45,8 +45,51 @@ status: ## Show status of all services and configuration
 
 ##@ Docker Services
 
+db-recreate: ## Fast Database Reset (Drop DB -> Create DB). Uses POSTGRES_USER/DB from env (defaults: postgres/saas_demo_db)
+	@echo "$(BLUE)Recreating database (Drop & Create)...$(NC)"
+	@docker-compose up -d postgres
+	@sleep 2
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres dropdb -U $${POSTGRES_USER:-postgres} --if-exists --force $${POSTGRES_DB:-saas_demo_db}
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres createdb -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-saas_demo_db}
+	@echo "$(GREEN)✓ Database recreated$(NC)"
+	@$(MAKE) migrate-only
+	@echo "$(BLUE)Starting backend API services (required for seeding)...$(NC)"
+	@docker-compose up -d b2b-api platform-api b2c-api domain-api b2b-worker b2c-worker domain-worker
+	@echo "$(GREEN)✓ Backend services started$(NC)"
+	@echo ""
+	@echo "$(BLUE)=== Running Services ===$(NC)"
+	@docker-compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Ports}}"
+	@echo ""
+
+setup-bank: ## Reset DB & Seed Bank Surveillance (Drop -> Migrate -> Seed)
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
+
+setup-task: ## Reset DB & Seed Task Management (Drop -> Migrate -> Seed)
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=task_management
+
+test-b2b-bank-full: ## Run ALL B2B tests for Bank Surveillance (Drop -> Migrate -> Seed -> Test)
+	@echo "$(BLUE)Running B2B Bank Surveillance Full Test Coverage...$(NC)"
+	@$(MAKE) setup-bank
+	@docker-compose run --rm -e USE_CASE=bank_surveillance -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/bank_surveillance
+
+test-b2b-task-full: ## Run ALL B2B tests for Task Management (Drop -> Migrate -> Seed -> Test)
+	@echo "$(BLUE)Running B2B Task Management Full Test Coverage...$(NC)"
+	@$(MAKE) setup-task
+	@docker-compose run --rm -e USE_CASE=task_management -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/task_management
+
+test-b2b-bank-fast: ## Run B2B Bank Tests (Core + Domain) WITHOUT recreating DB (Fast Mode)
+	@echo "$(BLUE)Running B2B Bank Tests (Fast - No Seed)...$(NC)"
+	@docker-compose run --rm -e USE_CASE=bank_surveillance -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/bank_surveillance
+
+test-b2b-task-fast: ## Run B2B Task Tests (Core + Domain) WITHOUT recreating DB (Fast Mode)
+	@echo "$(BLUE)Running B2B Task Tests (Fast - No Seed)...$(NC)"
+	@docker-compose run --rm -e USE_CASE=task_management -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/task_management
+
 up: ## Start all backend services (frontend runs locally)
-	@echo "$(BLUE)Starting backend services...$(NC)"
+	echo "Deleting containers and volumes (full reset)..."
+	docker-compose down -v
 	docker-compose up -d postgres elasticsearch minio b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker domain-worker nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo ""
@@ -64,7 +107,7 @@ up: ## Start all backend services (frontend runs locally)
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
-	docker-compose down
+	docker-compose down --remove-orphans
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 restart: down up ## Restart all services
@@ -99,21 +142,31 @@ db-setup-auth: ## Setup app user and permissions
 	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/grant_permissions.sql"
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
-migrate: ## Run migrations for all products (platform + b2b + b2c)
-	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
+migrate-only: ## Run SQL migrations only (no seeds) - requires just postgres
+	@echo "$(BLUE)Running database migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
+	@echo "$(GREEN)✓ Migrations applied$(NC)"
+
+seed-all: ## Run all seed scripts (requires API services running)
+	@echo "$(BLUE)Running seed scripts...$(NC)"
 	@$(MAKE) platform-seed-permissions
-	@$(MAKE) b2b-seed-roles
+	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
 	@$(MAKE) b2b-seed-plans
 	@$(MAKE) b2c-seed-plans
-	@echo "$(GREEN)✓ Migrations complete$(NC)"
+	@echo "$(GREEN)✓ Seed scripts complete$(NC)"
 
-b2b-migrate: ## Run migrations for B2B only (platform + b2b)
+migrate: ## Run migrations + seeds for all products (USE_CASE=bank_surveillance|marketing_agency)
+	@echo "$(BLUE)Running full database setup (all products)...$(NC)"
+	@$(MAKE) migrate-only
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@echo "$(GREEN)✓ Database setup complete$(NC)"
+
+b2b-migrate: ## Run migrations for B2B only (USE_CASE=bank_surveillance|marketing_agency)
 	@echo "$(BLUE)Running B2B migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
-	@$(MAKE) b2b-seed-roles
+	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
 	@$(MAKE) b2b-seed-plans
 	@echo "$(GREEN)✓ B2B migrations complete$(NC)"
 
@@ -121,7 +174,7 @@ b2c-migrate: ## Run migrations for B2C only (platform + b2c)
 	@echo "$(BLUE)Running B2C migrations...$(NC)"
 	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2c python /app/migrations/run_migrations.py
 	@$(MAKE) db-setup-auth
-	@$(MAKE) b2c-seed-plans	
+	@$(MAKE) b2c-seed-plans
 	@echo "$(GREEN)✓ B2C migrations complete$(NC)"
 
 reset-db: ## Reset database (WARNING: deletes all data!)
@@ -130,14 +183,17 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 	read REPLY; \
 	case "$$REPLY" in \
 		[Yy]*) \
-			docker-compose down; \
-			docker volume rm enterprisesso_postgres_data || true; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
+			docker-compose down -v --remove-orphans; \
+			echo "$(BLUE)Starting database...$(NC)"; \
+			docker-compose up -d postgres; \
+			echo "$(BLUE)Waiting for database to be ready...$(NC)"; \
 			sleep 5; \
-			$(MAKE) migrate; \
-			docker-compose restart postgres; \
-			sleep 5; \
-			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
+			$(MAKE) migrate-only; \
+			echo "$(BLUE)Starting API services...$(NC)"; \
+			docker-compose up -d platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
+			echo "$(BLUE)Waiting for services to be ready...$(NC)"; \
+			sleep 10; \
+			$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),); \
 			echo "$(GREEN)✓ Database reset complete$(NC)"; \
 			$(MAKE) stop-web-all; \
 			;; \
@@ -155,14 +211,19 @@ platform-create-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
 	@docker-compose exec -T platform-api python /app/scripts/platform/create_platform_admin.py
 
-b2b-seed-roles: ## Seed domain-specific roles and templates
-	@echo "$(BLUE)Seeding domain data...$(NC)"
-	@docker-compose run --rm b2b-api python /app/scripts/b2b/seed_domain_data.py
-	@echo "$(GREEN)✓ Domain data seeded$(NC)"
+b2b-seed-roles: ## Seed RBAC roles and resources (USE_CASE=bank_surveillance|marketing_agency|task_management)
+	@echo "$(BLUE)Seeding RBAC data...$(NC)"
+	@if [ -n "$(USE_CASE)" ]; then \
+		echo "$(YELLOW)Loading use case: $(USE_CASE)$(NC)"; \
+		docker-compose run --rm b2b-api env USE_CASE=$(USE_CASE) python /app/scripts/b2b/seed_rbac.py; \
+	else \
+		docker-compose run --rm b2b-api python /app/scripts/b2b/seed_rbac.py; \
+	fi
+	@echo "$(GREEN)✓ RBAC data seeded$(NC)"
 
 b2b-seed-plans: ## Seed B2B subscription plans
 	@echo "$(BLUE)Seeding B2B subscription plans...$(NC)"
-	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_b2b_plans.py
+	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2B plans seeded$(NC)"
 
 b2c-seed-plans: ## Seed B2C subscription plans
@@ -170,9 +231,15 @@ b2c-seed-plans: ## Seed B2C subscription plans
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
-b2b-invite: ## Invite B2B Tenant (usage: make b2b-invite f=seed.json)
+verify-seed: ## Verify B2B seed data completed successfully
+	@echo "$(BLUE)Verifying seed data...$(NC)"
+	@docker-compose exec -T b2b-api python /app/scripts/b2b/verify_seed.py
+
+b2b-invite: ## Invite B2B Tenant (f=file.json [PLUGINS=p1,p2])
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local --file $(or $(f),scripts/b2b/data/seed_tenant_config.json)
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local \
+		--file $(or $(f),scripts/b2b/use_cases/task_management/task_management_demo.json) \
+		$(if $(PLUGINS),--plugins $(PLUGINS),)
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -185,6 +252,72 @@ else
 	@echo "$(YELLOW)Usage: make b2b-resend-invite d=<domain> OR t=<tenant-id>$(NC)"
 	@echo "Example: make b2b-resend-invite d=acme.com"
 endif
+
+b2b-invite-bank: ## Invite Bank Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json
+
+b2b-invite-marketing: ## Invite Marketing Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json
+
+b2b-invite-task: ## Invite Task Management Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/task_management/task_management_demo.json
+
+b2b-update-plugin-bank: ## Update Bank Tenant Plugins from Config
+	@echo "$(BLUE)Updating Bank Tenant Config...$(NC)"
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py manage-plugins --file scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json
+
+b2b-update-plugin-marketing: ## Update Marketing Tenant Plugins from Config
+	@echo "$(BLUE)Updating Marketing Tenant Config...$(NC)"
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py manage-plugins --file scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json
+
+b2b-update-plugin-task: ## Update Task Tenant Plugins from Config
+	@echo "$(BLUE)Updating Task Management Tenant Config...$(NC)"
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py manage-plugins --file scripts/b2b/use_cases/task_management/task_management_demo.json
+
+##@ B2B Demos
+
+b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant via UI)
+	@echo "$(BLUE)🏦 Resetting DB for Bank Surveillance Demo...$(NC)"
+	@$(MAKE) setup-bank
+	@$(MAKE) verify-seed
+	@echo ""
+	@echo "$(GREEN)✅ Bank Surveillance RBAC Ready!$(NC)"
+	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
+	@echo "  👥 Roles: surveillance_lead (STL), surveillance_analyst (SA), operations_maker, operations_checker, compliance_officer (LCO), guest_analyst"
+	@echo ""
+	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
+	@echo "  make b2b-invite-bank"
+	@echo ""
+	@echo "$(BLUE)Then login as:$(NC) owner@worldwidebank.com and invite users via UI"
+
+b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tenant via UI)
+	@echo "$(BLUE)📱 Resetting DB for Marketing Agency Demo...$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=marketing_agency
+	@$(MAKE) verify-seed
+	@echo ""
+	@echo "$(GREEN)✅ Marketing Agency RBAC Ready!$(NC)"
+	@echo "  📋 Resources: campaigns, social_posts, creative_assets, analytics_reports, client_communications"
+	@echo "  👥 Roles: agency_owner, account_director, account_manager, creative_lead, specialist"
+	@echo ""
+	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
+	@echo "  make b2b-invite-marketing"
+	@echo ""
+	@echo "$(BLUE)Then login as:$(NC) owner@merlionmarketing.com and invite users via UI"
+
+b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via UI)
+	@echo "$(BLUE)✅ Resetting DB for Task Management Demo...$(NC)"
+	@$(MAKE) setup-task
+	@$(MAKE) verify-seed
+	@echo ""
+	@echo "$(GREEN)✅ Task Management RBAC Ready!$(NC)"
+	@echo "  📋 Resources: projects, tasks, comments, rag_documents"
+	@echo "  👥 Roles: owner, admin, member, viewer (base roles)"
+	@echo ""
+	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
+	@echo "  make b2b-invite-task"
+	@echo ""
+	@echo "$(BLUE)Then login as tenant owner and invite users via UI$(NC)"
 
 ##@ Frontend (Local Development)
 
@@ -250,7 +383,7 @@ endif
 
 clean: ## Clean up containers, volumes, and build artifacts
 	@echo "$(BLUE)Cleaning up...$(NC)"
-	docker-compose down -v
+	docker-compose down -v --remove-orphans
 	rm -rf frontend/node_modules/.cache
 	rm -rf frontend/dist
 	@echo "$(GREEN)✓ Cleanup complete$(NC)"
@@ -269,6 +402,55 @@ test-domain-rag: ## Run NSE RAG domain integration tests
 	@echo "$(BLUE)Running NSE RAG domain tests...$(NC)"
 	docker-compose run --rm e2e-tests pytest tests/domain/nserag/ -v
 	@echo "$(GREEN)✓ NSE RAG domain tests complete$(NC)"
+
+test-b2b: ## Run ALL B2B tests (Combines Core+Bank and Core+Task)
+	@echo "$(BLUE)Running ALL B2B Tests...$(NC)"
+	@$(MAKE) test-b2b-bank-full
+	@$(MAKE) test-b2b-task-full
+	@echo "$(GREEN)✓ ALL B2B Tests Complete$(NC)"
+
+
+
+# Individual Component Helpers
+test-b2b-core: ## Run core platform tests only (defaults to bank seed)
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/core -v
+
+test-b2b-bank: ## Run bank surveillance specific tests only
+	docker-compose run --rm e2e-tests env USE_CASE=bank_surveillance pytest tests/e2e_api/b2b/use_cases/bank_surveillance -v
+
+test-b2b-task: ## Run task management tests only
+	docker-compose run --rm e2e-tests env USE_CASE=task_management pytest tests/e2e_api/b2b/use_cases/task_management -v
+
+test-b2b-core-only: ## Run core platform tests with base roles only
+	@echo "$(BLUE)Running Core Platform Tests (base roles only)...$(NC)"
+	@echo "$(YELLOW)Resetting database and seeding base layer...$(NC)"
+	@$(MAKE) reset-db
+	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
+	@$(MAKE) db-setup-auth
+	@docker-compose run --rm b2b-api python scripts/b2b/seed_rbac.py
+	@docker-compose run --rm b2b-api python scripts/b2b/seed_subscription_plans.py
+	@echo "$(YELLOW)Running core tests...$(NC)"
+	@docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/core/ -v
+	@echo "$(GREEN)✓ Core platform tests complete$(NC)"
+
+test-b2b-bank-use-case: ## Run bank surveillance tests (core + domain with base + bank roles)
+	@echo "$(BLUE)Running Bank Surveillance Use Case Tests...$(NC)"
+	@echo "$(YELLOW)Resetting database and seeding base + bank roles...$(NC)"
+	@$(MAKE) reset-db
+	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
+	@$(MAKE) db-setup-auth
+	@docker-compose run -e USE_CASE=bank_surveillance -e INCLUDE_BASE_ROLES=true --rm b2b-api python scripts/b2b/seed_rbac.py
+	@docker-compose run --rm b2b-api python scripts/b2b/seed_subscription_plans.py
+	@echo "$(YELLOW)Running core + bank surveillance tests...$(NC)"
+	@docker-compose run -e USE_CASE=bank_surveillance --rm e2e-tests pytest tests/e2e_api/b2b/core/ tests/e2e_api/b2b/use_cases/bank_surveillance/ -v
+	@echo "$(GREEN)✓ Bank surveillance tests complete$(NC)"
+
+test-b2b-all-new: ## Run complete B2B test suite (core + all use cases)
+	@echo "$(BLUE)Running Full B2B Test Suite...$(NC)"
+	@$(MAKE) test-b2b-core-only
+	@$(MAKE) test-b2b-bank-use-case
+	@echo "$(GREEN)✓ Full B2B test suite complete$(NC)"
+
 
 # Test Runner Config
 ifdef LOCAL

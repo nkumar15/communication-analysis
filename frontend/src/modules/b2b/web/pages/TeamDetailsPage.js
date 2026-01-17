@@ -20,7 +20,7 @@ const TeamDetailsPage = () => {
     // Add Member Modal State
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [newMemberId, setNewMemberId] = useState('');
-    const [newMemberRole, setNewMemberRole] = useState('team_contributor');
+    const [newMemberRole, setNewMemberRole] = useState('');  // Will be set from filtered roles
     const [addingMember, setAddingMember] = useState(false);
 
     // Edit Team Modal State
@@ -34,11 +34,7 @@ const TeamDetailsPage = () => {
     // Since we don't have a "UserSelector" component yet, I'll assume we might need one or just use ID for now.
     // Actually, let's fetch users to populate a dropdown.
     const [availableUsers, setAvailableUsers] = useState([]);
-    const [teamRoles, setTeamRoles] = useState([
-        { value: 'team_manager', label: 'Team Manager' },
-        { value: 'team_member', label: 'Team Member' },
-        { value: 'team_viewer', label: 'Team Viewer' }
-    ]);
+    const [teamRoles, setTeamRoles] = useState([]);  // Loaded from API, no hardcoded fallback
 
     // Check permissions
     const canManageTeam = hasPermission('teams', 'write');
@@ -85,6 +81,19 @@ const TeamDetailsPage = () => {
             setLoading(false);
         }
     };
+
+    // Filter roles based on team's org_tier
+    const getFilteredRoles = () => {
+        if (!team?.org_tier) return teamRoles; // No team scope = show all roles
+        return teamRoles.filter(role => {
+            // If role has no allowed_org_tiers, it's allowed everywhere
+            if (!role.allowed_org_tiers || role.allowed_org_tiers.length === 0) return true;
+            // Check if team's scope is in allowed list
+            return role.allowed_org_tiers.includes(team.org_tier);
+        });
+    };
+
+    const filteredRoles = getFilteredRoles();
 
     const loadAvailableUsers = async () => {
         try {
@@ -265,6 +274,11 @@ const TeamDetailsPage = () => {
                                 <button
                                     onClick={() => {
                                         loadAvailableUsers();
+                                        // Set default to first filtered role
+                                        const filtered = getFilteredRoles();
+                                        if (filtered.length > 0) {
+                                            setNewMemberRole(filtered[0].value);
+                                        }
                                         setShowAddMemberModal(true);
                                     }}
                                     style={{
@@ -413,22 +427,21 @@ const TeamDetailsPage = () => {
                                                             cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <option value="team_manager">Manager</option>
-                                                        <option value="team_contributor">Contributor</option>
-                                                        <option value="team_reader">Reader</option>
+                                                        {/* Always show current role first if not in filtered list */}
+                                                        {!filteredRoles.some(r => (r.value || r.name) === member.team_role) && (
+                                                            <option value={member.team_role}>
+                                                                {member.team_role} (current - not allowed for this scope)
+                                                            </option>
+                                                        )}
+                                                        {filteredRoles.map(role => (
+                                                            <option key={role.value || role.name} value={role.value || role.name}>
+                                                                {role.label || role.display_name || role.name}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 ) : (
                                                     <TeamRoleBadge role={member.team_role} />
                                                 )}
-
-                                                {/* If editable, badge is shown inside select or hidden. 
-                                                    Wait, design shows badge NEXT to Select. 
-                                                    If readonly, we definitely show badge. 
-                                                    If editable, we show BOTH? The screenshot showed BOTH. 
-                                                    Let's keep badge always visible for clarity, or just when readonly.
-                                                    Actually, screenshot has Badge AND Select. 
-                                                */}
-                                                {canEditMember && <TeamRoleBadge role={member.team_role} />}
 
                                                 {canEditMember && (
                                                     <button
@@ -600,12 +613,17 @@ const TeamDetailsPage = () => {
                                         e.target.style.backgroundColor = '#f9fafb';
                                     }}
                                 >
-                                    {teamRoles.map(role => (
-                                        <option key={role.value} value={role.value}>
-                                            {role.label}
+                                    {filteredRoles.map(role => (
+                                        <option key={role.value || role.name} value={role.value || role.name}>
+                                            {role.label || role.display_name || role.name}
                                         </option>
                                     ))}
                                 </select>
+                                {team?.org_tier && filteredRoles.length < teamRoles.length && (
+                                    <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                                        ℹ️ Some roles are not available for teams with scope "{team.org_tier}"
+                                    </p>
+                                )}
                             </div>
 
                             <div style={{

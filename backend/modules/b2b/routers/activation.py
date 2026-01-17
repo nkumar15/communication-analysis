@@ -19,9 +19,11 @@ from modules.b2b.schemas.activation import (
 )
 from core.db.session import get_db
 from core.middleware import get_current_user
-
+from infrastructure.logging import get_logger
 
 router = APIRouter(prefix="/api/b2b/activation", tags=["activation"])
+
+logger = get_logger(__name__)
 
 
 @router.get("/validate/{token}", response_model=ActivationValidationResponse)
@@ -134,8 +136,32 @@ async def setup_sso(
         return SSOSetupResponse(**result)
         
     except ValueError as e:
-        # Service raises ValueError for validation/logic errors
+        # Service raises ValueError for validation/logic errors (safe to expose)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        
+        # Log full error server-side with structured context
+        logger.error(
+            "sso_setup_failed",
+            token_prefix=request.activation_token[:10],
+            provider_type=request.provider_type,
+            error=str(e),
+            exc_info=True
+        )
+        
+        # Check for duplicate provider error (idempotency - already configured)
+        error_str = str(e).lower()
+        if 'unique_tenant_provider_id' in error_str or 'duplicate key' in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="SSO provider already configured for this tenant. Please retry activation or contact support."
+            )
+        
+        # Generic error for client (NEVER expose secrets/SQL/internal details)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to configure SSO provider. Please try again or contact support."
+        )
+
+

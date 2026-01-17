@@ -14,7 +14,8 @@ async def has_permission(
     resource: str,
     action: str,
     db: AsyncSession,
-    role_id: UUID | None = None
+    role_id: UUID | None = None,
+    context_extras: dict | None = None
 ) -> bool:
     """
     Check if user has permission for resource:action
@@ -69,9 +70,76 @@ async def has_permission(
     return permission is not None
 
 
+async def has_permission_with_plugins(
+    user_id: UUID, 
+    resource: str, 
+    action: str, 
+    db: AsyncSession,
+    role_id: UUID | None = None,
+    tenant_id: UUID | None = None
+) -> bool:
+    """
+    Wrapper for has_permission that invokes the PluginRegistry.
+    This is the primary entry point for plugin-aware permission checks.
+    """
+    from core.rbac.plugin_registry import plugin_registry
+    from core.rbac.plugin_system import PermissionContext
+    
+    # 1. Fetch User Data (Minimal)
+    # We need user dict for context.
+    # Optimization: We might want to pass user object if available to avoid refetch.
+    # For now, we fetch minimal user info.
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return False
+
+    user_dict = {
+        "id": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "role_id": str(user.role_id) if user.role_id else None,
+        # role name might be needed
+    }
+    
+    # Enrich context
+    # This might be expensive to do on every check. 
+    # Ideally, enriched context is cached per request.
+    enriched_user = await plugin_registry.enrich_user(user_dict, db)
+    
+    context = PermissionContext(
+        user_id=str(user_id),
+        user=enriched_user,
+        resource_type=resource,
+        resource_id=None, # Context extras can provide specific resource ID
+        resource=None,    
+        action=action,
+        tenant_id=str(user.tenant_id)
+        # extra_context passed if needed
+    )
+    
+    # Define the core checker for the registry callback
+    async def core_checker(ctx, session):
+        # Maps registry context back to simple has_permission call
+        return await has_permission(
+            UUID(ctx.user_id), 
+            ctx.resource_type, 
+            ctx.action, 
+            session,
+            role_id=UUID(ctx.user['role_id']) if ctx.user.get('role_id') else None
+        )
+        
+    return await plugin_registry.check_permission(context, core_checker, db)
+
+
+
 async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     """
-    Get all permissions for a user as a list of 'resource:action' strings
+    Get all permissions for a user as a list of 'resource:action' strings.
+    Aggregates permissions from:
+    1. Tenant Role (via role_permissions table)
+    2. Team Roles (via team_role_definitions.permissions JSONB)
     
     Args:
         user_id: User ID
@@ -80,7 +148,9 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     Returns:
         list: List of permission strings like ['shops:read', 'users:write']
     """
-    # OPTIMIZATION: Single query with explicit JOINs instead of multiple round-trips
+    permissions = set()
+
+    # 1. Get Tenant Role Permissions
     result = await db.execute(
         select(Resource.name, Action.name)
         .select_from(UserModel)
@@ -92,11 +162,49 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
         .where(Role.is_active == True)
     )
     
-    permissions = []
     for resource_name, action_name in result:
-        permissions.append(f"{resource_name}:{action_name}")
+        permissions.add(f"{resource_name}:{action_name}")
+
+    # 2. Get Team Role Permissions
+    # Join TeamMember -> TeamRoleDefinition to get the JSONB permissions list
+    from modules.b2b.models.team_member import TeamMember
+    from modules.b2b.models.team_role_definition import TeamRoleDefinition
+
+    team_roles_result = await db.execute(
+        select(TeamRoleDefinition.permissions)
+        .join(TeamMember, TeamMember.team_role == TeamRoleDefinition.name)
+        .where(TeamMember.user_id == user_id)
+    )
+
+    # Each row is a JSONB list of permissions: [{'resource': 'r', 'actions': ['read']}]
+    # Note: The format in YAML/Seeder might be flattened or nested.
+    # checking seed_rbac.py: flatten_permissions converts to [{'resource': 'r', 'action': 'a'}] ?
+    # Let's handle the structure safely.
     
-    return permissions
+    for row in team_roles_result.scalars():
+        if not row:
+            continue
+            
+        for perm in row:
+            # Handle flattened format from TeamRoleDefinition
+            # Expected: {'resource': '...', 'actions': [...]} OR {'resource': '...', 'action': '...'}
+            
+            res = perm.get('resource')
+            if not res:
+                continue
+                
+            # Handle 'actions' list
+            actions = perm.get('actions', [])
+            if actions:
+                for act in actions:
+                    permissions.add(f"{res}:{act}")
+            
+            # Handle single 'action'
+            action = perm.get('action')
+            if action:
+                permissions.add(f"{res}:{action}")
+    
+    return list(permissions)
 
 
 async def get_user_role_name(user_id: UUID, db: AsyncSession) -> str | None:

@@ -6,12 +6,13 @@ import { formatDateTime } from '../../../../utils/dateUtils';
  * BulkInviteModal - Modal for bulk user invitation via CSV upload
  */
 const BulkInviteModal = ({ isOpen, onClose, onSuccess }) => {
-    const [state, setState] = useState('initial'); // initial, uploading, complete, error
+    const [state, setState] = useState('initial'); // initial, uploading, complete, error, validation_error
     const [file, setFile] = useState(null);
     const [dragActive, setDragActive] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
+    const [validationErrors, setValidationErrors] = useState([]);
     const fileInputRef = useRef(null);
 
     const resetState = () => {
@@ -20,6 +21,7 @@ const BulkInviteModal = ({ isOpen, onClose, onSuccess }) => {
         setUploadProgress(0);
         setResult(null);
         setError('');
+        setValidationErrors([]);
     };
 
     const handleClose = () => {
@@ -95,9 +97,12 @@ const BulkInviteModal = ({ isOpen, onClose, onSuccess }) => {
         setError('');
         setUploadProgress(10);
 
+        // Declare outside try so it's accessible in catch
+        let progressInterval = null;
+
         try {
             // Simulate progress
-            const progressInterval = setInterval(() => {
+            progressInterval = setInterval(() => {
                 setUploadProgress(prev => Math.min(prev + 10, 90));
             }, 200);
 
@@ -112,8 +117,16 @@ const BulkInviteModal = ({ isOpen, onClose, onSuccess }) => {
                 onSuccess(response);
             }
         } catch (err) {
-            setState('error');
-            setError(err.message || 'Failed to process bulk invitations');
+            clearInterval(progressInterval);
+            // Handle validation errors with row details
+            if (err.isValidationError && err.validationErrors) {
+                setState('validation_error');
+                setValidationErrors(err.validationErrors);
+                setError(err.message);
+            } else {
+                setState('error');
+                setError(err.message || 'Failed to process bulk invitations');
+            }
         }
     };
 
@@ -223,8 +236,56 @@ const BulkInviteModal = ({ isOpen, onClose, onSuccess }) => {
                         </div>
                     )}
 
+                    {/* Validation Error State - Show detailed errors */}
+                    {state === 'validation_error' && validationErrors.length > 0 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <div style={{
+                                padding: '12px 16px',
+                                backgroundColor: '#FEF3C7',
+                                border: '1px solid #FCD34D',
+                                borderRadius: '8px',
+                                marginBottom: '16px'
+                            }}>
+                                <div style={{ fontWeight: '600', color: '#92400E', marginBottom: '8px' }}>
+                                    ⚠️ {validationErrors.length} validation error{validationErrors.length > 1 ? 's' : ''} found
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#B45309' }}>
+                                    Please fix the following issues in your CSV file and try again.
+                                </div>
+                            </div>
+                            <div style={{
+                                maxHeight: '250px',
+                                overflowY: 'auto',
+                                border: '1px solid #FCA5A5',
+                                borderRadius: '8px',
+                                backgroundColor: '#FEF2F2'
+                            }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: '#FEE2E2', borderBottom: '1px solid #FCA5A5' }}>
+                                            <th style={{ padding: '10px 12px', textAlign: 'left', color: '#991B1B' }}>Row</th>
+                                            <th style={{ padding: '10px 12px', textAlign: 'left', color: '#991B1B' }}>Email</th>
+                                            <th style={{ padding: '10px 12px', textAlign: 'left', color: '#991B1B' }}>Error</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {validationErrors.map((err, idx) => (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #FECACA' }}>
+                                                <td style={{ padding: '10px 12px', color: '#7F1D1D' }}>{err.row}</td>
+                                                <td style={{ padding: '10px 12px', color: '#7F1D1D', fontFamily: 'monospace', fontSize: '12px' }}>
+                                                    {err.value || '-'}
+                                                </td>
+                                                <td style={{ padding: '10px 12px', color: '#B91C1C' }}>{err.message}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Initial/Upload State */}
-                    {(state === 'initial' || state === 'error') && (
+                    {(state === 'initial' || state === 'error' || state === 'validation_error') && (
                         <>
                             {/* Template Download */}
                             <div style={{
@@ -451,7 +512,23 @@ const BulkInviteModal = ({ isOpen, onClose, onSuccess }) => {
                                                     {row.status === 'success' ? (
                                                         <span style={{ color: '#10B981' }}>✅</span>
                                                     ) : (
-                                                        <span title={row.error} style={{ color: '#EF4444' }}>❌</span>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ color: '#EF4444' }}>❌</span>
+                                                            {row.error && (
+                                                                <span style={{
+                                                                    fontSize: '11px',
+                                                                    color: '#DC2626',
+                                                                    backgroundColor: '#FEE2E2',
+                                                                    padding: '2px 6px',
+                                                                    borderRadius: '4px',
+                                                                    maxWidth: '200px',
+                                                                    textAlign: 'center',
+                                                                    wordBreak: 'break-word'
+                                                                }}>
+                                                                    {row.error}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </td>
                                             </tr>

@@ -18,36 +18,30 @@ class BulkInviteRow(BaseModel):
     """Single row from bulk invite CSV"""
     row_number: int
     email: EmailStr
-    role: str
-    team_name: Optional[str] = None
-    team_role: Optional[str] = None
+    role: Optional[str] = None
+    team_name: str
+    team_role: str
     name: Optional[str] = None
     
     @field_validator('role')
     @classmethod
-    def validate_role(cls, v: str) -> str:
-        """Validate role is one of the allowed values"""
-        allowed_roles = {'owner', 'admin', 'member', 'viewer'}
-        v_lower = v.lower().strip()
-        if v_lower not in allowed_roles:
-            raise ValueError(
-                f"Invalid role '{v}'. Must be one of: {', '.join(allowed_roles)}"
-            )
-        return v_lower
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        """Validate role format"""
+        if v is None or v.strip() == '':
+            return None
+        # We allow dynamic custom roles (e.g. surveillance_chief), 
+        # so we just normalize to lowercase
+        return v.lower().strip()
     
     @field_validator('team_role')
     @classmethod
-    def validate_team_role(cls, v: Optional[str]) -> Optional[str]:
+    def validate_team_role(cls, v: str) -> str:
         """Validate team role if provided"""
         if v is None or v.strip() == '':
-            return None
-        allowed_team_roles = {'team_manager', 'team_contributor', 'team_reader'}
-        v_lower = v.lower().strip()
-        if v_lower not in allowed_team_roles:
-            raise ValueError(
-                f"Invalid team role '{v}'. Must be one of: {', '.join(allowed_team_roles)}"
-            )
-        return v_lower
+            raise ValueError('Team role is required')
+        # We allow dynamic custom team roles (e.g. surveillance_lead),
+        # so we just normalize to lowercase
+        return v.lower().strip()
     
     @field_validator('name')
     @classmethod
@@ -84,8 +78,8 @@ class ParsedCSV(BaseModel):
 class BulkInviteCSVParser:
     """Parser for bulk invitation CSV files"""
     
-    REQUIRED_COLUMNS = ['email', 'role']
-    OPTIONAL_COLUMNS = ['team_name', 'team_role', 'name']
+    REQUIRED_COLUMNS = ['email', 'team_name', 'team_role']
+    OPTIONAL_COLUMNS = ['role', 'name']
     ALL_COLUMNS = REQUIRED_COLUMNS + OPTIONAL_COLUMNS
     
     MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
@@ -169,9 +163,9 @@ class BulkInviteCSVParser:
                 
                 # Extract fields
                 email = row_normalized.get('email', '').strip()
-                role = row_normalized.get('role', '').strip()
-                team_name = row_normalized.get('team_name', '').strip() or None
-                team_role = row_normalized.get('team_role', '').strip() or None
+                role = row_normalized.get('role', '').strip() or None
+                team_name = row_normalized.get('team_name', '').strip()
+                team_role = row_normalized.get('team_role', '').strip()
                 name = row_normalized.get('name', '').strip() or None
                 
                 # Check for duplicate emails in file
@@ -209,6 +203,8 @@ class BulkInviteCSVParser:
                         field = 'email'
                     elif 'role' in error_msg.lower():
                         field = 'role'
+                    elif 'team_name' in error_msg.lower():
+                        field = 'team_name'
                     elif 'team_role' in error_msg.lower():
                         field = 'team_role'
                     elif 'name' in error_msg.lower():
@@ -259,10 +255,40 @@ class BulkInviteCSVParser:
             List of validation errors
         """
         from sqlalchemy import select
-        from modules.b2b.models import UserModel, InvitationModel
+        from modules.b2b.models import UserModel, InvitationModel, Team
+        from modules.b2b.models.team_role_definition import TeamRoleDefinition
         
         errors: List[ValidationError] = []
         current_user_role = current_user.get('role', '').lower()
+        tenant_id = current_user['tenant_id']
+        
+        # Pre-fetch valid team roles with allowed_org_tiers
+        role_result = await db.execute(
+            select(TeamRoleDefinition.name, TeamRoleDefinition.allowed_org_tiers, TeamRoleDefinition.display_name).where(
+                (TeamRoleDefinition.tenant_id == tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
+            )
+        )
+        # Map role_name -> {allowed_tiers: [], display_name: str}
+        role_map = {
+            r.name.lower(): {
+                'allowed_tiers': r.allowed_org_tiers,
+                'display_name': r.display_name
+            } 
+            for r in role_result.all()
+        }
+        
+        # Pre-fetch valid teams with org_tier
+        team_result = await db.execute(
+            select(Team.name, Team.org_tier).where(
+                Team.tenant_id == tenant_id,
+                Team.deleted_at.is_(None)
+            )
+        )
+        # Map team_name -> org_tier (can be None)
+        team_map = {
+            t.name.lower(): t.org_tier 
+            for t in team_result.all()
+        }
         
         for row in rows:
             # Check email domain matches tenant
@@ -286,11 +312,57 @@ class BulkInviteCSVParser:
                 ))
                 continue
             
+            # Validate team_name exists
+            team_name_lower = row.team_name.lower()
+            if team_name_lower not in team_map:
+                errors.append(ValidationError(
+                    row=row.row_number,
+                    field='team_name',
+                    message=f"Team not found: {row.team_name}",
+                    value=row.team_name
+                ))
+                continue
+            
+            # Validate team_role exists in team_role_definitions
+            team_role_lower = row.team_role.lower()
+            if team_role_lower not in role_map:
+                errors.append(ValidationError(
+                    row=row.row_number,
+                    field='team_role',
+                    message=f"Invalid team role: {row.team_role}. Role must be defined in team_role_definitions.",
+                    value=row.team_role
+                ))
+                continue
+            
+            # Validate Org Tier Constraints
+            role_info = role_map[team_role_lower]
+            team_org_tier = team_map[team_name_lower]
+            allowed_tiers = role_info['allowed_tiers']
+            
+            if allowed_tiers:
+                if not team_org_tier:
+                    errors.append(ValidationError(
+                        row=row.row_number,
+                        field='team_role',
+                        message=f"Team '{row.team_name}' has no organization tier configured, but role '{role_info['display_name']}' requires one of: {', '.join(allowed_tiers)}",
+                        value=row.team_role
+                    ))
+                    continue
+                
+                if team_org_tier not in allowed_tiers:
+                    errors.append(ValidationError(
+                        row=row.row_number,
+                        field='team_role',
+                        message=f"Role '{role_info['display_name']}' is restricted to tiers {allowed_tiers}, but team '{row.team_name}' is '{team_org_tier}'",
+                        value=row.team_role
+                    ))
+                    continue
+            
             # Check if user already exists
             result = await db.execute(
                 select(UserModel).where(
                     UserModel.email == row.email,
-                    UserModel.tenant_id == current_user['tenant_id']
+                    UserModel.tenant_id == tenant_id
                 )
             )
             existing_user = result.scalar_one_or_none()
@@ -307,7 +379,7 @@ class BulkInviteCSVParser:
             result = await db.execute(
                 select(InvitationModel).where(
                     InvitationModel.email == row.email,
-                    InvitationModel.tenant_id == current_user['tenant_id'],
+                    InvitationModel.tenant_id == tenant_id,
                     InvitationModel.accepted_at.is_(None)  # Pending = not accepted
                 )
             )

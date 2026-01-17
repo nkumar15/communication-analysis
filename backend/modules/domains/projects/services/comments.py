@@ -142,7 +142,17 @@ async def update_comment(db: AsyncSession, user: dict, comment_id: UUID, comment
         )
     
     # Only owner or comment author can edit
+    from infrastructure.logging import get_logger
+    logger = get_logger(__name__)
+    logger.info("DEBUG COMMENTS: update check", 
+                user_id=str(user['id']), 
+                user_id_type=str(type(user['id'])),
+                comment_creator=str(comment.created_by),
+                comment_creator_type=str(type(comment.created_by)),
+                user_role=user['role'])
+                
     if user['role'] not in ['owner', 'admin'] and comment.created_by != user['id']:
+        logger.warning("DEBUG COMMENTS: access denied", detail="creator mismatch")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only edit your own comments"

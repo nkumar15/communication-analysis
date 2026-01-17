@@ -32,6 +32,9 @@ const titles = {
 };
 
 module.exports = {
+    cache: {
+        type: 'filesystem',
+    },
     entry: entryPoints[PORTAL] || entryPoints.b2b,
     output: {
         path: path.resolve(__dirname, `dist/${PORTAL}`),
@@ -87,11 +90,11 @@ module.exports = {
         allowedHosts: process.env.NODE_ENV === 'production' ? undefined : 'all',  // Allow Docker in dev only
         proxy: {
             '/api': {
-                target: PORTAL === 'b2c'
+                target: process.env.REACT_APP_API_URL || (PORTAL === 'b2c'
                     ? 'http://localhost:8002'  // B2C API
                     : PORTAL === 'platform'
                         ? 'http://localhost:8080'  // Platform API
-                        : 'http://localhost:8000', // B2B API
+                        : 'http://localhost:8000'), // B2B API
                 changeOrigin: true,
                 secure: false
             }

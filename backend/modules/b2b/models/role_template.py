@@ -1,5 +1,5 @@
 from core.db.base import Base, TimestampMixin
-from sqlalchemy import Column, String, Boolean, Text, text
+from sqlalchemy import Column, String, Boolean, Text, text, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 class RoleTemplate(Base, TimestampMixin):
@@ -18,6 +18,7 @@ class RoleTemplate(Base, TimestampMixin):
     
     # List of permissions: [{'resource': 'users', 'actions': ['read', 'write']}]
     permissions = Column(JSONB, nullable=False, default=list)
+    clearance_level = Column(Integer, default=1)
     
     # If true, this role is automatically seeded for every new tenant
     is_default = Column(Boolean, default=False, index=True)

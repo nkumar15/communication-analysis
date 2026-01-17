@@ -17,24 +17,60 @@ const Sidebar = () => {
         localStorage.setItem('sidebar_collapsed', isCollapsed);
     }, [isCollapsed]);
 
-    const allMenuItems = [
+    // Core menu items (always shown)
+    const coreMenuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
+    ];
 
-        // Domains
+
+    // Domain-specific menus
+    const domainMenus = {
+        bank_surveillance: [
+            { isHeader: true, label: 'Surveillance' },
+            { id: 'surv-dashboard', label: 'Overview', icon: '📊', path: '/b2b/surveillance', feature: 'surveillance' },
+            { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
+            { id: 'investigations', label: 'Investigations', icon: '🔍', path: '/b2b/surveillance/investigations', feature: 'surveillance' },
+        ],
+        marketing_agency: [
+            { isHeader: true, label: 'Campaigns' },
+            { id: 'campaigns-active', label: 'Active Campaigns', icon: '📢', path: '/b2b/campaigns', feature: 'campaigns' },
+            { id: 'campaigns-drafts', label: 'Drafts', icon: '📝', path: '/b2b/campaigns/drafts', feature: 'campaigns' },
+            { isHeader: true, label: 'Social Media' },
+            { id: 'social-posts', label: 'Posts', icon: '📱', path: '/b2b/social/posts', feature: 'social_posts' },
+            { id: 'social-scheduler', label: 'Scheduler', icon: '📅', path: '/b2b/social/scheduler', feature: 'social_posts' },
+        ],
+        default: []
+    };
+
+    // Common Domains (always shown below specific domains)
+    const commonDomainItems = [
         { isHeader: true, label: 'Domains' },
         { id: 'projects', label: 'Projects', icon: '📋', path: '/projects', feature: 'projects' },
         { id: 'rag-nse', label: 'NSE Earnings', icon: '📈', path: '/b2b/c/nse/rag', feature: 'rag_nse' },
         { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron', feature: 'rag_enron' },
+    ];
 
-        // Organization
+    // Organization & Config (always shown)
+    const organizationMenuItems = [
         { isHeader: true, label: 'Organization' },
         { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
 
-        // Configuration
         { isHeader: true, label: 'Configuration' },
         { id: 'roles', label: 'Tenant Roles', icon: '🛡️', path: '/roles', feature: 'roles' },
         { id: 'team-roles', label: 'Team Roles', icon: '🎯', path: '/team-roles', feature: 'roles' }
+    ];
+
+    // Get domain type from user, fallback to 'default'
+    const domainType = user?.domain_type || 'default';
+    const domainItems = domainMenus[domainType] || domainMenus.default;
+
+    // Build complete menu
+    const allMenuItems = [
+        ...coreMenuItems,
+        ...domainItems,
+        ...commonDomainItems,
+        ...organizationMenuItems
     ];
 
     // Filter menu items based on user permissions

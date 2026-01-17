@@ -13,11 +13,12 @@ from core.utils import get_utc_now
 class UserService:
     """Service for user operations using SQLAlchemy ORM"""
     
-    async def get_user_by_id(self, db: AsyncSession, user_id: UUID) -> Optional[User]:
-        """Get user by ID"""
+    async def get_user_by_id(self, db: AsyncSession, user_id: UUID, tenant_id: UUID) -> Optional[User]:
+        """Get user by ID with tenant scope for defense-in-depth isolation"""
         result = await db.execute(
             select(UserModel)
             .where(UserModel.id == user_id)
+            .where(UserModel.tenant_id == tenant_id)  # Defense in depth
             .where(UserModel.is_active == True)
             .where(UserModel.deleted_at.is_(None))
         )
@@ -305,10 +306,10 @@ class UserService:
         List all users accessible to the current user based on hierarchy
         
         Returns:
-            List of dictionaries with user information and role names
+            List of dictionaries with user information, role names, and team memberships
         """
         from modules.b2b.rbac import get_accessible_user_ids
-        from modules.b2b.models import Role
+        from modules.b2b.models import Role, TeamMember, Team, TeamRoleDefinition
         
         # Get accessible user IDs based on hierarchy
         accessible_ids = await get_accessible_user_ids(user_id, db)
@@ -322,6 +323,43 @@ class UserService:
         )
         users = users_result.all()
         
+        # Get team memberships for all accessible users
+        team_memberships_result = await db.execute(
+            select(TeamMember, Team)
+            .join(Team, TeamMember.team_id == Team.id)
+            .where(
+                TeamMember.user_id.in_(accessible_ids),
+                Team.deleted_at.is_(None)
+            )
+        )
+        team_memberships = team_memberships_result.all()
+        
+        # Get all team role definitions for display_name lookup
+        # Prioritize tenant-specific roles, fall back to system roles
+        role_defs_result = await db.execute(
+            select(TeamRoleDefinition)
+            .order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())
+        )
+        role_defs = role_defs_result.scalars().all()
+        
+        # Build role name -> display_name lookup (first match wins due to ordering)
+        role_display_map = {}
+        for rd in role_defs:
+            if rd.name not in role_display_map:
+                role_display_map[rd.name] = rd.display_name
+        
+        # Build user_id -> teams mapping with display_name
+        user_teams_map = {}
+        for tm, team in team_memberships:
+            if tm.user_id not in user_teams_map:
+                user_teams_map[tm.user_id] = []
+            user_teams_map[tm.user_id].append({
+                "team_id": team.id,
+                "team_name": team.name,
+                "team_role": tm.team_role,
+                "team_role_display": role_display_map.get(tm.team_role, tm.team_role)
+            })
+        
         return [
             {
                 "id": u[0].id,
@@ -330,7 +368,8 @@ class UserService:
                 "role": u[1].name if u[1] else None,
                 "is_active": u[0].is_active,
                 "last_login": u[0].last_login,
-                "created_at": u[0].created_at
+                "created_at": u[0].created_at,
+                "teams": user_teams_map.get(u[0].id, [])
             }
             for u in users
         ]

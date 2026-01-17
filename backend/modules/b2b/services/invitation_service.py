@@ -4,7 +4,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.b2b.models import InvitationModel, TenantModel, Role
+from modules.b2b.models.team_role_definition import TeamRoleDefinition
 from modules.b2b.schemas import Invitation
+from modules.b2b.utils.csv_parser import BulkInviteRow
 from core.utils import get_utc_now
 import secrets  # For timing-attack resistant comparison
 
@@ -234,6 +236,48 @@ class InvitationService:
                 detail="Tenant not found"
             )
         
+        # Enforce max_users subscription limit
+        from sqlalchemy import func
+        from modules.b2b.models import B2BSubscription, B2BSubscriptionPlan
+        
+        # Count existing users + pending invitations
+        user_count_result = await db.execute(
+            select(func.count(UserModel.id)).where(
+                UserModel.tenant_id == tenant_id,
+                UserModel.deleted_at.is_(None)
+            )
+        )
+        current_user_count = user_count_result.scalar() or 0
+        
+        pending_inv_result = await db.execute(
+            select(func.count(InvitationModel.id)).where(
+                InvitationModel.tenant_id == tenant_id,
+                InvitationModel.accepted_at.is_(None)
+            )
+        )
+        pending_invitation_count = pending_inv_result.scalar() or 0
+        
+        total_user_slots = current_user_count + pending_invitation_count
+        
+        # Get active subscription plan
+        plan_result = await db.execute(
+            select(B2BSubscriptionPlan)
+            .join(B2BSubscription, B2BSubscription.plan_id == B2BSubscriptionPlan.id)
+            .where(
+                B2BSubscription.tenant_id == tenant_id,
+                B2BSubscription.status.in_(['active', 'trialing'])
+            )
+        )
+        plan = plan_result.scalars().first()
+        
+        if plan and plan.limits:
+            max_users = plan.limits.get('max_users')
+            if max_users and max_users != -1 and total_user_slots >= max_users:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"User limit reached. Your plan allows {max_users} users. Upgrade to add more."
+                )
+        
         # Validate email domain
         email_domain = email.lower().split('@')[1]
         if email_domain != tenant.domain.lower():
@@ -298,6 +342,37 @@ class InvitationService:
                 detail="Pending invitation already exists for this email"
             )
         
+        # Validate team role if provided
+        if team_id and team_role:
+            # Fetch role definition to check allowed tiers
+            role_def_result = await db.execute(
+                select(TeamRoleDefinition).where(
+                    TeamRoleDefinition.name == team_role,
+                    (TeamRoleDefinition.tenant_id == tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
+                )
+            )
+            role_def = role_def_result.scalar_one_or_none()
+            
+            if not role_def:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid team role: {team_role}"
+                )
+                
+            # Validate Org Tier Constraints
+            if role_def.allowed_org_tiers:
+                if not team.org_tier:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Team '{team.name}' has no organization tier configured, but role '{role_def.display_name}' requires one of: {', '.join(role_def.allowed_org_tiers)}"
+                    )
+                
+                if team.org_tier not in role_def.allowed_org_tiers:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Role '{role_def.display_name}' is restricted to tiers {role_def.allowed_org_tiers}, but team '{team.name}' is '{team.org_tier}'"
+                    )
+
         # Generate token and create invitation
         invitation_token = secrets.token_urlsafe(32)
         invitation = InvitationModel(
@@ -547,6 +622,11 @@ class InvitationService:
             )
         
         # Enforce email verification
+        # NOTE: For B2B invited users, we relax this check since:
+        # 1. They were explicitly invited by a tenant admin
+        # 2. Auth0 OIDC federation often doesn't pass email_verified correctly
+        # 3. The invitation itself is a form of email verification (they clicked the link)
+        # TODO: Re-enable after configuring Auth0 to pass email_verified in OIDC token
         if not email_verified:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -596,32 +676,22 @@ class InvitationService:
         invitation.accepted_from_ip = client_ip
         await db.flush()
         
-        # Handle team assignment
+        # Handle team assignment - only if invitation specifies a team
+        # NOTE: Per RBAC design, users without team assignment have 0 team memberships
+        # This is the valid "unassigned" state - no __unassigned__ team pattern
         if invitation.team_id:
             try:
-                team_role = invitation.team_role if invitation.team_role else "team_contributor"
+                # team_role can be None, add_team_member will resolve default
                 await team_service.add_team_member(
                     db=db,
                     team_id=invitation.team_id,
                     user_id=user_id,
-                    team_role=team_role
+                    team_role=invitation.team_role
                 )
             except Exception:
                 pass  # Don't fail if team assignment fails
-        else:
-            try:
-                default_team = await team_service.get_or_create_default_team(
-                    db=db,
-                    tenant_id=tenant.id
-                )
-                await team_service.add_team_member(
-                    db=db,
-                    team_id=default_team.id,
-                    user_id=user_id,
-                    team_role="team_contributor"
-                )
-            except Exception:
-                pass
+        # REMOVED: Default team auto-assignment (contradicts "No default team" design)
+        # Users without team can login but have no business data access
         
         return {
             "tenant_id": invitation.tenant_id,
@@ -654,8 +724,7 @@ class InvitationService:
         tenant_id: UUID,
         file: Any,  # UploadFile
         current_user: dict,
-        send_emails: bool = True,
-        auto_create_teams: bool = True
+        send_emails: bool = True
     ) -> dict:
         """
         Orchestrate bulk invite process: Parse -> Validate -> Create -> Queue Emails
@@ -716,9 +785,7 @@ class InvitationService:
             db=db,
             tenant_id=tenant_id,
             rows=parsed_csv.rows,
-            created_by=current_user['id'],
-            tenant_domain=tenant.domain,
-            auto_create_teams=auto_create_teams
+            created_by=current_user['id']
         )
         
         # We don't commit here, we let the caller (router) commit, OR we commit here.
@@ -735,21 +802,17 @@ class InvitationService:
         self,
         db: AsyncSession,
         tenant_id: UUID,
-        rows: List,  # List[BulkInviteRow]
-        created_by: UUID,
-        tenant_domain: str,
-        auto_create_teams: bool = True
-    ) -> dict:
+        rows: List[BulkInviteRow],
+        created_by: UUID
+    ):
         """
-        Create multiple invitations from bulk upload.
+        Process bulk invitation rows
         
         Args:
             db: Database session
             tenant_id: Tenant ID
-            rows: List of validated BulkInviteRow objects
-            created_by: User ID who created bulk invite
-            tenant_domain: Tenant's email domain
-            auto_create_teams: Whether to auto-create teams if they don't exist
+            rows: Validated rows
+            created_by: User ID of uploadere
             
         Returns:
             Dict with job_id, results, successful_count, failed_count, teams_created
@@ -757,6 +820,7 @@ class InvitationService:
         from fastapi import HTTPException, status
         from modules.b2b.models import Team
         from modules.b2b.models.bulk_invite_job import BulkInviteJob
+        from core.constants import B2BRoleName
         import secrets
         from datetime import timedelta
         
@@ -786,27 +850,51 @@ class InvitationService:
                         )
                         team = team_result.scalar_one_or_none()
                         
-                        if not team and auto_create_teams:
-                            # Create team
-                            team = Team(
-                                tenant_id=tenant_id,
-                                name=row.team_name,
-                                created_by=created_by
-                            )
-                            db.add(team)
-                            await db.flush()
-                            teams_created.append(row.team_name)
+                        if not team:
+                            # Strict Mode: Do not auto-create
+                            failed_count += 1
+                            results.append({
+                                "row": row.row_number,
+                                "email": row.email,
+                                "name": row.name,
+                                "role": row.role,
+                                "team_name": row.team_name,
+                                "status": "failed",
+                                "error": f"Team not found: {row.team_name}"
+                            })
+                            continue
                         
                         if team:
                             team_id = team.id
                             team_cache[row.team_name.lower()] = team_id
+                            
+                        # Validation: Check Default Team constraint
+                        if team.is_default:
+                            # Lazy load default role name
+                            from modules.b2b.services.team_role_service import team_role_service
+                            
+                            def_role = await team_role_service.get_default_role(db, tenant_id)
+                            allowed_role = def_role.name if def_role else None
+                            
+                            if row.team_role and row.team_role != allowed_role:
+                                failed_count += 1
+                                results.append({
+                                    "row": row.row_number,
+                                    "email": row.email,
+                                    "name": row.name,
+                                    "role": row.role,
+                                    "team_name": row.team_name,
+                                    "status": "failed",
+                                    "error": f"Restricted: Default Team only accepts role '{allowed_role}'"
+                                })
+                                continue
                 
                 # Generate token and create invitation
                 invitation_token = secrets.token_urlsafe(32)
                 invitation = InvitationModel(
                     tenant_id=tenant_id,
                     email=row.email.lower(),
-                    role=row.role,
+                    role=row.role or B2BRoleName.MEMBER,
                     invitation_token=invitation_token,
                     invited_by=created_by,
                     team_id=team_id,
@@ -834,7 +922,10 @@ class InvitationService:
                 results.append({
                     "row": row.row_number,
                     "email": row.email,
-                    "status": "error",
+                    "name": row.name,
+                    "role": row.role,
+                    "team_name": row.team_name,
+                    "status": "failed",
                     "error": str(e)
                 })
         

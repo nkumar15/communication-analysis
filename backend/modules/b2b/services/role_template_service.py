@@ -100,8 +100,19 @@ class RoleTemplateService:
     ) -> None:
         
         for perm in perms_def:
-            resource_name = perm["resource"]
-            action_names = perm["actions"]
+            resource_name = perm.get("resource")
+            if not resource_name:
+                continue
+
+            # Handle both formats:
+            # 1. Unflattened: {"resource": "users", "actions": ["read", "write"]}
+            # 2. Flattened: {"resource": "users", "action": "read"}
+            if "actions" in perm:
+                action_names = perm["actions"]
+            elif "action" in perm:
+                action_names = [perm["action"]]
+            else:
+                continue
             
             if resource_name not in resource_map:
                 continue # Skip if resource doesn't exist (e.g. feature flag off)

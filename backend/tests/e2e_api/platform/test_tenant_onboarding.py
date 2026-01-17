@@ -76,12 +76,12 @@ class TestTenantOnboarding:
             )
             assert auth_provider is None # Should be empty now
             
-            # Check Default Team
+            # Check Default Team - Should NOT exist (Design Change: No default team)
             from modules.b2b.models import Team
             default_team = await db_session.scalar(
                 select(Team).where(Team.tenant_id == tenant_id).where(Team.is_default == True)
             )
-            assert default_team is not None
+            assert default_team is None
             
             # Check Admin Invitation
             from modules.b2b.models import InvitationModel
@@ -131,7 +131,7 @@ class TestTenantOnboarding:
             assert data["name"] == "Details Corp"
             # Auth provider should be None or reflect pending state since it's not set up
             assert data.get("auth_provider") is None
-            assert data["team_count"] >= 1  # Default team
+            assert data["team_count"] == 0  # No default team created anymore
         
     async def test_resend_activation(self, api_client: AsyncClient, platform_admin_setup, db_session: AsyncSession):
         """Test resending activation email"""

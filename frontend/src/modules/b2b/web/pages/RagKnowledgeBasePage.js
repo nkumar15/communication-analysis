@@ -29,21 +29,19 @@ import {
     Collapse,
     LinearProgress
 } from '@mui/material';
-import {
-    Search as SearchIcon,
-    CloudUpload as CloudUploadIcon,
-    Description as DescriptionIcon,
-    CheckCircle as CheckCircleIcon,
-    Error as ErrorIcon,
-    ContentCopy,
-    Menu as MenuIcon,
-    ChevronLeft as ChevronLeftIcon,
-    ChevronRight as ChevronRightIcon,
-    Close as CloseIcon,
-    Refresh as RefreshIcon,
-    Schedule as ScheduleIcon,
-    OpenInNew as OpenInNewIcon
-} from '@mui/icons-material';
+import SearchIcon from '@mui/icons-material/Search';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DescriptionIcon from '@mui/icons-material/Description';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import ContentCopy from '@mui/icons-material/ContentCopy';
+import MenuIcon from '@mui/icons-material/Menu';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import CloseIcon from '@mui/icons-material/Close';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import b2bClient from '../../../../core/api/b2bClient';
