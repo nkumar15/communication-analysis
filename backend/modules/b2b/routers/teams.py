@@ -1,7 +1,7 @@
 """
 Teams API Router - Manage teams and team membership
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -119,6 +119,7 @@ async def list_teams(
 @router.post("/", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
 async def create_team(
     team: TeamCreate,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -145,6 +146,19 @@ async def create_team(
     )
     
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team.created',
+        'resource_type': 'team',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(created_team.id),
+        'details': {'team_name': team.name},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     member_count = await team_service.get_team_member_count(db, created_team.id)
     
@@ -211,6 +225,7 @@ async def get_team(
 async def update_team(
     team_id: UUID,
     updates: TeamUpdate,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -246,6 +261,19 @@ async def update_team(
     
     await db.commit()
     
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team.updated',
+        'resource_type': 'team',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_id),
+        'details': {'team_name': updated_team.name},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     member_count = await team_service.get_team_member_count(db, updated_team.id)
     
     return TeamResponse(
@@ -265,6 +293,7 @@ async def update_team(
 @router.delete("/{team_id}", status_code=status.HTTP_200_OK)
 async def delete_team(
     team_id: UUID,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -281,18 +310,33 @@ async def delete_team(
             detail="You do not have permission to delete teams"
         )
     
-    # Get team to verify tenant
+    # Get team to verify tenant and capture name for audit
     team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
+    team_name = team.name
     
     # tenant_id already enforced in get_team_by_id
     
     await team_service.delete_team(db, team_id)
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team.deleted',
+        'resource_type': 'team',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_id),
+        'details': {'team_name': team_name},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     return {"message": "Team deleted successfully"}
 
 
@@ -344,6 +388,7 @@ async def list_team_members(
 async def add_team_member(
     team_id: UUID,
     member: TeamMemberAdd,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -386,6 +431,19 @@ async def add_team_member(
     
     await db.commit()
     
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.added',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_member.id),
+        'details': {'team_id': str(team_id), 'user_id': str(member.user_id), 'user_email': user_to_add.email},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     return TeamMemberResponse(
         id=team_member.id,
         team_id=team_member.team_id,
@@ -401,6 +459,7 @@ async def add_team_member(
 async def remove_team_member(
     team_id: UUID,
     user_id: UUID,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -436,6 +495,20 @@ async def remove_team_member(
     
     await team_service.remove_team_member(db, team_id, user_id)
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.removed',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': None,
+        'details': {'team_id': str(team_id), 'user_id': str(user_id)},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     return {"message": "Member removed successfully"}
 
 
@@ -444,6 +517,7 @@ async def update_team_member_role(
     team_id: UUID,
     user_id: UUID,
     update: TeamMemberUpdate,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -478,6 +552,19 @@ async def update_team_member_role(
     
     await db.commit()
     
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.role_updated',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_member.id),
+        'details': {'team_id': str(team_id), 'user_id': str(user_id), 'new_role': update.team_role},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     # Get user details
     user = await db.get(UserModel, user_id)
     
@@ -496,6 +583,7 @@ async def update_team_member_role(
 async def move_user_between_teams(
     user_id: UUID,
     move_request: MoveUserRequest,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -535,6 +623,23 @@ async def move_user_between_teams(
     )
     
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.moved',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(new_membership.id),
+        'details': {
+            'user_id': str(user_id),
+            'from_team_id': str(move_request.from_team_id),
+            'to_team_id': str(move_request.to_team_id)
+        },
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     # Get user details
     user = await db.get(UserModel, user_id)

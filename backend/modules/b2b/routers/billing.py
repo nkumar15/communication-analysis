@@ -151,8 +151,8 @@ async def create_checkout_session(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Checkout error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create checkout session")
+        logger.error(f"Checkout error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create checkout session. Please try again or contact support.")
 
 
 class PortalSessionRequest(BaseModel):
@@ -193,8 +193,8 @@ async def create_portal_session(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Portal creation failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create portal session")
+        logger.error(f"Portal creation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create portal session. Please try again or contact support.")
 
 
 # ============================================================================
@@ -379,9 +379,9 @@ async def stripe_webhook(
         return {"status": "success"}
         
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        logger.error(f"Webhook error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
 
 # ============================================================================
 # Billing Profile Endpoints
