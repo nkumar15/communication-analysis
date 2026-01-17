@@ -1,4 +1,11 @@
+---
+trigger: always_on
+---
+
 # Multi-Tenancy Rules
+
+## Scope
+This  Multi-Tenancy model applies specifically to the **B2B (Business-to-Business)** module. It does not apply to Platform or B2C contexts.
 
 ## 1. Core Principle: Strict Tenant Isolation
 - **Rule**: Every database operation (Read/Write) **MUST** be scoped to a specific `tenant_id`.
