@@ -45,8 +45,51 @@ status: ## Show status of all services and configuration
 
 ##@ Docker Services
 
+db-recreate: ## Fast Database Reset (Drop DB -> Create DB). Uses POSTGRES_USER/DB from env (defaults: postgres/saas_demo_db)
+	@echo "$(BLUE)Recreating database (Drop & Create)...$(NC)"
+	@docker-compose up -d postgres
+	@sleep 2
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres dropdb -U $${POSTGRES_USER:-postgres} --if-exists --force $${POSTGRES_DB:-saas_demo_db}
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres createdb -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-saas_demo_db}
+	@echo "$(GREEN)✓ Database recreated$(NC)"
+	@$(MAKE) migrate-only
+	@echo "$(BLUE)Starting backend API services (required for seeding)...$(NC)"
+	@docker-compose up -d b2b-api platform-api b2c-api domain-api b2b-worker b2c-worker domain-worker
+	@echo "$(GREEN)✓ Backend services started$(NC)"
+	@echo ""
+	@echo "$(BLUE)=== Running Services ===$(NC)"
+	@docker-compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Ports}}"
+	@echo ""
+
+setup-bank: ## Reset DB & Seed Bank Surveillance (Drop -> Migrate -> Seed)
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
+
+setup-task: ## Reset DB & Seed Task Management (Drop -> Migrate -> Seed)
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=task_management
+
+test-b2b-bank-full: ## Run ALL B2B tests for Bank Surveillance (Drop -> Migrate -> Seed -> Test)
+	@echo "$(BLUE)Running B2B Bank Surveillance Full Test Coverage...$(NC)"
+	@$(MAKE) setup-bank
+	@docker-compose run --rm -e USE_CASE=bank_surveillance -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/bank_surveillance
+
+test-b2b-task-full: ## Run ALL B2B tests for Task Management (Drop -> Migrate -> Seed -> Test)
+	@echo "$(BLUE)Running B2B Task Management Full Test Coverage...$(NC)"
+	@$(MAKE) setup-task
+	@docker-compose run --rm -e USE_CASE=task_management -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/task_management
+
+test-b2b-bank-fast: ## Run B2B Bank Tests (Core + Domain) WITHOUT recreating DB (Fast Mode)
+	@echo "$(BLUE)Running B2B Bank Tests (Fast - No Seed)...$(NC)"
+	@docker-compose run --rm -e USE_CASE=bank_surveillance -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/bank_surveillance
+
+test-b2b-task-fast: ## Run B2B Task Tests (Core + Domain) WITHOUT recreating DB (Fast Mode)
+	@echo "$(BLUE)Running B2B Task Tests (Fast - No Seed)...$(NC)"
+	@docker-compose run --rm -e USE_CASE=task_management -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/task_management
+
 up: ## Start all backend services (frontend runs locally)
-	@echo "$(BLUE)Starting backend services...$(NC)"
+	echo "Deleting containers and volumes (full reset)..."
+	docker-compose down -v
 	docker-compose up -d postgres elasticsearch minio b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker domain-worker nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo ""
@@ -235,7 +278,7 @@ b2b-update-plugin-task: ## Update Task Tenant Plugins from Config
 
 b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant via UI)
 	@echo "$(BLUE)🏦 Resetting DB for Bank Surveillance Demo...$(NC)"
-	@$(MAKE) reset-db USE_CASE=bank_surveillance
+	@$(MAKE) setup-bank
 	@$(MAKE) verify-seed
 	@echo ""
 	@echo "$(GREEN)✅ Bank Surveillance RBAC Ready!$(NC)"
@@ -249,7 +292,8 @@ b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant v
 
 b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tenant via UI)
 	@echo "$(BLUE)📱 Resetting DB for Marketing Agency Demo...$(NC)"
-	@$(MAKE) reset-db USE_CASE=marketing_agency
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=marketing_agency
 	@$(MAKE) verify-seed
 	@echo ""
 	@echo "$(GREEN)✅ Marketing Agency RBAC Ready!$(NC)"
@@ -263,7 +307,7 @@ b2b-demo-marketing: ## Reset DB and seed marketing agency RBAC (then create tena
 
 b2b-demo-task: ## Reset DB and seed task management RBAC (then create tenant via UI)
 	@echo "$(BLUE)✅ Resetting DB for Task Management Demo...$(NC)"
-	@$(MAKE) reset-db USE_CASE=task_management
+	@$(MAKE) setup-task
 	@$(MAKE) verify-seed
 	@echo ""
 	@echo "$(GREEN)✅ Task Management RBAC Ready!$(NC)"
@@ -358,6 +402,24 @@ test-domain-rag: ## Run NSE RAG domain integration tests
 	@echo "$(BLUE)Running NSE RAG domain tests...$(NC)"
 	docker-compose run --rm e2e-tests pytest tests/domain/nserag/ -v
 	@echo "$(GREEN)✓ NSE RAG domain tests complete$(NC)"
+
+test-b2b: ## Run ALL B2B tests (Combines Core+Bank and Core+Task)
+	@echo "$(BLUE)Running ALL B2B Tests...$(NC)"
+	@$(MAKE) test-b2b-bank-full
+	@$(MAKE) test-b2b-task-full
+	@echo "$(GREEN)✓ ALL B2B Tests Complete$(NC)"
+
+
+
+# Individual Component Helpers
+test-b2b-core: ## Run core platform tests only (defaults to bank seed)
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/core -v
+
+test-b2b-bank: ## Run bank surveillance specific tests only
+	docker-compose run --rm e2e-tests env USE_CASE=bank_surveillance pytest tests/e2e_api/b2b/use_cases/bank_surveillance -v
+
+test-b2b-task: ## Run task management tests only
+	docker-compose run --rm e2e-tests env USE_CASE=task_management pytest tests/e2e_api/b2b/use_cases/task_management -v
 
 # Test Runner Config
 ifdef LOCAL

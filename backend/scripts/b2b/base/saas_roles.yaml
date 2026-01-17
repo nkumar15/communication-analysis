@@ -39,7 +39,7 @@ role_templates:
       - resource: teams
         actions: [read, write, delete]
       - resource: settings
-        actions: [manage]
+        actions: [read, write, manage]
       - resource: billing
         actions: [read, write, manage]
       - resource: audit_logs
@@ -65,7 +65,7 @@ role_templates:
       - resource: teams
         actions: [read, write]
       - resource: settings
-        actions: [manage]
+        actions: [read, write, manage]
       - resource: audit_logs
         actions: [read, export]
       - resource: reports

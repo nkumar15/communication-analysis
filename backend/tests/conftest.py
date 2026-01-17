@@ -29,14 +29,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Define session-scoped event loop to match test_db_engine scope
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the session."""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
+
 
 # Import app components
 from core.db.session import get_db, init_db, close_db
@@ -229,9 +222,9 @@ class TenantAwareSession:
 # Test Database Fixtures
 # ============================================================================
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def test_db_engine():
-    """Create test database engine for session"""
+    """Create test database engine for FUNCTION scope (safe for asyncio loop isolation)"""
     url = TEST_DATABASE_URL
     # Fail-safe: Ensure async driver is used
     if "postgresql+asyncpg://" not in url:
@@ -240,8 +233,10 @@ async def test_db_engine():
         elif url.startswith("postgresql://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
             
-    print(f"\nDEBUG: Connecting to DB with URL: {url}")
-    engine = create_async_engine(url, echo=False, pool_pre_ping=True)
+    # print(f"\nDEBUG: Connecting to DB with URL: {url}") # Reduced noise
+    # pool_pre_ping=True needed to verify connection in function scope?
+    # Yes, but each test gets new engine. Overhead is acceptable for stability.
+    engine = create_async_engine(url, echo=False, pool_pre_ping=False) # False is faster for tests
     yield engine
     await engine.dispose()
 
@@ -252,18 +247,16 @@ from scripts.b2b.seed_rbac import seed_b2b_rbac_data
 # ... (omitted)
 
 @pytest_asyncio.fixture(scope="session")
-async def seed_db(test_db_engine):
+async def seed_db():
     """
     Session-scoped fixture to seed the database ONCE using production YAML.
-    Uses ADMIN_DATABASE_URL if available to ensure cleanup (TRUNCATE/replication_role) works.
+    It creates its OWN engine to avoid Loop Scope Mismatch with function-scoped tests.
     """
-    if os.getenv("SKIP_SEEDING"):
-        print("\nDEBUG: SKIP_SEEDING=1 - Skipping pytest seeding (DB assumed ready)")
-        yield
-        return
+
 
     admin_url = os.getenv("ADMIN_DATABASE_URL")
-    admin_engine = None
+    seed_engine_to_dispose = None
+    seed_engine = None
     
     if admin_url:
         print(f"\nDEBUG: Using ADMIN_DATABASE_URL for seeding: {admin_url}")
@@ -274,18 +267,26 @@ async def seed_db(test_db_engine):
             elif admin_url.startswith("postgresql://"):
                 admin_url = admin_url.replace("postgresql://", "postgresql+asyncpg://", 1)
                 
-        admin_engine = create_async_engine(admin_url, echo=False)
-        seed_engine = admin_engine
+        seed_engine = create_async_engine(admin_url, echo=False)
+        seed_engine_to_dispose = seed_engine
     else:
-        print("\nDEBUG: Using default test_db_engine for seeding (expect failures if not superuser)")
-        seed_engine = test_db_engine
+        print("\nDEBUG: Using TEST_DATABASE_URL for seeding (expect failures if not superuser)")
+        # Create dedicated engine for seeding
+        url = TEST_DATABASE_URL
+        if "postgresql+asyncpg://" not in url:
+             if url.startswith("postgres://"):
+                 url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+             elif url.startswith("postgresql://"):
+                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        seed_engine = create_async_engine(url, echo=False)
+        seed_engine_to_dispose = seed_engine
 
     try:
         async with AsyncSession(seed_engine) as session:
             # Auto-commit mode using begin()
             async with session.begin():
                 # Force admin permissions if using app user (fallback)
-                if not admin_engine:
+                if not admin_url:
                     from sqlalchemy import text
                     await session.execute(text("SET app.is_platform_admin = 'true'"))
                 
@@ -295,6 +296,7 @@ async def seed_db(test_db_engine):
                 
                 # 2. Seed Data from YAML (reusing production script logic)
                 use_case = os.getenv("USE_CASE", "bank_surveillance")
+                os.environ["USE_CASE"] = use_case # Ensure seeder script sees it
                 print(f"\n🌱 Seeding database from YAML for use case: {use_case}...")
                 
                 # Using shared logic from scripts/b2b/seed_rbac.py
@@ -302,9 +304,12 @@ async def seed_db(test_db_engine):
                 await seed_b2b_rbac_data(session)
                 
                 print("✓ Database seeded successfully")
+        
+        yield # Yield control to session
+        
     finally:
-        if admin_engine:
-            await admin_engine.dispose()
+        if seed_engine_to_dispose:
+            await seed_engine_to_dispose.dispose()
 
 
 @pytest_asyncio.fixture
@@ -668,51 +673,27 @@ async def b2b_test_setup(db_session: AsyncSession):
     # Step 2: Create TenantAwareSession for this tenant
     tenant_session = TenantAwareSession(db_session, tenant.id)
     
-    # Step 3: Create admin user using tenant-aware session
-    admin = await create_test_user(
+    # Step 3: Create OWNER user
+    # We use OWNER instead of ADMIN because many tests (Billing, Settings) require full permissions.
+    # The 'admin' role intentionally lacks billing access (see saas_roles.yaml).
+    owner = await create_test_user(
         tenant_session,  # Use tenant-aware session
         tenant_id=tenant.id,
-        email=f"admin@{tenant.domain}",
-        role_slug="admin"
+        email=f"owner@{tenant.domain}",
+        role_slug="owner"
     )
 
-    # Force grant teams:delete to make sure (fix for 403)
-    from modules.b2b.models import RolePermission, Resource, Action, Role
-    teams_res = await db_session.execute(select(Resource).where(Resource.name == "teams"))
-    teams_res = teams_res.scalar_one()
-    delete_act = await db_session.execute(select(Action).where(Action.name == "delete"))
-    delete_act = delete_act.scalar_one()
-    
-    # Get admin role
-    admin_role = await db_session.execute(select(Role).where(Role.id == admin.role_id))
-    admin_role = admin_role.scalar_one()
-    
-    # Check if exists
-    perm_exists = await db_session.execute(
-        select(RolePermission).where(
-            RolePermission.role_id == admin_role.id,
-            RolePermission.resource_id == teams_res.id,
-            RolePermission.action_id == delete_act.id
-        )
-    )
-    if not perm_exists.scalar_one_or_none():
-        db_session.add(RolePermission(
-            role_id=admin_role.id,
-            resource_id=teams_res.id,
-            action_id=delete_act.id
-        ))
-        await db_session.commit()
-    
     # Step 4: Create token
     token = encode_mock_jwt(create_mock_firebase_token(
-        uid=admin.firebase_uid,
-        email=admin.email,
-        firebase_tenant_id=tenant.firebase_tenant_id # FIX: Use actual tenant ID
+        uid=owner.firebase_uid,
+        email=owner.email,
+        firebase_tenant_id=tenant.firebase_tenant_id
     ))
     
     return {
         "tenant": tenant,
-        "admin": admin,
+        "owner": owner,
+        "admin": owner, # Alias for backward compatibility (tests expect 'admin' key)
         "token": token,
         "session": tenant_session,  # Use this for all DB operations
         "tenant_id": tenant.id,

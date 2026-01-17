@@ -403,6 +403,7 @@ class TestInvoiceDetail:
         """Test that tenant cannot access another tenant's invoice"""
         from core.db.rls import rls_service
         from sqlalchemy import select, delete
+        import secrets
         
         # Create invoice for tenant 2
         await rls_service.set_tenant_context(db_session, b2b_tenant2.id)
@@ -422,10 +423,11 @@ class TestInvoiceDetail:
         db_session.add(sub2)
         await db_session.flush()
         
+        unique_suffix2 = secrets.token_hex(4).upper()
         invoice2 = Invoice(
             subscription_id=sub2.id,
             tenant_id=b2b_tenant2.id,
-            invoice_number="INV-TENANT2",
+            invoice_number=f"INV-TENANT2-{unique_suffix2}",
             status=InvoiceStatus.SENT.value,
             amount_due=0,
             seat_count_snapshot=1,

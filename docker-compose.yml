@@ -253,7 +253,6 @@ services:
       - EMBEDDING_PROVIDER=openai
       - EMBEDDING_MODEL=text-embedding-3-small
       - HF_HOME=/app/.cache/huggingface
-
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
@@ -382,7 +381,6 @@ services:
       - ./backend/.env
     environment:
       # Backend services (running in Docker) - use internal service names
-      - TEST_DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - API_URL=http://b2b-api:8000
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -394,6 +392,10 @@ services:
       - FRONTEND_URL_B2C=http://frontend-b2c:3001
       - FRONTEND_URL_PLATFORM=http://frontend-platform:3002
       - BASE_URL=http://frontend-b2b:3000
+      # Database Overrides (Force use of internal docker service 'postgres')
+      - DATABASE_URL=postgresql://saas_demo_user:saas_demo_user_password@postgres:5432/saas_demo_db
+      - TEST_DATABASE_URL=postgresql+asyncpg://saas_demo_user:saas_demo_user_password@postgres:5432/saas_demo_db
+      - ADMIN_DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-saas_demo_db}
     volumes:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro

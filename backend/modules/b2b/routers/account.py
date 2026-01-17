@@ -24,11 +24,11 @@ async def get_account_settings(
     """
     Get current tenant account settings
     
-    - Requires account:read permission (Admin/Owner)
+    - Requires settings:read permission (Admin/Owner)
     - Returns tenant name, domain (read-only), logo, and creation date
     """
     # Check permission
-    if not await has_permission(current_user['id'], 'account', 'read', db):
+    if not await has_permission(current_user['id'], 'settings', 'read', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view account settings"
@@ -59,12 +59,12 @@ async def update_account_settings(
     """
     Update tenant account settings
     
-    - Requires account:write permission (Owner/Admin only)
+    - Requires settings:write permission (Owner/Admin only)
     - Can update: name, logo_url
     - Domain is read-only and cannot be changed
     """
     # Check permission
-    if not await has_permission(current_user['id'], 'account', 'write', db):
+    if not await has_permission(current_user['id'], 'settings', 'write', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to update account settings"

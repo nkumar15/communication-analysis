@@ -132,3 +132,19 @@ headers = create_auth_headers(user, tenant)
 | `_not_found` | Invalid resource ID (404) |
 | `_validation_error` | Invalid input payload (400/422) |
 | `_tenant_isolation` | Other tenant's data not accessible (404 or empty) |
+
+## 8. Asyncio Configuration (CRITICAL)
+
+### Problem: Scope Mismatch causing RuntimeError
+Using `session`-scoped fixtures (like `test_db_engine`) with default `pytest-asyncio` settings causes `RuntimeError: Task attached to a different loop`. This is because tests run in a Function-Scoped loop, but the DB engine was created in a (closed) Session Setup loop.
+
+### Rule: Enforce Session-Scoped Event Loop
+**DO NOT** manually define an `event_loop` fixture in `conftest.py`. Instead, configure `pytest.ini` to align the loop scope with your fixtures.
+
+**`backend/pytest.ini`**:
+```ini
+[pytest]
+asyncio_mode = auto
+asyncio_default_fixture_loop_scope = session
+```
+This ensures ALL async fixtures and tests share the same event loop lifecycle.

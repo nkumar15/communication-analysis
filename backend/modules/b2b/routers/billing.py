@@ -205,12 +205,12 @@ async def create_portal_session(
 async def list_invoices(
     status: Optional[str] = None,
     limit: int = 50,
-    current_user=require_permission("invoices", "read"),
+    current_user=require_permission("billing", "read"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     List invoices for the current tenant.
-    Requires invoices:read permission (Admin/Owner).
+    Requires billing:read permission (Admin/Owner).
     """
     tenant_id = current_user.get('tenant_id') if isinstance(current_user, dict) else current_user.tenant_id
     service = InvoiceService(db)
@@ -251,13 +251,13 @@ async def list_invoices(
 @router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
 async def get_invoice(
     invoice_id: UUID,
-    current_user=require_permission("invoices", "read"),
+    current_user=require_permission("billing", "read"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get specific invoice details.
     RLS will enforce tenant isolation.
-    Requires invoices:read permission (Admin/Owner).
+    Requires billing:read permission (Admin/Owner).
     """
     service = InvoiceService(db)
     invoice = await service.get_invoice_by_id(invoice_id)
