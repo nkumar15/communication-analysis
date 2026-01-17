@@ -181,19 +181,14 @@ async def get_team(
             detail="You do not have permission to view teams"
         )
     
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    # Verify team belongs to user's tenant
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     member_count = await team_service.get_team_member_count(db, team.id)
     
@@ -225,18 +220,14 @@ async def update_team(
     Requires: teams:write permission OR being a team_manager of this team
     """
     # Get team first to check tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -291,18 +282,14 @@ async def delete_team(
         )
     
     # Get team to verify tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     await team_service.delete_team(db, team_id)
     await db.commit()
@@ -328,18 +315,14 @@ async def list_team_members(
         )
     
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     members = await team_service.get_team_members(db, team_id)
     
@@ -370,18 +353,14 @@ async def add_team_member(
     Requires: Being owner/admin OR team_manager of this team
     """
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -431,18 +410,14 @@ async def remove_team_member(
     Requires: Being owner/admin OR team_manager of this team
     """
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -478,18 +453,14 @@ async def update_team_member_role(
     Requires: Being owner/admin OR team_manager of this team
     """
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -534,8 +505,8 @@ async def move_user_between_teams(
     Requires: Being owner/admin OR team_manager of BOTH teams
     """
     # Verify both teams exist and belong to tenant
-    from_team = await team_service.get_team_by_id(db, move_request.from_team_id)
-    to_team = await team_service.get_team_by_id(db, move_request.to_team_id)
+    from_team = await team_service.get_team_by_id(db, move_request.from_team_id, current_user['tenant_id'])
+    to_team = await team_service.get_team_by_id(db, move_request.to_team_id, current_user['tenant_id'])
     
     if not from_team or not to_team:
         raise HTTPException(
@@ -543,11 +514,7 @@ async def move_user_between_teams(
             detail="One or both teams not found"
         )
     
-    if from_team.tenant_id != current_user['tenant_id'] or to_team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage both teams
     can_manage_from = await can_manage_team(current_user['id'], move_request.from_team_id, db)

@@ -235,6 +235,48 @@ class InvitationService:
                 detail="Tenant not found"
             )
         
+        # Enforce max_users subscription limit
+        from sqlalchemy import func
+        from modules.b2b.models import B2BSubscription, B2BSubscriptionPlan
+        
+        # Count existing users + pending invitations
+        user_count_result = await db.execute(
+            select(func.count(UserModel.id)).where(
+                UserModel.tenant_id == tenant_id,
+                UserModel.deleted_at.is_(None)
+            )
+        )
+        current_user_count = user_count_result.scalar() or 0
+        
+        pending_inv_result = await db.execute(
+            select(func.count(InvitationModel.id)).where(
+                InvitationModel.tenant_id == tenant_id,
+                InvitationModel.accepted_at.is_(None)
+            )
+        )
+        pending_invitation_count = pending_inv_result.scalar() or 0
+        
+        total_user_slots = current_user_count + pending_invitation_count
+        
+        # Get active subscription plan
+        plan_result = await db.execute(
+            select(B2BSubscriptionPlan)
+            .join(B2BSubscription, B2BSubscription.plan_id == B2BSubscriptionPlan.id)
+            .where(
+                B2BSubscription.tenant_id == tenant_id,
+                B2BSubscription.status.in_(['active', 'trialing'])
+            )
+        )
+        plan = plan_result.scalars().first()
+        
+        if plan and plan.limits:
+            max_users = plan.limits.get('max_users')
+            if max_users and max_users != -1 and total_user_slots >= max_users:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"User limit reached. Your plan allows {max_users} users. Upgrade to add more."
+                )
+        
         # Validate email domain
         email_domain = email.lower().split('@')[1]
         if email_domain != tenant.domain.lower():

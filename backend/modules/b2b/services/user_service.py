@@ -13,11 +13,12 @@ from core.utils import get_utc_now
 class UserService:
     """Service for user operations using SQLAlchemy ORM"""
     
-    async def get_user_by_id(self, db: AsyncSession, user_id: UUID) -> Optional[User]:
-        """Get user by ID"""
+    async def get_user_by_id(self, db: AsyncSession, user_id: UUID, tenant_id: UUID) -> Optional[User]:
+        """Get user by ID with tenant scope for defense-in-depth isolation"""
         result = await db.execute(
             select(UserModel)
             .where(UserModel.id == user_id)
+            .where(UserModel.tenant_id == tenant_id)  # Defense in depth
             .where(UserModel.is_active == True)
             .where(UserModel.deleted_at.is_(None))
         )

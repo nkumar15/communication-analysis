@@ -131,14 +131,22 @@ async def get_tenant_teams(
     return list(result.scalars().all())
 
 
-async def get_team_by_id(db: AsyncSession, team_id: UUID) -> Optional[Team]:
-    """Get team by ID"""
-    result = await db.execute(
-        select(Team).where(
-            Team.id == team_id,
-            Team.deleted_at.is_(None)
-        )
+async def get_team_by_id(db: AsyncSession, team_id: UUID, tenant_id: UUID = None) -> Optional[Team]:
+    """
+    Get team by ID with optional tenant scope for defense-in-depth isolation.
+    
+    Args:
+        db: Database session
+        team_id: Team ID
+        tenant_id: Tenant ID (optional, but recommended for defense-in-depth)
+    """
+    query = select(Team).where(
+        Team.id == team_id,
+        Team.deleted_at.is_(None)
     )
+    if tenant_id:
+        query = query.where(Team.tenant_id == tenant_id)
+    result = await db.execute(query)
     return result.scalar_one_or_none()
 
 

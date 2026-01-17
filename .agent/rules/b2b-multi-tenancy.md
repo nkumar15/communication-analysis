@@ -16,10 +16,11 @@ This  Multi-Tenancy model applies specifically to the **B2B (Business-to-Busines
 
 ## 2. Row Level Security (RLS) Context
 - **Rule**: Set the appropriate RLS context before executing business logic.
-- **Usage**:
-  - **Standard Request**: `await rls_service.set_tenant_context(db, tenant_id)`
-  - **Platform Admin**: `await rls_service.set_platform_admin_context(db)` (Use sparingly, only for cross-tenant maintenance).
-  - **Context Switching**: If a worker processes jobs for multiple tenants, explicitly switch context for each job.
+- **Enforcement**:
+  - **Standard B2B Requests**: The `get_current_active_user` middleware in `modules/b2b/middleware/b2b_auth.py` is the **single source** of RLS context enforcement. It calls `rls_service.set_tenant_context(db, tenant.id)` after validating the user's token. All routers using this dependency automatically have RLS context set.
+  - **Platform Admin**: Use `await rls_service.set_platform_admin_context(db)` sparingly, only for cross-tenant maintenance operations.
+  - **Background Workers**: If a worker processes jobs for multiple tenants, explicitly call `await rls_service.set_tenant_context(db, tenant_id)` for each job.
+  - **Special Cases**: For endpoints that bypass `get_current_active_user` (e.g., public invitation acceptance), services must explicitly set RLS context before tenant-scoped queries.
 
 ## 3. Data Leakage Prevention
 - **Rule**: Ensure strict domain boundaries for user invitations unless explicitly configured otherwise.
