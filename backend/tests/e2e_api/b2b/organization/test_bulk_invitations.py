@@ -46,9 +46,9 @@ class TestBulkInvitations:
         # Create CSV content
         # Create CSV content (role is optional, team fields mandatory)
         csv_content = f"""email,team_name,team_role,name
-alice@{tenant.domain},Engineering,team_manager,Alice Smith
+alice@{tenant.domain},Engineering,team_admin,Alice Smith
 bob@{tenant.domain},Engineering,team_contributor,Bob Jones
-carol@{tenant.domain},Sales,team_reader,Carol White
+carol@{tenant.domain},Sales,team_viewer,Carol White
 """
         
         # Create file
@@ -69,6 +69,8 @@ carol@{tenant.domain},Sales,team_reader,Carol White
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
         
+        if response.status_code != 200:
+            print(f"\n❌ Error: {response.text}")
         assert response.status_code == 200
         data = response.json()
         
@@ -238,8 +240,8 @@ bob@wrongdomain.com,Engineering,team_contributor
         
         # Verify template content (updated columns)
         content = response.text
-        assert 'email,team_name,team_role,name' in content
-        assert 'role' not in content
+        # Updated to include 'role' column
+        assert 'email,team_name,team_role,role,name' in content
         assert '@yourdomain.com' in content
     
     @pytest.mark.asyncio
@@ -259,10 +261,16 @@ bob@wrongdomain.com,Engineering,team_contributor
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
+        # Pre-create teams
+        from modules.b2b.services.team_service import create_team
+        await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
+        await create_team(db_session, tenant.id, "Sales", created_by=admin.id)
+        await db_session.commit()
+
         # First, upload a CSV
         csv_content = f"""email,team_name,team_role
 test1@{tenant.domain},Engineering,team_contributor
-test2@{tenant.domain},Sales,team_reader
+test2@{tenant.domain},Sales,team_viewer
 """
         files = {
             'file': ('test.csv', io.BytesIO(csv_content.encode('utf-8')), 'text/csv')
@@ -308,6 +316,11 @@ test2@{tenant.domain},Sales,team_reader
             firebase_tenant_id=tenant.firebase_tenant_id
         ))
         
+        # Pre-create team
+        from modules.b2b.services.team_service import create_team
+        await create_team(db_session, tenant.id, "Engineering", created_by=admin.id)
+        await db_session.commit()
+
         # Upload CSV first
         csv_content = f"""email,team_name,team_role
 test@{tenant.domain},Engineering,team_contributor
@@ -474,22 +487,19 @@ test@{tenant.domain},NewTeam,team_contributor
             files=files,
             headers={"Authorization": f"Bearer {jwt_token}"}
         )
-        # Auto-creation is REMOVED. This should now fail for non-existent teams.
-        assert response.status_code == 200
+        # Auto-creation is REMOVED. This should now fail with 400 Bad Request because of business validation errors (Team not found).
+        assert response.status_code == 400
         data = response.json()
         
-        # Expect failures
-        assert data['successful'] == 0
-        assert data['failed'] == 2 # Both rows fail
-        assert len(data['results']) == 2
-        
-        # Verify no teams were created
-        assert len(data.get('teams_created', [])) == 0
+        # Expect validation error details
+        assert data['detail']['error'] == 'validation_failed'
+        errors = data['detail']['errors']
+        assert len(errors) > 0
+        assert 'Team not found' in str(errors)
         
         # Verify error messages
-        for result in data['results']:
-            assert result['status'] == 'failed'
-            assert 'Team not found' in result['error']
+        # No results array in 400 validation error response
+        # We only check top-level error details above
     
     @pytest.mark.asyncio
     async def test_download_failures_only(self, api_client: AsyncClient, db_session: AsyncSession):

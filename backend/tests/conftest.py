@@ -298,7 +298,8 @@ async def api_client(db_session):
     import base64
     
     async def override_get_current_user(
-        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
+        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+        db: AsyncSession = Depends(get_db)
     ):
         if not credentials:
             raise HTTPException(
@@ -308,17 +309,78 @@ async def api_client(db_session):
         
         token = credentials.credentials
         try:
-            # Simple decode of our mock token format: header.payload.signature
+            # Simple decode
             parts = token.split(".")
             if len(parts) != 3:
                 raise ValueError("Invalid token format")
                 
             payload_str = parts[1]
-            # Add padding if needed
             payload_str += "=" * ((4 - len(payload_str) % 4) % 4)
             payload_json = base64.urlsafe_b64decode(payload_str).decode()
-            return json.loads(payload_json)
+            token_data = json.loads(payload_json)
+            
+            # Hydrate user from DB to get permissions
+            from modules.b2b.services.user_service import user_service
+            from modules.b2b.rbac import get_user_permissions
+            
+            # Token data has 'firebase_tenant_id' or 'email'. 
+            # We need to find the user.
+            # user_service.get_user_by_firebase_uid checks tenant_id. 
+            # We need tenant_id from token?
+            # The mock token: {"user_id": uid, "email": email, "firebase": {"tenant": ...}}
+            
+            firebase_uid = token_data.get("user_id")
+            email = token_data.get("email")
+            # We might not have tenant_id easily if it's cross-tenant test?
+            # But the user is unique by firebase_uid globally usually?
+            # Actually user_service.get_user_by_firebase_uid expects tenant_id.
+            
+            # Helper to find user across tenants?
+            # Or assume we set tenant context?
+            # The tests set tenant context for the DB session in override_get_db?
+            # No, override_get_db clears context for B2B.
+            
+            # Let's try to find the user by email if needed, or scan tenants?
+            # Better: The token has `firebase_tenant_id`.
+            firebase_tenant_id = token_data.get("firebase", {}).get("tenant")
+            
+            if not firebase_uid: 
+                 # Fallback to returning token data (legacy behavior)
+                 return token_data
+
+            # Find tenant by firebase_tenant_id
+            from modules.b2b.services.tenant_service import tenant_service
+            tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
+            
+            if not tenant:
+                 # Fallback
+                 return token_data
+            
+            user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+            if not user:
+                return token_data
+                
+            # get_user_by_firebase_uid returns Pydantic User model
+            # Use model_dump() if available (v2), else dict()
+            if hasattr(user, 'model_dump'):
+                user_dict = user.model_dump()
+            else:
+                user_dict = user.dict()
+            
+            # DEBUG
+            # print(f"DEBUG AUTH: User ID type: {type(user_dict.get('id'))}, Val: {user_dict.get('id')}")
+            
+            user_dict['permissions'] = await get_user_permissions(db, user)
+            
+            # Enrich with plugins
+            from core.rbac.plugin_registry import plugin_registry
+            # Plugin registry expects dict
+            user_dict = await plugin_registry.enrich_user(user_dict, db)
+            
+            return user_dict
+            
         except Exception as e:
+            # print(f"Auth Error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
@@ -716,6 +778,7 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
         {"resource": "teams", "actions": ["read", "write", "delete"]},
         {"resource": "projects", "actions": ["read", "write", "delete"]},
         {"resource": "tasks", "actions": ["read", "write", "delete"]},
+        {"resource": "comments", "actions": ["read", "write", "delete"]}
     ]
     read_only = [
         {"resource": "users", "actions": ["read"]},
@@ -723,13 +786,19 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
         # ("account", "actions": ["read"]), # Removed to pass test_account_settings_forbidden_for_member
         {"resource": "dashboard", "actions": ["read"]},
         {"resource": "projects", "actions": ["read"]},
-        {"resource": "tasks", "actions": ["read"]}
+        {"resource": "tasks", "actions": ["read"]},
+        {"resource": "comments", "actions": ["read"]}
     ]
     
+    member_perms = list(read_only)
+    # Members can write comments and tasks
+    member_perms.append({"resource": "comments", "actions": ["read", "write", "delete"]})
+    member_perms.append({"resource": "tasks", "actions": ["read", "write"]})
+
     templates = {
         "owner": {"is_default": True, "perms": all_perms}, 
         "admin": {"is_default": True, "perms": all_perms},
-        "member": {"is_default": True, "perms": read_only},
+        "member": {"is_default": True, "perms": member_perms},
         "viewer": {"is_default": True, "perms": read_only},
     }
     
@@ -757,23 +826,55 @@ async def ensure_team_roles(db_session: AsyncSession):
     from sqlalchemy import select
     
     roles = [
-        {"name": "team_admin", "display_name": "Team Admin", "is_default": False},
-        {"name": "team_contributor", "display_name": "Contributor", "is_default": True},
-        {"name": "team_viewer", "display_name": "Viewer", "is_default": False}
+        {
+            "name": "team_admin", 
+            "display_name": "Team Admin", 
+            "is_default": False, 
+            "permissions": [
+                {"resource": "comments", "actions": ["read", "write", "delete"]},
+                {"resource": "tasks", "actions": ["read", "write", "delete"]},
+                {"resource": "projects", "actions": ["read", "write"]}
+            ]
+        },
+        {
+            "name": "team_contributor", 
+            "display_name": "Contributor", 
+            "is_default": True, 
+            "permissions": [
+                {"resource": "comments", "actions": ["read", "write", "delete"]},
+                {"resource": "tasks", "actions": ["read", "write"]},
+                {"resource": "projects", "actions": ["read"]}
+            ]
+        },
+        {
+            "name": "team_viewer", 
+            "display_name": "Viewer", 
+            "is_default": False, 
+            "permissions": [
+                {"resource": "comments", "actions": ["read"]},
+                {"resource": "tasks", "actions": ["read"]},
+                {"resource": "projects", "actions": ["read"]}
+            ]
+        }
     ]
     
     stmt = select(TeamRoleDefinition).where(TeamRoleDefinition.tenant_id.is_(None))
     result = await db_session.execute(stmt)
-    existing = {r.name for r in result.scalars().all()}
+    existing_roles = {r.name: r for r in result.scalars().all()}
     
     for r in roles:
-        if r["name"] not in existing:
+        if r["name"] in existing_roles:
+            # Update permissions if they exist
+            existing_roles[r["name"]].permissions = r.get("permissions", [])
+            existing_roles[r["name"]].display_name = r["display_name"]
+            existing_roles[r["name"]].is_default = r["is_default"]
+        else:
             db_session.add(TeamRoleDefinition(
                 tenant_id=None, # System role
                 name=r["name"],
                 display_name=r["display_name"],
                 is_default=r["is_default"],
-                permissions=[], # Empty for now
+                permissions=r.get("permissions", []), 
                 is_system=True,
                 sort_order=10
             ))

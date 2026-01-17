@@ -155,6 +155,7 @@ class TestCommentsAPI:
                 "content": "Original content"
             }
         )
+        assert resp.status_code == 201, f"Create comment failed: {resp.text}"
         comment_id = resp.json()["id"]
         
         # Update own comment
