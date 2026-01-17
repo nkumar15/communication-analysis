@@ -64,3 +64,20 @@ Applies to: **System Design, API Patterns, Security, Data Models**
 - **404 Not Found**: Resource does not exist or user has no access (tenant isolation).
 - **429 Too Many Requests**: Rate limit exceeded.
 - **500 Internal Server Error**: Unhandled exception.
+
+## 9. PostgreSQL Best Practices
+- **Schema Design**:
+  - **UUIDs**: Use `UUID(as_uuid=True)` for all Primary Keys.
+  - **JSONB**: Use `JSONB` for flexible/unstructured data (`features`, `config`). **DO NOT** use it for relational data (foreign keys).
+  - **Timestamps**: Use `TIMESTAMPTZ` (shorthand for `TIMESTAMP WITH TIME ZONE`). Always include `created_at` and `updated_at` with defaults (`DEFAULT now()`).
+- **Indexing**:
+  - **Tenant Isolation**: EVERY tenant-scoped table **MUST** have a `tenant_id` column and an index on it (or compound index starting with `tenant_id`).
+  - **Foreign Keys**: Explicitly index all Foreign Key columns (Postgres does not do this automatically).
+  - **JSONB**: Use **GIN** indexes for JSONB columns if querying by keys (`features ->> 'sso'`).
+- **Concurrency**:
+  - **Atomic Updates**: Use `with_for_update()` (SELECT ... FOR UPDATE) for critical read-modify-write chains (Inventory, Billing, Activation).
+  - **No Table Locks**: Never explicit lock an entire table.
+- **Async SQLAlchemy**:
+  - **N+1 Prevention**: Use `options(selectinload(Model.relation))` for fetching related data in async mode.
+  - **Sessions**: Correctly scope sessions. Rollback on error in middlewares/dependencies.
+
