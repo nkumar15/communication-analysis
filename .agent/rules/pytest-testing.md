@@ -1,9 +1,19 @@
+---
+trigger: always_on
+---
+
 # Pytest Testing Rules
 
 ## Scope
 Owned by: **QA Lead / Senior Developer**
 Applies to: **All test code in `backend/tests/`**
 
+## 0. Execution Environment
+**CRITICAL**: Tests must **ALWAYS** be run inside the Docker container to ensure access to DB, Redis, and other services.
+- **Do NOT** run `pytest` directly on the host machine.
+- **Use Make**: `make test-api` or `make test-coverage`
+- **Use Docker**: `docker compose run --rm e2e-tests pytest <path_to_test>`
+- **Output redirection**: always redirect test cases output to file for debugging and validation of test cases 
 ## 1. Test Organization
 
 ### Directory Structure

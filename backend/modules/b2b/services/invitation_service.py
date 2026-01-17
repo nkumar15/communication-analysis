@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.b2b.models import InvitationModel, TenantModel, Role
+from modules.b2b.models.team_role_definition import TeamRoleDefinition
 from modules.b2b.schemas import Invitation
 from modules.b2b.utils.csv_parser import BulkInviteRow
 from core.utils import get_utc_now

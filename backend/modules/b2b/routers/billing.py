@@ -398,7 +398,7 @@ class BillingProfileResponse(BaseModel):
 class BillingProfileUpdate(BaseModel):
     tax_id: Optional[str] = None
     vat_number: Optional[str] = None
-    billing_address: Optional[str] = None
+    billing_address: Optional[dict] = None
     billing_email: Optional[str] = None
 
 @router.get("/profile", response_model=BillingProfileResponse)

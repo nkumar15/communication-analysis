@@ -6,6 +6,7 @@ Tests invoice generation, listing, and payment tracking with RLS.
 import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
+from sqlalchemy import select
 
 from modules.b2b.models import (
     Subscription,
@@ -320,3 +321,128 @@ class TestInvoicePayment:
         assert len(overdue_invoices) >= 1
         assert any(inv.invoice_number == f"INV-T1-OD-{unique_suffix1}" for inv in overdue_invoices)
         assert all(inv.tenant_id == b2b_tenant.id for inv in overdue_invoices)
+
+
+class TestInvoiceDetail:
+    """Test retrieving specific invoice details"""
+
+    async def test_get_invoice_detail_success(
+        self,
+        api_client,
+        db_session,
+        b2b_tenant,
+        b2b_tenant_owner_token
+    ):
+        """Test getting a single invoice by ID"""
+        from core.db.rls import rls_service
+        import secrets
+        
+        await rls_service.set_tenant_context(db_session, b2b_tenant.id)
+        
+        # Setup subscription and invoice
+        subscription = Subscription(
+            tenant_id=b2b_tenant.id,
+            tier=SubscriptionTier.PROFESSIONAL.value,
+            seat_count=5,
+            total_amount_cents=15000
+        )
+        db_session.add(subscription)
+        await db_session.flush()
+        
+        unique_suffix = secrets.token_hex(4).upper()
+        invoice = Invoice(
+            subscription_id=subscription.id,
+            tenant_id=b2b_tenant.id,
+            invoice_number=f"INV-TEST-{unique_suffix}",
+            status=InvoiceStatus.SENT.value,
+            amount_due=15000,
+            seat_count_snapshot=5,
+            base_price_snapshot_cents=5000,
+            per_seat_price_snapshot_cents=2000,
+            billing_period_start=datetime.now(timezone.utc) - timedelta(days=30),
+            billing_period_end=datetime.now(timezone.utc),
+            invoice_date=datetime.now(timezone.utc)
+        )
+        db_session.add(invoice)
+        await db_session.commit()
+        
+        # Test API
+        response = await api_client.get(
+            f"/api/b2b/billing/invoices/{invoice.id}",
+            headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == str(invoice.id)
+        assert data["invoice_number"] == invoice.invoice_number
+        assert data["amount_due"] == 15000
+
+    async def test_get_invoice_detail_not_found(
+        self,
+        api_client,
+        b2b_tenant_owner_token
+    ):
+        """Test getting non-existent invoice"""
+        random_id = uuid4()
+        response = await api_client.get(
+            f"/api/b2b/billing/invoices/{random_id}",
+            headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
+        )
+        
+        assert response.status_code == 404
+
+    async def test_get_invoice_detail_forbidden_other_tenant(
+        self,
+        api_client,
+        db_session,
+        b2b_tenant,
+        b2b_tenant2,
+        b2b_tenant_owner_token
+    ):
+        """Test that tenant cannot access another tenant's invoice"""
+        from core.db.rls import rls_service
+        from sqlalchemy import select, delete
+        
+        # Create invoice for tenant 2
+        await rls_service.set_tenant_context(db_session, b2b_tenant2.id)
+        
+        # Clean up any existing subscription to avoid unique violation
+        await db_session.execute(
+            delete(Subscription).where(Subscription.tenant_id == b2b_tenant2.id)
+        )
+        await db_session.flush()
+        
+        sub2 = Subscription(
+            tenant_id=b2b_tenant2.id,
+            tier=SubscriptionTier.STARTER.value,
+            seat_count=1,
+            total_amount_cents=0
+        )
+        db_session.add(sub2)
+        await db_session.flush()
+        
+        invoice2 = Invoice(
+            subscription_id=sub2.id,
+            tenant_id=b2b_tenant2.id,
+            invoice_number="INV-TENANT2",
+            status=InvoiceStatus.SENT.value,
+            amount_due=0,
+            seat_count_snapshot=1,
+            base_price_snapshot_cents=0,
+            per_seat_price_snapshot_cents=0,
+            billing_period_start=datetime.now(timezone.utc),
+            billing_period_end=datetime.now(timezone.utc),
+            invoice_date=datetime.now(timezone.utc)
+        )
+        db_session.add(invoice2)
+        await db_session.commit()
+        
+        # Try to access with tenant 1 token
+        response = await api_client.get(
+            f"/api/b2b/billing/invoices/{invoice2.id}",
+            headers={"Authorization": f"Bearer {b2b_tenant_owner_token}"}
+        )
+        
+        # Should return 404 (not found in current tenant context) rather than 403
+        assert response.status_code == 404

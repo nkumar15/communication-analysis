@@ -553,6 +553,7 @@ class TestInvitationFlow:
 
     
     @pytest.mark.asyncio
+    # @pytest.mark.skip("Flaky transaction issue in Scenario 2 - Pending Fix")
     async def test_invitation_system_role_validation_logic(
         self,
         api_client: AsyncClient,
@@ -616,7 +617,8 @@ class TestInvitationFlow:
                 InvitationModel.tenant_id == tenant.id
             )
         )
-        invitation = result.scalar_one()
+        invitation = result.scalar_one_or_none()
+        assert invitation is not None, f"Invitation not found for {tenant.domain}"
         assert invitation.role == B2BRoleName.MEMBER
         
         # Scenario 2: Invite user with team assignment but no System Role
@@ -628,6 +630,7 @@ class TestInvitationFlow:
             name="Engineering",
             description="Engineering team"
         )
+        await db_session.commit()
         
         response2 = await api_client.post(
             "/api/b2b/invitations/invite",
@@ -650,13 +653,22 @@ class TestInvitationFlow:
         assert data2["team_id"] == str(team.id)
         
         # Verify System Role still defaults to MEMBER (independent of Team Role) - from DB
+        # DEBUG
+        # all_invites = await db_session.execute(select(InvitationModel))
+        # print(f"DEBUG: All Invites: {[ (i.email, i.tenant_id, i.role, i.team_id) for i in all_invites.scalars().all() ]}")
+        
+        # Ensuring RLS context is refreshed
+        from tests.conftest import set_tenant_context
+        await set_tenant_context(db_session, tenant.id)
+        
         result2 = await db_session.execute(
-            select(InvitationModel).where(
-                InvitationModel.email == f"engineer@{tenant.domain}",
-                InvitationModel.tenant_id == tenant.id
-            )
-        )
-        invitation2 = result2.scalar_one()
+             select(InvitationModel).where(
+                 InvitationModel.email == f"engineer@{tenant.domain}",
+                 InvitationModel.tenant_id == tenant.id
+             )
+         )
+        invitation2 = result2.scalar_one_or_none()
+        assert invitation2 is not None, f"Invitation 2 not found for {tenant.domain}"
         assert invitation2.role == B2BRoleName.MEMBER
         assert invitation2.team_id == team.id
         assert invitation2.team_role == "team_contributor"

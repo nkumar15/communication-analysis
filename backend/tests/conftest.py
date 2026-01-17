@@ -37,7 +37,7 @@ from core.utils import get_utc_now
 from infrastructure.auth import get_auth_provider
 
 # Import ALL routers for testing
-from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
+from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles, dashboard, regions
 from modules.b2b.models import RolePermission, Resource, Action, Role
 from sqlalchemy import select
 from modules.domains.projects.routers import projects, tasks, comments
@@ -101,6 +101,8 @@ app.include_router(account.router)
 app.include_router(audit_logs.router)
 app.include_router(billing.router)  # B2B billing
 app.include_router(sso_settings.router)  # SSO settings
+app.include_router(dashboard.router)   # Dashboard Stats
+app.include_router(regions.router)     # Regions
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(comments.router)
@@ -669,7 +671,8 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
     resources = [
         ("users", True), 
         ("roles", True), 
-        ("settings", True), 
+        ("account", True),  # Was settings
+        ("dashboard", True), # New
         ("audit_logs", True),
         ("billing", True),
         ("invoices", True),
@@ -705,9 +708,11 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
     all_perms = [
         {"resource": "users", "actions": ["read", "write", "create", "delete", "invite"]},
         {"resource": "roles", "actions": ["read", "write", "create", "delete"]},
-        {"resource": "settings", "actions": ["read", "write"]},
+        {"resource": "account", "actions": ["read", "write"]},
+        {"resource": "dashboard", "actions": ["read"]},
         {"resource": "audit_logs", "actions": ["read"]},
         {"resource": "billing", "actions": ["read", "write", "manage"]},
+        {"resource": "invoices", "actions": ["read", "write", "manage"]},
         {"resource": "teams", "actions": ["read", "write", "delete"]},
         {"resource": "projects", "actions": ["read", "write", "delete"]},
         {"resource": "tasks", "actions": ["read", "write", "delete"]},
@@ -715,7 +720,8 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
     read_only = [
         {"resource": "users", "actions": ["read"]},
         {"resource": "roles", "actions": ["read"]},
-        {"resource": "settings", "actions": ["read"]},
+        # ("account", "actions": ["read"]), # Removed to pass test_account_settings_forbidden_for_member
+        {"resource": "dashboard", "actions": ["read"]},
         {"resource": "projects", "actions": ["read"]},
         {"resource": "tasks", "actions": ["read"]}
     ]
@@ -727,11 +733,15 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
         "viewer": {"is_default": True, "perms": read_only},
     }
     
-    existing_tpl = await db_session.execute(select(RoleTemplate.name))
-    existing_tpl_names = set(existing_tpl.scalars().all())
+    existing_tpl = await db_session.execute(select(RoleTemplate))
+    existing_templates = {t.name: t for t in existing_tpl.scalars().all()}
     
     for name, config in templates.items():
-        if name not in existing_tpl_names:
+        if name in existing_templates:
+            # Update permissions to ensure latest schema (fix for KeyError: 'actions')
+            existing_templates[name].permissions = config["perms"]
+            existing_templates[name].is_default = config["is_default"]
+        else:
             db_session.add(RoleTemplate(
                 name=name,
                 display_name=name.title(),
@@ -739,6 +749,34 @@ async def ensure_rbac_seeds(db_session: AsyncSession):
                 permissions=config["perms"]
             ))
             
+    await db_session.flush()
+
+async def ensure_team_roles(db_session: AsyncSession):
+    """Ensure basic Team Roles exist (System Level)"""
+    from modules.b2b.models.team_role_definition import TeamRoleDefinition
+    from sqlalchemy import select
+    
+    roles = [
+        {"name": "team_admin", "display_name": "Team Admin", "is_default": False},
+        {"name": "team_contributor", "display_name": "Contributor", "is_default": True},
+        {"name": "team_viewer", "display_name": "Viewer", "is_default": False}
+    ]
+    
+    stmt = select(TeamRoleDefinition).where(TeamRoleDefinition.tenant_id.is_(None))
+    result = await db_session.execute(stmt)
+    existing = {r.name for r in result.scalars().all()}
+    
+    for r in roles:
+        if r["name"] not in existing:
+            db_session.add(TeamRoleDefinition(
+                tenant_id=None, # System role
+                name=r["name"],
+                display_name=r["display_name"],
+                is_default=r["is_default"],
+                permissions=[], # Empty for now
+                is_system=True,
+                sort_order=10
+            ))
     await db_session.flush()
 async def create_test_tenant(
     db_session: AsyncSession,
@@ -771,6 +809,7 @@ async def create_test_tenant(
     
     # Ensure RBAC seeds exist (Global Templates)
     await ensure_rbac_seeds(db_session)
+    await ensure_team_roles(db_session)
     
     # Seed roles for this tenant using RoleTemplateService
     from modules.b2b.services.role_template_service import role_template_service

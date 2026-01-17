@@ -2,13 +2,17 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from uuid import uuid4
 
-from modules.b2b.models import Team, TeamMember
+from modules.b2b.models import Team, TeamMember, B2BSubscription, B2BSubscriptionPlan
+from core.constants import B2BRoleName
+from core.utils import get_utc_now
+from datetime import timedelta
 from tests.conftest import (
-    create_test_user,
     create_test_tenant,
+    create_test_user,
+    create_auth_headers,
     create_mock_firebase_token,
     encode_mock_jwt
 )
@@ -195,10 +199,11 @@ class TestTeamManagement:
         
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 2  # Creator + Added Member
+        assert len(data) == 1  # Only Added Member (Creator not added)
         
         # Check added member is present
-        member_entry = next(m for m in data if m["user_id"] == str(user.id))
+        member_entry = data[0]
+        assert member_entry["user_id"] == str(user.id)
         assert member_entry["team_role"] == "team_manager"
 
     @pytest.mark.asyncio
@@ -274,14 +279,13 @@ class TestTeamManagement:
         
         assert response.status_code == 200
         
-        # Verify removed (creator should still remain)
+        # Verify removed (empty list as creator is not a member)
         response = await api_client.get(
             f"/api/b2b/teams/{team_id}/members",
             headers={"Authorization": f"Bearer {token}"}
         )
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["user_id"] != str(user.id)
+        assert len(data) == 0
 
     @pytest.mark.asyncio
     async def test_move_team_member(self, api_client: AsyncClient, b2b_test_setup):
@@ -319,14 +323,13 @@ class TestTeamManagement:
         
         assert response.status_code == 200
         
-        # Verify removed from Team 1 (creator remains)
+        # Verify removed from Team 1 (empty)
         r1 = await api_client.get(f"/api/b2b/teams/{t1_id}/members", headers={"Authorization": f"Bearer {token}"})
-        assert len(r1.json()) == 1
-        assert r1.json()[0]["user_id"] != str(user.id)
+        assert len(r1.json()) == 0
         
-        # Verify added to Team 2 (creator + user)
+        # Verify added to Team 2 (user only)
         r2 = await api_client.get(f"/api/b2b/teams/{t2_id}/members", headers={"Authorization": f"Bearer {token}"})
-        assert len(r2.json()) == 2
+        assert len(r2.json()) == 1
         
         member_in_t2 = next(m for m in r2.json() if m["user_id"] == str(user.id))
         assert member_in_t2["team_role"] == "team_manager"
@@ -448,5 +451,173 @@ class TestTeamManagement:
             f"got {len(user_teams_after)}. "
             "This violates the 'No default team' design principle."
         )
+
+    @pytest.mark.asyncio
+    async def test_create_team_forbidden_for_member(self, api_client: AsyncClient, b2b_test_setup):
+        """Test that a regular member cannot create teams"""
+        setup = b2b_test_setup
+        tenant = setup["tenant"]
+        session = setup["session"]
+        
+        # Create a member
+        member = await create_test_user(
+            session,
+            tenant_id=tenant.id,
+            email=f"member_create@{tenant.domain}",
+            role_slug=B2BRoleName.MEMBER
+        )
+        headers = create_auth_headers(member, tenant)
+        
+        response = await api_client.post(
+            "/api/b2b/teams/",
+            json={"name": "Forbidden Team", "description": "Should fail"},
+            headers=headers
+        )
+        
+        assert response.status_code == 403
+        assert "permission" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_update_team_forbidden(self, api_client: AsyncClient, b2b_test_setup):
+        """Test that a user cannot verify unrelated teams"""
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
+        session = setup["session"]
+        
+        # Admin creates a team
+        resp = await api_client.post(
+            "/api/b2b/teams/",
+            json={"name": "Admin Team"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        team_id = resp.json()["id"]
+        
+        # Member tries to update it
+        member = await create_test_user(
+            session,
+            tenant_id=tenant.id,
+            email=f"member_update@{tenant.domain}",
+            role_slug=B2BRoleName.MEMBER
+        )
+        headers = create_auth_headers(member, tenant)
+        
+        response = await api_client.patch(
+            f"/api/b2b/teams/{team_id}",
+            json={"name": "Hacked Name"},
+            headers=headers
+        )
+        
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_delete_team_forbidden(self, api_client: AsyncClient, b2b_test_setup):
+        """Test that a member cannot delete teams"""
+        setup = b2b_test_setup
+        token = setup["token"]
+        tenant = setup["tenant"]
+        session = setup["session"]
+        
+        # Admin creates a team
+        resp = await api_client.post(
+            "/api/b2b/teams/",
+            json={"name": "Delete Me Not"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        team_id = resp.json()["id"]
+        
+        # Member tries to delete it
+        member = await create_test_user(
+            session,
+            tenant_id=tenant.id,
+            email=f"member_del@{tenant.domain}",
+            role_slug=B2BRoleName.MEMBER
+        )
+        headers = create_auth_headers(member, tenant)
+        
+        response = await api_client.delete(
+            f"/api/b2b/teams/{team_id}",
+            headers=headers
+        )
+        
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_create_team_limit_enforced(self, api_client: AsyncClient, b2b_test_setup):
+        """Test team creation limit enforcement"""
+        setup = b2b_test_setup
+        tenant = setup["tenant"]
+        session = setup["session"]
+        token = setup["token"]
+        
+        # 1. Setup a restrictive plan (max_teams=1)
+        plan = B2BSubscriptionPlan(
+            tier_key="starter_mock",
+            name="Starter Mock",
+            limits={"max_teams": 1, "users": 5},
+            base_price_monthly=1000
+        )
+        session.add(plan)
+        await session.flush()
+        
+        # Create/Update subscription to this plan
+        # Deactivate existing subs first
+        await session.execute(
+            B2BSubscription.__table__.update()
+            .where(B2BSubscription.tenant_id == tenant.id)
+            .values(status="canceled")
+        )
+        
+        sub = B2BSubscription(
+            tenant_id=tenant.id,
+            plan_id=plan.id,
+            status="active",
+            current_period_start=get_utc_now(),
+            current_period_end=get_utc_now() + timedelta(days=30),
+            provider_subscription_id=f"sub_mock_{uuid4().hex}"
+        )
+        session.add(sub)
+        await session.commit() # Commit needed to be visible to checking logic (if new transaction)
+        
+        # 2. Create 1st Team (Should succeed)
+        # However, create_test_tenant usually creates "Default Team".
+        # So count might already be 1.
+        existing_teams_count = (await session.execute(
+            select(func.count(Team.id)).where(Team.tenant_id == tenant.id, Team.deleted_at.is_(None))
+        )).scalar()
+        
+        # If count is 1 (Default Team), then creating "Team 1" should FAIL if limit is 1.
+        # But we want to test success first.
+        # Let's bump limit to 2 for this test to show success then fail.
+        plan.limits = {"max_teams": 2, "users": 5}
+        session.add(plan)
+        await session.commit()
+        
+        if existing_teams_count < 2:
+            resp = await api_client.post(
+                "/api/b2b/teams/", 
+                json={"name": "Team 1"}, 
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            assert resp.status_code == 201
+            
+        # Refetch plan and set limit to existing count to force fail on next
+        existing_count = (await session.execute(
+             select(func.count(Team.id)).where(Team.tenant_id == tenant.id, Team.deleted_at.is_(None))
+        )).scalar()
+        
+        plan.limits = {"max_teams": existing_count}
+        session.add(plan)
+        await session.commit()
+        
+        # 3. Try to create another team (Should fail)
+        resp = await api_client.post(
+            "/api/b2b/teams/", 
+            json={"name": "Team Over Limit"}, 
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        assert resp.status_code == 403
+        assert "limit" in resp.json()["detail"].lower()
 
 
