@@ -23,6 +23,12 @@ class TenantModel(Base, TimestampMixin, SoftDeleteMixin):
     activation_started_at = Column(DateTime(timezone=True), nullable=True)
     
     is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Domain type for multi-domain SaaS (bank_surveillance, marketing_agency, etc.)
+    domain_type = Column(String(50), default='default', nullable=False)
+
+    # Active Features (per-tenant configuration, includes plugins list)
+    features = Column(JSONB, default=dict, nullable=True)
 
     # Billing Profile Fields
     tax_id = Column(String(50), nullable=True)

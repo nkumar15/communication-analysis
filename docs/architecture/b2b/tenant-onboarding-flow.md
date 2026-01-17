@@ -501,6 +501,302 @@ stateDiagram-v2
 
 ---
 
+## Activation Recovery & Resumption
+
+### Overview
+
+**Deletion is NOT the standard recovery approach.** The system has built-in idempotent recovery mechanisms to handle partial activation failures gracefully.
+
+### Recovery Mechanisms
+
+#### 1. Idempotent Re-Invite (Automatic)
+
+The onboarding service automatically detects and handles existing pending tenants:
+
+**Code Location:** `tenant_onboarding_service.py:62-120`
+
+```python
+if existing_tenant:
+    if existing_tenant.activation_status == 'pending':
+        # ♻️ Automatic recovery
+        # - Regenerate activation token
+        # - Extend expiration (48 hours)
+        # - Resend activation email
+        return {...}  # New activation URL
+```
+
+**Usage:**
+```bash
+# Simply re-run the same invite command
+make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
+
+# Output:
+# ♻️ Tenant exists (pending), resending activation for worldwidebank.com
+# ✅ New activation email sent with fresh token
+```
+
+**Benefits:**
+- ✅ Safe to run multiple times
+- ✅ No data loss
+- ✅ Fresh token extends expiration
+- ✅ Resends email to owner
+
+---
+
+#### 2. Resend Activation API
+
+**Endpoint:** `POST /api/platform/b2b/tenants/{tenant_id}/resend-activation`
+
+**Purpose:** Platform admins can manually resend activation for expired or lost tokens.
+
+**Process:**
+1. Generates new activation token
+2. Extends expiration (48 hours)
+3. Updates tenant and invitation records
+4. Sends new activation email
+
+**Response:**
+```json
+{
+  "tenant_id": "uuid",
+  "activation_url": "https://app.example.com/activate/{new_token}",
+  "expires_at": "2024-01-15T12:00:00Z"
+}
+```
+
+---
+
+#### 3. SSO Duplicate Handling (HTTP 409)
+
+**Code Location:** `activation.py:147-153`
+
+When SSO provider already exists from a previous attempt:
+
+```python
+# Detect duplicate SSO provider error
+if 'unique_tenant_provider_id' in error_str:
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="SSO provider already configured. Please retry activation."
+    )
+```
+
+**Frontend Handling:**
+```javascript
+// Skip SSO setup if already configured
+if (error.status === 409) {
+    console.log("✅ SSO already configured, proceeding to completion");
+    await completeActivation(token);
+}
+```
+
+---
+
+### Common Recovery Scenarios
+
+#### Scenario 1: Activation Email Expired
+
+**Problem:** Owner didn't click link within 48 hours
+
+**Solution:**
+```bash
+# Re-run invite command (idempotent)
+make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
+
+# OR use Platform Admin API
+curl -X POST /api/platform/b2b/tenants/{id}/resend-activation
+```
+
+**Result:** Fresh token, extended expiration, new email sent
+
+---
+
+#### Scenario 2: SSO Setup Failed Midway
+
+**Problem:** SSO provider created but activation incomplete
+
+**Current State:**
+- ✅ Tenant created (pending)
+- ✅ Firebase tenant created  
+- ✅ SSO provider in database
+- ❌ Activation not complete
+- ❌ Owner user not created
+
+**Solution:**
+```bash
+# Re-run invite (gets new token)
+make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
+
+# Owner clicks new activation link
+# Frontend detects duplicate SSO (409)
+# Skips SSO step, proceeds to completion
+```
+
+**No deletion required!**
+
+---
+
+#### Scenario 3: Browser Closed During Activation
+
+**Problem:** Owner accidentally closed browser mid-flow
+
+**Solution:**
+```bash
+# Generate fresh activation link
+make b2b-invite f=scripts/b2b/demo_configs/bank_surveillance_demo.json
+
+# Owner clicks new link
+# System resumes from current state (idempotent)
+```
+
+---
+
+### Activation State Resumption
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Initial invite
+    Pending --> Pending: Re-invite (new token)
+    Pending --> SSOSetup: Owner clicks link
+    SSOSetup --> SSOSetup: Retry (409 if exists)
+    SSOSetup --> Active: Complete activation
+    Active --> [*]: Fully activated
+    
+    note right of Pending
+        Idempotent re-invite:
+        - New token generated
+        - Expiration extended
+        - Email resent
+    end note
+    
+    note right of SSOSetup
+        SSO duplicate handling:
+        - Returns HTTP 409
+        - Frontend skips step
+        - Proceeds to completion
+    end note
+```
+
+---
+
+### Error Response Sanitization
+
+**Security Rule:** Never expose internal details (secrets, SQL, stack traces) to clients.
+
+**Implementation:** `activation.py:139-161`
+
+```python
+except Exception as e:
+    # ✅ Log full error server-side (structured logging)
+    logger.error(
+        "sso_setup_failed",
+        token_prefix=request.activation_token[:10],
+        provider_type=request.provider_type,
+        error=str(e),
+        exc_info=True
+    )
+    
+    # ✅ Return sanitized error to client
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to configure SSO provider. Please try again or contact support."
+    )
+```
+
+**Benefits:**
+- ✅ Full context in server logs
+- ✅ No sensitive data exposed to clients
+- ✅ User-friendly error messages
+- ✅ Proper HTTP status codes
+
+---
+
+### When to Delete (Rare)
+
+**Only delete tenants if:**
+
+1. **Wrong domain used** (typo in domain name)
+2. **Duplicate test tenant** (cleaning up dev/test data)  
+3. **Complete reset required** (major configuration change)
+
+**How to delete safely:**
+```sql
+-- Via Platform Admin (future enhancement)
+DELETE FROM b2b.tenants WHERE domain = 'example.com';
+
+-- Cascades to:
+-- - auth_providers
+-- - invitations
+-- - users (if any)
+-- - teams
+```
+
+**⚠️ Warning:** Deletion is irreversible. Use recovery mechanisms first.
+
+---
+
+### Debugging Activation Issues
+
+#### Check Tenant Status
+```sql
+SELECT 
+    id, 
+    domain, 
+    activation_status,
+    activation_expires_at,
+    firebase_tenant_id
+FROM b2b.tenants 
+WHERE domain = 'example.com';
+```
+
+#### Check SSO Provider
+```sql
+SELECT 
+    provider_id, 
+    provider_type,
+    is_primary,
+    is_active
+FROM b2b.auth_providers 
+WHERE tenant_id = '<uuid>';
+```
+
+#### Check Invitation
+```sql
+SELECT 
+    email,
+    role,
+    expires_at,
+    accepted_at,
+    invitation_token
+FROM b2b.invitations 
+WHERE tenant_id = '<uuid>' 
+AND role = 'owner';
+```
+
+---
+
+### Best Practices for Recovery
+
+1. **Always try re-invite first** - Idempotent and safe
+2. **Check logs for root cause** - Use structured logging
+3. **Verify email delivery** - Check MailHog in dev, email service in prod
+4. **Test with fresh browser** - Clear cache/cookies if issues persist
+5. **Monitor activation metrics** - Track success rate and failure points
+6. **Delete only as last resort** - Use recovery mechanisms first
+
+---
+
+### Related Error Codes
+
+| Status | Meaning | Recovery |
+|--------|---------|----------|
+| 404 | Token not found | Re-invite for fresh token |
+| 409 | SSO already exists | Skip SSO step, complete activation |
+| 410 | Token expired | Re-invite for fresh token |
+| 500 | Server error | Check logs, retry, contact support |
+
+---
+
 ## Best Practices
 
 ### For Platform Admins

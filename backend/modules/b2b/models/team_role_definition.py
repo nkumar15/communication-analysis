@@ -36,3 +36,7 @@ class TeamRoleDefinition(Base, TimestampMixin):
     is_system = Column(Boolean, default=False, nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
+    
+    # Org Tier Enforcement: Array of allowed org tiers e.g. ['GLOBAL', 'REGIONAL']
+    from sqlalchemy.dialects.postgresql import ARRAY
+    allowed_org_tiers = Column(ARRAY(String), default=list, nullable=False, server_default=text("'{}'::varchar[]"))

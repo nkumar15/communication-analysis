@@ -1,5 +1,5 @@
 from core.db.base import Base, TimestampMixin, SoftDeleteMixin
-from sqlalchemy import Column, String, Boolean, ForeignKey, text
+from sqlalchemy import Column, String, Boolean, ForeignKey, text, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
@@ -18,6 +18,15 @@ class Team(Base, TimestampMixin, SoftDeleteMixin):
     
     # Management
     created_by = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id'), nullable=True, index=True)
+    
+    # Organizational Tier: GLOBAL, REGIONAL, COUNTRY, BRANCH
+    org_tier = Column(String(20), nullable=True)
+    org_tier_id = Column(UUID(as_uuid=True), ForeignKey('b2b.org_tiers.id'), nullable=True)
+    
+    # Hierarchy
+    parent_team_id = Column(UUID(as_uuid=True), ForeignKey('b2b.teams.id'))
+    team_type = Column(String(50))
+    hierarchy_level = Column(Integer, default=0)
     
     # config_data
     config_data = Column(JSONB, default={}, nullable=False, server_default='{}')

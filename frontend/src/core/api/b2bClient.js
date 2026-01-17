@@ -249,6 +249,13 @@ class ApiService {
         return response.json();
     }
 
+    // Regions
+    async listRegions() {
+        return this.get('/api/b2b/regions/');
+    }
+
+
+
     // Convenience methods for roles and projects
     async getRoles() {
         return this.get('/api/b2b/roles');
@@ -256,6 +263,10 @@ class ApiService {
 
     async getRoleTemplates() {
         return this.get('/api/b2b/roles/templates');
+    }
+
+    async getInvitableRoles() {
+        return this.get('/api/b2b/roles/invitable');
     }
 
     async createRole(data) {

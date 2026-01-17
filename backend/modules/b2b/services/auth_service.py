@@ -348,8 +348,27 @@ class AuthService:
             for team_id, name, team_role in teams_result.all()
         ]
         
-        return user, tenant, permissions, teams
-
+        # Fetch active plugins & features
+        # Mechanism: Intersection of Tenant Config (DB) and System Registry (Code)
+        from core.rbac.plugin_registry import plugin_registry
+        
+        tenant_features = tenant.features or {}
+        # Ensure plugins list is present
+        tenant_plugins = tenant_features.get('plugins', [])
+        
+        available_plugins = plugin_registry._plugins.keys()
+        
+        # Filter plugins that are actually installed/available in code
+        active_plugin_list = [
+            p for p in tenant_plugins 
+            if p in available_plugins
+        ]
+        
+        # Construct active_features (override plugins with filtered list)
+        active_features = tenant_features.copy()
+        active_features['plugins'] = active_plugin_list
+        
+        return user, tenant, permissions, teams, active_features
 
 # Global auth service instance
 auth_service = AuthService()

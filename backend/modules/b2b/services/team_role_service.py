@@ -173,6 +173,9 @@ class TeamRoleService:
         """Delete a team role (cannot delete system roles)"""
         if role.is_system:
             raise ValueError("Cannot delete system roles")
+            
+        if role.is_default:
+            raise ValueError("Cannot delete the default role")
         
         await db.delete(role)
         return True

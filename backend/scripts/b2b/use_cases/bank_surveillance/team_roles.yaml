@@ -1,0 +1,218 @@
+# Bank Surveillance - Team-Level Roles
+# Roles: STL, SA, Maker, Checker, Compliance, SurvOps
+
+team_roles:
+  # =========================================================================
+  # GLOBAL / REGIONAL ROLES
+  # =========================================================================
+  - name: surveillance_chief
+    display_name: Chief Surveillance Officer
+    clearance_level: 4  # Top Secret
+    bypass_geographic_restrictions: true
+    description: C-Suite executive with global oversight of all surveillance operations
+    allowed_org_tiers: [GLOBAL]
+    is_system: false
+    permissions:
+      # Business Surveillance
+      - resource: communications
+        actions: [read, analyze, flag, export, archive]
+      - resource: investigations
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export, archive]
+      - resource: watchlist
+        actions: [read, create, approve, delete]
+      - resource: model_config
+        actions: [read, write, train]
+      - resource: analytics
+        actions: [read, export]
+      - resource: data_pipelines
+        actions: [read, export]
+      - resource: dashboard
+        actions: [read]
+      # Platform Visibility (No Management)
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read]
+      - resource: audit_logs
+        actions: [read, export] # Critical for Chief to audit IT
+
+  - name: regional_director
+    display_name: Regional Surveillance Director
+    clearance_level: 3  # Restricted
+    description: Senior management overseeing surveillance for a geographic region
+    allowed_org_tiers: [REGIONAL]
+    is_system: false
+    permissions:
+      # Business Surveillance
+      - resource: communications
+        actions: [read, analyze, flag, export]
+      - resource: investigations
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export]
+      - resource: watchlist
+        actions: [read, approve]
+      - resource: model_config
+        actions: [read]
+      - resource: analytics
+        actions: [read, export]
+      - resource: dashboard
+        actions: [read]
+      # Platform Visibility
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read]
+
+  - name: head_compliance
+    display_name: Head of Compliance
+    clearance_level: 4
+    bypass_geographic_restrictions: true
+    description: Oversight role for regulatory compliance and auditing
+    allowed_org_tiers: [GLOBAL]
+    is_system: false
+    permissions:
+      - resource: communications
+        actions: [read, export]
+      - resource: investigations
+        actions: [read, export]
+      - resource: alerts
+        actions: [read, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export]
+      - resource: dashboard
+        actions: [read]
+      - resource: reports
+        actions: [read, export]
+      - resource: audit_logs
+        actions: [read, export]
+      - resource: watchlist
+        actions: [read]
+      - resource: analytics
+        actions: [read]
+
+  - name: surveillance_country_lead
+    display_name: Country Surveillance Lead
+    description: Full management and approval authority for the team data
+    allowed_org_tiers: [COUNTRY, BRANCH]
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage]
+      - resource: team_settings
+        actions: [manage]
+      - resource: communications
+        actions: [read]
+      - resource: investigations
+        actions: [read, create, assign, investigate, approve, escalate, close, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate, escalate, dismiss, export]
+      - resource: surveillance_reports
+        actions: [read, create, submit, export, archive]
+      - resource: watchlist
+        actions: [read, approve, delete]
+      - resource: model_config
+        actions: [read]
+      - resource: analytics
+        actions: [read, export]
+
+  - name: surveillance_analyst
+    display_name: Surveillance Analyst (SA)
+    description: Standard analyst role for investigations
+    allowed_org_tiers: [COUNTRY, BRANCH]
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: communications
+        actions: [read, analyze, flag]
+      - resource: investigations
+        actions: [read, create, investigate, export]
+      - resource: alerts
+        actions: [read, acknowledge, investigate]
+      - resource: surveillance_reports
+        actions: [read]
+
+  - name: operations_maker
+    display_name: Operations Maker
+    description: Operational role for processing cases (No approval)
+    allowed_org_tiers: [GLOBAL, REGIONAL]
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: communications
+        actions: [read, flag]
+      - resource: investigations
+        actions: [read, create]
+      - resource: alerts
+        actions: [read, acknowledge]
+      - resource: watchlist
+        actions: [read, create]
+
+  - name: operations_checker
+    display_name: Operations Checker
+    description: Operational role for approving/closing cases
+    allowed_org_tiers: [GLOBAL, REGIONAL]
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: investigations
+        actions: [read, approve, close]
+      - resource: alerts
+        actions: [read]
+      - resource: watchlist
+        actions: [read, approve]
+
+  - name: compliance_officer
+    display_name: Compliance Officer (LCO)
+    description: Read-only oversight access at team level
+    allowed_org_tiers: [COUNTRY, BRANCH]
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: communications
+        actions: [read]
+      - resource: investigations
+        actions: [read]
+      - resource: alerts
+        actions: [read]
+      - resource: surveillance_reports
+        actions: [read]
+
+  - name: surveillance_ops
+    display_name: Surveillance Ops (SurvOps)
+    description: Technical oversight for data pipelines and ingestion health
+    allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY, BRANCH]
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage]
+      - resource: team_settings
+        actions: [manage]
+      - resource: data_pipelines
+        actions: [read, write, export] # Mission critical health
+      - resource: model_config
+        actions: [read, write, train]
+      - resource: audit_logs
+        actions: [read]
+
+  - name: guest_analyst
+    display_name: Guest Analyst
+    description: Restricted read-only access for external parties
+    allowed_org_tiers: [COUNTRY, BRANCH]
+    is_system: false
+    permissions:
+      - resource: investigations
+        actions: [read]
+      - resource: surveillance_reports
+        actions: [read]
+

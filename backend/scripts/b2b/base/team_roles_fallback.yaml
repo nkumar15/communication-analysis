@@ -1,0 +1,96 @@
+# Base Team Roles (Fallback/Generic)
+#
+# SCOPE: Team-level roles (access ONLY their assigned team)
+# USAGE: Generic roles for core platform testing and simple deployments
+#
+# WHEN LOADED:
+# - If USE_CASE is NOT set → These roles are seeded
+# - If USE_CASE has NO team_roles.yaml → These roles are seeded as fallback
+# - If USE_CASE defines team_roles.yaml → These roles are SKIPPED
+#
+# DESIGN: Mutually exclusive with use-case team roles to avoid role pollution
+
+team_roles:
+  
+  # =========================================================================
+  # GENERIC TEAM ROLES (For Core Platform Testing)
+  # =========================================================================
+  
+  - name: team_manager
+    display_name: Team Manager
+    description: |
+      Full management control within a team.
+      Can manage team members, settings, and all team resources.
+      
+      Use for: Testing team admin permissions in core platform tests.
+    is_system: true
+    is_default: false
+    permissions:
+      # Team Management
+      - resource: team_members
+        actions: [read, write, admin, manage]  # Added 'manage' for team update permission check
+      - resource: team_settings
+        actions: [read, write, manage]
+      - resource: dashboard
+        actions: [read]
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read, write]  # Added write to allow updating team details
+      - resource: reports
+        actions: [read, export]
+
+  - name: team_contributor
+    display_name: Team Contributor
+    description: |
+      Standard team member with read/write access to team resources.
+      Cannot manage team members or settings.
+      
+      Use for: Testing standard member permissions, bulk invitations, RBAC.
+    is_system: true
+    is_default: true
+    permissions:
+      # Team Access
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: dashboard
+        actions: [read]
+      - resource: users
+        actions: [read]
+      - resource: teams
+        actions: [read]
+      - resource: reports
+        actions: [read]
+
+  - name: team_viewer
+    display_name: Team Viewer
+    description: |
+      Read-only access to team resources.
+      Minimal permissions for audit or guest access.
+      
+      Use for: Testing read-only permissions and access control.
+    is_system: true
+    is_default: false
+    permissions:
+      # Team Access (read-only)
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: dashboard
+        actions: [read]
+
+# =========================================================================
+# NOTES
+# =========================================================================
+# 
+# These roles are intentionally generic to:
+# 1. Support core platform testing without use-case dependencies
+# 2. Provide fallback for simple deployments (task_management)
+# 3. Avoid coupling core tests to domain-specific roles
+#
+# Domain-specific roles (operations_maker, surveillance_chief, etc.) are
+# defined in use_cases/{use_case}/team_roles.yaml and replace these when
+# that use case is loaded.

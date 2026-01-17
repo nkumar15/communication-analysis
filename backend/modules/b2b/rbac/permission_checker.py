@@ -14,7 +14,8 @@ async def has_permission(
     resource: str,
     action: str,
     db: AsyncSession,
-    role_id: UUID | None = None
+    role_id: UUID | None = None,
+    context_extras: dict | None = None
 ) -> bool:
     """
     Check if user has permission for resource:action
@@ -67,6 +68,70 @@ async def has_permission(
     
     permission = result.scalar_one_or_none()
     return permission is not None
+
+
+async def has_permission_with_plugins(
+    user_id: UUID, 
+    resource: str, 
+    action: str, 
+    db: AsyncSession,
+    role_id: UUID | None = None,
+    tenant_id: UUID | None = None
+) -> bool:
+    """
+    Wrapper for has_permission that invokes the PluginRegistry.
+    This is the primary entry point for plugin-aware permission checks.
+    """
+    from core.rbac.plugin_registry import plugin_registry
+    from core.rbac.plugin_system import PermissionContext
+    
+    # 1. Fetch User Data (Minimal)
+    # We need user dict for context.
+    # Optimization: We might want to pass user object if available to avoid refetch.
+    # For now, we fetch minimal user info.
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return False
+
+    user_dict = {
+        "id": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "role_id": str(user.role_id) if user.role_id else None,
+        # role name might be needed
+    }
+    
+    # Enrich context
+    # This might be expensive to do on every check. 
+    # Ideally, enriched context is cached per request.
+    enriched_user = await plugin_registry.enrich_user(user_dict, db)
+    
+    context = PermissionContext(
+        user_id=str(user_id),
+        user=enriched_user,
+        resource_type=resource,
+        resource_id=None, # Context extras can provide specific resource ID
+        resource=None,    
+        action=action,
+        tenant_id=str(user.tenant_id)
+        # extra_context passed if needed
+    )
+    
+    # Define the core checker for the registry callback
+    async def core_checker(ctx, session):
+        # Maps registry context back to simple has_permission call
+        return await has_permission(
+            UUID(ctx.user_id), 
+            ctx.resource_type, 
+            ctx.action, 
+            session,
+            role_id=UUID(ctx.user['role_id']) if ctx.user.get('role_id') else None
+        )
+        
+    return await plugin_registry.check_permission(context, core_checker, db)
+
 
 
 async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:

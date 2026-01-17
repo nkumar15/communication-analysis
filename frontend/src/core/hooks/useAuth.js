@@ -106,7 +106,8 @@ export const useAuth = () => {
             analytics: 'analytics:read',
             rag_documents: 'rag_documents:read',
             rag_nse: 'rag_nse:read',
-            rag_enron: 'rag_enron:read'
+            rag_enron: 'rag_enron:read',
+            surveillance: 'communications:read'  // Bank surveillance feature
         };
 
         const requiredPermission = featurePermissions[feature];
@@ -137,22 +138,23 @@ export const useAuth = () => {
 
     /**
      * Get scope description for current user
+     * Uses role_display_name from API for generic display
      * @returns {string}
      */
     const getScopeLabel = () => {
         if (!user) return 'Loading...';
 
+        // Use role_display_name from backend (works for any use case)
+        const roleDisplayName = user.role_display_name || user.role || 'Unknown Role';
+
+        // Add context based on role type
         switch (user.role) {
             case 'owner':
-                return 'All Users (Organization Owner)';
+                return `All Users (${roleDisplayName})`;
             case 'admin':
-                return 'All Users (Organization-wide)';
-            case 'member':
-                return 'Team Data';
-            case 'viewer':
-                return 'View Only';
+                return `Organization-wide (${roleDisplayName})`;
             default:
-                return 'Unknown';
+                return roleDisplayName;
         }
     };
 

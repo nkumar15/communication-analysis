@@ -105,7 +105,7 @@ class DashboardService:
             my_teams.append({
                 "id": str(team.id),
                 "name": team.name,
-                "team_role": member.team_role or (role_def.name if role_def else 'team_contributor'),
+                "team_role": member.team_role or (role_def.name if role_def else None),
                 "team_role_display": role_def.display_name if role_def else None,
                 "member_count": member_count
             })

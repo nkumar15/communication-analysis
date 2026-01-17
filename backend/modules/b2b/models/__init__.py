@@ -7,6 +7,7 @@ from .team import Team
 from .team_member import TeamMember
 from .auth_provider import AuthProvider
 from .team_role_definition import TeamRoleDefinition
+from .scope_level import OrgTier
 from .audit_log import AuditLog
 from .subscription import (
     B2BSubscription,
@@ -21,6 +22,8 @@ from .subscription import (
 )
 from .subscription_plan import B2BSubscriptionPlan
 from .coupon import B2BCoupon, B2BCouponRedemption
+
+from .geographic_region import GeographicRegion
 
 # Backwards compatibility aliases
 Subscription = B2BSubscription
@@ -43,7 +46,9 @@ __all__ = [
     "TeamMember",
     "AuthProvider",
     "TeamRoleDefinition",
+    "OrgTier",
     "AuditLog",
+    "GeographicRegion",
     # Billing models
     "Subscription",
     "B2BSubscription",

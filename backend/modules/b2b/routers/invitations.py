@@ -338,8 +338,7 @@ async def bulk_invite_users(
         tenant_id=current_user['tenant_id'],
         file=file,
         current_user=current_user,
-        send_emails=send_emails,
-        auto_create_teams=auto_create_teams
+        send_emails=send_emails
     )
     
     # Commit all changes
@@ -368,11 +367,11 @@ async def bulk_invite_users(
 @router.get("/bulk/template")
 async def download_template():
     """Download CSV template for bulk invitations"""
-    template = """email,role,team_name,team_role,name
+    template = """email,team_name,team_role,role,name
 # Example rows (remove these before uploading):
-alice@yourdomain.com,admin,Engineering,team_manager,Alice Smith
-bob@yourdomain.com,member,Engineering,team_contributor,Bob Jones
-carol@yourdomain.com,viewer,Sales,team_reader,Carol White
+alice@yourdomain.com,Engineering,team_manager,,Alice Smith
+bob@yourdomain.com,Engineering,team_contributor,admin,Bob Jones
+carol@yourdomain.com,Sales,team_reader,,Carol White
 """
     
     return StreamingResponse(
@@ -506,7 +505,7 @@ async def download_failures(
     
     failures = [
         row for row in job.results.get('rows', [])
-        if row.get('status') == 'error'
+        if row.get('status') == 'failed'
     ]
     
     if not failures:

@@ -1,0 +1,107 @@
+team_roles:
+  # =========================================================================
+  # GLOBAL / AGENCY ROLES
+  # =========================================================================
+
+
+  # =========================================================================
+  # TEAM ROLES
+  # =========================================================================
+  - name: account_director
+    display_name: Account Director
+    description: "STRATEGIST: Approves campaigns & manages the team."
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage]
+      - resource: team_settings
+        actions: [manage]
+      - resource: campaigns
+        actions: [read, write, delete, export, approve] # Key: Can APPROVE
+      - resource: social_posts
+        actions: [read, write, delete, publish, schedule, approve] # Key: Can APPROVE
+      - resource: creative_assets
+        actions: [read, write, delete, export, archive]
+      - resource: analytics_reports
+        actions: [read, create, export]
+      - resource: client_communications
+        actions: [read, write, delete, export]
+  - name: account_manager
+    display_name: Account Manager
+    description: "ORGANIZER: Manages team roster & settings. No approval authority."
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [manage] # Key: Can invite/remove members
+      - resource: team_settings
+        actions: [manage] # Key: Can change team settings
+      - resource: campaigns
+        actions: [read, write, delete, export] # No approve
+      - resource: social_posts
+        actions: [read, write, delete, schedule, export] # No approve/publish (Director/Lead does that)
+      - resource: creative_assets
+        actions: [read, write, delete, export, archive]
+      - resource: analytics_reports
+        actions: [read, create, export]
+      - resource: client_communications
+        actions: [read, write, delete, export]
+  
+  - name: creative_lead
+    display_name: Creative Lead
+    description: "PUBLISHER: Creates & Publishes content. Cannot manage team."
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read] # Read-only roster
+      - resource: team_settings
+        actions: [read] # Read-only settings
+      - resource: campaigns
+        actions: [read, write, export]
+      - resource: social_posts
+        actions: [read, write, publish, schedule, export] # Key: Can PUBLISH
+      - resource: creative_assets
+        actions: [read, write, delete, export, archive]
+      - resource: analytics_reports
+        actions: [read, export]
+      - resource: client_communications
+        actions: [read, write]
+  
+  - name: content_writer
+    display_name: Content Writer
+    description: "DRAFTER: Writes content. Cannot publish or manage."
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: campaigns
+        actions: [read]
+      - resource: social_posts
+        actions: [read, write] # Key: Write only (Draft). No publish.
+      - resource: creative_assets
+        actions: [read, write]
+      - resource: analytics_reports
+        actions: [read]
+      - resource: client_communications
+        actions: [read]
+
+  - name: guest_review
+    display_name: Guest Reviewer
+    description: External client with read-only access
+    is_system: false
+    permissions:
+      - resource: team_members
+        actions: [read]
+      - resource: team_settings
+        actions: [read]
+      - resource: campaigns
+        actions: [read]
+      - resource: social_posts
+        actions: [read]
+      - resource: creative_assets
+        actions: [read]
+      - resource: analytics_reports
+        actions: [read]
+      - resource: client_communications
+        actions: [read]

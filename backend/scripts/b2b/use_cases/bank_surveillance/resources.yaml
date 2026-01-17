@@ -1,0 +1,51 @@
+# Bank Surveillance - Domain Resources
+
+bank_surveillance_resources:
+  # Core Surveillance Resources
+  - name: communications
+    display_name: Communications Surveillance
+    category: Surveillance
+    description: Email, chat, voice, and electronic communications monitoring
+    is_system_resource: false
+  
+  - name: investigations
+    display_name: Investigation Cases
+    category: Surveillance
+    description: Compliance investigation case management
+    is_system_resource: false
+  
+  - name: alerts
+    display_name: Surveillance Alerts
+    category: Surveillance
+    description: System-generated compliance and surveillance alerts
+    is_system_resource: false
+  
+  - name: surveillance_reports
+    display_name: Surveillance Reports
+    category: Reporting
+    description: Regulatory and management surveillance reports
+    is_system_resource: false
+
+  - name: watchlist
+    display_name: Monitored Subjects
+    category: Surveillance
+    description: Management of monitored dealer and trader identities
+    is_system_resource: false
+
+  - name: model_config
+    display_name: AI Model Configuration
+    category: Administration
+    description: Configuration of surveillance models, keywords, and feedback loops
+    is_system_resource: false
+
+  - name: analytics
+    display_name: Surveillance Analytics
+    category: Reporting
+    description: Operational analytics and data processing statistics
+    is_system_resource: false
+
+  - name: data_pipelines
+    display_name: Data Ingestion Pipelines
+    category: Engineering
+    description: Monitoring of data ingestion pipelines, volumes, and processing stats
+    is_system_resource: false
