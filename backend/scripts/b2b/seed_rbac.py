@@ -361,23 +361,26 @@ if __name__ == "__main__":
 
     async def seed_base_team_roles(db: AsyncSession) -> None:
         """
-        Seed base team roles from core/team_roles_base.yaml
+        Seed base/fallback team roles from core/team_roles_base.yaml
         
-        NOTE: Base team roles are SKIPPED if the use case defines custom team roles.
-        This prevents role pollution where generic roles (team_manager, team_contributor)
-        coexist with domain-specific roles (desk_surveillance_manager, account_manager).
+        BEHAVIOR: Mutually exclusive with use case team roles.
         
-        Logic:
-        - If use case has custom team roles → Skip base roles (use domain roles only)
-        - If use case has NO custom team roles → Load base roles (generic use case)
+        - If use case defines team roles → This function does NOTHING (base roles skipped)
+        - If use case has NO team roles → Base roles loaded as fallback
+        
+        This ensures:
+        - bank_surveillance gets ONLY: desk_surveillance_manager, analyst, etc.
+        - task_management gets ONLY: team_manager, team_contributor, team_reader
+        
+        NO role pollution between base and use-case-specific roles.
         """
-        # Check if use case defines custom team roles
+        # Check if use case defines its own team roles
         use_case_team_roles_data = load_yaml(CONFIG_DIR / 'team_roles.yaml')
         use_case_team_roles = use_case_team_roles_data.get('team_roles', [])
         
         if use_case_team_roles:
-            # Use case has custom team roles - skip base roles to avoid pollution
-            print("✓ Skipping base team roles (use case defines custom team roles)")
+            # Use case defines custom team roles - skip base roles entirely
+            print("✓ Skipping base team roles (use case defines replacements)")
             return
         
         # Use case has NO custom team roles - load base roles
@@ -421,16 +424,29 @@ if __name__ == "__main__":
         await db.flush()
         print(f"✓ Processed {len(roles_data)} base team roles")
 
-    async def seed_additional_team_roles(db: AsyncSession) -> None:
-        """Seed additional team roles from config/team_roles.yaml"""
+    async def seed_use_case_team_roles(db: AsyncSession) -> None:
+        """
+        Seed use-case-specific team roles from {use_case}/team_roles.yaml
+        
+        BEHAVIOR: These REPLACE base team roles (mutually exclusive).
+        
+        When a use case defines team roles:
+        - seed_base_team_roles() skips loading base roles
+        - This function loads the use-case-specific roles instead
+        
+        Examples:
+        - bank_surveillance: desk_surveillance_manager, senior_analyst, etc.
+        - marketing_agency: account_manager, creative_lead, etc.
+        - task_management: (empty) → falls back to base roles
+        """
         data = load_yaml(CONFIG_DIR / 'team_roles.yaml')
         roles_data = data.get('team_roles', [])
         
         if not roles_data:
-            print("✓ No additional team roles to seed")
+            print("✓ No use-case team roles (using base roles)")
             return
         
-        print(f"Seeding {len(roles_data)} additional team roles...")
+        print(f"Seeding {len(roles_data)} use-case team roles...")
         
         for role_data in roles_data:
             result = await db.execute(
@@ -684,7 +700,7 @@ if __name__ == "__main__":
                     await seed_domain_actions(db)
                     await seed_domain_resources(db)
                     # await seed_additional_tenant_roles(db)  # REMOVED: Tenant roles merged into team roles
-                    await seed_additional_team_roles(db)
+                    await seed_use_case_team_roles(db)
                     print()
                     
                     # Step 3: Apply permission overlays
