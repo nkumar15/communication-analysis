@@ -241,7 +241,7 @@ class TestUserScoping:
         viewer = await create_test_user(
             setup['session'],
             tenant_id=setup["tenant_id"],
-            email=f"v_scope@{setup['tenant'].domain}",
+            email=f"v_scope_{uuid4().hex[:6]}@{setup['tenant'].domain}",
             role_slug="viewer"
         )
         
@@ -384,10 +384,10 @@ class TestRBACEnforcement:
             role_slug="viewer"
         )
         
-        # 3. Add as Team Manager
+        # 3. Add as Team Admin (highest team role with management permissions)
         await api_client.post(
             f"/api/b2b/teams/{team_id}/members", 
-            json={"user_id": str(manager.id), "team_role": "team_manager"},
+            json={"user_id": str(manager.id), "team_role": "team_admin"},
             headers={"Authorization": f"Bearer {setup['token']}"}
         )
         

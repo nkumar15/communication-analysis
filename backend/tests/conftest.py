@@ -29,6 +29,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Define session-scoped event loop to match test_db_engine scope
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the session."""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    yield loop
+    loop.close()
+
 # Import app components
 from core.db.session import get_db, init_db, close_db
 from core.db.base import Base
@@ -44,6 +53,7 @@ from modules.domains.projects.routers import projects, tasks, comments
 from modules.platform.routers import platform, platform_b2b, platform_b2c
 from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
 from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
+
 
 # B2C billing router requires stripe - import conditionally
 try:
@@ -219,7 +229,7 @@ class TenantAwareSession:
 # Test Database Fixtures
 # ============================================================================
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def test_db_engine():
     """Create test database engine for session"""
     url = TEST_DATABASE_URL
@@ -236,8 +246,69 @@ async def test_db_engine():
     await engine.dispose()
 
 
+# from tests.seed_utils import seed_test_database_from_yaml, clean_test_database # DELETED
+from scripts.b2b.seed_rbac import seed_b2b_rbac_data
+
+# ... (omitted)
+
+@pytest_asyncio.fixture(scope="session")
+async def seed_db(test_db_engine):
+    """
+    Session-scoped fixture to seed the database ONCE using production YAML.
+    Uses ADMIN_DATABASE_URL if available to ensure cleanup (TRUNCATE/replication_role) works.
+    """
+    if os.getenv("SKIP_SEEDING"):
+        print("\nDEBUG: SKIP_SEEDING=1 - Skipping pytest seeding (DB assumed ready)")
+        yield
+        return
+
+    admin_url = os.getenv("ADMIN_DATABASE_URL")
+    admin_engine = None
+    
+    if admin_url:
+        print(f"\nDEBUG: Using ADMIN_DATABASE_URL for seeding: {admin_url}")
+        # Ensure async driver
+        if "postgresql+asyncpg://" not in admin_url:
+            if admin_url.startswith("postgres://"):
+                admin_url = admin_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif admin_url.startswith("postgresql://"):
+                admin_url = admin_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+                
+        admin_engine = create_async_engine(admin_url, echo=False)
+        seed_engine = admin_engine
+    else:
+        print("\nDEBUG: Using default test_db_engine for seeding (expect failures if not superuser)")
+        seed_engine = test_db_engine
+
+    try:
+        async with AsyncSession(seed_engine) as session:
+            # Auto-commit mode using begin()
+            async with session.begin():
+                # Force admin permissions if using app user (fallback)
+                if not admin_engine:
+                    from sqlalchemy import text
+                    await session.execute(text("SET app.is_platform_admin = 'true'"))
+                
+                # 1. Clean DB (Truncate all tables) - SKIPPED (Handled by Drop/Recreate in Makefile)
+                # print("\n🧹 Cleaning database...")
+                # await clean_test_database(session)
+                
+                # 2. Seed Data from YAML (reusing production script logic)
+                use_case = os.getenv("USE_CASE", "bank_surveillance")
+                print(f"\n🌱 Seeding database from YAML for use case: {use_case}...")
+                
+                # Using shared logic from scripts/b2b/seed_rbac.py
+                # This ensures tests use EXACTLY what production/demo uses.
+                await seed_b2b_rbac_data(session)
+                
+                print("✓ Database seeded successfully")
+    finally:
+        if admin_engine:
+            await admin_engine.dispose()
+
+
 @pytest_asyncio.fixture
-async def db_session(test_db_engine) -> AsyncSession:
+async def db_session(test_db_engine, seed_db) -> AsyncSession:
     """Create a fresh database session for each test"""
     async_session_factory = async_sessionmaker(
         test_db_engine, class_=AsyncSession, expire_on_commit=False
@@ -721,164 +792,7 @@ def create_auth_headers(user, tenant=None):
 
 # Direct async helper functions (not fixtures)
 
-async def ensure_rbac_seeds(db_session: AsyncSession):
-    """Ensure basic RBAC data (Resources, Actions, Templates) exists"""
-    from modules.b2b.models.rbac import Resource, Action
-    from modules.b2b.models.role_template import RoleTemplate
-    from sqlalchemy import select
-    from core.constants import B2BRoleName
 
-    # 1. Resources
-    # Must match resources.yaml
-    resources = [
-        ("users", True), 
-        ("roles", True), 
-        ("account", True),  # Was settings
-        ("dashboard", True), # New
-        ("audit_logs", True),
-        ("billing", True),
-        ("invoices", True),
-        ("teams", True),
-        ("team_members", False),
-        ("projects", False),
-        ("tasks", False),
-        ("comments", False)
-    ]
-    existing_res = await db_session.execute(select(Resource.name))
-    existing_res_names = set(existing_res.scalars().all())
-    
-    for name, is_system in resources:
-        if name not in existing_res_names:
-            db_session.add(Resource(
-                name=name,
-                display_name=name.replace('_', ' ').title(),
-                is_system_resource=is_system
-            ))
-    
-    # 2. Actions
-    actions = ["read", "write", "delete", "create", "admin", "invite", "manage", "export"]
-    existing_act = await db_session.execute(select(Action.name))
-    existing_act_names = set(existing_act.scalars().all())
-    
-    for a in actions:
-        if a not in existing_act_names:
-            db_session.add(Action(name=a, display_name=a.title()))
-            
-    # 3. Role Templates
-    # We need to ensure we cover: admin, owner, member, viewer
-    # Grant basic permissions to unblock tests
-    all_perms = [
-        {"resource": "users", "actions": ["read", "write", "create", "delete", "invite"]},
-        {"resource": "roles", "actions": ["read", "write", "create", "delete"]},
-        {"resource": "account", "actions": ["read", "write"]},
-        {"resource": "dashboard", "actions": ["read"]},
-        {"resource": "audit_logs", "actions": ["read"]},
-        {"resource": "billing", "actions": ["read", "write", "manage"]},
-        {"resource": "invoices", "actions": ["read", "write", "manage"]},
-        {"resource": "teams", "actions": ["read", "write", "delete"]},
-        {"resource": "projects", "actions": ["read", "write", "delete"]},
-        {"resource": "tasks", "actions": ["read", "write", "delete"]},
-        {"resource": "comments", "actions": ["read", "write", "delete"]}
-    ]
-    read_only = [
-        {"resource": "users", "actions": ["read"]},
-        {"resource": "roles", "actions": ["read"]},
-        # ("account", "actions": ["read"]), # Removed to pass test_account_settings_forbidden_for_member
-        {"resource": "dashboard", "actions": ["read"]},
-        {"resource": "projects", "actions": ["read"]},
-        {"resource": "tasks", "actions": ["read"]},
-        {"resource": "comments", "actions": ["read"]}
-    ]
-    
-    member_perms = list(read_only)
-    # Members can write comments and tasks
-    member_perms.append({"resource": "comments", "actions": ["read", "write", "delete"]})
-    member_perms.append({"resource": "tasks", "actions": ["read", "write"]})
-
-    templates = {
-        "owner": {"is_default": True, "perms": all_perms}, 
-        "admin": {"is_default": True, "perms": all_perms},
-        "member": {"is_default": True, "perms": member_perms},
-        "viewer": {"is_default": True, "perms": read_only},
-    }
-    
-    existing_tpl = await db_session.execute(select(RoleTemplate))
-    existing_templates = {t.name: t for t in existing_tpl.scalars().all()}
-    
-    for name, config in templates.items():
-        if name in existing_templates:
-            # Update permissions to ensure latest schema (fix for KeyError: 'actions')
-            existing_templates[name].permissions = config["perms"]
-            existing_templates[name].is_default = config["is_default"]
-        else:
-            db_session.add(RoleTemplate(
-                name=name,
-                display_name=name.title(),
-                is_default=config["is_default"],
-                permissions=config["perms"]
-            ))
-            
-    await db_session.flush()
-
-async def ensure_team_roles(db_session: AsyncSession):
-    """Ensure basic Team Roles exist (System Level)"""
-    from modules.b2b.models.team_role_definition import TeamRoleDefinition
-    from sqlalchemy import select
-    
-    roles = [
-        {
-            "name": "team_admin", 
-            "display_name": "Team Admin", 
-            "is_default": False, 
-            "permissions": [
-                {"resource": "comments", "actions": ["read", "write", "delete"]},
-                {"resource": "tasks", "actions": ["read", "write", "delete"]},
-                {"resource": "projects", "actions": ["read", "write"]}
-            ]
-        },
-        {
-            "name": "team_contributor", 
-            "display_name": "Contributor", 
-            "is_default": True, 
-            "permissions": [
-                {"resource": "comments", "actions": ["read", "write", "delete"]},
-                {"resource": "tasks", "actions": ["read", "write"]},
-                {"resource": "projects", "actions": ["read"]}
-            ]
-        },
-        {
-            "name": "team_viewer", 
-            "display_name": "Viewer", 
-            "is_default": False, 
-            "permissions": [
-                {"resource": "comments", "actions": ["read"]},
-                {"resource": "tasks", "actions": ["read"]},
-                {"resource": "projects", "actions": ["read"]}
-            ]
-        }
-    ]
-    
-    stmt = select(TeamRoleDefinition).where(TeamRoleDefinition.tenant_id.is_(None))
-    result = await db_session.execute(stmt)
-    existing_roles = {r.name: r for r in result.scalars().all()}
-    
-    for r in roles:
-        if r["name"] in existing_roles:
-            # Update permissions if they exist
-            existing_roles[r["name"]].permissions = r.get("permissions", [])
-            existing_roles[r["name"]].display_name = r["display_name"]
-            existing_roles[r["name"]].is_default = r["is_default"]
-        else:
-            db_session.add(TeamRoleDefinition(
-                tenant_id=None, # System role
-                name=r["name"],
-                display_name=r["display_name"],
-                is_default=r["is_default"],
-                permissions=r.get("permissions", []), 
-                is_system=True,
-                sort_order=10
-            ))
-    await db_session.flush()
 async def create_test_tenant(
     db_session: AsyncSession,
     name: str = "Test Company",
@@ -908,9 +822,11 @@ async def create_test_tenant(
     from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
     
+    
     # Ensure RBAC seeds exist (Global Templates)
-    await ensure_rbac_seeds(db_session)
-    await ensure_team_roles(db_session)
+    # Replaced by session-scoped seed_db fixture
+    # await ensure_rbac_seeds(db_session)
+    # await ensure_team_roles(db_session)
     
     # Seed roles for this tenant using RoleTemplateService
     from modules.b2b.services.role_template_service import role_template_service

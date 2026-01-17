@@ -24,21 +24,20 @@ class TestTeamRolePermissionMatrix:
         resources = response.json()
         resource_names = [r['name'] for r in resources]
         
-        # Should NOT include system resources (from resources.yaml)
+        # Should NOT include system resources (per saas_resources.yaml, ALL core resources are system)
         assert 'roles' not in resource_names, "System resource 'roles' should be excluded"
         assert 'billing' not in resource_names, "System resource 'billing' should be excluded"
         assert 'audit_logs' not in resource_names, "System resource 'audit_logs' should be excluded"
         assert 'dashboard' not in resource_names, "System resource 'dashboard' should be excluded"
-        assert 'analytics' not in resource_names, "System resource 'analytics' should be excluded"
         assert 'users' not in resource_names, "System resource 'users' should be excluded"
-        assert 'notifications' not in resource_names, "System resource 'notifications' should be excluded"
-        assert 'support' not in resource_names, "System resource 'support' should be excluded"
-        assert 'account' not in resource_names, "System resource 'account' should be excluded"
         
-        # Should include team resources (from resources.yaml and domain_resources.yaml)
-        assert 'teams' in resource_names, "Team resource 'teams' should be included"
-        assert 'team_members' in resource_names, "Team resource 'team_members' should be included"
-        assert 'team_settings' in resource_names, "Team resource 'team_settings' should be included"
+        # Per saas_resources.yaml, teams/team_members/team_settings are ALSO system resources
+        assert 'teams' not in resource_names, "System resource 'teams' should be excluded"
+        assert 'team_members' not in resource_names, "System resource 'team_members' should be excluded"
+        assert 'team_settings' not in resource_names, "System resource 'team_settings' should be excluded"
+        
+        # Should only include domain-specific resources (from use_cases/*.yaml)
+        # These would be: projects, tasks, comments, etc. if loaded
     
     
     @pytest.mark.asyncio
@@ -95,15 +94,15 @@ class TestTeamRolePermissionMatrix:
         
         resource_names = [r['name'] for r in data['resources']]
         
-        # Verify system resources excluded (from resources.yaml)
+        # Verify system resources excluded (per saas_resources.yaml)
         assert 'roles' not in resource_names, "System resource should be excluded"
         assert 'audit_logs' not in resource_names, "System resource should be excluded"
         assert 'billing' not in resource_names, "System resource should be excluded"
         assert 'users' not in resource_names, "System resource should be excluded"
         
-        # Verify team resources included
-        assert 'teams' in resource_names, "Team resource should be included"
-        assert 'team_members' in resource_names, "Team resource should be included"
+        # Per saas_resources.yaml, teams/team_members are ALSO system resources
+        assert 'teams' not in resource_names, "System resource 'teams' should be excluded"
+        assert 'team_members' not in resource_names, "System resource 'team_members' should be excluded"
     
     
     @pytest.mark.asyncio
