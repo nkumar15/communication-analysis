@@ -52,3 +52,15 @@ Applies to: **System Design, API Patterns, Security, Data Models**
 - **Shared Code**: `core/` (Framework), `infrastructure/` (3rd Party), `plugins/` (RBAC Extensions).
 - **Modules**: `modules/b2b`, `modules/b2c`, `modules/platform`.
 - **Strict Separation**: B2B code cannot import B2C code, and vice-versa.
+
+## 8. HTTP Status Codes Standards
+- **200 OK**: Standard response for successful synchronous requests (GET, PUT, PATCH, DELETE if returning data).
+- **201 Created**: Resource creation successful (POST). MUST return the created resource location or details.
+- **202 Accepted**: Request accepted for background processing (e.g., bulk uploads, async exports). MUST return a Job ID.
+- **204 No Content**: Successful request with no return body (DELETE).
+- **400 Bad Request**: Validation failure, malformed JSON, or business rule violation (e.g., "User limit reached").
+- **401 Unauthorized**: Authentication missing or invalid.
+- **403 Forbidden**: Authentication valid, but permission denied.
+- **404 Not Found**: Resource does not exist or user has no access (tenant isolation).
+- **429 Too Many Requests**: Rate limit exceeded.
+- **500 Internal Server Error**: Unhandled exception.
