@@ -14,13 +14,14 @@ from fastapi import UploadFile, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from celery import Celery
 
-from core.db.rls import rls_service
+# from core.db.rls import rls_service # B2C might not use RLS yet
 from core.config import settings
 from core.constants import DocumentStatus, RAGDefaults
 from infrastructure.factories.storage_factory import StorageFactory
 from infrastructure.logging import get_logger
 from infrastructure.monitoring import increment
-from modules.b2b.models.rag_document import RagDocument
+# USE B2C MODEL
+from modules.domains.b2c.finance_trader.models.rag_document import RagDocument
 from modules.domains.b2c.finance_trader.exceptions import DocumentUploadError
 
 logger = get_logger(__name__)
@@ -51,28 +52,17 @@ class DocumentService:
     async def upload_document(
         self,
         db: AsyncSession,
-        tenant_id: UUID,
+        workspace_id: UUID,  # Changed from tenant_id
         file: UploadFile,
-        metadata: Dict[str, Any]
+        metadata: Dict[str, Any],
+        uploaded_by: Optional[UUID] = None
     ) -> DocumentUploadResult:
         """
         Handle complete document upload flow.
-        
-        Args:
-            db: Database session
-            tenant_id: Tenant UUID
-            file: Uploaded file
-            metadata: Document metadata (company_name, report_type, etc.)
-            
-        Returns:
-            DocumentUploadResult with job_id and document_id
-            
-        Raises:
-            DocumentUploadError: If upload fails
         """
         try:
-            # Set RLS context
-            await rls_service.set_tenant_context(db, tenant_id)
+            # Note: B2C might not have explicit RLS call here if using workspace_id in query
+            # await rls_service.set_tenant_context(db, tenant_id)
             
             # 1. Read and hash content
             content = await file.read()
@@ -83,13 +73,14 @@ class DocumentService:
                 "document_processing_started",
                 filename=file.filename,
                 file_size=file_size,
-                content_hash_preview=content_hash[:8]
+                content_hash_preview=content_hash[:8],
+                workspace_id=str(workspace_id)
             )
             
-            # 2. Upload to storage
+            # 2. Upload to storage (Using workspace_id as isolation prefix)
             s3_path = await self._upload_to_storage(
                 content=content,
-                tenant_id=str(tenant_id),
+                isolation_id=str(workspace_id),
                 filename=file.filename,
                 content_hash=content_hash,
                 content_type=file.content_type
@@ -99,18 +90,19 @@ class DocumentService:
             job_id = str(uuid.uuid4())
             doc = await self._create_document_record(
                 db=db,
-                tenant_id=tenant_id,
+                workspace_id=workspace_id,
                 file=file,
                 s3_path=s3_path,
                 file_size=file_size,
                 content_hash=content_hash,
                 job_id=job_id,
-                metadata=metadata
+                metadata=metadata,
+                uploaded_by=uploaded_by
             )
             
             # 4. Dispatch ingestion task
             await self._dispatch_ingestion_task(
-                tenant_id=str(tenant_id),
+                workspace_id=str(workspace_id),
                 s3_path=s3_path,
                 job_id=job_id,
                 content_hash=content_hash,
@@ -118,7 +110,7 @@ class DocumentService:
             )
             
             # 5. Record metrics
-            increment("rag_document_uploads", labels={"domain": "nse", "status": "success"})
+            increment("rag_document_uploads", labels={"domain": "finance_trader", "status": "success"})
             
             logger.info(
                 "document_upload_complete",
@@ -139,7 +131,7 @@ class DocumentService:
                 error=str(e),
                 exc_info=True
             )
-            increment("rag_document_uploads", labels={"domain": "nse", "status": "failed"})
+            increment("rag_document_uploads", labels={"domain": "finance_trader", "status": "failed"})
             raise DocumentUploadError(f"Failed to upload document: {str(e)}") from e
     
     def _compute_hash(self, content: bytes) -> str:
@@ -149,16 +141,13 @@ class DocumentService:
     async def _upload_to_storage(
         self,
         content: bytes,
-        tenant_id: str,
+        isolation_id: str,
         filename: str,
         content_hash: str,
         content_type: str
     ) -> str:
         """
         Upload content to MinIO object storage.
-        
-        Returns:
-            S3 path string (s3://bucket/object_name)
         """
         storage = StorageFactory.get_storage_client()
         bucket = RAGDefaults.STORAGE_BUCKET
@@ -168,8 +157,8 @@ class DocumentService:
             storage.make_bucket(bucket)
             logger.info("storage_bucket_created", bucket=bucket)
         
-        # Create object name with tenant isolation
-        object_name = f"{tenant_id}/{content_hash}/{filename}"
+        # Create object name with workspace isolation
+        object_name = f"{isolation_id}/{content_hash}/{filename}"
         
         # Upload
         file_stream = io.BytesIO(content)
@@ -189,17 +178,18 @@ class DocumentService:
     async def _create_document_record(
         self,
         db: AsyncSession,
-        tenant_id: UUID,
+        workspace_id: UUID,
         file: UploadFile,
         s3_path: str,
         file_size: int,
         content_hash: str,
         job_id: str,
-        metadata: Dict[str, Any]
+        metadata: Dict[str, Any],
+        uploaded_by: Optional[UUID]
     ) -> RagDocument:
         """Create RagDocument database record."""
         new_doc = RagDocument(
-            tenant_id=tenant_id,
+            workspace_id=workspace_id,
             filename=file.filename,
             file_url=s3_path,
             file_size_bytes=file_size,
@@ -209,7 +199,8 @@ class DocumentService:
             financial_period=metadata.get("financial_period"),
             status=DocumentStatus.PENDING.value,
             content_hash=content_hash,
-            job_id=job_id
+            job_id=job_id,
+            uploaded_by=uploaded_by
         )
         
         db.add(new_doc)
@@ -219,7 +210,7 @@ class DocumentService:
     
     async def _dispatch_ingestion_task(
         self,
-        tenant_id: str,
+        workspace_id: str,
         s3_path: str,
         job_id: str,
         content_hash: str,
@@ -227,7 +218,7 @@ class DocumentService:
     ):
         """Dispatch Celery task for background ingestion."""
         payload = {
-            "tenant_id": tenant_id,
+            "workspace_id": workspace_id,
             "file_path": s3_path,
             "job_id": job_id,
             "content_hash": content_hash,

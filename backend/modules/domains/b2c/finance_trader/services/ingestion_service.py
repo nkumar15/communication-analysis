@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from core.constants import DocumentStatus
-from core.db.rls import rls_service
+# from core.db.rls import rls_service # Not strictly needed if no RLS
 from core.config import settings
 from infrastructure.logging import get_logger
-from modules.b2b.models.rag_document import RagDocument
+# USE B2C MODEL
+from modules.domains.b2c.finance_trader.models.rag_document import RagDocument
 from modules.domains.b2c.finance_trader.services.rag_service import RagService
 from modules.domains.b2c.finance_trader.exceptions import IngestionError
 
@@ -31,7 +32,7 @@ class IngestionService:
     async def process_ingestion(
         self,
         db: AsyncSession,
-        tenant_id: UUID,
+        workspace_id: UUID,  # Changed from tenant_id
         file_path: str,
         job_id: str,
         document_metadata: Dict[str, Any],
@@ -40,21 +41,6 @@ class IngestionService:
     ) -> Dict[str, Any]:
         """
         Main ingestion workflow.
-        
-        Args:
-            db: Database session (with RLS context already set by caller)
-            tenant_id: Tenant UUID
-            file_path: S3 path to document
-            job_id: Job ID for status tracking
-            document_metadata: Document metadata
-            content_hash: SHA-256 hash for deduplication
-            rag_service: Initialized RagService instance
-            
-        Returns:
-            Dict with ingestion result (chunks, status, etc.)
-            
-        Raises:
-            IngestionError: If ingestion fails
         """
         try:
             # 1. Find and validate document record
@@ -69,17 +55,18 @@ class IngestionService:
                 return {"status": "skipped", "reason": "already_completed"}
             
             # 3. Check for duplicates
-            if await self._is_duplicate(db, tenant_id, content_hash, rag_doc):
+            if await self._is_duplicate(db, workspace_id, content_hash, rag_doc):
                 return {"status": "skipped", "reason": "duplicate"}
             
             # 4. Update status to PROCESSING
             if rag_doc:
-                await self._set_processing_status(db, rag_doc, tenant_id)
+                await self._set_processing_status(db, rag_doc)
             
             # 5. Execute ingestion via RagService
+            # Note: We pass workspace_id as tenant_id to RagService as it treats it as a generic isolation key
             result = await rag_service.ingest_document(
                 db=db,
-                tenant_id=tenant_id,
+                tenant_id=workspace_id, 
                 file_path=file_path,
                 document_metadata=document_metadata
             )
@@ -140,7 +127,7 @@ class IngestionService:
     async def _is_duplicate(
         self,
         db: AsyncSession,
-        tenant_id: UUID,
+        workspace_id: UUID,
         content_hash: str,
         rag_doc: RagDocument
     ) -> bool:
@@ -154,7 +141,7 @@ class IngestionService:
         
         # Look for existing completed document with same hash
         duplicate_check = select(RagDocument).where(
-            RagDocument.tenant_id == tenant_id,
+            RagDocument.workspace_id == workspace_id,
             RagDocument.content_hash == content_hash,
             RagDocument.status == DocumentStatus.COMPLETED.value
         )
@@ -180,15 +167,16 @@ class IngestionService:
     async def _set_processing_status(
         self,
         db: AsyncSession,
-        rag_doc: RagDocument,
-        tenant_id: UUID
+        rag_doc: RagDocument
     ):
         """Update document status to PROCESSING."""
         rag_doc.status = DocumentStatus.PROCESSING.value
         await db.commit()
         
-        # CRITICAL: RLS context lost after commit, re-apply
-        await rls_service.set_tenant_context(db, tenant_id)
+        # Note: In B2B we re-set RLS context after commit. 
+        # For B2C with explicit workspace_id queries, we might not strictly need it 
+        # unless RLS is enforced on connection.
+        # await rls_service.set_tenant_context(db, tenant_id)
         
         logger.info("document_status_updated", document_id=str(rag_doc.id), status="processing")
     

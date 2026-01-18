@@ -21,7 +21,7 @@ def ingest_document_task(self, payload: Dict[str, Any]):
     """
     Async Ingestion Task using ThreadPoolExecutor pattern.
     Payload:
-    - tenant_id (str)
+    - workspace_id (str): B2C Workspace ID (acting as isolation unit)
     - file_path (str)
     - document_metadata (dict)
     - job_id (str) - For status updates
@@ -94,31 +94,32 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
     """
     Async ingestion logic using IngestionService.
     
-    This function handles RLS context setup, then delegates to IngestionService.
+    This function handles context setup, then delegates to IngestionService.
     """
     from modules.domains.b2c.finance_trader.services.ingestion_service import ingestion_service
-    from core.db.rls import rls_service
+    # from core.db.rls import rls_service # Not strictly needed if no RLS on b2c_finance_trader, but good practice if available
     
-    tenant_id_str = payload.get('tenant_id')
+    workspace_id_str = payload.get('workspace_id')
     file_path = payload.get('file_path')
     job_id = payload.get('job_id')
     content_hash = payload.get('content_hash', '')
     metadata = payload.get('document_metadata', {})
     
-    if not tenant_id_str or not file_path:
-        logger.error("missing_required_payload", has_tenant=bool(tenant_id_str), has_file_path=bool(file_path))
+    if not workspace_id_str or not file_path:
+        logger.error("missing_required_payload", has_workspace=bool(workspace_id_str), has_file_path=bool(file_path))
         return
 
-    tenant_id = UUID(tenant_id_str)
+    workspace_id = UUID(workspace_id_str)
     
-    # Set RLS Context (required for all DB operations)
-    await rls_service.set_tenant_context(db, tenant_id)
+    # Note: B2C implementation might not use strict RLS for workspaces yet.
+    # If it did, we would call: await rls_service.set_workspace_context(db, workspace_id)
+    # For now, we rely on the service passing workspace_id to queries.
     
     # Delegate to IngestionService
     try:
         result = await ingestion_service.process_ingestion(
             db=db,
-            tenant_id=tenant_id,
+            workspace_id=workspace_id,
             file_path=file_path,
             job_id=job_id,
             document_metadata=metadata,

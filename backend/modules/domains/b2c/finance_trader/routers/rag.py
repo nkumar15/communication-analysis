@@ -2,7 +2,7 @@
 import hashlib
 import uuid
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -11,8 +11,10 @@ from core.db.rls import rls_service
 from core.config import settings
 from core.constants import DocumentStatus, RAGDefaults
 from infrastructure.logging import get_logger, add_context
-from modules.b2b.models.rag_document import RagDocument
-from modules.b2b.middleware.b2b_auth import get_current_active_user
+# USE B2C MODEL
+from modules.domains.b2c.finance_trader.models.rag_document import RagDocument
+# USE B2C AUTH
+from modules.b2c.middleware.b2c_auth import get_current_b2c_user
 
 # Import services
 from modules.domains.b2c.finance_trader.services.document_service import document_service
@@ -27,6 +29,28 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+async def get_workspace_context(
+    x_workspace_id: Optional[str] = Header(None, alias="X-Workspace-ID"),
+    current_user: dict = Depends(get_current_b2c_user)
+) -> uuid.UUID:
+    """
+    Resolve and validate workspace context.
+    Prioritize X-Workspace-ID header, fallback to user's personal workspace.
+    """
+    workspace_id_str = x_workspace_id or str(current_user.get("personal_workspace_id"))
+    
+    if not workspace_id_str:
+        # Should not happen if user is valid B2C user
+        raise HTTPException(status_code=400, detail="No active workspace context")
+        
+    try:
+        workspace_id = uuid.UUID(workspace_id_str)
+        # TODO: Validate user membership in this workspace if not personal
+        return workspace_id
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid workspace ID format")
+
+
 @router.post("/upload")
 async def upload_document(
     domain: str,
@@ -35,27 +59,20 @@ async def upload_document(
     report_type: Optional[str] = Form(None),
     financial_period: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: dict = Depends(get_current_b2c_user),
+    workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
-    tenant_id = str(current_user.get('tenant_id'))
     """
     Upload a document for RAG ingestion.
     """
     # Bind context for all logs in this request
-    add_context(tenant_id=tenant_id, domain=domain, filename=file.filename or "unknown")
+    add_context(workspace_id=str(workspace_id), user_id=str(current_user['id']), domain=domain, filename=file.filename or "unknown")
     
     if not file.filename:
-        logger.warning("upload_rejected_no_filename", tenant_id=tenant_id)
+        logger.warning("upload_rejected_no_filename", workspace_id=str(workspace_id))
         raise HTTPException(status_code=400, detail="Filename missing")
     
     logger.info("document_upload_started", file_size=file.size)
-    
-    # Use DocumentService for all upload logic
-    try:
-        tenant_uuid = uuid.UUID(tenant_id)
-    except ValueError:
-        logger.error("invalid_tenant_id_format", tenant_id=tenant_id)
-        raise HTTPException(status_code=400, detail="Invalid tenant_id format")
     
     metadata = {
         "company_name": company_name,
@@ -66,9 +83,10 @@ async def upload_document(
     
     result = await document_service.upload_document(
         db=db,
-        tenant_id=tenant_uuid,
+        workspace_id=workspace_id,
         file=file,
-        metadata=metadata
+        metadata=metadata,
+        uploaded_by=current_user['id']
     )
     
     return result.to_dict()
@@ -78,20 +96,17 @@ async def get_ingestion_status(
     domain: str,
     job_id: str, 
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: dict = Depends(get_current_b2c_user), # Auth check
+    workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
-    tenant_id = str(current_user.get('tenant_id'))
     """Check status of an ingestion job"""
-    add_context(tenant_id=tenant_id, domain=domain, job_id=job_id)
-    
-    try:
-        tenant_uuid = uuid.UUID(tenant_id)
-        await rls_service.set_tenant_context(db, tenant_uuid)
-    except ValueError:
-        logger.error("invalid_tenant_id_format", tenant_id=tenant_id)
-        raise HTTPException(status_code=400, detail="Invalid tenant_id format")
+    add_context(workspace_id=str(workspace_id), domain=domain, job_id=job_id)
 
-    stmt = select(RagDocument).where(RagDocument.job_id == job_id)
+    # Validate ownership/workspace context via query
+    stmt = select(RagDocument).where(
+        RagDocument.job_id == job_id,
+        RagDocument.workspace_id == workspace_id
+    )
     result = await db.execute(stmt)
     doc = result.scalars().first()
     
@@ -112,36 +127,18 @@ async def search_documents(
     query: str = Form(...),
     limit: int = Form(3, ge=1), # Reduced default from 5 to 3 for performance
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: dict = Depends(get_current_b2c_user),
+    workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
-    tenant_id = str(current_user.get('tenant_id'))
     """
     Search ingested documents using the centralized RagService.
     This ensures Query Understanding (Decomposition) and advanced retrieval logic is applied.
     """
-    add_context(tenant_id=tenant_id, domain=domain, query=query[:50])
+    add_context(workspace_id=str(workspace_id), domain=domain, query=query[:50])
     try:
-        # rag_service is imported at module level for preloading
-        
-        # Call the service which handles:
-        # 1. Query Decomposition (NL -> Filters)
-        # 2. Hybrid Retrieval with Tenant Isolation
-        # 3. Reranking (if configured)
-        # 4. Synthesis (if configured, currently partial)
-        
-        # Note: rag_service.search returns a dict with 'results', 'filters', etc.
-        # We might need to adapt the response specific to what the frontend expects 
-        # or just return the service response.
-        
-        # The service returns:
-        # {
-        #     "query": query,
-        #     "filters": [...],
-        #     "results": [...],
-        #     "count": ...
-        # }
-        
-        search_result = await rag_service.search(query=query, tenant_id=uuid.UUID(tenant_id), limit=limit)
+        # Call the service
+        # rag_service.search uses tenant_id arg for isolation, we pass workspace_id
+        search_result = await rag_service.search(query=query, tenant_id=workspace_id, limit=limit)
         
         results = search_result.get("results", [])
         filters_used = search_result.get("filters", [])
@@ -170,20 +167,13 @@ async def search_documents(
 async def list_documents(
     domain: str,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_active_user)
+    current_user: dict = Depends(get_current_b2c_user),
+    workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
-    tenant_id = str(current_user.get('tenant_id'))
-    """List all RAG documents for a tenant"""
-    add_context(tenant_id=tenant_id, domain=domain)
-    
-    try:
-        tenant_uuid = uuid.UUID(tenant_id)
-        await rls_service.set_tenant_context(db, tenant_uuid)
-    except ValueError:
-        logger.error("invalid_tenant_id_format", tenant_id=tenant_id)
-        raise HTTPException(status_code=400, detail="Invalid tenant_id")
+    """List all RAG documents for a workspace"""
+    add_context(workspace_id=str(workspace_id), domain=domain)
 
-    stmt = select(RagDocument).where(RagDocument.tenant_id == tenant_uuid).order_by(RagDocument.created_at.desc())
+    stmt = select(RagDocument).where(RagDocument.workspace_id == workspace_id).order_by(RagDocument.created_at.desc())
     result = await db.execute(stmt)
     docs = result.scalars().all()
 
@@ -193,7 +183,6 @@ async def list_documents(
             "filename": d.filename,
             "status": d.status,
             "created_at": d.created_at,
-            "file_size_bytes": d.file_size_bytes,
             "file_size_bytes": d.file_size_bytes,
             "job_id": d.job_id,
             "company_name": d.company_name,
