@@ -7,9 +7,19 @@ Applies to: **All Documentation, Feature Development, and Architecture**
 
 ## 1. The "Code-Next-To-Doc" Principle
 **Rule**: Technical documentation must live **alongside the code** it describes.
-- **Do NOT** create isolated specification files in `docs/specifications` for feature details.
-- **DO** create a `README.md` inside the feature module directory.
-  - Example: `backend/modules/domains/b2b/projects/README.md`
+
+### Scenario A: Modular Architecture (Feature Folders)
+*Examples: `domains/b2b/task_management`, `domains/b2b/bank_surveillance`*
+- **Placement**: `README.md` inside the feature folder.
+- **Example**: `backend/modules/domains/b2b/task_management/README.md`
+
+### Scenario B: Layered Architecture (Foundation Modules)
+*Examples: `modules/b2b` (Core), `modules/platform`*
+- **Placement**:
+  1. **Index**: `README.md` at the module root (`modules/b2b/README.md`).
+  2. **Features**: Markdown files in a `docs/` subdirectory.
+     - **Example**: `backend/modules/b2b/docs/invitations.md`
+- **Why**: These modules lack feature-specific folders, so we group docs locally.
 
 ## 2. The Central Index (`docs/README.md`)
 The `docs/` root is the **EntryPoint** and **Index** for the project.

@@ -24,15 +24,21 @@ When asked to "document the [Feature Name] feature" or "update docs for [Path]",
     *   [ ] Model: `Comment`
 
 ### Step 2: Generate Documentation
-Create/Update `README.md` using the Standard Template.
+Create or Update the documentation file.
+
+**Path Selection**:
+- **Modular (Feature Folder)**: Create `README.md` in the feature folder.
+- **Layered (Foundation)**: Create `docs/[feature_name].md` inside the module folder (e.g., `backend/modules/b2b/docs/invitations.md`).
+
+**Content Generation**:
+Use the Standard Template below.
 *   **Completeness Check**: refer to your Inventory List. **Every** item in the Inventory must have a corresponding section in the doc.
     *   Did you document `comments.py`?
     *   Did you document the `ScopeChecker`?
 
-### Step 3: Link to Root Docs
-*   Open `docs/README.md` (or `docs/feature_index.md`).
-*   Ensure this feature is listed in the "Feature Index" with a relative link to its `README.md`.
-    *   Example: `- [Task Management](../../backend/modules/domains/b2b/task_management/README.md)`
+### Step 3: Link to Indices
+1.  **Module Index** (Layered Only): If in a Layered module, ensure `[module]/README.md` links to your new doc.
+2.  **Root Index**: Open `docs/README.md`. Ensure the feature (or the Module Index) is listed.
 
 ## Standard Template
 
