@@ -25,7 +25,6 @@ Detailed technical documentation for each foundation feature can be found below:
 
 ### Platform
 - [Dashboard](docs/dashboard.md)
-- [Platform Integration](docs/b2b-platform.md)
 
 ## 4. Dependencies
 - **Core**: `services.authentication`, `db.session`
