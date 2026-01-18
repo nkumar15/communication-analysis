@@ -96,4 +96,5 @@ Use the Standard Template below.
 Before finishing, ask yourself:
 1. Did I include **ALL** routers found in the directory?
 2. Did I include **ALL** database tables defined in models?
-3. Is the Permission scope clearly stated?
+3. **Did I include a Mermaid Diagram for the Data Flow?** (Text descriptions are not enough).
+4. Is the Permission scope clearly stated?

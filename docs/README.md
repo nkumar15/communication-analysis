@@ -9,6 +9,7 @@ This index links to technical documentation co-located with the source code.
 
 ### Foundation Layers
 - [B2B Core (Auth, Billing, Users)](../backend/modules/b2b/README.md)
+- [B2C Core (Auth, Workspaces)](../backend/modules/b2c/README.md)
 - [Platform (Super-Admin)](../backend/modules/platform/README.md)
 
 ### B2B Domain
