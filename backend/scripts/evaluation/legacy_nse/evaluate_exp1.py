@@ -12,13 +12,13 @@ sys.path.append("/app")
 # Direct Component Imports (Bypassing Service/Router abstraction to test Core Retrieval)
 try:
     from infrastructure.factories.embedding_factory import EmbeddingFactory
-    from modules.domains.nse.services.retrievers.hybrid_retriever import TenantAwareHybridRetriever
+    from modules.domains.b2c.finance_trader.services.retrievers.hybrid_retriever import TenantAwareHybridRetriever
     from llama_index.core import Settings
 except ImportError as e:
     print(f"Import Error: {e}")
     # Fallback for local
     from backend.infrastructure.factories.embedding_factory import EmbeddingFactory
-    from backend.modules.domains.nse.services.retrievers.hybrid_retriever import TenantAwareHybridRetriever
+    from backend.modules.domains.b2c.finance_trader.services.retrievers.hybrid_retriever import TenantAwareHybridRetriever
     from llama_index.core import Settings
 
 # Import DeepEval

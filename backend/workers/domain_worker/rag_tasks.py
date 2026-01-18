@@ -7,14 +7,14 @@ from typing import Dict, Any
 
 from core.constants import DocumentStatus
 from infrastructure.logging import get_logger
-from modules.domains.nse.services.rag_service import RagService
+from modules.domains.b2c.finance_trader.services.rag_service import RagService
 
 logger = get_logger(__name__)
 
 # Initialize RagService (Lazy load happens on first access inside methods if needed)
 # However, importing the class is fine.
 # Global import is fine, but instance shouldn't be global if it holds loop state
-# from modules.domains.nse.services.rag_service import RagService 
+# from modules.domains.b2c.finance_trader.services.rag_service import RagService 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60, name="domain.ingest_document", time_limit=1800, soft_time_limit=1740)
 def ingest_document_task(self, payload: Dict[str, Any]):
@@ -66,7 +66,7 @@ def ingest_document_task(self, payload: Dict[str, Any]):
             
             try:
                 # Instantiate RagService HERE so it attaches to the CURRENT loop
-                from modules.domains.nse.services.rag_service import RagService
+                from modules.domains.b2c.finance_trader.services.rag_service import RagService
                 rag_service = RagService()
                 
                 async with AsyncSessionLocal() as db:
@@ -96,7 +96,7 @@ async def _ingest_async(payload: Dict[str, Any], db, rag_service):
     
     This function handles RLS context setup, then delegates to IngestionService.
     """
-    from modules.domains.nse.services.ingestion_service import ingestion_service
+    from modules.domains.b2c.finance_trader.services.ingestion_service import ingestion_service
     from core.db.rls import rls_service
     
     tenant_id_str = payload.get('tenant_id')

@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 sys.path.append("/app") 
 
 try:
-    from modules.domains.nse.services.rag_service import RagService
+    from modules.domains.b2c.finance_trader.services.rag_service import RagService
     from llama_index.core import Settings
     from llama_index.llms.openai import OpenAI
 except ImportError as e:

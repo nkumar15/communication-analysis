@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
 
 from llama_index.core.schema import Document
-from modules.domains.nse.services.parsers.nse_parser import NSEEarningsParser
+from modules.domains.b2c.finance_trader.services.parsers.nse_parser import NSEEarningsParser
 
 def test_transcript_parser():
     print("Testing Transcript Parser...")

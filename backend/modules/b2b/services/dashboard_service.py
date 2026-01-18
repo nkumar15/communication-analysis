@@ -130,7 +130,7 @@ class DashboardService:
         overdue_tasks_count = 0
         
         try:
-            from modules.domains.projects.models import Project, Task
+            from modules.domains.b2b.projects.models import Project, Task
             from datetime import datetime, timezone
             
             if is_admin_scope:

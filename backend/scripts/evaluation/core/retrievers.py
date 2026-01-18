@@ -9,7 +9,7 @@ from llama_index.core.schema import QueryBundle, NodeWithScore
 from llama_index.core.settings import Settings
 
 # Reuse existing ES BM25 Retriever
-from modules.domains.nse.services.retrievers.es_bm25_retriever import ElasticsearchBM25Retriever
+from modules.domains.b2c.finance_trader.services.retrievers.es_bm25_retriever import ElasticsearchBM25Retriever
 
 logger = logging.getLogger(__name__)
 

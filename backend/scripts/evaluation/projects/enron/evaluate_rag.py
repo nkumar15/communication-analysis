@@ -18,8 +18,8 @@ else:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../")))
 
 try:
-    from modules.domains.enron.services.rag import enron_rag_service
-    from modules.domains.enron.constants import DEFAULT_TENANT_ID
+    from modules.domains.b2b.bank_surveillance.services.rag import enron_rag_service
+    from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
     from llama_index.core import Settings
     from llama_index.llms.openai import OpenAI
     from infrastructure.factories.embedding_factory import EmbeddingFactory

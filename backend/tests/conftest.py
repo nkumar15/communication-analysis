@@ -42,7 +42,7 @@ from infrastructure.auth import get_auth_provider
 from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles, dashboard, regions
 from modules.b2b.models import RolePermission, Resource, Action, Role
 from sqlalchemy import select
-from modules.domains.projects.routers import projects, tasks, comments
+from modules.domains.b2b.projects.routers import projects, tasks, comments
 from modules.platform.routers import platform, platform_b2b, platform_b2c
 from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
 from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
@@ -120,7 +120,7 @@ app.include_router(b2c_workspaces.router)
 app.include_router(b2c_invitations.router)
 
 # Include NSE RAG router
-from modules.domains.nse.routers import rag as nse_rag
+from modules.domains.b2c.finance_trader.routers import rag as nse_rag
 app.include_router(nse_rag.router)
 
 # Include B2C billing router if stripe is available

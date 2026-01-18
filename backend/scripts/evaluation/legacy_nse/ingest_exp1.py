@@ -9,9 +9,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 sys.path.append("/app") 
 
 try:
-    from modules.domains.nse.services.rag_service import RagService
+    from modules.domains.b2c.finance_trader.services.rag_service import RagService
 except ImportError:
-    from backend.modules.domains.nse.services.rag_service import RagService
+    from backend.modules.domains.b2c.finance_trader.services.rag_service import RagService
 
 async def ingest_experiment_1():
     print("--- Ingesting Experiment 1 (Advanced Parsing) ---")

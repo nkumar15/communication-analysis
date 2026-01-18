@@ -3,7 +3,7 @@ import asyncio
 import uuid
 from pathlib import Path
 
-from modules.domains.nse.services.rag_service import RagService
+from modules.domains.b2c.finance_trader.services.rag_service import RagService
     
 
 async def ingest_baseline():

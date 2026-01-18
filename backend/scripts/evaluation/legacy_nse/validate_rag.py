@@ -9,7 +9,7 @@ sys.path.append(os.getcwd())
 # Set Mock LLM for validation to avoid API Key requirement
 os.environ["LLM_PROVIDER"] = "mock"
 
-from modules.domains.nse.services.rag_service import rag_service
+from modules.domains.b2c.finance_trader.services.rag_service import rag_service
 
 async def main():
     print("=== Starting RAG Ingestion Validation ===")

@@ -38,7 +38,7 @@ class TestSearchEndpointMocked:
         }
         
         mocker.patch(
-            'modules.domains.nse.services.rag_service.rag_service.search',
+            'modules.domains.b2c.finance_trader.services.rag_service.rag_service.search',
             return_value=mock_search_result
         )
         
@@ -75,7 +75,7 @@ class TestSearchEndpointMocked:
         }
         
         mock_search = mocker.patch(
-            'modules.domains.nse.services.rag_service.rag_service.search',
+            'modules.domains.b2c.finance_trader.services.rag_service.rag_service.search',
             return_value=mock_search_result
         )
         
@@ -104,7 +104,7 @@ class TestSearchEndpointMocked:
         }
         
         mocker.patch(
-            'modules.domains.nse.services.rag_service.rag_service.search',
+            'modules.domains.b2c.finance_trader.services.rag_service.rag_service.search',
             return_value=mock_search_result
         )
         
@@ -165,7 +165,7 @@ class TestSearchEndpointMocked:
         }
         
         mocker.patch(
-            'modules.domains.nse.services.rag_service.rag_service.search',
+            'modules.domains.b2c.finance_trader.services.rag_service.rag_service.search',
             return_value=mock_search_result
         )
         
@@ -227,7 +227,7 @@ class TestSearchInputValidation:
         """Test search handles very long queries"""
         # Mock to avoid actual search
         mocker.patch(
-            'modules.domains.nse.services.rag_service.rag_service.search',
+            'modules.domains.b2c.finance_trader.services.rag_service.rag_service.search',
             return_value={"query": "long query", "results": [], "count": 0}
         )
         

@@ -9,7 +9,7 @@ from uuid import UUID
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent
 sys.path.append(str(BACKEND_DIR))
 
-from modules.domains.nse.services.rag_service import RagService
+from modules.domains.b2c.finance_trader.services.rag_service import RagService
 from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
