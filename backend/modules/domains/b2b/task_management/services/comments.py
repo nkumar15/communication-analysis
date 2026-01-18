@@ -4,11 +4,11 @@ from typing import List, Dict
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from modules.domains.b2b.projects.models.comment import Comment
-from modules.domains.b2b.projects.models.task import Task
-from modules.domains.b2b.projects.models.project import Project
-from modules.domains.b2b.projects.schemas.comments import CommentCreate, CommentUpdate
-from modules.domains.b2b.projects.scope_checker import can_access_task, can_perform_action
+from modules.domains.b2b.task_management.models.comment import Comment
+from modules.domains.b2b.task_management.models.task import Task
+from modules.domains.b2b.task_management.models.project import Project
+from modules.domains.b2b.task_management.schemas.comments import CommentCreate, CommentUpdate
+from modules.domains.b2b.task_management.scope_checker import can_access_task, can_perform_action
 
 def build_comment_tree(comments: List[Comment]) -> List[dict]:
     """Build threaded comment tree from flat list"""

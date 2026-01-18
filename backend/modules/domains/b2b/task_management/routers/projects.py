@@ -12,8 +12,8 @@ from uuid import UUID
 
 from core.db.session import get_db
 from modules.b2b.rbac import require_permission
-from modules.domains.b2b.projects.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
-from modules.domains.b2b.projects.services.projects import (
+from modules.domains.b2b.task_management.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
+from modules.domains.b2b.task_management.services.projects import (
     create_project as service_create_project,
     list_projects as service_list_projects,
     get_project as service_get_project,

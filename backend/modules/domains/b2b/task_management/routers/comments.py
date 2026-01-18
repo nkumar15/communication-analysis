@@ -10,8 +10,8 @@ from uuid import UUID
 
 from core.db.session import get_db
 from modules.b2b.rbac import require_permission
-from modules.domains.b2b.projects.schemas.comments import CommentCreate, CommentUpdate, CommentResponse, CommentResponseWithReplies
-from modules.domains.b2b.projects.services.comments import (
+from modules.domains.b2b.task_management.schemas.comments import CommentCreate, CommentUpdate, CommentResponse, CommentResponseWithReplies
+from modules.domains.b2b.task_management.services.comments import (
     create_comment as service_create_comment,
     list_comments_for_task as service_list_comments_for_task,
     update_comment as service_update_comment,

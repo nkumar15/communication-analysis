@@ -11,8 +11,8 @@ from uuid import UUID
 from typing import List
 
 from modules.b2b.models.team_member import TeamMember
-from modules.domains.b2b.projects.models.project import Project
-from modules.domains.b2b.projects.models.task import Task
+from modules.domains.b2b.task_management.models.project import Project
+from modules.domains.b2b.task_management.models.task import Task
 from modules.b2b.models.team import Team
 
 # Import shared logic from B2B core

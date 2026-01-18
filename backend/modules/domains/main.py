@@ -27,7 +27,7 @@ from infrastructure.logging.middleware import LoggingMiddleware
 logger = get_logger(__name__)
 
 # Import domain-specific routers
-from modules.domains.b2b.projects.routers import (
+from modules.domains.b2b.task_management.routers import (
     projects_router,
     tasks_router,
     comments_router

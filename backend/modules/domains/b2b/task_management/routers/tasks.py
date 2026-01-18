@@ -10,8 +10,8 @@ from uuid import UUID
 
 from core.db.session import get_db
 from modules.b2b.rbac import require_permission
-from modules.domains.b2b.projects.schemas.tasks import TaskCreate, TaskUpdate, TaskResponse
-from modules.domains.b2b.projects.services.tasks import (
+from modules.domains.b2b.task_management.schemas.tasks import TaskCreate, TaskUpdate, TaskResponse
+from modules.domains.b2b.task_management.services.tasks import (
     create_task as service_create_task,
     list_tasks as service_list_tasks,
     get_task as service_get_task,

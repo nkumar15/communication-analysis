@@ -4,9 +4,9 @@ from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from modules.domains.b2b.projects.models.project import Project
-from modules.domains.b2b.projects.schemas.projects import ProjectCreate, ProjectUpdate
-from modules.domains.b2b.projects.scope_checker import (
+from modules.domains.b2b.task_management.models.project import Project
+from modules.domains.b2b.task_management.schemas.projects import ProjectCreate, ProjectUpdate
+from modules.domains.b2b.task_management.scope_checker import (
     get_accessible_projects_query,
     can_access_project,
     can_user_access_team,
