@@ -14,8 +14,17 @@ When adding or updating documents, follow this strict taxonomy. If a document se
 | :--- | :--- | :--- | :--- |
 | `docs/architecture/` | **Design Decisions** | Diagrams, Tech Stack, System Overview, Security Models. | `security.md`, `observability.md`, `system-architecture.md` |
 | `docs/standards/` | **Normative Rules** | "Must/Should" rules for Code, UX, API, Testing, AI Ethics. | `ui-design.md`, `api-standards.md`, `ai-ethics.md`, `testing-standards.md` |
-| `docs/guides/` | **Operations & How-Tos** | Step-by-step instructions for humans (Deployment, Cleanup). | `deployment.md`, `celery-setup.md`, `data-lifecycle.md` |
+| `docs/guides/` | **Developer Workflows** | Step-by-step instructions for developers (local setup, testing, onboarding). | `multi-environment-setup.md`, `testing-workflow.md`, `onboarding.md` |
+| `docs/operations/` | **Production Runbooks** | Procedures for DevOps/SRE (deployment, incidents, scaling, backups). | `deployment.md`, `incident-response.md`, `db-backup.md` |
 | `docs/specifications/` | **Requirements** | PRDs, Business Logic definitions. | `spec_001_billing.md` |
+
+### Guides vs Operations - Selection Criteria
+| Criteria | Guide (`docs/guides/`) | Operations (`docs/operations/`) |
+| :--- | :--- | :--- |
+| **Audience** | Developers | DevOps / SRE / On-call |
+| **Environment** | Local / Dev / Test | Staging / Production |
+| **Purpose** | "How to use the system" | "How to run the system" |
+| **Examples** | Local env setup, testing workflow, onboarding | Deployment, DB backups, incident response, scaling |
 
 ### Specific Mappings
 - **AI & GenAI**: 

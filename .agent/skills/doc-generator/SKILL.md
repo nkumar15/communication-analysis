@@ -2,7 +2,7 @@
 description: Generate comprehensive, standardized documentation for a specific feature or module.
 ---
 
-# Feature Documentation Generator
+# Documentation Generator
 
 This skill generates a standardized `README.md` or technical documentation file for a specific feature module.
 
@@ -39,6 +39,17 @@ Create or Update the documentation file.
 - **Modular (Feature Folder)**: Create `README.md` in the feature folder.
 - **Layered (Foundation)**: Create `docs/[feature_name].md` inside the module folder.
 - **Dev Tool**: Create `README.md` in the tool folder (e.g., `backend/tools/genai_evaluator/README.md`).
+- **Guide**: Create `docs/guides/[guide_name].md` for developer workflows and tutorials.
+- **Operations**: Create `docs/operations/[runbook_name].md` for production runbooks and infrastructure procedures.
+
+**Guide vs Operations - Selection Criteria**:
+| Criteria | Guide (`docs/guides/`) | Operations (`docs/operations/`) |
+| :--- | :--- | :--- |
+| **Audience** | Developers | DevOps / SRE / On-call |
+| **Environment** | Local / Dev / Test | Staging / Production |
+| **Purpose** | "How to use the system" | "How to run the system" |
+| **Examples** | Local env setup, testing workflow, onboarding | Deployment, DB backups, incident response, scaling |
+| **Trigger Phrases** | "How do I...", "Developer guide for..." | "Runbook for...", "How to deploy...", "Incident response..." |
 
 ### Step 4: Link to Indices
 1.  **Module Index** (Layered Only): If in a Layered module, ensure `[module]/README.md` links to your new doc.
