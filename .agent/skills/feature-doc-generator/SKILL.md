@@ -37,7 +37,8 @@ Create or Update the documentation file.
 
 **Path Selection**:
 - **Modular (Feature Folder)**: Create `README.md` in the feature folder.
-- **Layered (Foundation)**: Create `docs/[feature_name].md` inside the module folder (e.g., `backend/modules/b2b/docs/invitations.md`).
+- **Layered (Foundation)**: Create `docs/[feature_name].md` inside the module folder.
+- **Dev Tool**: Create `README.md` in the tool folder (e.g., `backend/tools/genai_evaluator/README.md`).
 
 ### Step 4: Link to Indices
 1.  **Module Index** (Layered Only): If in a Layered module, ensure `[module]/README.md` links to your new doc.
@@ -159,4 +160,70 @@ Before finishing, ask yourself:
 4. Is the Permission scope clearly stated?
 5. Did I link to the Module Index and Root Index?
 6. **Did I verify alignment with System Standards?**
+
+
+## Dev Tool Template
+Use this for internal tools (CLI scripts, evaluators, helpers) in `backend/tools/`.
+
+```markdown
+# [Tool Name]
+
+## 1. Overview
+[Brief description of what the tool does and why it exists.]
+
+## 2. Setup
+### Prerequisites
+- [Dependencies, e.g. `pip install deepeval`]
+- [Environment Variables, e.g. `OPENAI_API_KEY`]
+
+### Installation
+```bash
+# Example
+pip install -r requirements-tool.txt
+```
+
+## 3. Usage
+
+### Basic Command
+```bash
+python -m tools.[tool_path].runner --config [path/to/config.yaml]
+```
+
+### Arguments
+| Argument | Description | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `--config` | Path to YAML config | Yes | - |
+| `--verbose` | Enable debug logs | No | False |
+
+## 4. Configuration
+**File**: `config.yaml`
+
+```yaml
+experiment:
+  name: "baseline_v1"
+  dataset: "path/to/data.json"
+pipeline:
+  retriever:
+    top_k: 20
+```
+
+## 5. Architecture
+### Components
+- **Core**: [Description]
+- **Projects**: [Description]
+
+### Data Flow
+[Input Data] -> [Processor] -> [Output JSON]
+
+## 6. Output
+Results are saved to `[output_dir]`.
+
+**Format**:
+```json
+{
+  "metrics": { "faithfulness": 0.8 },
+  "details": [...]
+}
+```
+```
 

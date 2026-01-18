@@ -93,4 +93,4 @@ backend/.cache
 backend/.pytest_cache
 
 # Enron Dataset
-backend/scripts/evaluation/datasets/enron/source/emails*
+backend/tools/genai_evaluator/datasets/enron/source/emails*

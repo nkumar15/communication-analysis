@@ -13,8 +13,8 @@ from typing import List
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(ROOT_DIR))
 
-from scripts.evaluation.core.config import ExperimentConfig
-from scripts.evaluation.core.factory import RagComponentFactory
+from tools.genai_evaluator.core.config import ExperimentConfig
+from tools.genai_evaluator.core.factory import RagComponentFactory
 
 # DeepEval imports
 from deepeval import evaluate

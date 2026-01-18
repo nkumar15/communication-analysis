@@ -1,7 +1,7 @@
 from typing import Any
 from llama_index.core import Settings
 from llama_index.core.retrievers import BaseRetriever
-from scripts.evaluation.core.config import RAGPipelineConfig
+from tools.genai_evaluator.core.config import RAGPipelineConfig
 
 class RagComponentFactory:
     """
@@ -26,7 +26,7 @@ class RagComponentFactory:
             Settings.embed_model = embed_model
 
         if config.retriever.type == "hybrid":
-            from scripts.evaluation.core.retrievers import TenantAwareHybridRetriever
+            from tools.genai_evaluator.core.retrievers import TenantAwareHybridRetriever
             
             return TenantAwareHybridRetriever(
                 embed_model=embed_model,
