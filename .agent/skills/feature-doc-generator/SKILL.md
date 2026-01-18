@@ -23,14 +23,23 @@ When asked to "document the [Feature Name] feature" or "update docs for [Path]",
     *   [ ] Model: `Project`
     *   [ ] Model: `Comment`
 
-### Step 2: Generate Documentation
+### Step 2: Standards Alignment Check
+**CRITICAL**: Ensure your documentation aligns with the System Standards defined in `docs/`.
+1.  **Read Standards**: Review `docs/standards/README.md` and `docs/architecture/README.md`.
+2.  **Verify Patterns**: 
+    *   Does the Architecture diagram match the System Architecture?
+    *   Do UI requirements follow `ui-design.md`?
+    *   Does Security/Auth match `security.md`?
+3.  **Note Deviations**: If the feature violates a standard, you must log it in the "Standards Alignment" section.
+
+### Step 3: Generate Documentation
 Create or Update the documentation file.
 
 **Path Selection**:
 - **Modular (Feature Folder)**: Create `README.md` in the feature folder.
 - **Layered (Foundation)**: Create `docs/[feature_name].md` inside the module folder (e.g., `backend/modules/b2b/docs/invitations.md`).
 
-### Step 3: Link to Indices
+### Step 4: Link to Indices
 1.  **Module Index** (Layered Only): If in a Layered module, ensure `[module]/README.md` links to your new doc.
 2.  **Root Index**: Open `docs/README.md`. Ensure the feature (or the Module Index) is listed.
 
@@ -91,6 +100,7 @@ Create or Update the documentation file.
 
 ## 5. UI Requirements
 *(If Target Platform is "Backend Only", write "Not Applicable")*
+*(Reference `docs/standards/ui-design.md` for components)*
 
 ### Components
 - List key UI components (e.g., `UserList`, `PermissionTable`).
@@ -102,6 +112,7 @@ Create or Update the documentation file.
 
 ## 6. Observability & Audit
 *(If not applicable, write "Not Applicable")*
+*(Reference `docs/architecture/observability.md` for patterns)*
 
 ### Audit Logs
 - **Event**: `[EVENT_NAME]`
@@ -134,6 +145,10 @@ If the module supports plugins or extensions, describe the interface and lifecyc
 - **External**: [Stripe, Firebase, etc.]
 - **Env Vars**: `[VAR_NAME]`
 
+## 10. Standards Alignment
+- **Architecture**: Verified against [System Architecture](../../../docs/architecture/system-architecture.md).
+- **Standards**: Verified against [Standards Index](../../../docs/standards/README.md).
+- **Deviations**: None.
 ```
 
 ## Quality Checklist
@@ -143,3 +158,5 @@ Before finishing, ask yourself:
 3. **Did I include a Mermaid Diagram for the Data Flow?** (Text descriptions are not enough).
 4. Is the Permission scope clearly stated?
 5. Did I link to the Module Index and Root Index?
+6. **Did I verify alignment with System Standards?**
+

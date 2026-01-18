@@ -1,8 +1,10 @@
 # Enterprise SSO Documentation
 
-## 1. High-Level Architecture
-- [Architecture Overview](architecture/)
-- [Specifications](specifications/)
+## 1. System Documentation
+- **[Architecture](architecture/README.md)**: High-level design, Security, Isolation.
+- **[Standards](standards/README.md)**: UI Design, Code Style, Policy.
+- **[Guides](guides/README.md)**: Deployment, Data Management, How-tos.
+- **[Specifications](specifications/)**: Product Requirements (PRDs).
 
 ## 2. Feature Index
 This index links to technical documentation co-located with the source code.
