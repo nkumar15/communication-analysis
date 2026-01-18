@@ -7,7 +7,7 @@ from core.db.base import Base, TimestampMixin
 
 class EnronEmail(Base, TimestampMixin):
     __tablename__ = "enron_emails"
-    __table_args__ = {"schema": "b2b_enron"}
+    __table_args__ = {"schema": "bank_surveillance"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     message_id = Column(String, unique=True, nullable=False)
