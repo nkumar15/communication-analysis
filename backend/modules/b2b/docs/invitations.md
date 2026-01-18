@@ -52,6 +52,24 @@ graph TD
 | `GET` | `/api/b2b/invitations/bulk/{job_id}` | Get bulk job status | `users:invite` |
 | `POST` | `/api/b2b/invitations` | Single user invite | `users:invite` |
 
-## 5. Dependencies
+## 5. Observability & Audit
+### Audit Logs
+- **Event**: `user.invited`
+- **Payload**: `[actor_id, tenant_id, target_email, role]`
+- **Event**: `bulk_invite.processed`
+- **Payload**: `[job_id, success_count, fail_count]`
+
+## 6. Testing
+### Critical Scenarios
+- `BulkInvite_Success`: Large clean CSV.
+- `BulkInvite_ValidationErrors`: CSV with duplicates/bad domains.
+- `BulkInvite_RoleEscalation`: Member trying to invite Admin (Deny).
+- `Accept_Success`: Valid token acceptance.
+- `Accept_Expired`: Invalid token handling.
+
+### Test Location
+- `backend/tests/e2e_api/b2b/test_invitations.py`
+
+## 7. Dependencies
 - **Internal**: `modules.b2b.services.invitation_service`
 - **External**: Celery (Email sending), SendGrid/SMTP

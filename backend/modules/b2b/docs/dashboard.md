@@ -21,10 +21,18 @@ Provide role-appropriate views for all users, highlighting relevant information 
 
 ## 2. Architecture
 ### Data Flow
-- Frontend requests `/stats`.
-- Backend determines `current_user.role`.
-- Backend filters data and returns a `widgets` config.
-- Frontend renders components dynamically based on config.
+```mermaid
+graph TD
+    User -->|GET /stats| API
+    API -->|Get User Role| DB
+    API -->|Load Config| PermissionService
+    PermissionService -->|Filter Widgets| API
+    API -->|Return JSON| Frontend
+    Frontend -->|Render| Widgets
+```
+
+### Widget Configuration
+Backend returns a JSON structure defining which widgets to render.
 
 ## 3. API Reference
 | Method | Endpoint | Description | Permission |
@@ -42,5 +50,24 @@ Provide role-appropriate views for all users, highlighting relevant information 
 }
 ```
 
-## 4. Dependencies
+## 4. UI Requirements (Optional)
+### Components
+- `DashboardGrid`: Responsive grid container.
+- `StatCard`: Standard metric display.
+- `ActivityFeed`: List of recent events.
+
+### UX Rules
+- **Empty States**: If a user has no tasks, show "Create your first task" CTA.
+- **Loading**: Show skeleton loaders for specific widgets.
+
+## 5. Testing
+### Critical Scenarios
+- `Stats_Owner`: Verify Org Health + Billing visible.
+- `Stats_Member`: Verify only Team widgets visible.
+- `Stats_Viewer`: Verify Read-Only widgets.
+
+### Test Location
+- `backend/tests/e2e_api/b2b/test_dashboard.py`
+
+## 6. Dependencies
 - **Internal**: `services.dashboard_service`, `services.b2b.rbac`

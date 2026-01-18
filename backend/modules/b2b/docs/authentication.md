@@ -80,6 +80,23 @@ await rls_service.set_tenant_context(db, tenant_id)
 | `POST` | `/api/b2b/auth/mobile-login` | Exchange IDP Token for Custom Token | Public |
 | `POST` | `/api/b2b/auth/sso-config` | Resolve Tenant SSO Config | Public |
 
-## 5. Dependencies
+## 5. Observability & Audit
+### Audit Logs
+- **Event**: `user.login`
+- **Payload**: `[user_id, tenant_id, source(web/mobile), ip]`
+- **Event**: `user.synced`
+- **Payload**: `[uid, email, is_new]`
+
+## 6. Testing
+### Critical Scenarios
+- `SyncUser_Success`: New user creation.
+- `SyncUser_Existing`: Update metadata.
+- `MobileLogin_CustomToken`: Verify token exchange.
+- `RLS_Isolation`: Verify User A cannot see Tenant B data.
+
+### Test Location
+- `backend/tests/e2e_api/b2b/test_auth.py`
+
+## 7. Dependencies
 - **Internal**: `services.rls_service`, `services.user_service`
 - **External**: Firebase / Google Cloud Identity Platform (GCIP)

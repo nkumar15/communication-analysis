@@ -71,5 +71,22 @@ geographic_boundaries:
   strict: true
 ```
 
-## 4. Dependencies
+## 5. Observability & Audit
+### Audit Logs
+*(Typically granular permission checks are not logged, but Role Changes are)*
+- **Event**: `role.assigned`
+- **Payload**: `[actor_id, target_user, role_name, scope]`
+
+## 6. Testing
+### Critical Scenarios
+- `Role_TenantAdmin_Allow`: Verify admin permissions.
+- `Role_Member_Deny`: Verify restricted action deny.
+- `Plugin_GeoDeny`: Verify user approved by Core but denied by Geo Plugin.
+- `Plugin_Hierarchy_Allow`: Verify Manager seeing Child Team data.
+
+### Test Location
+- `backend/tests/e2e_api/b2b/test_rbac.py`
+- `backend/tests/units/core/test_rbac_plugin.py`
+
+## 7. Dependencies
 - **Internal**: `middleware.rbac`, `services.plugin_service`

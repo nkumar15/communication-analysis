@@ -63,7 +63,30 @@ Values: `draft` -> `sent` -> `paid` | `overdue` -> `void`.
 | `GET` | `/api/platform/billing/profiles` | Search tenants | `platform:admin` |
 | `POST` | `/api/platform/billing/invoices/{id}/send` | Email invoice | `platform:admin` |
 
-## 5. Dependencies
+## 5. Observability & Audit
+### Audit Logs
+- **Event**: `subscription.upgrade`
+- **Payload**: `[user_id, tenant_id, old_tier, new_tier, amount]`
+- **Event**: `invoice.paid`
+- **Payload**: `[invoice_id, amount, currency]`
+
+### Metrics
+- `active_subscriptions_total` (Gauge)
+- `mrr_total` (Gauge)
+- `payment_failure_rate` (Counter)
+
+## 6. Testing
+### Critical Scenarios
+- `Checkout_Success_Premium_Monthly`: Verify session creation.
+- `Checkout_InvalidTier`: Verify 400.
+- `Webhook_CheckoutCompleted`: Verify subscription update.
+- `Webhook_InvoicePaid`: Verify invoice status update.
+- `Cancel_Immediate`: Verify immediate status change.
+
+### Test Location
+- `backend/tests/e2e_api/b2b/test_billing.py`
+
+## 7. Dependencies
 - **Internal**: `services.tenants`, `tasks.billing`
 - **External**: Stripe (Payments/Webhooks)
 - **Env Vars**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`

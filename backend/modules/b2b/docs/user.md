@@ -20,6 +20,16 @@ Manage the lifecycle of users within a Tenant Organization, including invitation
 - `member`/`viewer` roles cannot invite or update other users.
 
 ## 2. Architecture
+### Data Flow
+```mermaid
+graph TD
+    Admin[Admin User] -->|POST /invite| API
+    API -->|Validation| Service
+    Service -->|Insert| DB[(Users Table)]
+    Service -->|Audit| Log[Audit Trail]
+    API -->|Email| SMTP
+```
+
 ### Security
 - **RLS**: Strict tenant isolation on `users` table.
 - **RBAC**: Endpoints protected by `users:write`, `users:invite`.
@@ -41,5 +51,28 @@ Manage the lifecycle of users within a Tenant Organization, including invitation
 | `DELETE` | `/api/b2b/users/{id}` | Remove user | `users:delete` |
 | `GET` | `/api/b2b/roles` | List available roles | `roles:read` |
 
-## 5. Dependencies
+## 5. UI Requirements (Optional)
+### Components
+- `UserTable`: Filterable list (Role, Status).
+- `InviteModal`: Form for single/bulk invites.
+- `RoleSelector`: Dropdown with descriptions.
+
+## 6. Observability & Audit
+### Audit Logs
+- **Event**: `user.role_changed`
+- **Payload**: `[actor_id, target_user_id, old_role, new_role]`
+- **Event**: `user.deactivated`
+- **Payload**: `[actor_id, target_user_id]`
+
+## 7. Testing
+### Critical Scenarios
+- `ListUsers_Pagination`: Verify limits.
+- `UpdateRole_Self`: Prevent self-demotion from last Admin (if rule exists).
+- `Deactivate_Validation`: Ensure Owner isn't deactivated.
+- `Invite_Duplicate`: Check email uniqueness.
+
+### Test Location
+- `backend/tests/e2e_api/b2b/test_users.py`
+
+## 8. Dependencies
 - **Internal**: `services.invitation_service`, `services.rbac_service`
