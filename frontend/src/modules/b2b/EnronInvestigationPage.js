@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Typography, TextField, Button, Paper, Card, CardContent, Alert, Chip, CircularProgress, IconButton } from '@mui/material';
 import { Assessment, Security, Warning, CheckCircle, ArrowBack, History, Email, Download } from '@mui/icons-material';
 import AdminLayout from './web/layouts/AdminLayout';
-import b2bClient from '../../core/api/b2bClient';
+import b2bDomainClient from '../../core/api/b2bDomainClient';
 
 import EnronGraphView from './components/EnronGraphView';
 
@@ -42,7 +42,7 @@ const EnronInvestigationPage = () => {
         setReport(null);
 
         try {
-            const response = await b2bClient.post('/api/b2b/domain/bank_surveillance/investigate', {
+            const response = await b2bDomainClient.investigateEmail({
                 email_text: emailText,
                 email_metadata: {
                     sender: sender.trim() || undefined,

@@ -30,6 +30,7 @@ from core.db.rls import rls_service
 from modules.b2b.utils.csv_parser import BulkInviteCSVParser
 from workers.b2b_worker.email_tasks import send_bulk_invitation_emails, send_invitation_email
 from modules.b2b.models import UserModel
+from workers.b2b_worker.audit_tasks import persist_audit_log
 
 
 router = APIRouter(prefix="/api/b2b/invitations", tags=["invitations"])
@@ -89,18 +90,25 @@ async def invite_user(
         tenant_id=str(current_user['tenant_id'])
     )
     
-    # Log audit event via Celery (async in production, sync in tests via eager mode)
-    from workers.b2b_worker.audit_tasks import persist_audit_log
-    persist_audit_log.delay({
-        'tenant_id': str(current_user['tenant_id']),
-        'event_type': 'user.invited',
-        'resource_type': 'invitation',
-        'actor_id': str(current_user['id']),
-        'resource_id': str(res_id),
-        'details': {'email': request.email, 'role': request.role, 'team_id': str(request.team_id) if request.team_id else None},
-        'ip_address': req.client.host if req.client else None,
-        'user_agent': req.headers.get('User-Agent')
-    })
+    # Log audit event via Celery (async)
+    # Log audit event via Celery (async)
+    # from workers.b2b_worker.audit_tasks import persist_audit_log
+    
+    try:
+        persist_audit_log.delay({
+            'tenant_id': str(current_user['tenant_id']),
+            'event_type': 'user.invited',
+            'resource_type': 'invitation',
+            'actor_id': str(current_user['id']),
+            'resource_id': str(res_id),
+            'details': {'email': request.email, 'role': request.role, 'team_id': str(request.team_id) if request.team_id else None},
+            'ip_address': req.client.host if req.client else None,
+            'user_agent': req.headers.get('User-Agent')
+        })
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.getLogger(__name__).error(f"Failed to trigger audit log: {e}")
     
     return InviteUserResponse(
         invitation_id=res_id,

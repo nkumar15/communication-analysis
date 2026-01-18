@@ -12,7 +12,7 @@ class Communication(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("b2b.tenants.id", ondelete="CASCADE"), nullable=False)
-    investigation_id = Column(UUID(as_uuid=True), ForeignKey("b2b.investigations.id", ondelete="SET NULL"), nullable=True)
+    investigation_id = Column(UUID(as_uuid=True), ForeignKey("bank_surveillance.investigations.id", ondelete="SET NULL"), nullable=True)
     
     channel = Column(String(50), nullable=False)
     sender = Column(String(200), nullable=False)
