@@ -4,62 +4,90 @@ description: Generate comprehensive, standardized documentation for a specific f
 
 # Feature Documentation Generator
 
-This skill generates a standardized `README.md` or technical documentation file for a specific feature module (e.g., `modules/b2b/projects` or `modules/b2c/todos`).
+This skill generates a standardized `README.md` or technical documentation file for a specific feature module.
 
 ## Usage
 
-When asked to "document the [Feature Name] feature" or "update docs for [Path]", follow these steps:
+When asked to "document the [Feature Name] feature" or "update docs for [Path]", follow these steps **strictly**.
 
-1.  **Analyze the Codebase**:
-    *   **Models**: Look for SQLAlchemy models to understand the database schema. Identify tables, columns, relationships, and constraints.
-    *   **Routers**: Look for FastAPI routers to identify API endpoints (Methods, Paths, Request/Response models).
-    *   **Services**: Look for service classes or functions to understand the core business logic and workflows.
-    *   **Dependencies**: Identify external services (Celery, Stripe, etc.) or cross-module dependencies.
+### Step 1: Discovery & Inventory
+**CRITICAL**: Do not skip this step. You must list every component to ensure nothing is missed.
+1.  **List Files**: Run `list_dir` on the module.
+2.  **Identify Components**:
+    *   **Routers**: Find all files in `routers/`. Record every `@router` prefix and tag.
+    *   **Models**: Find all files in `models/`. Record every Class inheriting from `Base`.
+    *   **Services**: Find all files in `services/`. Record public methods.
+3.  **Create Inventory List**:
+    *   [ ] Router: `projects.py` (Endpoints: GET /, POST /, ...)
+    *   [ ] Router: `comments.py` (Endpoints: ...)
+    *   [ ] Model: `Project`
+    *   [ ] Model: `Comment`
 
-2.  **Generate Documentation**:
-    Create a markdown file (or update `README.md` in the module root) following the **Standard Template** below.
-    *   **Do not** skip sections unless they are truly not applicable.
-    *   **Do** use Mermaid diagrams for complex data flows or state machines.
+### Step 2: Generate Documentation
+Create/Update `README.md` using the Standard Template.
+*   **Completeness Check**: refer to your Inventory List. **Every** item in the Inventory must have a corresponding section in the doc.
+    *   Did you document `comments.py`?
+    *   Did you document the `ScopeChecker`?
+
+### Step 3: Link to Root Docs
+*   Open `docs/README.md` (or `docs/feature_index.md`).
+*   Ensure this feature is listed in the "Feature Index" with a relative link to its `README.md`.
+    *   Example: `- [Task Management](../../backend/modules/domains/b2b/task_management/README.md)`
 
 ## Standard Template
 
 ```markdown
 # [Feature Name]
 
-## 1. Overview
-[Brief description of what this feature does. Who is it for? What problem does it solve?]
+## 1. Context
+### Goal
+[One sentence summary of the business value]
+
+### User Stories
+- **As a** [Role] **I want to** [Action] **so that** [Benefit].
+- [Story 2]
+
+### Key Business Rules
+- [Rule 1: e.g. "Only Owners can delete"]
+- [Rule 2]
 
 ## 2. Architecture
 ### Data Flow
-[Mermaid Diagram illustrating the flow of data, e.g., User -> API -> Service -> DB]
+[Mermaid Diagram: User -> API -> Service -> DB]
 
 ### Key Components
-- **Models**: `[ModelName]`, `[ModelName]`
-- **Services**: `[ServiceName]`
-- **API**: `[RouterPrefix]`
+| Component | File | Description |
+| :--- | :--- | :--- |
+| **Model** | `models/project.py` | `Project` entity |
+| **API** | `routers/projects.py` | Project CRUD |
 
 ## 3. Database Schema
+**Schema**: `[schema_name]`
+
 | Table Name | Description | Key Columns |
 | :--- | :--- | :--- |
-| `[table_name]` | [Description] | `id` (PK), `[col]` |
+| `[table]` | [Description] | `id`, `[fk_col]` |
 
 ## 4. API Reference
-| Method | Endpoint | Description | Auth Required |
+**Base Path**: `/api/b2b/domain/[feature]`
+
+### [Sub-Resource Name] (e.g. Projects)
+| Method | Path | Description | Permission |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/...` | [Short desc] | Yes/No |
+| `GET` | `/` | List items | `[resource]:read` |
+| `POST` | `/` | Create item | `[resource]:write` |
 
-## 5. Key Workflows
-### [Workflow Name] (e.g., Creation, Processing)
-1. Step 1...
-2. Step 2...
-3. Step 3...
+*(Repeat for ALL routers found in Discovery)*
 
-## 6. Dependencies & Configuration
-- **Env Vars**: `[VAR_NAME]` (if any)
-- **External Services**: [e.g. Stripe, Celery, S3]
+## 5. Dependencies
+- **Internal**: [Modules this feature calls]
+- **External**: [Stripe, Firebase, etc.]
+- **Env Vars**: `[VAR_NAME]`
+
 ```
 
-## Tips
-- Be concise but complete.
-- For API endpoints, verify the actual `@router` decorators.
-- For DB schemas, verify the `__tablename__` and column definitions.
+## Quality Checklist
+Before finishing, ask yourself:
+1. Did I include **ALL** routers found in the directory?
+2. Did I include **ALL** database tables defined in models?
+3. Is the Permission scope clearly stated?
