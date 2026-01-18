@@ -45,6 +45,16 @@ Provide a flexible, two-dimensional access control system (Permission + Scope) t
 ```
 
 ### Permission Check Flow
+```mermaid
+graph TD
+    User -->|Action| Middleware
+    Middleware -->|Has Tenant Permission?| RoleCheck{Tenant Role}
+    RoleCheck -- Yes --> Allow
+    RoleCheck -- No --> TeamCheck{Team Role}
+    TeamCheck -- Yes --> Allow
+    TeamCheck -- No --> Deny
+```
+
 ```python
 if has_tenant_permission(user, "investigations", "approve"):
     # Allow Tenant-wide action
@@ -52,11 +62,21 @@ if has_team_permission(user, team_id, "tasks", "write"):
     # Allow Team-specific action
 ```
 
-## 3. Configuration & Seed Scripts
-Located in `backend/scripts/b2b/`:
-- `core/`: Universal roles (`owner`, `member`).
-- `domain/`: Production customizations.
-- `use_cases/`: Demo templates (`bank_surveillance`, `marketing_agency`).
+## 3. Configuration & Plugin Architecture
+The system supports "Use Case Plugins" to adapt RBAC for different industries (Banks, Agencies, SaaS).
+
+### Directory Structure
+```
+backend/scripts/b2b/
+├── core/                # Base Roles (Owner, Admin)
+├── domain/              # Current Production Config
+└── use_cases/           # Plugins (Bank, Marketing, etc.)
+```
+
+### Plugin Mechanism
+1. **Selection**: Set `USE_CASE=bank_surveillance`.
+2. **Seeding**: The script loads `use_cases/bank_surveillance/tenant_roles.yaml` instead of base roles.
+3. **Outcome**: The Tenant gets industry-specific roles (e.g., `surveillance_chief`) while keeping core platform capabilities.
 
 ## 4. Dependencies
 - **Internal**: `middleware.rbac`, `services.authentication`

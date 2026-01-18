@@ -22,6 +22,29 @@ Provide a secure, multi-tenant authentication system using Firebase/GCIP that su
 - Users must have `email_verified: true` to access critical features.
 
 ## 2. Architecture
+### Authentication Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant IDP as Identity Provider
+    participant FB as Firebase Auth
+    participant API as Backend API
+    participant DB as Database
+
+    U->>F: Enter Email
+    F->>API: GET /auth/config
+    API-->>F: Return IDP Config (OIDC/SAML)
+    F->>IDP: Redirect for Auth
+    IDP-->>F: Return ID Token (Web) / Code (Mobile)
+    F->>FB: Exchange for Firebase Token
+    FB-->>F: Firebase ID Token
+    F->>API: POST /auth/sync-user
+    API->>FB: Verify Token
+    API->>DB: Sync User Record
+    API-->>F: 200 OK + Session
+```
+
 ### Authentication Flows
 **A. Web (SP-Initiated)**:
 1. User enters Email -> Backend resolves IDP Config.
