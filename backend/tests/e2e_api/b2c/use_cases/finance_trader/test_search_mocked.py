@@ -13,7 +13,7 @@ class TestSearchEndpointMocked:
     """Test suite for search endpoint with mocked RAG service"""
     
     @pytest.mark.asyncio
-    async def test_search_basic_query(self, api_client: AsyncClient, nse_test_setup, mocker):
+    async def test_search_basic_query(self, api_client: AsyncClient, finance_trader_test_setup, mocker):
         """Test search with basic query and mocked results"""
         # Mock rag_service.search() to return fake results
         mock_search_result = {
@@ -44,8 +44,8 @@ class TestSearchEndpointMocked:
         
         # Call search endpoint
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": "What is the revenue?", "limit": 5}
         )
         
@@ -63,7 +63,7 @@ class TestSearchEndpointMocked:
         assert data["context"][0]["text"] == "Total revenue for Q3 FY25 was $150M, up 20% YoY."
     
     @pytest.mark.asyncio
-    async def test_search_with_limit(self, api_client: AsyncClient, nse_test_setup, mocker):
+    async def test_search_with_limit(self, api_client: AsyncClient, finance_trader_test_setup, mocker):
         """Test search respects limit parameter"""
         mock_search_result = {
             "query": "test query",
@@ -81,8 +81,8 @@ class TestSearchEndpointMocked:
         
         # Request with limit=3
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": "test query", "limit": 3}
         )
         
@@ -94,7 +94,7 @@ class TestSearchEndpointMocked:
         assert call_args.kwargs.get('limit') == 3
     
     @pytest.mark.asyncio
-    async def test_search_no_results(self, api_client: AsyncClient, nse_test_setup, mocker):
+    async def test_search_no_results(self, api_client: AsyncClient, finance_trader_test_setup, mocker):
         """Test search handles no results gracefully"""
         # Mock empty results
         mock_search_result = {
@@ -109,8 +109,8 @@ class TestSearchEndpointMocked:
         )
         
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": "no results query"}
         )
         
@@ -125,18 +125,18 @@ class TestSearchEndpointMocked:
     async def test_search_unauthorized(self, api_client: AsyncClient, mocker):
         """Test search requires authentication"""
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
+            "/api/domain/finance_trader/rag/search",
             data={"query": "test query"}
         )
         
         assert response.status_code == 401
     
     @pytest.mark.asyncio
-    async def test_search_missing_query(self, api_client: AsyncClient, nse_test_setup):
+    async def test_search_missing_query(self, api_client: AsyncClient, finance_trader_test_setup):
         """Test search rejects missing query parameter"""
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"limit": 5}  # Missing query
         )
         
@@ -144,7 +144,7 @@ class TestSearchEndpointMocked:
         assert response.status_code == 422
     
     @pytest.mark.asyncio
-    async def test_search_with_metadata_enrichment(self, api_client: AsyncClient, nse_test_setup, mocker):
+    async def test_search_with_metadata_enrichment(self, api_client: AsyncClient, finance_trader_test_setup, mocker):
         """Test search results include enriched metadata"""
         mock_search_result = {
             "query": "HDFC margins",
@@ -170,8 +170,8 @@ class TestSearchEndpointMocked:
         )
         
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": "HDFC margins"}
         )
         
@@ -190,11 +190,11 @@ class TestSearchInputValidation:
     """Test input validation for search endpoint"""
     
     @pytest.mark.asyncio
-    async def test_search_empty_query(self, api_client: AsyncClient, nse_test_setup):
+    async def test_search_empty_query(self, api_client: AsyncClient, finance_trader_test_setup):
         """Test that empty query string is rejected"""
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": ""}
         )
         
@@ -202,12 +202,12 @@ class TestSearchInputValidation:
         assert response.status_code == 422
     
     @pytest.mark.asyncio
-    async def test_search_invalid_limit(self, api_client: AsyncClient, nse_test_setup):
+    async def test_search_invalid_limit(self, api_client: AsyncClient, finance_trader_test_setup):
         """Test that invalid limit values are rejected"""
         # Negative limit
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": "test", "limit": -1}
         )
         
@@ -215,15 +215,15 @@ class TestSearchInputValidation:
         
         # Zero limit
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": "test", "limit": 0}
         )
         
         assert response.status_code == 422
     
     @pytest.mark.asyncio
-    async def test_search_very_long_query(self, api_client: AsyncClient, nse_test_setup, mocker):
+    async def test_search_very_long_query(self, api_client: AsyncClient, finance_trader_test_setup, mocker):
         """Test search handles very long queries"""
         # Mock to avoid actual search
         mocker.patch(
@@ -234,8 +234,8 @@ class TestSearchInputValidation:
         long_query = "What is " * 1000  # Very long query
         
         response = await api_client.post(
-            "/api/domain/nse/rag/search",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/search",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             data={"query": long_query}
         )
         

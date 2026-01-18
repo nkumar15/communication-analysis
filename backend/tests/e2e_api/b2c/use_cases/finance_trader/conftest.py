@@ -21,7 +21,7 @@ from tests.conftest import (
 
 
 @pytest_asyncio.fixture
-async def nse_test_setup(db_session: AsyncSession):
+async def finance_trader_test_setup(db_session: AsyncSession):
     """
     Setup NSE RAG test environment with tenant, admin user, and auth token.
     

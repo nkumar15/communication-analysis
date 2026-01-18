@@ -14,11 +14,11 @@ class TestDocumentList:
     """Test suite for document listing endpoint"""
     
     @pytest.mark.asyncio
-    async def test_list_documents_empty(self, api_client: AsyncClient, nse_test_setup):
+    async def test_list_documents_empty(self, api_client: AsyncClient, finance_trader_test_setup):
         """Test listing documents for tenant with no uploads"""
         response = await api_client.get(
-            "/api/domain/nse/rag/documents",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"}
+            "/api/domain/finance_trader/rag/documents",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"}
         )
         
         assert response.status_code == 200
@@ -27,14 +27,14 @@ class TestDocumentList:
         assert len(data) == 0
     
     @pytest.mark.asyncio
-    async def test_list_documents_after_upload(self, api_client: AsyncClient, nse_test_setup, mock_pdf_file):
+    async def test_list_documents_after_upload(self, api_client: AsyncClient, finance_trader_test_setup, mock_pdf_file):
         """Test listing documents after uploading one"""
         # Upload a document first
         file_content, filename, content_type = mock_pdf_file
         
         upload_response = await api_client.post(
-            "/api/domain/nse/rag/upload",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/upload",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             files={"file": (filename, file_content, content_type)},
             data={"company_name": "Test Corp"}
         )
@@ -44,8 +44,8 @@ class TestDocumentList:
         
         # List documents
         list_response = await api_client.get(
-            "/api/domain/nse/rag/documents",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"}
+            "/api/domain/finance_trader/rag/documents",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"}
         )
         
         assert list_response.status_code == 200
@@ -64,7 +64,7 @@ class TestDocumentList:
         assert "status" in uploaded_doc
     
     @pytest.mark.asyncio
-    async def test_list_documents_multiple_uploads(self, api_client: AsyncClient, nse_test_setup, mock_pdf_file):
+    async def test_list_documents_multiple_uploads(self, api_client: AsyncClient, finance_trader_test_setup, mock_pdf_file):
         """Test listing after multiple document uploads"""
         file_content, filename, content_type = mock_pdf_file
         
@@ -73,8 +73,8 @@ class TestDocumentList:
         for i in range(3):
             file_content.seek(0)  # Reset file pointer
             response = await api_client.post(
-                "/api/domain/nse/rag/upload",
-                headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+                "/api/domain/finance_trader/rag/upload",
+                headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
                 files={"file": (f"doc_{i}.pdf", file_content, content_type)},
                 data={}
             )
@@ -83,8 +83,8 @@ class TestDocumentList:
         
         # List documents
         list_response = await api_client.get(
-            "/api/domain/nse/rag/documents",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"}
+            "/api/domain/finance_trader/rag/documents",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"}
         )
         
         assert list_response.status_code == 200
@@ -99,19 +99,19 @@ class TestDocumentList:
     @pytest.mark.asyncio
     async def test_list_documents_unauthorized(self, api_client: AsyncClient):
         """Test that listing requires authentication"""
-        response = await api_client.get("/api/domain/nse/rag/documents")
+        response = await api_client.get("/api/domain/finance_trader/rag/documents")
         
         assert response.status_code == 401
     
     @pytest.mark.asyncio
-    async def test_list_documents_ordering(self, api_client: AsyncClient, nse_test_setup, mock_pdf_file):
+    async def test_list_documents_ordering(self, api_client: AsyncClient, finance_trader_test_setup, mock_pdf_file):
         """Test that documents are ordered by creation time (newest first)"""
         file_content, filename, content_type = mock_pdf_file
         
         # Upload 2 documents
         first_response = await api_client.post(
-            "/api/domain/nse/rag/upload",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/upload",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             files={"file": ("first.pdf", file_content, content_type)},
             data={}
         )
@@ -119,8 +119,8 @@ class TestDocumentList:
         
         file_content.seek(0)
         second_response = await api_client.post(
-            "/api/domain/nse/rag/upload",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"},
+            "/api/domain/finance_trader/rag/upload",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"},
             files={"file": ("second.pdf", file_content, content_type)},
             data={}
         )
@@ -128,8 +128,8 @@ class TestDocumentList:
         
         # List documents
         list_response = await api_client.get(
-            "/api/domain/nse/rag/documents",
-            headers={"Authorization": f"Bearer {nse_test_setup['token']}"}
+            "/api/domain/finance_trader/rag/documents",
+            headers={"Authorization": f"Bearer {finance_trader_test_setup['token']}"}
         )
         
         documents = list_response.json()
