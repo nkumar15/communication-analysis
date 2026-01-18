@@ -168,6 +168,7 @@ CMD ["python", "-m", "pytest", "tests/"]
 # ==========================================
 
 # Domain Worker Builder - Install heavy AI dependencies
+# Domain Worker Builder - Install heavy AI dependencies
 FROM base AS domain-worker-builder
 WORKDIR /app
 
@@ -185,18 +186,24 @@ COPY requirements-ai-worker.txt .
 ENV UV_HTTP_TIMEOUT=300
 RUN uv pip install --system --no-cache -r requirements-ai-worker.txt
 
-# Domain Worker Stage
-FROM domain-worker-builder AS domain-worker
+# --- B2B Domain Worker ---
+FROM domain-worker-builder AS b2b-domain-worker
 USER appuser
-
-# Copy code
 COPY --chown=appuser:appuser core /app/core
 COPY --chown=appuser:appuser infrastructure /app/infrastructure
 COPY --chown=appuser:appuser modules /app/modules
 COPY --chown=appuser:appuser workers /app/workers
-
-# Create cache directories for ML models
-RUN mkdir -p /app/.cache/huggingface /home/appuser/.cache/docling
-
+RUN mkdir -p /app/.cache/huggingface
 WORKDIR /app
-CMD ["celery", "-A", "workers.domain_worker.celery_app", "worker", "--loglevel=info"]
+CMD ["celery", "-A", "workers.b2b_domain_worker.celery_app", "worker", "--loglevel=info"]
+
+# --- B2C Domain Worker ---
+FROM domain-worker-builder AS b2c-domain-worker
+USER appuser
+COPY --chown=appuser:appuser core /app/core
+COPY --chown=appuser:appuser infrastructure /app/infrastructure
+COPY --chown=appuser:appuser modules /app/modules
+COPY --chown=appuser:appuser workers /app/workers
+RUN mkdir -p /app/.cache/huggingface /home/appuser/.cache/docling
+WORKDIR /app
+CMD ["celery", "-A", "workers.b2c_domain_worker.celery_app", "worker", "--loglevel=info"]

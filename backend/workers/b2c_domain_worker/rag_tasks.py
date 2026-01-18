@@ -1,5 +1,5 @@
 
-from workers.domain_worker.celery_app import celery_app
+from workers.b2c_domain_worker.celery_app import celery_app
 import asyncio
 from uuid import UUID
 from concurrent.futures import ThreadPoolExecutor
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 # Global import is fine, but instance shouldn't be global if it holds loop state
 # from modules.domains.b2c.finance_trader.services.rag_service import RagService 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60, name="domain.ingest_document", time_limit=1800, soft_time_limit=1740)
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60, name="b2c_domain.ingest_document", time_limit=1800, soft_time_limit=1740)
 def ingest_document_task(self, payload: Dict[str, Any]):
     """
     Async Ingestion Task using ThreadPoolExecutor pattern.

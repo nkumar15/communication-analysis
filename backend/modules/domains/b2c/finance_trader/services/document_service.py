@@ -240,9 +240,9 @@ class DocumentService:
         }
         
         celery_producer.send_task(
-            "domain.ingest_document",
+            "b2c_domain.ingest_document",
             args=[payload],
-            queue="domain"
+            queue="b2c-domain"
         )
         
         logger.debug("ingestion_task_dispatched", job_id=job_id)
