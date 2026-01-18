@@ -7,6 +7,9 @@
 ## 2. Feature Index
 This index links to technical documentation co-located with the source code.
 
+### Foundation Layers
+- [B2B Core (Auth, Billing, Users)](../backend/modules/b2b/README.md)
+
 ### B2B Domain
 - [Task Management (Projects, Tasks)](../backend/modules/domains/b2b/task_management/README.md)
 - [Bank Surveillance (Enron)](../backend/modules/domains/b2b/bank_surveillance/README.md)
