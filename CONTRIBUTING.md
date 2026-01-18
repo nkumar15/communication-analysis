@@ -1,4 +1,4 @@
-# Contributing to Enterprise SSO
+# Contributing to Multi-Tenant SaaS Accelerator
 
 Guide for developers working on this project.
 

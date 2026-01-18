@@ -1,4 +1,4 @@
-# Enterprise SSO - Multi-Tenant SaaS Boilerplate
+# Multi-Tenant SaaS Accelerator
 
 Enterprise-grade multi-tenant SaaS application with **automated tenant provisioning**, SSO using OIDC, and Firebase Identity Platform.
 

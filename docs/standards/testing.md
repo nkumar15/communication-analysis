@@ -1,4 +1,4 @@
-# Enterprise SSO - Testing Strategy & Roadmap
+# Multi-Tenant SaaS Accelerator - Testing Strategy & Roadmap
 
 This document outlines the current testing infrastructure, how to execute tests, and the roadmap for progressively enhancing test coverage.
 

@@ -1,6 +1,6 @@
 # System Architecture
 
-High-level design documents and decision records for the Enterprise SSO platform.
+High-level design documents and decision records for the Multi-Tenant SaaS Accelerator.
 
 ## Core Concepts
 - [System Overview](overview.md): The big picture.

@@ -1,4 +1,4 @@
-# Enterprise SSO Documentation
+# Multi-Tenant SaaS Accelerator Documentation
 
 ## 1. System Documentation
 - **[Architecture](architecture/README.md)**: High-level design, Security, Isolation.

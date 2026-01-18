@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Enterprise SSO system employs a comprehensive observability strategy centered around the three pillars of observability: **Logging**, **Metrics**, and **Tracing**. This architecture is designed to provide deep visibility into request flows, system performance, and error states across the microservices landscape, supporting both local development and cloud-native deployments (GCP/AWS).
+The Multi-Tenant SaaS Accelerator employs a comprehensive observability strategy centered around the three pillars of observability: **Logging**, **Metrics**, and **Tracing**. This architecture is designed to provide deep visibility into request flows, system performance, and error states across the microservices landscape, supporting both local development and cloud-native deployments (GCP/AWS).
 
 ## High-Level Architecture
 

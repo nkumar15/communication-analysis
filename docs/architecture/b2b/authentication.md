@@ -2,7 +2,7 @@
 
 **Audience:** Mobile Developers, Backend Engineers, Architects
 
-This document serves as the **Single Source of Truth** for authentication in the Enterprise SSO system. It details how identity is established, verified, and linked across Web and Mobile platforms, and how Multi-Tenant Isolation (RLS) is enforced.
+This document serves as the **Single Source of Truth** for authentication in the Multi-Tenant SaaS Accelerator. It details how identity is established, verified, and linked across Web and Mobile platforms, and how Multi-Tenant Isolation (RLS) is enforced.
 
 ---
 
