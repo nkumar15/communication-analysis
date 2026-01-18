@@ -47,7 +47,6 @@ const Sidebar = () => {
     const commonDomainItems = [
         { isHeader: true, label: 'Domains' },
         { id: 'projects', label: 'Projects', icon: '📋', path: '/projects', feature: 'projects' },
-        { id: 'rag-nse', label: 'NSE Earnings', icon: '📈', path: '/b2b/c/nse/rag', feature: 'rag_nse' },
     ];
 
     // Organization & Config (always shown)

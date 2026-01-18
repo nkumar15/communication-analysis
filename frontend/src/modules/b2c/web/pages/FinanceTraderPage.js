@@ -20,11 +20,6 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Drawer,
-    List,
-    ListItem,
-    ListItemIcon,
-    ListItemText,
     Divider,
     Collapse,
     LinearProgress
@@ -35,35 +30,33 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import ContentCopy from '@mui/icons-material/ContentCopy';
-import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import b2bClient from '../../../../core/api/b2bClient';
-import useAuth from '../../../../core/hooks/useAuth';
-import AdminLayout from '../layouts/AdminLayout';
+import financeTraderClient from '../../../../core/api/financeTraderClient';
+import { auth } from '../../../../core/firebase/b2c-config';
+import B2CLayout from '../layouts/B2CLayout';
 
-const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
-    const pageTitles = {
-        nse: { title: 'NSE Earnings Analysis', subtitle: 'Search and analyze earnings call transcripts' },
-        enron: { title: 'Enron Email Corpus', subtitle: 'Search and analyze email communications' }
-    };
-    const { title, subtitle } = pageTitles[domain] || { title: 'Knowledge Base', subtitle: 'Domain Knowledge Base' };
+const FinanceTraderPage = () => {
+    const domain = 'finance_trader';
+    const pageTitle = 'Finance Trader (NSE)';
+    const pageSubtitle = 'Search and analyze earnings call transcripts';
 
-    const { user, loading: authLoading } = useAuth();
+    const [user, setUser] = useState(auth.currentUser);
 
-
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((u) => {
+            setUser(u);
+        });
+        return () => unsubscribe();
+    }, []);
 
     // Search State
     const [query, setQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
-    const [searchAnswer, setSearchAnswer] = useState(null); // New state for AI answer
-    const [searchMetric, setSearchMetric] = useState(null); // New state for time
+    const [searchAnswer, setSearchAnswer] = useState(null);
+    const [searchMetric, setSearchMetric] = useState(null);
     const [searching, setSearching] = useState(false);
     const [searchError, setSearchError] = useState(null);
 
@@ -71,8 +64,7 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
     const [documents, setDocuments] = useState([]);
     const [loadingDocs, setLoadingDocs] = useState(false);
 
-    // Upload Drawer
-    const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+    // Upload Drawer (Right Panel)
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [uploadStatus, setUploadStatus] = useState('');
@@ -82,28 +74,19 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
     const [reportType, setReportType] = useState('earnings');
     const [financialPeriod, setFinancialPeriod] = useState('');
 
-    // Sidebar State
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
     const isTableContent = (text) => {
         if (!text) return false;
-        // Check for Markdown table structure (pipes and dashes)
         const hasPipes = text.includes('|');
         const hasDashes = text.includes('---');
-        // Check for numeric table-like structure (lines with multiple numbers)
         const lines = text.split('\n');
         const numericLines = lines.filter(line => (line.match(/\d/g) || []).length > 2);
-
         return (hasPipes && hasDashes) || (numericLines.length > 2 && hasPipes);
     };
 
     const parseTable = (text) => {
         try {
             const lines = text.split('\n').filter(l => l.trim());
-            // Naive markdown parser
             if (lines.length < 2) return null;
-
-            // Check if it's a markdown table
             if (lines[1].includes('---')) {
                 const headers = lines[0].split('|').map(h => h.trim()).filter(h => h);
                 const rows = lines.slice(2).map(line =>
@@ -122,11 +105,8 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         const lines = text.split('\n');
         let result = [];
         let buffer = '';
-
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            // Heuristic: If line is single char (alphanumeric/symbol), treat as vertical text part
-            // We interpret consecutive 1-char lines as a single word split vertically
             if (line.length === 1 && line.match(/^[a-zA-Z0-9.%]$/)) {
                 buffer += line;
             } else {
@@ -134,16 +114,14 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                     result.push(buffer);
                     buffer = '';
                 }
-                result.push(lines[i]); // Keep original line
+                result.push(lines[i]);
             }
         }
-        if (buffer) result.push(buffer); // Flush remaining buffer
+        if (buffer) result.push(buffer);
         return result.join('\n');
     };
 
     const formatRelevance = (score) => {
-        // Cross-encoder scores can be any value (negative for bad, positive for good)
-        // Convert to percentage-like display, capped at 100%
         if (score > 1) return '100.0%';
         const percentage = Math.max(0, score) * 100;
         return `${percentage.toFixed(1)}%`;
@@ -154,9 +132,10 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
     };
 
     const fetchDocuments = async (showLoading = true) => {
+        if (!user) return;
         try {
             if (showLoading) setLoadingDocs(true);
-            const docs = await b2bClient.listRagDocuments(domain);
+            const docs = await financeTraderClient.listDocuments(domain);
             setDocuments(docs || []);
         } catch (error) {
             console.error("Failed to load documents", error);
@@ -166,38 +145,30 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         }
     };
 
-    // Initial Load & Auth Wait
+    // Initial Load
     useEffect(() => {
-        if (user && !authLoading) {
+        if (user) {
             fetchDocuments();
         }
-    }, [user, authLoading, domain]);
+    }, [user]);
 
-
-    // Polling for documents update (only if active processing exists)
+    // Polling for documents update
     useEffect(() => {
         if (!user) return;
-
-        // Check if any document is in a pending/processing state
         const hasPendingDocs = documents.some(doc =>
             doc.status === 'pending' || doc.status === 'processing'
         );
-
         if (!hasPendingDocs) return;
-
-        // Poll every 5s if there are active documents, otherwise stop
         const interval = setInterval(() => fetchDocuments(false), 5000);
         return () => clearInterval(interval);
-    }, [user, domain, documents]);
+    }, [user, documents]);
 
     // Polling for specific upload job
     useEffect(() => {
         if (!pollingJobId) return;
-
         const interval = setInterval(async () => {
             try {
-                const statusData = await b2bClient.getRagStatus(domain, pollingJobId);
-
+                const statusData = await financeTraderClient.getStatus(domain, pollingJobId);
                 if (statusData.status === 'completed' || statusData.status === 'failed') {
                     clearInterval(interval);
                     setPollingJobId(null);
@@ -205,14 +176,11 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                         ? `✅ Completed! ${statusData.chunks || 0} chunks.`
                         : `❌ Failed: ${statusData.error || 'Unknown error'}`
                     );
-                    fetchDocuments(false); // Update list silently
-
+                    fetchDocuments(false);
                     if (statusData.status === 'completed') {
                         setTimeout(() => {
-                            setUploadDrawerOpen(false);
                             setUploadStatus('');
                             setFile(null);
-                            // Reset metadata
                             setReportType('earnings');
                             setFinancialPeriod('');
                         }, 2000);
@@ -224,10 +192,8 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
                 console.error("Polling error", err);
             }
         }, 2000);
-
         return () => clearInterval(interval);
-    }, [pollingJobId, domain]);
-
+    }, [pollingJobId]);
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -236,15 +202,14 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         setSearching(true);
         setSearchError(null);
         setSearchResults([]);
-        setSearchAnswer(null); // Reset answer
+        setSearchAnswer(null);
 
         try {
             const startTime = performance.now();
-            const response = await b2bClient.searchRag(domain, query);
+            const response = await financeTraderClient.search(domain, query);
             const endTime = performance.now();
             const durationSeconds = (endTime - startTime) / 1000;
 
-            // Handle both old format (array) and new format ({ answer, results })
             if (response.results) {
                 setSearchResults(response.results || []);
                 setSearchAnswer(response.answer || null);
@@ -267,13 +232,12 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
     const handleFileSelect = (e) => {
         if (e.target.files && e.target.files[0]) {
             setFile(e.target.files[0]);
-            setUploadStatus(''); // Reset status
+            setUploadStatus('');
         }
     };
 
     const handleUpload = async () => {
         if (!file) return;
-
         setUploading(true);
         setUploadStatus('Uploading...');
 
@@ -283,14 +247,14 @@ const RagKnowledgeBasePage = ({ domain = 'nse' }) => {
         if (financialPeriod) formData.append('financial_period', financialPeriod);
 
         try {
-            const res = await b2bClient.uploadRagDocument(domain, formData);
+            const res = await financeTraderClient.uploadDocument(domain, formData);
             setUploadStatus('Processing...');
-            setPollingJobId(res.job_id); // Start polling
-            setUploading(false); // Upload (request) is finished
+            setPollingJobId(res.job_id);
+            setUploading(false);
         } catch (error) {
             console.error("Upload failed", error);
             setUploadStatus(`❌ Error: ${error.message}`);
-            setUploading(false); // Only stop uploading state on error, otherwise polling takes over
+            setUploading(false);
         }
     };
 

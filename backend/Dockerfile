@@ -117,13 +117,11 @@ WORKDIR /app
 EXPOSE 8002
 CMD ["uvicorn", "modules.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
 
-# --- Domain Microservice (AI/RAG) ---
-FROM builder AS domain
+# --- B2B Domain Microservice (B2B Logic) ---
+FROM builder AS b2b-domain
 
-# Install AI-specific dependencies (builder already has requirements.txt)
-# uv will only install the NEW packages from requirements-ai-api.txt
+# Install AI-specific dependencies (same requirements as before)
 COPY requirements-ai-api.txt .
-# Increase timeout for AI packages
 ENV UV_HTTP_TIMEOUT=300
 RUN uv pip install --system --no-cache -r requirements-ai-api.txt
 
@@ -135,7 +133,25 @@ COPY modules/domains/ /app/modules/domains/
 COPY modules/__init__.py /app/modules/
 WORKDIR /app
 EXPOSE 8003
-CMD ["uvicorn", "modules.domains.main:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["uvicorn", "modules.domains.b2b.main:app", "--host", "0.0.0.0", "--port", "8003"]
+
+# --- B2C Domain Microservice (B2C Logic) ---
+FROM builder AS b2c-domain
+
+# Install AI-specific dependencies (same requirements as before)
+COPY requirements-ai-api.txt .
+ENV UV_HTTP_TIMEOUT=300
+RUN uv pip install --system --no-cache -r requirements-ai-api.txt
+
+USER appuser
+# Copy code
+COPY core/ /app/core/
+COPY infrastructure/ /app/infrastructure/
+COPY modules/domains/ /app/modules/domains/
+COPY modules/__init__.py /app/modules/
+WORKDIR /app
+EXPOSE 8004
+CMD ["uvicorn", "modules.domains.b2c.main:app", "--host", "0.0.0.0", "--port", "8004"]
 
 # ==========================================
 # 5. Test Runner Stage (Development)

@@ -14,6 +14,7 @@ import SubscriptionPage from './web/pages/SubscriptionPage';
 import BillingHistoryPage from './web/pages/BillingHistoryPage';
 
 import InvitationAcceptPage from './web/pages/InvitationAcceptPage';
+import FinanceTraderPage from './web/pages/FinanceTraderPage';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -91,6 +92,12 @@ const B2CApp = () => {
             <Route path="/billing" element={
                 <ProtectedRoute>
                     <BillingHistoryPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/finance-trader" element={
+                <ProtectedRoute>
+                    <FinanceTraderPage />
                 </ProtectedRoute>
             } />
 
