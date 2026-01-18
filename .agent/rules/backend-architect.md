@@ -81,3 +81,9 @@ Applies to: **System Design, API Patterns, Security, Data Models**
   - **N+1 Prevention**: Use `options(selectinload(Model.relation))` for fetching related data in async mode.
   - **Sessions**: Correctly scope sessions. Rollback on error in middlewares/dependencies.
 
+## 10. Development Workflow Rules
+- **Migrations**:
+  - **ALWAYS** use `make migrate-only` or `docker compose run --rm dbmigrate ...` to run migrations.
+  - **NEVER** run `python run_migrations.py` directly on host machine to avoid environment mismatches.
+
+

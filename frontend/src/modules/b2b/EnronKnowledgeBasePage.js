@@ -21,7 +21,7 @@ const EnronKnowledgeBasePage = () => {
 
         try {
             // Call the RAG Search Endpoint
-            const response = await b2bClient.get('/api/domain/enron/search', {
+            const response = await b2bClient.get('/api/b2b/domain/bank_surveillance/search', {
                 params: {
                     q: query,
                     limit: 10

@@ -42,7 +42,7 @@ const EnronInvestigationPage = () => {
         setReport(null);
 
         try {
-            const response = await b2bClient.post('/api/domain/enron/investigate', {
+            const response = await b2bClient.post('/api/b2b/domain/bank_surveillance/investigate', {
                 email_text: emailText,
                 email_metadata: {
                     sender: sender.trim() || undefined,

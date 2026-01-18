@@ -22,7 +22,11 @@ import {
     TableRow,
     Divider,
     Collapse,
-    LinearProgress
+    LinearProgress,
+    List,
+    ListItem,
+    ListItemIcon,
+    ListItemText
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -32,6 +36,9 @@ import ErrorIcon from '@mui/icons-material/Error';
 import ContentCopy from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import financeTraderClient from '../../../../core/api/financeTraderClient';
@@ -73,6 +80,8 @@ const FinanceTraderPage = () => {
     // Upload Metadata State
     const [reportType, setReportType] = useState('earnings');
     const [financialPeriod, setFinancialPeriod] = useState('');
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
 
     const isTableContent = (text) => {
         if (!text) return false;
@@ -312,7 +321,7 @@ const FinanceTraderPage = () => {
     };
 
     return (
-        <AdminLayout title={title} subtitle={subtitle}>
+        <B2CLayout title={pageTitle} subtitle={pageSubtitle}>
             {domain === 'enron' ? (
                 <Box
                     display="flex"
@@ -800,8 +809,8 @@ const FinanceTraderPage = () => {
                     </Paper>
                 </Box>
             )}
-        </AdminLayout>
+        </B2CLayout>
     );
 };
 
-export default RagKnowledgeBasePage;
+export default FinanceTraderPage;

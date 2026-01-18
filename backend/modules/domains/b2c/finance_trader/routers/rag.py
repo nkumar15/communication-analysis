@@ -24,7 +24,7 @@ from modules.domains.b2c.finance_trader.services.rag_service import rag_service
 logger = get_logger(__name__)
 
 router = APIRouter(
-    prefix="/api/domain/{domain}/rag",
+    prefix="/api/b2c/domain/finance_trader/rag",
     tags=["RAG"],
     responses={404: {"description": "Not found"}},
 )
@@ -53,7 +53,6 @@ async def get_workspace_context(
 
 @router.post("/upload")
 async def upload_document(
-    domain: str,
     file: UploadFile = File(...),
     company_name: Optional[str] = Form(None),
     report_type: Optional[str] = Form(None),
@@ -62,6 +61,10 @@ async def upload_document(
     current_user: dict = Depends(get_current_b2c_user),
     workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
+    """
+    Upload a document for RAG ingestion.
+    """
+    domain = "finance_trader"
     """
     Upload a document for RAG ingestion.
     """
@@ -93,12 +96,13 @@ async def upload_document(
 
 @router.get("/status/{job_id}")
 async def get_ingestion_status(
-    domain: str,
     job_id: str, 
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_b2c_user), # Auth check
     workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
+    """Check status of an ingestion job"""
+    domain = "finance_trader"
     """Check status of an ingestion job"""
     add_context(workspace_id=str(workspace_id), domain=domain, job_id=job_id)
 
@@ -123,13 +127,17 @@ async def get_ingestion_status(
 
 @router.post("/search")
 async def search_documents(
-    domain: str,
     query: str = Form(...),
     limit: int = Form(3, ge=1), # Reduced default from 5 to 3 for performance
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_b2c_user),
     workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
+    """
+    Search ingested documents using the centralized RagService.
+    This ensures Query Understanding (Decomposition) and advanced retrieval logic is applied.
+    """
+    domain = "finance_trader"
     """
     Search ingested documents using the centralized RagService.
     This ensures Query Understanding (Decomposition) and advanced retrieval logic is applied.
@@ -165,11 +173,12 @@ async def search_documents(
 
 @router.get("/documents")
 async def list_documents(
-    domain: str,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_b2c_user),
     workspace_id: uuid.UUID = Depends(get_workspace_context)
 ):
+    """List all RAG documents for a workspace"""
+    domain = "finance_trader"
     """List all RAG documents for a workspace"""
     add_context(workspace_id=str(workspace_id), domain=domain)
 

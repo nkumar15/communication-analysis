@@ -2,6 +2,8 @@
 import os
 from celery import Celery
 from core.config import settings
+# Ensure models are loaded for SQLAlchemy Foreign Keys
+from modules.b2c.models.user import B2CUser
 
 # Initialize Celery app for B2C Domain Worker
 celery_app = Celery(

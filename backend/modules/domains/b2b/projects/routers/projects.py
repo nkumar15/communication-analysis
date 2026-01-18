@@ -21,7 +21,7 @@ from modules.domains.b2b.projects.services.projects import (
     delete_project as service_delete_project
 )
 
-router = APIRouter(prefix="/api/domain/projects", tags=["projects"])
+router = APIRouter(prefix="/api/b2b/domain/task_management/projects", tags=["projects"])
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)

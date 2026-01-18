@@ -18,7 +18,7 @@ from modules.domains.b2b.projects.services.comments import (
     delete_comment as service_delete_comment
 )
 
-router = APIRouter(prefix="/api/domain/comments", tags=["comments"])
+router = APIRouter(prefix="/api/b2b/domain/task_management/comments", tags=["comments"])
 
 
 @router.post("", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)

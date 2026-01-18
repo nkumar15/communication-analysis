@@ -12,7 +12,7 @@ from modules.domains.b2b.bank_surveillance.services.orchestrator import orchestr
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
-router = APIRouter(prefix="/api/domain/enron", tags=["Enron"])
+router = APIRouter(prefix="/api/b2b/domain/bank_surveillance", tags=["Enron"])
 
 @router.get("/emails/{email_id}", response_model=EnronEmailResponse)
 async def get_email(email_id: uuid.UUID, db: AsyncSession = Depends(get_db)):

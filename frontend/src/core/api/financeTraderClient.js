@@ -26,7 +26,7 @@ class FinanceTraderClient {
      */
     async listDocuments(domain = 'finance_trader') {
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/documents`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2c/domain/finance_trader/rag/documents`, {
             method: 'GET',
             headers: { ...headers, 'Content-Type': 'application/json' },
         });
@@ -42,7 +42,7 @@ class FinanceTraderClient {
     async uploadDocument(domain = 'finance_trader', formData) {
         const headers = await this.getAuthHeaders();
         // Do NOT set Content-Type for FormData, browser sets it with boundary
-        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/upload`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2c/domain/finance_trader/rag/upload`, {
             method: 'POST',
             headers,
             body: formData,
@@ -59,7 +59,7 @@ class FinanceTraderClient {
      */
     async getStatus(domain = 'finance_trader', jobId) {
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/status/${jobId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2c/domain/finance_trader/rag/status/${jobId}`, {
             method: 'GET',
             headers: { ...headers, 'Content-Type': 'application/json' },
         });
@@ -78,7 +78,7 @@ class FinanceTraderClient {
         const formData = new FormData();
         formData.append('query', query);
 
-        const response = await fetch(`${API_BASE_URL}/api/domain/${domain}/rag/search`, {
+        const response = await fetch(`${API_BASE_URL}/api/b2c/domain/finance_trader/rag/search`, {
             method: 'POST',
             headers, // No Content-Type for FormData
             body: formData,

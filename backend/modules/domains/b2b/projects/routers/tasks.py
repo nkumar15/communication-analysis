@@ -20,7 +20,7 @@ from modules.domains.b2b.projects.services.tasks import (
     delete_task as service_delete_task
 )
 
-router = APIRouter(prefix="/api/domain/tasks", tags=["tasks"])
+router = APIRouter(prefix="/api/b2b/domain/task_management/tasks", tags=["tasks"])
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
