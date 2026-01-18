@@ -4,6 +4,11 @@
 ### Goal
 Provide self-service billing for B2C users, allowing them to upgrade workspaces, view invoices, and redeem coupons.
 
+### Target Platform
+- [x] Web
+- [x] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As a User**, I want to upgrade my workspace to Premium so I can invite members.
 - **As a Subscriber**, I want to download my invoice PDF for reimbursement.
@@ -59,6 +64,36 @@ graph TD
 | `GET` | `/profile` | Get Tax/VAT Info | Any |
 | `PATCH` | `/profile` | Update Tax/VAT | Any |
 
-## 4. Dependencies
+## 5. UI Requirements
+*(If not applicable, write "Not Applicable")*
+
+### Components
+- `BillingHistory`: Table of invoices.
+- `PaymentMethods`: List of saved cards.
+- `UpgradeModal`: Plan selection + Checkout.
+
+## 6. Observability & Audit
+### Audit Logs
+- **Event**: `b2c.billing.checkout_created`
+- **Payload**: `[uid, tier, session_id]`
+- **Event**: `b2c.subscription.updated`
+- **Payload**: `[uid, status, plan]`
+
+## 6. Testing
+### Critical Scenarios
+- `Checkout_Link`: Verify Stripe session redirection.
+- `Webhook_Paid`: Verify subscription state update.
+- `Coupon_Validate`: Valid vs Invalid code check.
+- `Invoice_List`: Verify ownership access only.
+
+### Test Location
+- `backend/tests/e2e_api/b2c/test_billing.py`
+
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `services.subscription_service`, `services.coupon_service`
 - **External**: Stripe, Razorpay

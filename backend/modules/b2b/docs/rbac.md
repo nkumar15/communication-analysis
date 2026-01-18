@@ -4,6 +4,11 @@
 ### Goal
 Provide a flexible, 3-Layer access control system that scales from simple Agency models to complex Banking hierarchies.
 
+### Target Platform
+- [ ] Web
+- [ ] Mobile (iOS/Android)
+- [x] Backend API Only
+
 ### User Stories
 - **As a Compliance Officer**, I want to ensure IT Admins cannot see Investigation Data (Separation of Duties).
 - **As a Regional Director**, I want to oversee all desks in my region without joining them (Hierarchy).
@@ -71,7 +76,14 @@ geographic_boundaries:
   strict: true
 ```
 
-## 5. Observability & Audit
+## 5. UI Requirements
+*(If not applicable, write "Not Applicable")*
+
+### Components
+- `RoleMatrix`: Complex grid of Resource vs Action.
+- `PluginConfig`: Dynamic form based on Plugin Schema.
+
+## 6. Observability & Audit
 ### Audit Logs
 *(Typically granular permission checks are not logged, but Role Changes are)*
 - **Event**: `role.assigned`

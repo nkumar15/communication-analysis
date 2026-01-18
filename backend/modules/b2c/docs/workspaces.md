@@ -4,6 +4,11 @@
 ### Goal
 Provide isolated environments for users to manage their resources, supporting both Personal (Single-User) and Team (Multi-User) collaboration.
 
+### Target Platform
+- [x] Web
+- [x] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As a User**, I want a Personal Workspace auto-created on signup so I can start immediately.
 - **As a Power User**, I want to create a Team Workspace so I can collaborate with others.
@@ -62,5 +67,33 @@ Middleware ensures user is a valid member before allowing access.
 | `PATCH` | `/{id}/members/{uid}` | Update Role | Admin |
 | `DELETE` | `/{id}/members/{uid}` | Remove Member | Admin |
 
-## 4. Dependencies
+## 4. UI Requirements (Optional)
+### Components
+- `WorkspaceSwitcher`: Dropdown in navbar.
+- `MembersTable`: Management UI for Team Workspaces.
+- `CreateWorkspaceModal`: Form for new team creation.
+
+## 5. Observability & Audit
+### Audit Logs
+- **Event**: `b2c.workspace.created`
+- **Payload**: `[uid, workspace_id, type]`
+- **Event**: `b2c.member.added`
+- **Payload**: `[actor_id, workspace_id, target_uid, role]`
+
+## 6. Testing
+### Critical Scenarios
+- `Create_Team_Premium`: Verify premium check.
+- `Access_Isolation`: User A cannot access Workspace B.
+- `Member_Management`: Admin adds Member (Success) vs Member adds Member (Deny).
+- `Leave_Workspace`: Owner cannot leave last workspace.
+
+### Test Location
+- `backend/tests/e2e_api/b2c/test_workspaces.py`
+
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `services.workspace_service`, `services.auth_service`

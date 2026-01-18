@@ -4,6 +4,11 @@
 ### Goal
 Provide secure authentication for individual users, ensuring every user has a Personal Workspace upon entry.
 
+### Target Platform
+- [x] Web
+- [x] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As a User**, I want to sign up with Google so I don't have to remember passwords.
 - **As a User**, I want my account to be ready (with a workspace) immediately after signup.
@@ -45,6 +50,35 @@ graph TD
 | `POST` | `/login` | Login (Get or Create) | ID Token |
 | `GET` | `/me` | Get Profile + Workspaces | Session |
 
-## 4. Dependencies
+## 5. UI Requirements
+*(If not applicable, write "Not Applicable")*
+
+### Components
+- `GoogleButton`: Branded "Sign in with Google".
+- `OnboardingLayout`: Centered card for signup flow.
+
+## 6. Observability & Audit
+### Audit Logs
+- **Event**: `b2c.user.signup`
+- **Payload**: `[uid, email, source]`
+- **Event**: `b2c.user.login`
+- **Payload**: `[uid, email, is_new]`
+
+## 6. Testing
+### Critical Scenarios
+- `Signup_Success`: New user + Personal Workspace creation.
+- `Login_Idempotency`: Existing user login returns same workspace.
+- `InvalidToken`: Verify Firebase ID token validation.
+- `Me_Profile`: Verify correct workspaces returned.
+
+### Test Location
+- `backend/tests/e2e_api/b2c/test_auth.py`
+
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `services.auth_service`
 - **External**: Firebase Auth

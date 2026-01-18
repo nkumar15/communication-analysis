@@ -30,15 +30,13 @@ Create or Update the documentation file.
 - **Modular (Feature Folder)**: Create `README.md` in the feature folder.
 - **Layered (Foundation)**: Create `docs/[feature_name].md` inside the module folder (e.g., `backend/modules/b2b/docs/invitations.md`).
 
-**Content Generation**:
-Use the Standard Template below.
-*   **Completeness Check**: refer to your Inventory List. **Every** item in the Inventory must have a corresponding section in the doc.
-    *   Did you document `comments.py`?
-    *   Did you document the `ScopeChecker`?
-
 ### Step 3: Link to Indices
 1.  **Module Index** (Layered Only): If in a Layered module, ensure `[module]/README.md` links to your new doc.
 2.  **Root Index**: Open `docs/README.md`. Ensure the feature (or the Module Index) is listed.
+
+**Structure Rules**:
+- **Do NOT delete sections**. The structure must be consistent across all feature docs.
+- If a section (e.g., UI, Extensions) is not applicable, keep the header and write "Not Applicable" or "None".
 
 ## Standard Template
 
@@ -48,6 +46,12 @@ Use the Standard Template below.
 ## 1. Context
 ### Goal
 [One sentence summary of the business value]
+
+### Target Platform
+- [ ] Web
+- [ ] Mobile (iOS/Android)
+- [ ] Backend API Only
+*(Check all that apply)*
 
 ### User Stories
 - **As a** [Role] **I want to** [Action] **so that** [Benefit].
@@ -85,7 +89,9 @@ Use the Standard Template below.
 
 *(Repeat for ALL routers found in Discovery)*
 
-## 5. UI Requirements (Optional)
+## 5. UI Requirements
+*(If Target Platform is "Backend Only", write "Not Applicable")*
+
 ### Components
 - List key UI components (e.g., `UserList`, `PermissionTable`).
 - Describe states (Loading, Empty, Error).
@@ -94,8 +100,8 @@ Use the Standard Template below.
 - Progressive Disclosure rules.
 - Error handling behavior.
 
-## 6. Observability & Audit (Optional)
-*> **Note**: Mandatory for critical features (Auth, Billing, RBAC).*
+## 6. Observability & Audit
+*(If not applicable, write "Not Applicable")*
 
 ### Audit Logs
 - **Event**: `[EVENT_NAME]`
@@ -105,7 +111,9 @@ Use the Standard Template below.
 - Key metrics (e.g., `signup_latency`, `active_subscriptions`).
 - Tracing context (e.g., `request_id` propagation).
 
-## 7. Extensions (Optional)
+## 7. Extensions
+*(If not applicable, write "Not Applicable")*
+
 ### Architecture
 If the module supports plugins or extensions, describe the interface and lifecycle.
 
@@ -134,3 +142,4 @@ Before finishing, ask yourself:
 2. Did I include **ALL** database tables defined in models?
 3. **Did I include a Mermaid Diagram for the Data Flow?** (Text descriptions are not enough).
 4. Is the Permission scope clearly stated?
+5. Did I link to the Module Index and Root Index?

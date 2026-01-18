@@ -4,6 +4,11 @@
 ### Goal
 Automate the provisioning and activation of new Tenants via a vetted, invitation-based process (Not self-service).
 
+### Target Platform
+- [x] Web
+- [ ] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As a Platform Admin**, I want to invite a company (Tenant) so that I can control who joins.
 - **As a Tenant Owner**, I want to click a secure email link to activate my account.
@@ -56,7 +61,14 @@ sequenceDiagram
 | `GET` | `/api/b2b/activate/validate/{token}` | Validate Token | Public |
 | `POST` | `/api/b2b/activate` | Complete Activation | Public (Auth req) |
 
-## 5. Observability & Audit
+## 5. UI Requirements
+*(If not applicable, write "Not Applicable")*
+
+### Components
+- `AdminInviteForm`: Simple input for Company Name/Email.
+- `ActivationLanding`: Public page prompting for Password.
+
+## 6. Observability & Audit
 ### Audit Logs
 - **Event**: `tenant.invited`
 - **Payload**: `[admin_id, tenant_name, owner_email]`
@@ -73,6 +85,11 @@ sequenceDiagram
 ### Test Location
 - `backend/tests/e2e_api/platform/test_tenants.py`
 
-## 7. Dependencies
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `services.tenant_service`, `services.email_service`
 - **External**: Deep Linking (Universal Links)

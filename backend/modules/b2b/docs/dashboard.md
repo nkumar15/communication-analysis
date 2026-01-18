@@ -4,6 +4,11 @@
 ### Goal
 Provide role-appropriate views for all users, highlighting relevant information and actions based on responsibilities.
 
+### Target Platform
+- [x] Web
+- [x] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As an Owner**, I want an Billing & Health overview.
 - **As an Admin**, I want to see pending User Invites.
@@ -60,7 +65,13 @@ Backend returns a JSON structure defining which widgets to render.
 - **Empty States**: If a user has no tasks, show "Create your first task" CTA.
 - **Loading**: Show skeleton loaders for specific widgets.
 
-## 5. Testing
+## 5. Observability & Audit
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+(Dashboard is read-only visualization)
+
+## 6. Testing
 ### Critical Scenarios
 - `Stats_Owner`: Verify Org Health + Billing visible.
 - `Stats_Member`: Verify only Team widgets visible.
@@ -69,5 +80,10 @@ Backend returns a JSON structure defining which widgets to render.
 ### Test Location
 - `backend/tests/e2e_api/b2b/test_dashboard.py`
 
-## 6. Dependencies
+## 7. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 8. Dependencies
 - **Internal**: `services.dashboard_service`, `services.b2b.rbac`

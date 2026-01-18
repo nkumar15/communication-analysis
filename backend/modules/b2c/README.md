@@ -18,9 +18,11 @@ Detailed technical documentation for each foundation feature can be found below:
 
 ### Workspace Management
 - [Workspaces & Members](docs/workspaces.md)
+- [Invitations](docs/invitations.md)
 
 ### Commercialization
 - [Billing & Subscriptions](docs/billing.md)
+- [Subscription Plans](docs/plans.md)
 
 ## 4. Dependencies
 - **Core**: `services.authentication`, `db.session`

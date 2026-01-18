@@ -4,6 +4,11 @@
 ### Goal
 Enable administrators to invite multiple users simultaneously via CSV file upload, streamlining the onboarding process for teams with many users.
 
+### Target Platform
+- [x] Web
+- [ ] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As an Admin**, I want to invite multiple users at once so that I can onboard entire teams efficiently.
 - **As an Admin**, I want to see validation errors before sending invites so that I can correct mistakes.
@@ -52,7 +57,14 @@ graph TD
 | `GET` | `/api/b2b/invitations/bulk/{job_id}` | Get bulk job status | `users:invite` |
 | `POST` | `/api/b2b/invitations` | Single user invite | `users:invite` |
 
-## 5. Observability & Audit
+## 5. UI Requirements
+*(If not applicable, write "Not Applicable")*
+
+### Components
+- `BulkUploadModal`: Dropzone for CSV file.
+- `ValidationReport`: Table showing row-by-row errors.
+
+## 6. Observability & Audit
 ### Audit Logs
 - **Event**: `user.invited`
 - **Payload**: `[actor_id, tenant_id, target_email, role]`
@@ -70,6 +82,11 @@ graph TD
 ### Test Location
 - `backend/tests/e2e_api/b2b/test_invitations.py`
 
-## 7. Dependencies
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `modules.b2b.services.invitation_service`
 - **External**: Celery (Email sending), SendGrid/SMTP

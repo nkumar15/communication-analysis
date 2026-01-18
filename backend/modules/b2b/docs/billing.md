@@ -4,6 +4,11 @@
 ### Goal
 Manage tenant-level subscriptions, invoice generation, and payment processing, supporting both localized Stripe payments and manual invoicing.
 
+### Target Platform
+- [x] Web
+- [ ] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As a Tenant Admin**, I want to subscribe to a tier so that I can access premium features.
 - **As a System Admin**, I want to generate invoices automatically so that I don't have to manually calculate costs.
@@ -63,7 +68,14 @@ Values: `draft` -> `sent` -> `paid` | `overdue` -> `void`.
 | `GET` | `/api/platform/billing/profiles` | Search tenants | `platform:admin` |
 | `POST` | `/api/platform/billing/invoices/{id}/send` | Email invoice | `platform:admin` |
 
-## 5. Observability & Audit
+## 5. UI Requirements
+*(If not applicable, write "Not Applicable")*
+
+### Components
+- `PricingTable`: Tier comparison chart.
+- `InvoiceList`: Downloadable table of past invoices.
+
+## 6. Observability & Audit
 ### Audit Logs
 - **Event**: `subscription.upgrade`
 - **Payload**: `[user_id, tenant_id, old_tier, new_tier, amount]`
@@ -86,7 +98,12 @@ Values: `draft` -> `sent` -> `paid` | `overdue` -> `void`.
 ### Test Location
 - `backend/tests/e2e_api/b2b/test_billing.py`
 
-## 7. Dependencies
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `services.tenants`, `tasks.billing`
 - **External**: Stripe (Payments/Webhooks)
 - **Env Vars**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`

@@ -4,6 +4,11 @@
 ### Goal
 Manage the lifecycle of users within a Tenant Organization, including invitation, role assignment, status management, and removal.
 
+### Target Platform
+- [x] Web
+- [x] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As an Admin**, I want to list all users so that I can see who has access.
 - **As an Admin**, I want to change a user's role so that I can promote them.
@@ -74,5 +79,10 @@ graph TD
 ### Test Location
 - `backend/tests/e2e_api/b2b/test_users.py`
 
-## 8. Dependencies
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `services.invitation_service`, `services.rbac_service`

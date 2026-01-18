@@ -4,6 +4,11 @@
 ### Goal
 Provide a secure, multi-tenant authentication system using Firebase/GCIP that supports Single Sign-On (SSO) integration (OIDC, SAML) for business customers.
 
+### Target Platform
+- [x] Web
+- [x] Mobile (iOS/Android)
+- [ ] Backend API Only
+
 ### User Stories
 - **As a User**, I want to log in using my corporate credentials (Okta, Google Workspace) via SSO.
 - **As a System Admin**, I want to ensure Tenant A cannot access Tenant B's data (Strict Isolation).
@@ -80,7 +85,14 @@ await rls_service.set_tenant_context(db, tenant_id)
 | `POST` | `/api/b2b/auth/mobile-login` | Exchange IDP Token for Custom Token | Public |
 | `POST` | `/api/b2b/auth/sso-config` | Resolve Tenant SSO Config | Public |
 
-## 5. Observability & Audit
+## 5. UI Requirements
+*(If not applicable, write "Not Applicable")*
+
+### Components
+- `LoginScreen`: Email entry form.
+- `SSORedirect`: Interstitial loader "Redirecting to Okta...".
+
+## 6. Observability & Audit
 ### Audit Logs
 - **Event**: `user.login`
 - **Payload**: `[user_id, tenant_id, source(web/mobile), ip]`
@@ -97,6 +109,11 @@ await rls_service.set_tenant_context(db, tenant_id)
 ### Test Location
 - `backend/tests/e2e_api/b2b/test_auth.py`
 
-## 7. Dependencies
+## 8. Extensions
+*(If not applicable, write "Not Applicable")*
+
+### Not Applicable
+
+## 9. Dependencies
 - **Internal**: `services.rls_service`, `services.user_service`
 - **External**: Firebase / Google Cloud Identity Platform (GCIP)
