@@ -19,17 +19,17 @@ When adding or updating documents, follow this strict taxonomy. If a document se
 
 ### Specific Mappings
 - **AI & GenAI**: 
-  - Architecture (RAG pipeline) -> `docs/architecture/rag.md`
-  - Ethics & Usage Rules -> `docs/standards/ai-ethics.md`
+  - Architecture (RAG pipeline) -> `docs/architecture/rag-hybridsearch.md`
+  - Ethics & Usage Rules -> `docs/standards/README.md` (Placeholder)
 - **Security**:
   - Auth Flow Design -> `docs/architecture/security.md`
-  - Compliance Policy -> `docs/standards/security-policy.md`
+  - Compliance Policy -> `docs/architecture/security.md`
 - **Testing**:
   - Test Strategy -> `docs/standards/testing.md`
-  - How to run tests -> `docs/guides/running-tests.md`
+  - How to run tests -> `docs/guides/testing/workflows.md`
 - **Data**:
   - Schema Design -> `backend/modules/.../README.md` (Feature Doc)
-  - Retention Policy -> `docs/standards/data-retention.md`
+  - Retention Policy -> `docs/guides/data-lifecycle.md`
   - Deletion Guide -> `docs/guides/data-lifecycle.md`
 
 ## 2. Maintenance Workflows

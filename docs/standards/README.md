@@ -7,5 +7,6 @@ This directory contains the normative standards for development, design, and eth
 
 ## Rules & Best Practices
 - [API Standards](../guides/mobile-development.md): *To be formalized*
-- [Testing Standards](../testing/README.md): *To be linked*
+- [Testing Standards](testing.md): Strategy and Roadmap.
+- [Test Matrix](test-matrix.md): Functional coverage matrix.
 - [Security Policy](../architecture/security.md): *Located in Architecture but defines policy*

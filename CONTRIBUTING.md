@@ -6,7 +6,6 @@ Guide for developers working on this project.
 
 1. **Read documentation first:**
    - [README.md](./README.md) - Project overview
-   - [Roadmap](docs/planning/roadmap.md) - Current state & planned features
    - [Development Guide](docs/guides/development.md) - Setup & testing
    - [Architecture](docs/architecture/overview.md) - Technical decisions
 
@@ -26,10 +25,8 @@ Guide for developers working on this project.
 
 ## 📝 Before Starting Work
 
-### 1. Check ROADMAP.md
-
-- Is this feature already planned?
-- Is someone else working on it?
+### 1. Check Tasks
+- Is a similar task in progress?
 - Should it be broken into smaller tasks?
 
 ### 2. Create GitHub Issue (or similar)

@@ -27,9 +27,9 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 
 | Product | Description | Web | iOS | Android |
 |---------|-------------|-----|-----|---------|
-| **[B2B](docs/products/b2b/)** | Enterprise multi-tenant | ✅ | ✅ | ✅ |
-| **[B2C](docs/products/b2c/)** | Personal workspaces | 🚧 | 🚧 | 🚧 |
-| **[Platform](docs/products/platform/)** | SaaS admin console | ✅ | ❌ | ❌ |
+| **[B2B](backend/modules/b2b/README.md)** | Enterprise multi-tenant | ✅ | ✅ | ✅ |
+| **[B2C](backend/modules/b2c/README.md)** | Personal workspaces | 🚧 | 🚧 | 🚧 |
+| **[Platform](backend/modules/platform/README.md)** | SaaS admin console | ✅ | ❌ | ❌ |
 
 ---
 
@@ -42,15 +42,7 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 - **[Deployment Guide](docs/guides/deployment.md)**: Deployment strategies and production configuration.
 - **[Mobile Development](docs/guides/mobile-development.md)**: React Native setup for B2B/B2C apps.
 - **[Contributing](CONTRIBUTING.md)**: Guidelines for submitting PRs and reporting issues.
-- **[Platform Admin Guide](docs/guides/platform-admin.md)**: Using the Super Admin Console and platform features.
-- **[B2B Tenant Admin Guide](docs/guides/b2b-tenant-admin.md)**: Instructions for B2B tenant administrators.
-- **[B2B RBAC Concepts](docs/guides/b2b-rbac-concepts.md)**: Understanding the B2B permission model.
 
-### 📅 Planning
-*Project status, roadmap, and history.*
-
-- **[Roadmap](docs/planning/roadmap.md)**: Future features and development plan.
-- **[Completed Phases](docs/planning/completed-phases.md)**: History of delivered milestones.
 
 ### 📋 Specifications
 *Detailed functional requirements and flow definitions.*
@@ -80,9 +72,10 @@ Enterprise-grade multi-tenant SaaS application with **automated tenant provision
 ### 🧪 Testing
 *Quality assurance strategies and test plans.*
 
-- **[Testing Strategy](docs/testing/strategy.md)**: Overall approach, tools, and roadmap.
-- **[Testing Workflows](docs/testing/workflows.md)**: Manual and automated testing procedures.
-- **[B2B E2E Activation Tests](docs/testing/b2b-e2e-activation.md)**: Guide to testing the critical activation flow.
+- **[Testing Standards](docs/standards/testing.md)**: Overall approach, tools, and roadmap.
+- **[Test Matrix](docs/standards/test-matrix.md)**: Functional coverage matrix.
+- **[Testing Workflows](docs/guides/testing/workflows.md)**: Manual and automated testing procedures.
+- **[B2B E2E Activation](docs/guides/testing/b2b-e2e-activation.md)**: Guide to testing the critical activation flow.
 
 ---
 
