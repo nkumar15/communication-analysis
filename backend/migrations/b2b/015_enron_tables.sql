@@ -1,6 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS b2b_enron;
+CREATE SCHEMA IF NOT EXISTS bank_surveillance;
 
-CREATE TABLE IF NOT EXISTS b2b_enron.enron_emails (
+CREATE TABLE IF NOT EXISTS bank_surveillance.enron_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     message_id VARCHAR UNIQUE NOT NULL,
     sender VARCHAR NOT NULL,

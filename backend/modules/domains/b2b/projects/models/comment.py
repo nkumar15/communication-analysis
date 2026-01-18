@@ -8,17 +8,17 @@ from core.db.base import Base, TimestampMixin, SoftDeleteMixin
 class Comment(Base, TimestampMixin, SoftDeleteMixin):
     """Comment model - threaded comments on tasks"""
     __tablename__ = "comments"
-    __table_args__ = {'schema': 'domain'}
+    __table_args__ = {'schema': 'b2b_project_management'}
     
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey('b2b.tenants.id', ondelete='CASCADE'), nullable=False, index=True)
-    task_id = Column(UUID(as_uuid=True), ForeignKey('domain.tasks.id', ondelete='CASCADE'), nullable=False, index=True)
+    task_id = Column(UUID(as_uuid=True), ForeignKey('b2b_project_management.tasks.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Comment content
     content = Column(Text, nullable=False)
     
     # Threading support
-    parent_comment_id = Column(UUID(as_uuid=True), ForeignKey('domain.comments.id', ondelete='CASCADE'), index=True)
+    parent_comment_id = Column(UUID(as_uuid=True), ForeignKey('b2b_project_management.comments.id', ondelete='CASCADE'), index=True)
     
     # Ownership
     created_by = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id'), nullable=False, index=True)

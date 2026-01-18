@@ -8,11 +8,11 @@ from core.db.base import Base, TimestampMixin, SoftDeleteMixin
 class Task(Base, TimestampMixin, SoftDeleteMixin):
     """Task model - work items within projects"""
     __tablename__ = "tasks"
-    __table_args__ = {'schema': 'domain'}
+    __table_args__ = {'schema': 'b2b_project_management'}
     
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey('b2b.tenants.id', ondelete='CASCADE'), nullable=False, index=True)
-    project_id = Column(UUID(as_uuid=True), ForeignKey('domain.projects.id', ondelete='CASCADE'), nullable=False, index=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey('b2b_project_management.projects.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Task details
     title = Column(String(200), nullable=False)
