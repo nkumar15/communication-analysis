@@ -38,7 +38,9 @@ When adding or updating documents, follow this strict taxonomy. If a document se
 1.  **Identify Category**: Use the Reference Table above.
 2.  **Place File**: Create the file in the correct subfolder.
 3.  **Update Index**: Link the new file in the corresponding `README.md` (e.g., `docs/architecture/README.md`).
-4.  **Root Check**: If it's a major topic, ensure it's discoverable from `docs/README.md` (System Documentation section).
+4.  **Root Checks**:
+    *   **Docs Index**: Ensure linkage in `docs/README.md`.
+    *   **Repo Root**: If it is a critical guide (e.g., Getting Started) or major Architectural overhaul, update the main `/README.md` "Documentation" section.
 
 ### Updating Architecture Docs
 *   **Must include Diagrams**: Use Mermaid.js for data flow or component interaction.
@@ -102,4 +104,45 @@ When can these rules be broken?
 
 ## Troubleshooting
 Common errors...
+```
+
+### Project Root Template
+For the main `/README.md`.
+
+```markdown
+# [Project Name]
+
+[One line elevator pitch]
+
+## 🎯 Key Features
+### [Category A]
+- **Feature 1**: Description.
+- **Feature 2**: Description.
+
+## 📦 Products / Modules
+| Product | Description | Status |
+| :--- | :--- | :--- |
+| **[Name](path/to/readme)** | ... | ✅ |
+
+## 🧭 Documentation
+
+### 🚀 Guides
+- **[Dev Guide](docs/guides/development.md)**: Setup & Standards.
+- **[Deployment](docs/guides/deployment.md)**: Production guide.
+
+### 🏗️ Architecture
+- **[Overview](docs/architecture/overview.md)**: High-level design.
+- **[Key Concept](docs/architecture/...)**: ...
+
+### 🧪 Testing
+- **[Strategy](docs/standards/testing.md)**: How we test.
+
+## ⚡ Quick Start
+```bash
+# 1. Setup
+make setup
+
+# 2. Run
+make up
+```
 ```
