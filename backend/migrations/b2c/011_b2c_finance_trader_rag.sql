@@ -1,3 +1,9 @@
+-- ============================================================================
+-- B2C FINANCE TRADER RAG
+-- ============================================================================
+-- Schema and tables for Finance Trader RAG document processing
+-- ============================================================================
+
 -- Create schema for Finance Trader domain
 CREATE SCHEMA IF NOT EXISTS b2c_finance_trader;
 

@@ -1,3 +1,9 @@
+-- ============================================================================
+-- BANK SURVEILLANCE: ENRON EMAIL DATASET
+-- ============================================================================
+-- Schema and base table for Enron email corpus (RAG use case)
+-- ============================================================================
+
 CREATE SCHEMA IF NOT EXISTS bank_surveillance;
 
 CREATE TABLE IF NOT EXISTS bank_surveillance.enron_emails (
