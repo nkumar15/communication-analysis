@@ -85,7 +85,43 @@ Use the Standard Template below.
 
 *(Repeat for ALL routers found in Discovery)*
 
-## 5. Dependencies
+## 5. UI Requirements (Optional)
+### Components
+- List key UI components (e.g., `UserList`, `PermissionTable`).
+- Describe states (Loading, Empty, Error).
+
+### UX Rules
+- Progressive Disclosure rules.
+- Error handling behavior.
+
+## 6. Observability & Audit (Optional)
+*> **Note**: Mandatory for critical features (Auth, Billing, RBAC).*
+
+### Audit Logs
+- **Event**: `[EVENT_NAME]`
+- **Payload**: `[actor_id, target_id, changes]`
+
+### Metrics
+- Key metrics (e.g., `signup_latency`, `active_subscriptions`).
+- Tracing context (e.g., `request_id` propagation).
+
+## 7. Extensions (Optional)
+### Architecture
+If the module supports plugins or extensions, describe the interface and lifecycle.
+
+### Configuration
+- Describe how to configure the module (YAML/JSON).
+- List available plugins or use cases.
+
+## 8. Testing
+### Critical Scenarios
+- List valid/invalid cases (e.g., `success`, `unauthorized`, `validation_error`).
+- Reference specific edge cases.
+
+### Test Location
+- `backend/tests/e2e_api/[module]/test_[feature].py`
+
+## 9. Dependencies
 - **Internal**: [Modules this feature calls]
 - **External**: [Stripe, Firebase, etc.]
 - **Env Vars**: `[VAR_NAME]`

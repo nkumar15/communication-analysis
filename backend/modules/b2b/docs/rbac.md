@@ -2,82 +2,74 @@
 
 ## 1. Context
 ### Goal
-Provide a flexible, two-dimensional access control system (Permission + Scope) that supports complex Enterprise scenarios (Banks, Healthcare) as well as simple SME setups (Agencies).
+Provide a flexible, 3-Layer access control system that scales from simple Agency models to complex Banking hierarchies.
 
 ### User Stories
-- **As a System Admin**, I want to define custom roles so that I can match the client's organizational hierarchy.
-- **As a Compliance Officer**, I want to ensure IT Admins cannot see Business Data (Separation of Duties).
-- **As a Team Manager**, I want to assign specific roles within my team (e.g., Reader vs Contributor).
+- **As a Compliance Officer**, I want to ensure IT Admins cannot see Investigation Data (Separation of Duties).
+- **As a Regional Director**, I want to oversee all desks in my region without joining them (Hierarchy).
+- **As a System Admin**, I want to restrict access based on Data Sensitivity (Classification).
 
 ### Key Business Rules
-**1. Two-Dimensional Access**:
-- **Permission**: "Can I do X?" (Controlled by Tenant Role).
-- **Scope**: "On which data?" (Controlled by Team Membership).
+**1. Three-Layer Model**:
+- **Layer 1: System Role** (Can Login?).
+- **Layer 2: Business Role** (Action + Data Scope).
+- **Layer 3: Plugins** (Enterprise Constraints).
 
-**2. Separation of Duties (SoD)**:
-- Critical for Regulated Industries (e.g., Bank).
-- `IT Admin` has Platform Permissions (Billing, Users) but NO Business Access.
-- `Business User` has Business Access (Reports, Alerts) but NO Platform Access.
-  
-**3. Configuration Loading**:
-- Roles are seeded from YAML files (`backend/scripts/b2b`).
-- **Loading Order**: `core/` (Base) -> `use_cases/` OR `domain/` (Custom).
+**2. Separation of Duties**:
+- Critical for Regulated Industries.
+- `IT Admin` != `Business User`.
 
 ## 2. Architecture
-### Data Model
-**Schema**: `b2b`
-
-| Table Name | Description | Key Columns |
-| :--- | :--- | :--- |
-| `role_templates` | Global definitions | `name`, `permissions` (JSONB), `is_system_role` |
-| `roles` | Tenant-specific instances | `id`, `tenant_id`, `name`, `permissions` |
-| `team_role_definitions` | Team-level role defs | `id`, `tenant_id`, `name`, `permissions` |
-| `users` | User Assignment | `id`, `role_id` (Tenant Role) |
-| `team_members` | Team Assignment | `users_id`, `team_id`, `team_role_id` |
-
-### JSONB Permissions
-```json
-{
-  "permissions": [
-    { "resource": "investigations", "actions": ["read", "approve"] }
-  ]
-}
-```
-
 ### Permission Check Flow
 ```mermaid
 graph TD
-    User -->|Action| Middleware
-    Middleware -->|Has Tenant Permission?| RoleCheck{Tenant Role}
-    RoleCheck -- Yes --> Allow
-    RoleCheck -- No --> TeamCheck{Team Role}
-    TeamCheck -- Yes --> Allow
-    TeamCheck -- No --> Deny
+    User -->|Action| Plugin[Interceptor Layer]
+    Plugin -->|1. Enrich User| Context[Geo/Hierarchy Context]
+    Plugin -->|2. Before Check| ShortCircuit{Deny?}
+    ShortCircuit -- Yes --> Deny
+    ShortCircuit -- No --> Core[Core RBAC Check]
+    Core -->|3. System/Tenant/Team Check| Result{Allow?}
+    Result -- No --> Deny
+    Result -- Yes --> Filter[4. After Check Filter]
+    Filter -->|Region/Clearance Check| FinalDecision
 ```
 
-```python
-if has_tenant_permission(user, "investigations", "approve"):
-    # Allow Tenant-wide action
-if has_team_permission(user, team_id, "tasks", "write"):
-    # Allow Team-specific action
-```
+### Database Schema
+**Schema**: `b2b` (Core Tables)
+- `roles` (Tenant Roles)
+- `team_roles` (Team Definitions)
+- `team_members` (Assignments)
 
-## 3. Configuration & Plugin Architecture
-The system supports "Use Case Plugins" to adapt RBAC for different industries (Banks, Agencies, SaaS).
+**Schema**: `tenant_settings` (Plugin Config)
+- `enabled_plugins` (List[String])
+- `plugin_config` (JSONB)
 
-### Directory Structure
-```
-backend/scripts/b2b/
-├── core/                # Base Roles (Owner, Admin)
-├── domain/              # Current Production Config
-└── use_cases/           # Plugins (Bank, Marketing, etc.)
-```
+## 3. Plugin Architecture (Extensions)
+The system uses an **Interceptor-based Plugin Layer** to handle complex enterprise logic.
 
-### Plugin Mechanism
-1. **Selection**: Set `USE_CASE=bank_surveillance`.
-2. **Seeding**: The script loads `use_cases/bank_surveillance/tenant_roles.yaml` instead of base roles.
-3. **Outcome**: The Tenant gets industry-specific roles (e.g., `surveillance_chief`) while keeping core platform capabilities.
+### Interface
+All plugins implement `RBACPlugin`:
+1.  `enrich_user_context()`: Add scopes (e.g. `accessible_teams`).
+2.  `before_permission_check()`: Short-circuit logic.
+3.  `after_permission_check()`: Filter result (e.g. Geo Deny).
+
+### Available Plugins
+| Plugin | Purpose | Mechanism |
+| :--- | :--- | :--- |
+| **Hierarchical Teams** | Manager visibility | Auto-inherits access to child teams via `enrich_context` |
+| **Geographic Boundaries** | Data Sovereignty | Compares User Region vs Data Region in `after_check` |
+| **Data Classification** | Clearance Levels | Enforces Clearance >= Sensitivity in `before_check` |
+
+### Configuration
+Plugins are configured in `backend/scripts/b2b/use_cases/{case}/plugins.yaml`.
+**Example (Bank Surveillance)**:
+```yaml
+hierarchical_teams:
+  max_depth: 3
+geographic_boundaries:
+  regions: ["APAC", "EMEA"]
+  strict: true
+```
 
 ## 4. Dependencies
-- **Internal**: `middleware.rbac`, `services.authentication`
-- **External**: None
+- **Internal**: `middleware.rbac`, `services.plugin_service`
