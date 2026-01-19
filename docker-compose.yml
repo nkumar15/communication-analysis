@@ -299,6 +299,7 @@ services:
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
+      - ./data:/data
     depends_on:
       - postgres
       - redis
@@ -466,7 +467,6 @@ services:
       - HF_HOME=/app/.cache/huggingface
       - PYTHONPATH=/app
     volumes:
-      - ./backend:/app
       - ./backend:/app
       - ./data:/data
     depends_on:
