@@ -12,19 +12,17 @@ import os
 import csv
 from datetime import datetime
 from typing import Optional
-from celery import shared_task
-
 from core.db.session import AsyncSessionLocal
 from modules.domains.b2b.bank_surveillance.services.ingestion import CommunicationIngestionService, EmailParsedData
 from modules.domains.b2b.bank_surveillance.services.rag import communication_rag_service
 from modules.domains.b2b.bank_surveillance.models.ingestion_log import IngestionLog
+from workers.b2b_domain_worker.celery_app import celery_app
 
 # Increase CSV field size limit
 csv.field_size_limit(2**31 - 1)
 
-
-@shared_task(bind=True, name="bank_surveillance.ingest_daily_dump")
-def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, index_vectors: bool = True):
+@celery_app.task(bind=True, name="bank_surveillance.ingest_daily_dump", queue="b2b-domain")
+def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, index_vectors: bool = False):
     """
     Celery Task: Ingests a daily dump file (CSV or directory) into the communications table.
     
@@ -34,6 +32,9 @@ def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, in
         tenant_id: Optional tenant UUID string. Defaults to script-generated UUID.
         index_vectors: Whether to index content into Elasticsearch for RAG.
     """
+    # FORCE DISABLE RAG/ES for now (User Request)
+    index_vectors = False
+    
     job_id = uuid.uuid4()
     
     # Run the async ingestion in new event loop
@@ -49,7 +50,7 @@ def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, in
         loop.close()
 
 
-def run_ingestion(file_path: str, date: str, tenant_id: str = None, index_vectors: bool = True):
+def run_ingestion(file_path: str, date: str, tenant_id: str = None, index_vectors: bool = False):
     """
     Synchronous wrapper for CLI/script usage.
     
@@ -57,6 +58,9 @@ def run_ingestion(file_path: str, date: str, tenant_id: str = None, index_vector
         from tasks.ingestion import run_ingestion
         run_ingestion("/data/20231027.csv", "20231027")
     """
+    # FORCE DISABLE RAG/ES for now
+    index_vectors = False
+    
     job_id = uuid.uuid4()
     return asyncio.run(run_ingestion_async(job_id, file_path, date, tenant_id, index_vectors))
 
@@ -66,7 +70,7 @@ async def run_ingestion_async(
     file_path: str, 
     date: str, 
     tenant_id_str: str = None,
-    index_vectors: bool = True
+    index_vectors: bool = False
 ) -> dict:
     """
     Core async implementation of the ingestion logic.
@@ -124,7 +128,7 @@ async def run_ingestion_async(
                         if success:
                             count += 1
                             
-                            # Queue for vector indexing
+                            # Queue for vector indexing (SKIPPED if index_vectors=False)
                             if index_vectors:
                                 text_content = f"Subject: {email_data.subject}\n\n{email_data.body}"
                                 metadata = {

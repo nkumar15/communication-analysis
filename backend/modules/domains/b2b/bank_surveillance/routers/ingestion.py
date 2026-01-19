@@ -14,7 +14,13 @@ from core.db.session import get_db
 from modules.domains.b2b.bank_surveillance.models.ingestion_log import IngestionLog
 from modules.domains.b2b.bank_surveillance.tasks.ingestion import ingest_daily_dump
 
-router = APIRouter(prefix="/ingestion", tags=["Ingestion"])
+from core.middleware.auth import get_current_user
+
+router = APIRouter(
+    prefix="/api/b2b/domain/bank_surveillance/ingestion", 
+    tags=["Ingestion"],
+    dependencies=[Depends(get_current_user)]
+)
 
 
 class TriggerRequest(BaseModel):
@@ -65,7 +71,15 @@ async def trigger_ingestion(
             )
     
     # Dispatch Celery task
-    task = ingest_daily_dump.delay(file_path, request.date)
+    import celery
+    print(f"DEBUG: Celery Broker URL: {celery.current_app.conf.broker_url}", flush=True)
+    
+    try:
+        task = ingest_daily_dump.delay(file_path, request.date)
+        print(f"DEBUG: Task dispatched. ID: {task.id}", flush=True)
+    except Exception as e:
+        print(f"DEBUG: Task dispatch FAILED: {e}", flush=True)
+        raise e
     
     return TriggerResponse(
         job_id=task.id,
@@ -136,3 +150,84 @@ async def retry_ingestion(
         status="queued",
         message=f"Retry job queued for {log.date}"
     )
+
+
+from typing import List
+from sqlalchemy import func, desc
+
+
+class IngestionStatsResponse(BaseModel):
+    total_jobs: int
+    completed_jobs: int
+    failed_jobs: int
+    running_jobs: int
+    total_messages: int
+    today_messages: int
+
+
+@router.get("/jobs", response_model=List[JobStatusResponse])
+async def list_jobs(
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List recent ingestion jobs.
+    """
+    stmt = select(IngestionLog).order_by(desc(IngestionLog.started_at)).limit(limit)
+    result = await db.execute(stmt)
+    logs = result.scalars().all()
+    
+    return [
+        JobStatusResponse(
+            job_id=str(log.job_id),
+            date=log.date,
+            status=log.status,
+            file_path=log.file_path,
+            processed_count=log.processed_count,
+            error_count=log.error_count,
+            started_at=log.started_at,
+            completed_at=log.completed_at
+        )
+        for log in logs
+    ]
+
+
+@router.get("/stats", response_model=IngestionStatsResponse)
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    """
+    Get ingestion statistics for dashboard.
+    """
+    from datetime import date
+    today = date.today().strftime("%Y%m%d")
+    
+    # Count jobs by status
+    total = await db.execute(select(func.count(IngestionLog.job_id)))
+    completed = await db.execute(
+        select(func.count(IngestionLog.job_id)).where(IngestionLog.status == "completed")
+    )
+    failed = await db.execute(
+        select(func.count(IngestionLog.job_id)).where(IngestionLog.status == "failed")
+    )
+    running = await db.execute(
+        select(func.count(IngestionLog.job_id)).where(IngestionLog.status == "running")
+    )
+    
+    # Sum processed counts
+    total_msgs = await db.execute(
+        select(func.coalesce(func.sum(IngestionLog.processed_count), 0))
+    )
+    today_msgs = await db.execute(
+        select(func.coalesce(func.sum(IngestionLog.processed_count), 0)).where(
+            IngestionLog.date == today
+        )
+    )
+    
+    return IngestionStatsResponse(
+        total_jobs=total.scalar() or 0,
+        completed_jobs=completed.scalar() or 0,
+        failed_jobs=failed.scalar() or 0,
+        running_jobs=running.scalar() or 0,
+        total_messages=total_msgs.scalar() or 0,
+        today_messages=today_msgs.scalar() or 0
+    )
+
