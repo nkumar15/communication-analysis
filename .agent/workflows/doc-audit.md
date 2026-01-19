@@ -15,6 +15,14 @@ Choose what to audit:
 - **All B2B features**: `backend/modules/domains/b2b/*/docs/`
 - **All B2C features**: `backend/modules/domains/b2c/*/docs/`
 
+## Step 1.1: Check Root Liveness
+
+Verify the Root README lists key verticals:
+
+```bash
+grep "Bank Surveillance" README.md && echo "✅ Root: Bank Surveillance listed" || echo "❌ Root: Missing Vertical"
+```
+
 ## Step 2: Check Structure Compliance
 
 For each `docs/` folder, verify required files exist:

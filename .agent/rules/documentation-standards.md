@@ -5,6 +5,12 @@
 Owned by: **Technical Lead**
 Applies to: **All Documentation, Feature Development, and Architecture**
 
+## 0. The Root Index (`README.md`)
+**Rule**: The Root README is the **Product Portfolio**, not just a technical index.
+- **Structure**: Must follow the "SaaS Portfolio" template (Foundations vs Commercial Verticals).
+- **Inclusion**: MUST list all active products (e.g., Bank Surveillance).
+- **Audience**: Product Managers & New Developers (High-level value prop).
+
 ## 1. The "Code-Next-To-Doc" Principle
 **Rule**: Technical documentation must live **alongside the code** it describes.
 
