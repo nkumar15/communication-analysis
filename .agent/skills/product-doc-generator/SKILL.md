@@ -137,6 +137,21 @@ grep "[feature]" backend/modules/b2b/README.md
 
 ---
 
+## Step 6: Verify Links
+
+**CRITICAL**: Check for dead links before finishing.
+
+1. **Internal Links**: Do `[link](./file.md)` paths exist?
+2. **Anchor Links**: Does `#anchor` exist in target file?
+
+**Quick Check**:
+```bash
+# Check for broken relative links
+grep -r "\[.*\](.*)" [feature]/docs/
+```
+
+---
+
 ## Quality Checklist
 
 - [ ] README links to all sections?
@@ -148,3 +163,4 @@ grep "[feature]" backend/modules/b2b/README.md
 - [ ] Wireframes generated for key pages?
 - [ ] **Linked from module index?**
 - [ ] **Linked from docs/README.md (if major feature)?**
+- [ ] **No dead links?**

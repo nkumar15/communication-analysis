@@ -6,10 +6,11 @@
 
 | Document | Description |
 |----------|-------------|
-| [Feature Specification](./docs/FEATURES.md) | Complete page-by-page breakdown with user stories |
-| [Navigation IA](./docs/NAVIGATION_IA.md) | Information architecture and page hierarchy |
-| [User Personas](./docs/PERSONAS.md) | Core personas with workflows and priorities |
-| [Demo Scripts](./docs/DEMO_SCRIPTS.md) | Scripted demos for each persona type |
+| [Product Overview](./docs/README.md) | Comparison to simpler tools, key differentiators |
+| [Page Specifications](./docs/pages/) | Per-page specs with user stories and wireframes |
+| [Navigation IA](./docs/navigation.md) | Information architecture and page hierarchy |
+| [User Personas](./docs/personas.md) | Core personas with workflows and priorities |
+| [Demo Scripts](./docs/demos/README.md) | Scripted demos for each persona type |
 | [Wireframes](./docs/wireframes/) | Visual designs for 5 key pages |
 
 ---
@@ -75,7 +76,7 @@ Provide Compliance Officers with an AI-powered surveillance workbench to detect,
 ⚙️ Admin / Settings
 ```
 
-See [Navigation IA](./docs/NAVIGATION_IA.md) for complete hierarchy and permission rules.
+See [Navigation IA](./docs/navigation.md) for complete hierarchy and permission rules.
 
 ---
 

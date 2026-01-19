@@ -51,4 +51,4 @@ Open → In Review → Escalated → Closed
 
 ## Technical Implementation
 
-See [API Reference](../technical/api.md#cases)
+See [API Reference](../technical/api.md#investigations--cases)

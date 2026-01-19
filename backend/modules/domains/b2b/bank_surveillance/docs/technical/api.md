@@ -2,6 +2,14 @@
 
 **Base Path**: `/api/b2b/domain/bank_surveillance`
 
+## Dashboard
+
+| Method | Path | Description | Permission |
+|--------|------|-------------|------------|
+| `GET` | `/analytics/dashboard` | Get dashboard metrics (alerts, risks) | `surveillance:read` |
+
+---
+
 ## Search & RAG
 
 | Method | Path | Description | Permission |
@@ -52,14 +60,16 @@
 
 ---
 
-## Investigations
+## Investigations & Cases
 
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
-| `GET` | `/investigations` | List investigations | `surveillance:read` |
+| `GET` | `/investigations` | List investigations/cases | `surveillance:read` |
 | `POST` | `/investigations` | Create investigation | `surveillance:write` |
 | `GET` | `/investigations/{id}` | Get investigation detail | `surveillance:read` |
 | `PUT` | `/investigations/{id}` | Update investigation | `surveillance:write` |
+
+
 
 ---
 

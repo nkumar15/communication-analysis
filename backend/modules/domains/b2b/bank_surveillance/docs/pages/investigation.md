@@ -50,4 +50,4 @@
 
 ## Technical Implementation
 
-See [API Reference](../technical/api.md#investigation)
+See [API Reference](../technical/api.md#investigations--cases)

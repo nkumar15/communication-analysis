@@ -50,4 +50,4 @@
 
 ## Technical Implementation
 
-See [API Reference](../technical/api.md#search)
+See [API Reference](../technical/api.md#search--rag)
