@@ -11,6 +11,11 @@
 - [ ] Mobile (iOS/Android)
 - [ ] Backend API Only
 
+## User Stories
+<!-- High-Level Product Goals & Epics -->
+1. **As a** [Role], **I want to** [Action], **so that** [Benefit].
+2. **As a** [Role], **I want to** [Action], **so that** [Benefit].
+
 ## Documentation
 
 | Document | Description |

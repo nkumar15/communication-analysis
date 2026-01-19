@@ -16,9 +16,9 @@
 | [Widget 2] | [What it shows] | [API endpoint / table] |
 
 ## User Stories
-
-- **As a** [Role], **I want to** [Action], **so that** [Benefit].
-- **As a** [Role], **I want to** [Action], **so that** [Benefit].
+<!-- Page-Specific Interactions & UI Needs -->
+1. **As a** [Role], **I want to** [Action], **so that** [Benefit].
+2. **As a** [Role], **I want to** [Action], **so that** [Benefit].
 
 ## UX Rules
 

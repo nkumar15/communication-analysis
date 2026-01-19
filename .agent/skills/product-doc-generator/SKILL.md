@@ -84,7 +84,7 @@ Use the template files in this skill's `templates/` folder:
 
 1. **Copy templates** to `[feature]/docs/`
 2. Fill in:
-   - `README.md` → Overview and links
+   - `README.md` → Overview, links, and **User Stories (Must use numbered lists)**
    - `personas.md` → User personas
    - `navigation.md` → Navigation IA
    - `pages/[page].md` → One per UI page
