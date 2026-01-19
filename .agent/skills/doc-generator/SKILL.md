@@ -1,240 +1,117 @@
 ---
-description: Generate comprehensive, standardized documentation for a specific feature or module.
+description: Generate lightweight technical documentation for standalone guides, runbooks, and dev tools.
 ---
 
-# Documentation Generator
+# Documentation Generator (Lightweight)
 
-This skill generates a standardized `README.md` or technical documentation file for a specific feature module.
+This skill generates standalone technical documentation that is NOT part of a product/feature.
 
-## Usage
+## When To Use
 
-When asked to "document the [Feature Name] feature" or "update docs for [Path]", follow these steps **strictly**.
+**Use this skill for:**
+- Developer guides (`docs/guides/`)
+- Operations runbooks (`docs/operations/`)
+- Dev tool READMEs (`backend/tools/`)
+- Standalone technical documents
 
-### Step 1: Discovery & Inventory
-**CRITICAL**: Do not skip this step. You must list every component to ensure nothing is missed.
-1.  **List Files**: Run `list_dir` on the module.
-2.  **Identify Components**:
-    *   **Routers**: Find all files in `routers/`. Record every `@router` prefix and tag.
-    *   **Models**: Find all files in `models/`. Record every Class inheriting from `Base`.
-    *   **Services**: Find all files in `services/`. Record public methods.
-3.  **Create Inventory List**:
-    *   [ ] Router: `projects.py` (Endpoints: GET /, POST /, ...)
-    *   [ ] Router: `comments.py` (Endpoints: ...)
-    *   [ ] Model: `Project`
-    *   [ ] Model: `Comment`
+**Do NOT use this skill for:**
+- Full feature documentation (product + tech) → use `product-doc-generator`
+- System architecture/standards → use `system-doc-maintainer`
 
-### Step 2: Standards Alignment Check
-**CRITICAL**: Ensure your documentation aligns with the System Standards defined in `docs/`.
-1.  **Read Standards**: Review `docs/standards/README.md` and `docs/architecture/README.md`.
-2.  **Verify Patterns**: 
-    *   Does the Architecture diagram match the System Architecture?
-    *   Do UI requirements follow `ui-design.md`?
-    *   Does Security/Auth match `security.md`?
-3.  **Note Deviations**: If the feature violates a standard, you must log it in the "Standards Alignment" section.
+**Trigger Phrases:**
+- "Create a guide for [workflow]"
+- "Write a runbook for [operation]"
+- "Document this CLI tool"
 
-### Step 3: Generate Documentation
-Create or Update the documentation file.
+---
 
-**Path Selection**:
-- **Modular (Feature Folder)**: Create `README.md` in the feature folder.
-- **Layered (Foundation)**: Create `docs/[feature_name].md` inside the module folder.
-- **Dev Tool**: Create `README.md` in the tool folder (e.g., `backend/tools/genai_evaluator/README.md`).
-- **Guide**: Create `docs/guides/[guide_name].md` for developer workflows and tutorials.
-- **Operations**: Create `docs/operations/[runbook_name].md` for production runbooks and infrastructure procedures.
+## Guide vs Operations
 
-**Guide vs Operations - Selection Criteria**:
 | Criteria | Guide (`docs/guides/`) | Operations (`docs/operations/`) |
-| :--- | :--- | :--- |
+|----------|------------------------|--------------------------------|
 | **Audience** | Developers | DevOps / SRE / On-call |
 | **Environment** | Local / Dev / Test | Staging / Production |
 | **Purpose** | "How to use the system" | "How to run the system" |
-| **Examples** | Local env setup, testing workflow, onboarding | Deployment, DB backups, incident response, scaling |
-| **Trigger Phrases** | "How do I...", "Developer guide for..." | "Runbook for...", "How to deploy...", "Incident response..." |
+| **Examples** | Local setup, testing, onboarding | Deployment, backups, incidents |
 
-### Step 4: Link to Indices
-1.  **Module Index** (Layered Only): If in a Layered module, ensure `[module]/README.md` links to your new doc.
-2.  **Root Index**: Open `docs/README.md`. Ensure the feature (or the Module Index) is listed.
+---
 
-**Structure Rules**:
-- **Do NOT delete sections**. The structure must be consistent across all feature docs.
-- If a section (e.g., UI, Extensions) is not applicable, keep the header and write "Not Applicable" or "None".
-
-## Standard Template
+## Guide Template
 
 ```markdown
-# [Feature Name]
+# [Task Name] Guide
 
-## 1. Context
-### Goal
-[One sentence summary of the business value]
+## Prerequisites
+- [Tool/Access required]
 
-### Target Platform
-- [ ] Web
-- [ ] Mobile (iOS/Android)
-- [ ] Backend API Only
-*(Check all that apply)*
+## Steps
+1. [Step one]
+2. [Step two]
 
-### User Stories
-- **As a** [Role] **I want to** [Action] **so that** [Benefit].
-- [Story 2]
-
-### Key Business Rules
-- [Rule 1: e.g. "Only Owners can delete"]
-- [Rule 2]
-
-## 2. Architecture
-### Data Flow
-[Mermaid Diagram: User -> API -> Service -> DB]
-
-### Key Components
-| Component | File | Description |
-| :--- | :--- | :--- |
-| **Model** | `models/project.py` | `Project` entity |
-| **API** | `routers/projects.py` | Project CRUD |
-
-## 3. Database Schema
-**Schema**: `[schema_name]`
-
-| Table Name | Description | Key Columns |
-| :--- | :--- | :--- |
-| `[table]` | [Description] | `id`, `[fk_col]` |
-
-## 4. API Reference
-**Base Path**: `/api/b2b/domain/[feature]`
-
-### [Sub-Resource Name] (e.g. Projects)
-| Method | Path | Description | Permission |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/` | List items | `[resource]:read` |
-| `POST` | `/` | Create item | `[resource]:write` |
-
-*(Repeat for ALL routers found in Discovery)*
-
-## 5. UI Requirements
-*(If Target Platform is "Backend Only", write "Not Applicable")*
-*(Reference `docs/standards/ui-design.md` for components)*
-
-### Components
-- List key UI components (e.g., `UserList`, `PermissionTable`).
-- Describe states (Loading, Empty, Error).
-
-### UX Rules
-- Progressive Disclosure rules.
-- Error handling behavior.
-
-## 6. Observability & Audit
-*(If not applicable, write "Not Applicable")*
-*(Reference `docs/architecture/observability.md` for patterns)*
-
-### Audit Logs
-- **Event**: `[EVENT_NAME]`
-- **Payload**: `[actor_id, target_id, changes]`
-
-### Metrics
-- Key metrics (e.g., `signup_latency`, `active_subscriptions`).
-- Tracing context (e.g., `request_id` propagation).
-
-## 7. Extensions
-*(If not applicable, write "Not Applicable")*
-
-### Architecture
-If the module supports plugins or extensions, describe the interface and lifecycle.
-
-### Configuration
-- Describe how to configure the module (YAML/JSON).
-- List available plugins or use cases.
-
-## 8. Testing
-### Critical Scenarios
-- List valid/invalid cases (e.g., `success`, `unauthorized`, `validation_error`).
-- Reference specific edge cases.
-
-### Test Location
-- `backend/tests/e2e_api/[module]/test_[feature].py`
-
-## 9. Dependencies
-- **Internal**: [Modules this feature calls]
-- **External**: [Stripe, Firebase, etc.]
-- **Env Vars**: `[VAR_NAME]`
-
-## 10. Standards Alignment
-- **Architecture**: Verified against [System Architecture](../../../docs/architecture/system-architecture.md).
-- **Standards**: Verified against [Standards Index](../../../docs/standards/README.md).
-- **Deviations**: None.
+## Troubleshooting
+| Problem | Solution |
+|---------|----------|
+| [Issue] | [Fix] |
 ```
 
-## Quality Checklist
-Before finishing, ask yourself:
-1. Did I include **ALL** routers found in the directory?
-2. Did I include **ALL** database tables defined in models?
-3. **Did I include a Mermaid Diagram for the Data Flow?** (Text descriptions are not enough).
-4. Is the Permission scope clearly stated?
-5. Did I link to the Module Index and Root Index?
-6. **Did I verify alignment with System Standards?**
+---
 
+## Runbook Template
+
+```markdown
+# [Operation] Runbook
+
+## Overview
+[What this runbook covers]
+
+## Prerequisites
+- [Access/credentials needed]
+
+## Procedure
+1. [Step with commands]
+2. [Step with commands]
+
+## Rollback
+[How to undo if needed]
+
+## Escalation
+[Who to contact if issues]
+```
+
+---
 
 ## Dev Tool Template
-Use this for internal tools (CLI scripts, evaluators, helpers) in `backend/tools/`.
 
 ```markdown
 # [Tool Name]
 
-## 1. Overview
-[Brief description of what the tool does and why it exists.]
+## Overview
+[What the tool does]
 
-## 2. Setup
-### Prerequisites
-- [Dependencies, e.g. `pip install deepeval`]
-- [Environment Variables, e.g. `OPENAI_API_KEY`]
-
-### Installation
+## Setup
 ```bash
-# Example
-pip install -r requirements-tool.txt
+pip install -r requirements.txt
 ```
 
-## 3. Usage
-
-### Basic Command
+## Usage
 ```bash
-python -m tools.[tool_path].runner --config [path/to/config.yaml]
+python -m tools.[name] --config config.yaml
 ```
 
-### Arguments
-| Argument | Description | Required | Default |
-| :--- | :--- | :--- | :--- |
-| `--config` | Path to YAML config | Yes | - |
-| `--verbose` | Enable debug logs | No | False |
+## Arguments
+| Argument | Description | Required |
+|----------|-------------|----------|
+| `--config` | Config file path | Yes |
 
-## 4. Configuration
-**File**: `config.yaml`
-
-```yaml
-experiment:
-  name: "baseline_v1"
-  dataset: "path/to/data.json"
-pipeline:
-  retriever:
-    top_k: 20
+## Output
+[What the tool produces]
 ```
 
-## 5. Architecture
-### Components
-- **Core**: [Description]
-- **Projects**: [Description]
+---
 
-### Data Flow
-[Input Data] -> [Processor] -> [Output JSON]
+## Linking
 
-## 6. Output
-Results are saved to `[output_dir]`.
-
-**Format**:
-```json
-{
-  "metrics": { "faithfulness": 0.8 },
-  "details": [...]
-}
-```
-```
-
+After creating documentation:
+1. **Guides**: Link from `docs/guides/README.md`
+2. **Runbooks**: Link from `docs/operations/README.md`
+3. **Tools**: Link from `backend/tools/README.md`

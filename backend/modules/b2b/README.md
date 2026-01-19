@@ -26,6 +26,11 @@ Detailed technical documentation for each foundation feature can be found below:
 ### Platform
 - [Dashboard](docs/dashboard.md)
 
+### Domain Features
+Specialized vertical solutions built on the B2B foundation:
+
+- [Bank Surveillance](../domains/b2b/bank_surveillance/docs/README.md) - Enterprise communication surveillance platform
+
 ## 4. Dependencies
 - **Core**: `services.authentication`, `db.session`
 - **External**: Stripe (Billing), Firebase (Auth)

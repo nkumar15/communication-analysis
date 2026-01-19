@@ -6,6 +6,34 @@ description: Maintain and organize system-level documentation (Architecture, Sta
 
 This skill helps you organize and maintain the high-level documentation in `docs/`. This is distinct from Feature Documentation (which lives in backend modules).
 
+## When To Use
+
+**Use this skill when asked to:**
+- Update architecture documentation
+- Create/modify standards and policies
+- Write developer guides or runbooks
+- Organize the `docs/` folder structure
+
+**Do NOT use this skill for:**
+- Feature/module READMEs → use `doc-generator`
+- Personas, wireframes, demo scripts → use `product-doc-generator`
+
+**Trigger Phrases:**
+- "Update the architecture docs"
+- "Create a standard for [topic]"
+- "Write a guide for [workflow]"
+- "Create a runbook for [operation]"
+
+## Relationship to Other Doc Skills
+
+| Skill | Scope | Location |
+|-------|-------|----------|
+| `system-doc-maintainer` | System-wide (architecture, standards) | `docs/` |
+| `product-doc-generator` | Product-level (personas, demos) | `docs/products/` |
+| `doc-generator` | Feature-level (API, schema) | `backend/.../README.md` |
+
+---
+
 ## 1. Taxonomy
 
 When adding or updating documents, follow this strict taxonomy. If a document seems to fit two categories, prioritize **Standards** if it contains "Must/Should" rules, otherwise **Architecture**.
