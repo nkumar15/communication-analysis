@@ -304,7 +304,7 @@ services:
 
   # B2C Domain Worker - Background Processing for B2C (RAG)
   frontend-b2b:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    # profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -474,7 +474,7 @@ services:
     command: celery -A workers.b2c_domain_worker.celery_app worker --loglevel=info --concurrency=1 -Q b2c-domain
 
   frontend-b2c:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    # profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -531,7 +531,7 @@ services:
 
   # B2C Microservice - Workspace Management
   frontend-platform:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    # profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -559,7 +559,7 @@ services:
   # TEST Services
   # ------------------------------------------------------------------------------------
   e2e-tests:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    # profiles: [ "e2e" ] # Only start for E2E tests
     build:
       context: ./backend
       dockerfile: Dockerfile

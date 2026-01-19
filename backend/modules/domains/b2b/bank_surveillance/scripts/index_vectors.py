@@ -13,21 +13,21 @@ sys.path.append(str(PROJECT_ROOT))
 # In container, PROJECT_ROOT is /app
 # CSV is at /app/scripts/evaluation/datasets/enron/source/emails_flattened.csv
 
-from modules.domains.b2b.bank_surveillance.services.rag import enron_rag_service
+from modules.domains.b2b.bank_surveillance.services.rag import communication_rag_service
 from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
 from llama_index.core import Document, VectorStoreIndex, StorageContext
 
-CSV_PATH = "/app/scripts/evaluation/datasets/enron/source/emails_flattened.csv"
+CSV_PATH = "/app/tools/genai_evaluator/datasets/enron/source/emails_flattened.csv"
 
 async def index_vectors(limit: int = 10000):
-    print(f"🚀 Starting Vector Indexing from {CSV_PATH}...")
+    print(f"🚀 Starting Vector Indexing (Communications) from {CSV_PATH}...")
     
     if not os.path.exists(CSV_PATH):
         print(f"❌ Error: File {CSV_PATH} not found.")
         return
 
     # 1. Initialize RAG Service (Settings, Embed Model, Vector Store)
-    enron_rag_service._ensure_initialized()
+    communication_rag_service._ensure_initialized()
     print("✅ RAG Service Initialized (Connected to Elasticsearch)")
 
     # Increase CSV field size limit
@@ -83,7 +83,7 @@ async def index_vectors(limit: int = 10000):
 async def _index_batch(documents: List[Document]):
     # create index from documents - this automatically chunks and embeds
     # We reuse the storage context from the service
-    storage_context = StorageContext.from_defaults(vector_store=enron_rag_service.vector_store)
+    storage_context = StorageContext.from_defaults(vector_store=communication_rag_service.vector_store)
     
     # VectorStoreIndex.from_documents handles the pipeline
     VectorStoreIndex.from_documents(
