@@ -34,7 +34,9 @@ from modules.domains.b2b.task_management.routers import (
     tasks_router,
     comments_router
 )
-from modules.domains.b2b.bank_surveillance.routers.enron import router as enron_router
+from modules.domains.b2b.bank_surveillance.routers.communications import router as communications_router
+from modules.domains.b2b.bank_surveillance.routers.investigations import router as investigations_router
+from modules.domains.b2b.bank_surveillance.routers.graph import router as graph_router
 
 
 @asynccontextmanager
@@ -91,7 +93,9 @@ setup_observability(app, service_name="b2b-domain-api", sqlalchemy_engine=engine
 app.include_router(projects_router)
 app.include_router(tasks_router)
 app.include_router(comments_router)
-app.include_router(enron_router)
+app.include_router(communications_router)
+app.include_router(investigations_router)
+app.include_router(graph_router)
 
 
 @app.get("/")

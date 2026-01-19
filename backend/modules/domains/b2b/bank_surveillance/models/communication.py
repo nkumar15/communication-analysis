@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Text, ForeignKey, TIMESTAMP, func
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 from core.db.base import Base, TimestampMixin
 import uuid
@@ -12,11 +12,12 @@ class Communication(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("b2b.tenants.id", ondelete="CASCADE"), nullable=False)
-    investigation_id = Column(UUID(as_uuid=True), ForeignKey("bank_surveillance.investigations.id", ondelete="SET NULL"), nullable=True)
     
     channel = Column(String(50), nullable=False)
+    sub_channel = Column(String(50), nullable=True)
+    message_id = Column(String, unique=True, nullable=True) # Unique IF provided (e.g. Email ID)
     sender = Column(String(200), nullable=False)
-    recipient = Column(String(200), nullable=False)
+    recipients = Column(ARRAY(String), nullable=False) # Postgres Array
     subject = Column(String(200), nullable=True)
     content = Column(Text, nullable=True)
     flagged_keywords = Column(JSONB, default=list)
@@ -31,7 +32,6 @@ class Communication(Base, TimestampMixin):
 
     # Relationships
     tenant = relationship("TenantModel")
-    investigation = relationship("Investigation", back_populates="communications")
     region = relationship("GeographicRegion")
     sensitivity_level = relationship("SensitivityLevel")
 
