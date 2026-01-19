@@ -94,3 +94,4 @@ backend/.pytest_cache
 
 # Enron Dataset
 backend/tools/genai_evaluator/datasets/enron/source/emails*
+data/

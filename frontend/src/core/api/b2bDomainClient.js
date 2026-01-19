@@ -86,6 +86,30 @@ class B2BDomainService {
         const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/graph/summary`, { headers });
         return response.json();
     }
+
+    // Ingestion
+    async getIngestionStats() {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/ingestion/stats`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch stats: ${response.status}`);
+        return response.json();
+    }
+
+    async getIngestionJobs(limit = 20) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/ingestion/jobs?limit=${limit}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch jobs: ${response.status}`);
+        return response.json();
+    }
+
+    async triggerIngestion(data) {
+        // data: { date, file_path?, force? }
+        return this.post('/api/b2b/domain/bank_surveillance/ingestion/trigger', data);
+    }
+
+    async retryIngestion(jobId) {
+        return this.post(`/api/b2b/domain/bank_surveillance/ingestion/retry/${jobId}`, {});
+    }
 }
 
 export default new B2BDomainService();

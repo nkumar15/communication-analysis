@@ -25,6 +25,7 @@ import EnronKnowledgeBasePage from './modules/b2b/EnronKnowledgeBasePage';
 import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
 import CommunicationsPage from './modules/domains/surveillance/pages/CommunicationsPage';
 import InvestigationsPage from './modules/domains/surveillance/pages/InvestigationsPage';
+import IngestionPage from './modules/domains/surveillance/pages/IngestionPage';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
@@ -163,6 +164,7 @@ function App() {
                 <Route path="/b2b/surveillance" element={<ProtectedRoute><SurveillanceDashboardPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/communications" element={<ProtectedRoute><CommunicationsPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/investigations" element={<ProtectedRoute><InvestigationsPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/ingestion" element={<ProtectedRoute><IngestionPage /></ProtectedRoute>} />
 
                 {/* Billing routes */}
                 <Route path="/billing/subscription" element={<ProtectedRoute><SubscriptionSettingsPage /></ProtectedRoute>} />
