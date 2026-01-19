@@ -42,9 +42,9 @@ const EnronInvestigationPage = () => {
         setReport(null);
 
         try {
-            const response = await b2bDomainClient.investigateEmail({
-                email_text: emailText,
-                email_metadata: {
+            const response = await b2bDomainClient.investigateCommunication({
+                text: emailText,
+                metadata: {
                     sender: sender.trim() || undefined,
                     date: date || undefined
                 }

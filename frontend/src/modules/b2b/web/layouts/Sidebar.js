@@ -30,7 +30,7 @@ const Sidebar = () => {
             { id: 'surv-dashboard', label: 'Overview', icon: '📊', path: '/b2b/surveillance', feature: 'surveillance' },
             { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
             { id: 'investigations', label: 'Investigations', icon: '🔍', path: '/b2b/surveillance/investigations', feature: 'surveillance' },
-            { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron', feature: 'surveillance' },
+            { id: 'rag-enron', label: 'Email Knowledge Base', icon: '📧', path: '/b2b/c/enron', feature: 'surveillance' },
         ],
         marketing_agency: [
             { isHeader: true, label: 'Campaigns' },

@@ -47,10 +47,44 @@ class B2BDomainService {
         return response.json();
     }
 
-    // Enron / Bank Surveillance Endpoints
-    async investigateEmail(data) {
-        // Correct endpoint path matches backend router mount
+    // Communication Domain Endpoints (Replaces Enron)
+
+    // Investigation
+    async investigateCommunication(data) {
+        // Expected data: { text, metadata, tenant_id }
         return this.post('/api/b2b/domain/bank_surveillance/investigate', data);
+    }
+
+    // Legacy alias
+    async investigateEmail(data) {
+        return this.investigateCommunication(data);
+    }
+
+    // Search (RAG)
+    async searchCommunications(params) {
+        // params: { q, limit }
+        const queryParams = new URLSearchParams(params).toString();
+        const headers = await this.getAuthHeaders();
+        const url = `${API_BASE_URL}/api/b2b/domain/bank_surveillance/search?${queryParams}`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers
+        });
+
+        if (!response.ok) throw new Error(`Search failed: ${response.status}`);
+        return response.json();
+    }
+
+    // Graph
+    async buildGraph() {
+        return this.post('/api/b2b/domain/bank_surveillance/graph/build', {});
+    }
+
+    async getGraphSummary() {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/graph/summary`, { headers });
+        return response.json();
     }
 }
 

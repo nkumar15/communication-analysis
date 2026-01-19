@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Typography, TextField, Button, Paper, Card, CardContent, Chip, CircularProgress, Divider, Alert } from '@mui/material';
 import { Search, Description, Email, DateRange, ArrowBack } from '@mui/icons-material';
 import AdminLayout from './web/layouts/AdminLayout';
-import b2bClient from '../../core/api/b2bClient';
+import b2bDomainClient from '../../core/api/b2bDomainClient';
 
 const EnronKnowledgeBasePage = () => {
     const navigate = useNavigate();
@@ -20,14 +20,11 @@ const EnronKnowledgeBasePage = () => {
         setResults(null);
 
         try {
-            // Call the RAG Search Endpoint
-            const response = await b2bClient.get('/api/b2b/domain/bank_surveillance/search', {
-                params: {
-                    q: query,
-                    limit: 10
-                }
+            const response = await b2bDomainClient.searchCommunications({
+                q: query,
+                limit: 10
             });
-            setResults(response.data || response); // Handle axios wrapper variations
+            setResults(response);
         } catch (err) {
             console.error('Search failed:', err);
             setError(err.message || 'Search failed. Please try again.');

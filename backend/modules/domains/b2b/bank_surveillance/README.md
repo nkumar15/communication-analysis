@@ -113,12 +113,14 @@ graph TD
 ### Key Components
 | Component | File | Description |
 | :--- | :--- | :--- |
-| **API** | `routers/enron.py` | Maps to `communications` resource (Legacy Enron Data) |
+| **API** | `routers/communications.py` | Messages & Search Endpoints |
+| **API** | `routers/investigations.py` | AI Investigation Endpoints |
+| **API** | `routers/graph.py` | Network Analysis Endpoints |
 | **Service** | `services/orchestrator.py` | Coordinates AI Agents & Case Assembly |
 | **Service** | `services/graph.py` | NetworkX Logic (Cliques, Centrality) |
-| **Service** | `services/rag.py` | Vector Search over Email Body |
+| **Service** | `services/rag.py` | Vector Search over Message Content |
 | **Model** | `models/investigation.py` | `Investigation` (Case) entity |
-| **Model** | `models/enron_email.py` | Read-only Dataset (Enron) |
+| **Model** | `models/communication.py` | Unified Message Entity |
 
 ---
 
@@ -127,7 +129,7 @@ graph TD
 
 | Table Name | Description | Key Columns |
 | :--- | :--- | :--- |
-| `communications` | **Central Message Store** (Email/Chat/Voice) | `id`, `sender`, `content`, `sensitivity_level_id`, `data_region_id` |
+| `communications` | **Central Message Store** (Email/Chat/Voice) | `id`, `message_id`, `sender`, `recipients`, `content`, `channel` |
 | `investigations` | Active Cases | `id`, `title`, `priority`, `status`, `assigned_to` |
 
 ---
@@ -140,7 +142,7 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | `GET` | `/search` | RAG Search | `surveillance:read` |
 | `POST` | `/investigate` | Run AI Analysis | `surveillance:write` |
-| `GET` | `/emails/{id}` | Get Raw Email | `surveillance:read` |
+| `GET` | `/messages/{id}` | Get Raw Message | `surveillance:read` |
 
 ### Graph Analysis
 | Method | Path | Description | Permission |
