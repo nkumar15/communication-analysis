@@ -42,13 +42,13 @@ class InvestigationReport(BaseModel):
 from datetime import timedelta
 from sqlalchemy import or_
 from sqlalchemy.future import select
-from modules.domains.b2b.bank_surveillance.models.enron_email import EnronEmail
+from modules.domains.b2b.bank_surveillance.models.communication import Communication
 from modules.domains.b2b.bank_surveillance.services.graph import graph_service
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 class OrchestratorService:
-    """Coordinates multiple agents to investigate emails"""
+    """Coordinates multiple agents to investigate communications"""
     
     def __init__(self, tenant_id: UUID = None):
         self.tenant_id = tenant_id
@@ -61,7 +61,7 @@ class OrchestratorService:
         db: AsyncSession = None
     ) -> InvestigationReport:
         """
-        Performs comprehensive investigation of an email using all agents.
+        Performs comprehensive investigation of a communication using all agents.
         """
         effective_tenant_id = tenant_id or self.tenant_id
         email_metadata = email_metadata or {}
@@ -101,7 +101,7 @@ class OrchestratorService:
             if is_policy_violation and is_evasion:
                 report.risk_level = "high"
                 report.requires_action = True
-                report.summary = f"CRITICAL: Email classified as '{classification}' with policy violation ({policy_result.get('violation_citation')}) AND evasion attempt ({evasion_result.get('evasion_type')})."
+                report.summary = f"CRITICAL: Communication classified as '{classification}' with policy violation ({policy_result.get('violation_citation')}) AND evasion attempt ({evasion_result.get('evasion_type')})."
             elif is_policy_violation or is_evasion:
                 report.risk_level = "high"
                 report.requires_action = True
@@ -145,7 +145,7 @@ class OrchestratorService:
             # Business as usual
             report.risk_level = "low"
             report.requires_action = False
-            report.summary = f"LOW RISK: Email classified as '{classification}'. No further action required."
+            report.summary = f"LOW RISK: Communication classified as '{classification}'. No further action required."
         
         return report
     
@@ -185,11 +185,11 @@ class OrchestratorService:
 
         # Query DB for emails by this sender in the window
         # We focus on the 'Sender' being the pivot for investigation
-        query = select(EnronEmail).where(
-            EnronEmail.sender == sender,
-            EnronEmail.date >= start_date,
-            EnronEmail.date <= end_date
-        ).order_by(EnronEmail.date.asc()).limit(50)
+        query = select(Communication).where(
+            Communication.sender == sender,
+            Communication.timestamp >= start_date,
+            Communication.timestamp <= end_date
+        ).order_by(Communication.timestamp.asc()).limit(50)
 
         result = await db.execute(query)
         emails = result.scalars().all()
@@ -202,10 +202,10 @@ class OrchestratorService:
             # Create a content signature to identify duplicates
             # Same email can have different message_ids in the Enron dataset
             content_signature = (
-                email.date.isoformat() if email.date else "",
+                email.timestamp.isoformat() if email.timestamp else "",
                 email.sender or "",
                 email.subject or "",
-                (email.body[:100] if email.body else "")  # First 100 chars for dedup
+                (email.content[:100] if email.content else "")  # First 100 chars for dedup
             )
             
             # Skip duplicates based on content
@@ -215,12 +215,12 @@ class OrchestratorService:
             seen_emails.add(content_signature)
             evidence_ids.append(str(email.id))
             timeline.append({
-                "date": email.date.isoformat() if email.date else None,
+                "date": email.timestamp.isoformat() if email.timestamp else None,
                 "sender": email.sender,
                 "recipients": email.recipients,
                 "subject": email.subject,
                 "message_id": email.message_id,
-                "snippet": (email.body[:150] + "...") if email.body else ""
+                "snippet": (email.content[:150] + "...") if email.content else ""
             })
 
         return timeline, evidence_ids

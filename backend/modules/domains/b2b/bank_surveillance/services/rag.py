@@ -4,11 +4,11 @@ from typing import Dict, Any, List
 from uuid import UUID
 from modules.domains.shared.services.base_rag_service import BaseRagService
 
-class EnronRagService(BaseRagService):
+class CommunicationRagService(BaseRagService):
     _vector_store_provider = "elasticsearch"
 
     def get_index_name(self) -> str:
-        return "enron_emails"
+        return "communications"
 
     def get_parser(self):
         # Use simple sentence splitter for chunks
@@ -48,4 +48,4 @@ class EnronRagService(BaseRagService):
         }
 
 # Singleton instance
-enron_rag_service = EnronRagService()
+communication_rag_service = CommunicationRagService()

@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import logging
 
-from modules.domains.b2b.bank_surveillance.models.enron_email import EnronEmail
+from modules.domains.b2b.bank_surveillance.models.communication import Communication
 
 logger = logging.getLogger(__name__)
 
@@ -20,42 +20,40 @@ class GraphService:
                          start_date: Optional[datetime] = None, 
                          end_date: Optional[datetime] = None) -> nx.DiGraph:
         """
-        Builds a directed graph from email communications.
-        Nodes: Email addresses
-        Edges: Weighted by number of emails sent
+        Builds a directed graph from communications.
+        Nodes: Senders/Recipients
+        Edges: Weighted by number of interactions
         """
         # Default to last 30 days if no dates provided to prevent fetching everything
         if not start_date:
-            # For Enron, data is old. Let's pick a window around 2001 if dates are None
-            # Or fetch everything if user asks?
-            # Better: Fetch distinct sender/recipients efficiently.
-            pass
+            pass # Fetch all logic or default window
 
-        query = select(EnronEmail.sender, EnronEmail.recipients, EnronEmail.date).where(
-            EnronEmail.tenant_id == tenant_id
+        query = select(Communication.sender, Communication.recipients, Communication.timestamp).where(
+            Communication.tenant_id == tenant_id
         )
         
         if start_date:
-            query = query.where(EnronEmail.date >= start_date)
+            query = query.where(Communication.timestamp >= start_date)
         if end_date:
-            query = query.where(EnronEmail.date <= end_date)
+            query = query.where(Communication.timestamp <= end_date)
 
         # Execute query
         result = await db.execute(query)
-        emails = result.all()
+        comms = result.all()
 
         G = nx.DiGraph()
 
-        for sender, recipients, date in emails:
+        for sender, recipients, date in comms:
             if not sender or not recipients:
                 continue
                 
             sender = sender.lower().strip()
             
+            # recipients is already a list due to Postgres ARRAY + SQLAlchemy
             for recipient in recipients:
                 recipient = recipient.lower().strip()
                 if sender == recipient:
-                    continue # Ignore self-emails
+                    continue # Ignore self-messages
                 
                 if G.has_edge(sender, recipient):
                     G[sender][recipient]['weight'] += 1
