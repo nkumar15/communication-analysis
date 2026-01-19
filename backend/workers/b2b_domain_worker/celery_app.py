@@ -9,7 +9,7 @@ celery_app = Celery(
     broker=settings.celery_broker_url_resolved,
     backend=settings.celery_result_backend_resolved,
     include=[
-        # Include B2B domain tasks here in the future
+        'modules.domains.b2b.bank_surveillance.tasks.ingestion',
     ]
 )
 

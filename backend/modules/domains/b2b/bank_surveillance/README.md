@@ -38,6 +38,10 @@ The Bank Surveillance workbench balances **Global Risk Oversight** with strict *
 1.  **As an External Auditor**, I want read-only access to "Chain of Custody" logs without seeing raw message content.
 2.  **As a Risk Officer**, I want to configure different retention policies for US vs EU regions.
 
+### Operations & Data Management
+1.  **As a Compliance Ops Officer**, I want the system to automatically ingest daily email dumps (YYYYMMDD) so that data is immediately available for search and analysis without manual upload.
+2.  **As a Data Engineer**, I want the ingestion process to index content for both RAG (vector) and Keyword search so that analysts can find messages using broad concepts or specific terms.
+
 ## Documentation
 
 | Document | Description |
@@ -45,6 +49,8 @@ The Bank Surveillance workbench balances **Global Risk Oversight** with strict *
 | [Personas](./docs/personas.md) | Deep dive into the 11-role ecosystem |
 | [Navigation IA](./docs/navigation.md) | Information architecture and page hierarchy |
 | [Page Specifications](./docs/pages/) | Per-page specs with user stories and wireframes |
+| - [Ingestion](./docs/pages/ingestion.md) | **Daily dump status & stats (New)** |
+| - [Dashboard](./docs/pages/dashboard.md) | |
 | [Demo Scripts](./docs/demos/README.md) | **Scripted demos for Global, Analyst, and Audit flows** |
 | [Technical](./docs/technical/) | API, Schema, Architecture |
 

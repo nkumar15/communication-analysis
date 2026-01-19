@@ -70,3 +70,22 @@
   "centrality": 0.78
 }
 ```
+
+---
+
+## Ingestion (Async Pipeline)
+
+| Method | Path | Description | Permission |
+|--------|------|-------------|------------|
+| `POST` | `/ingestion/trigger` | Manually trigger daily dump ingestion | `surveillance:admin` |
+| `GET` | `/ingestion/status/{job_id}` | Get status of ingestion job | `surveillance:admin` |
+| `POST` | `/ingestion/retry/{job_id}` | Retry failed file segments | `surveillance:admin` |
+
+### Trigger Payload
+```json
+// POST /ingestion/trigger
+{
+  "date": "20231027",
+  "force": false
+}
+```

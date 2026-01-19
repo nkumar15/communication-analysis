@@ -58,6 +58,27 @@ Active cases requiring human or AI review.
 
 ---
 
+### ingestion_logs
+
+Tracks status of daily ETL jobs.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `job_id` | UUID | Primary key |
+| `date` | CHAR(8) | YYYYMMDD identifier |
+| `status` | VARCHAR | running/completed/failed |
+| `file_path` | VARCHAR | Source file location |
+| `processed_count` | INT | Messages successfully indexed |
+| `error_count` | INT | Failed messages |
+| `started_at` | TIMESTAMPTZ | Job start time |
+| `completed_at` | TIMESTAMPTZ | Job completion time |
+
+**Indexes:**
+- `idx_ingestion_logs_date` on `date`
+- `idx_ingestion_logs_status` on `status`
+
+---
+
 ## Relationships
 
 ```mermaid

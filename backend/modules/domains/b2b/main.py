@@ -37,6 +37,7 @@ from modules.domains.b2b.task_management.routers import (
 from modules.domains.b2b.bank_surveillance.routers.communications import router as communications_router
 from modules.domains.b2b.bank_surveillance.routers.investigations import router as investigations_router
 from modules.domains.b2b.bank_surveillance.routers.graph import router as graph_router
+from modules.domains.b2b.bank_surveillance.routers.ingestion import router as ingestion_router
 
 
 @asynccontextmanager
@@ -96,6 +97,7 @@ app.include_router(comments_router)
 app.include_router(communications_router)
 app.include_router(investigations_router)
 app.include_router(graph_router)
+app.include_router(ingestion_router)
 
 
 @app.get("/")

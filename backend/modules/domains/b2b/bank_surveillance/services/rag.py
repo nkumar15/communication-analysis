@@ -47,5 +47,53 @@ class CommunicationRagService(BaseRagService):
             "count": len(results)
         }
 
+    async def index_text(self, text: str, metadata: Dict[str, Any]) -> bool:
+        """
+        Index a single text document with metadata directly (no file required).
+        Used for CSV/in-memory ingestion.
+        """
+        from llama_index.core import Document, StorageContext
+        
+        self._ensure_initialized()
+        
+        try:
+            doc = Document(text=text, metadata=metadata)
+            parser = self.get_parser()
+            nodes = parser.get_nodes_from_documents([doc])
+            
+            VectorStoreIndex(
+                nodes,
+                storage_context=StorageContext.from_defaults(vector_store=self.vector_store),
+                show_progress=False
+            )
+            return True
+        except Exception as e:
+            print(f"Vector indexing failed: {e}")
+            return False
+
+    async def index_batch(self, documents: List[Dict[str, Any]]) -> int:
+        """
+        Batch index multiple documents. Each dict should have 'text' and 'metadata'.
+        Returns count of successfully indexed documents.
+        """
+        from llama_index.core import Document, StorageContext
+        
+        self._ensure_initialized()
+        
+        docs = []
+        for d in documents:
+            docs.append(Document(text=d["text"], metadata=d.get("metadata", {})))
+        
+        parser = self.get_parser()
+        nodes = parser.get_nodes_from_documents(docs)
+        
+        VectorStoreIndex(
+            nodes,
+            storage_context=StorageContext.from_defaults(vector_store=self.vector_store),
+            show_progress=True
+        )
+        
+        return len(docs)
+
 # Singleton instance
 communication_rag_service = CommunicationRagService()
