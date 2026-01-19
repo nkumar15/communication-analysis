@@ -51,7 +51,12 @@ The `docs/` root is the **EntryPoint** and **Index** for the project.
 - [Onboarding Guide](guides/onboarding.md)
 ```
 
-## 3. Automation First
+## 3. Product Visualization
+**Rule**: Every feature **MUST** maintain the standard folder structure.
+- **Structure**: `docs/wireframes/` and `docs/demos/` directories are **MANDATORY**.
+- **Content**: Visual assets are **Recommended** but optional based on feature complexity.
+
+## 4. Automation First
 **Rule**: Use the **Feature Documentation Generator** skill to create and maintain feature docs.
 - **Skill**: `@[feature-doc-generator]`
 - **Process**:

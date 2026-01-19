@@ -11,7 +11,8 @@ Generate complete feature documentation including both **product specs** (person
 **Use this skill when asked to:**
 - Create full documentation for a feature/product
 - Document personas, user journeys, page specs
-- Create wireframes or demo scripts
+- **Create standard folders: `wireframes/`, `demos/` `pages/` `technical/` (MANDATORY)**
+- Generate visual assets if context permits (Optional)
 - Document APIs, schemas as part of a feature
 
 **Do NOT use this skill for:**

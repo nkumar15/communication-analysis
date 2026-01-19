@@ -47,8 +47,9 @@ ls -la [feature]/docs/wireframes/
 | `docs/technical/api.md` | ✅ Yes | API reference |
 | `docs/technical/schema.md` | ✅ Yes | Database tables |
 | `docs/technical/architecture.md` | ✅ Yes | Data flow |
-| `docs/demos/` | ⚠️ Recommended | Demo scripts |
-| `docs/wireframes/` | ⚠️ Recommended | UI wireframes |
+| `docs/technical/architecture.md` | ✅ Yes | Data flow |
+| `docs/demos/` | ✅ Yes (Folder) | Content Optional |
+| `docs/wireframes/` | ✅ Yes (Folder) | Content Optional |
 
 ## Step 3: Check Content Compliance
 
