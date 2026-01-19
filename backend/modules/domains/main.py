@@ -27,12 +27,13 @@ from infrastructure.logging.middleware import LoggingMiddleware
 logger = get_logger(__name__)
 
 # Import domain-specific routers
-from modules.domains.projects.routers import (
+from modules.domains.b2b.task_management.routers import (
     projects_router,
     tasks_router,
     comments_router
 )
-from modules.domains.nse.routers.rag import router as rag_router
+from modules.domains.b2c.finance_trader.routers.rag import router as rag_router
+from modules.domains.b2b.bank_surveillance.routers.enron import router as enron_router
 
 
 @asynccontextmanager
@@ -94,6 +95,7 @@ app.include_router(projects_router)
 app.include_router(tasks_router)
 app.include_router(comments_router)
 app.include_router(rag_router)
+app.include_router(enron_router)
 
 
 @app.get("/")

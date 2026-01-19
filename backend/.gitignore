@@ -71,4 +71,7 @@ result.txt
 
 # Celery
 celerybeat-schedule
-celerybeat.pid
+
+# Enron Dataset
+backend/scripts/evaluation/datasets/enron/source/emails.zip
+backend/scripts/evaluation/datasets/enron/source/emails.csv

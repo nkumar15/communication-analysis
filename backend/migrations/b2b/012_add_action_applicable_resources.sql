@@ -1,3 +1,9 @@
+-- ============================================================================
+-- B2B RBAC: ACTION METADATA
+-- ============================================================================
+-- Add applicable_resources and description to actions table
+-- ============================================================================
+
 -- Migration: Add applicable_resources and description to actions table
 -- This enables backend-driven action filtering per resource type
 

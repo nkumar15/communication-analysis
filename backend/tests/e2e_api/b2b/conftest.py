@@ -235,7 +235,7 @@ async def domain_test_data(db_session):
 @pytest_asyncio.fixture
 async def team_project(db_session, domain_test_data):
     """Create a test project in default team"""
-    from modules.domains.projects.models.project import Project
+    from modules.domains.b2b.task_management.models.project import Project
     
     project = Project(
         tenant_id=domain_test_data["tenant"].id,
@@ -255,7 +255,7 @@ async def team_project(db_session, domain_test_data):
 @pytest_asyncio.fixture
 async def other_team_project(db_session, domain_test_data):
     """Create a test project in another team"""
-    from modules.domains.projects.models.project import Project
+    from modules.domains.b2b.task_management.models.project import Project
     
     project = Project(
         tenant_id=domain_test_data["tenant"].id,
@@ -275,7 +275,7 @@ async def other_team_project(db_session, domain_test_data):
 @pytest_asyncio.fixture
 async def tenant2_project(db_session, domain_test_data):
     """Create a project for tenant 2"""
-    from modules.domains.projects.models.project import Project
+    from modules.domains.b2b.task_management.models.project import Project
     
     project = Project(
         tenant_id=domain_test_data["tenant2"].id,
@@ -295,7 +295,7 @@ async def tenant2_project(db_session, domain_test_data):
 @pytest_asyncio.fixture
 async def team_task(db_session, team_project, domain_test_data):
     """Create a test task in team project"""
-    from modules.domains.projects.models.task import Task
+    from modules.domains.b2b.task_management.models.task import Task
     
     task = Task(
         tenant_id=domain_test_data["tenant"].id,
@@ -316,7 +316,7 @@ async def team_task(db_session, team_project, domain_test_data):
 @pytest_asyncio.fixture
 async def team_comment(db_session, team_task, domain_test_data):
     """Create a test comment on task"""
-    from modules.domains.projects.models.comment import Comment
+    from modules.domains.b2b.task_management.models.comment import Comment
     
     comment = Comment(
         tenant_id=domain_test_data["tenant"].id,

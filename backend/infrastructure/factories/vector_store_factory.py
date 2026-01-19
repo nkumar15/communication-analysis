@@ -8,12 +8,15 @@ if TYPE_CHECKING:
 
 class VectorStoreFactory:
     @staticmethod
-    def get_vector_store(index_name: str) -> "VectorStore":
+    def get_vector_store(index_name: str, provider: str = None) -> "VectorStore":
         """
         Returns a configured LlamaIndex VectorStore instance.
-        Default: Elasticsearch
+        Default: Elasticsearch (honors env var if provider is None)
         """
-        provider = os.getenv("VECTOR_STORE_PROVIDER", "elasticsearch").lower()
+        if not provider:
+            provider = os.getenv("VECTOR_STORE_PROVIDER", "elasticsearch").lower()
+        else:
+            provider = provider.lower()
         
         if provider == "elasticsearch":
             from llama_index.vector_stores.elasticsearch import ElasticsearchStore

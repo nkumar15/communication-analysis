@@ -1,3 +1,9 @@
+-- ============================================================================
+-- B2B ORGANIZATIONAL TIERS
+-- ============================================================================
+-- Database-driven org tier support (GLOBAL, REGIONAL, COUNTRY, BRANCH)
+-- ============================================================================
+
 -- Migration: Add Organizational Tier Support (Database-Driven)
 -- Creates org_tiers table and references it from teams and team_role_definitions
 

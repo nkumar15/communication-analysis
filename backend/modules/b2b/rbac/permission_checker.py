@@ -136,7 +136,10 @@ async def has_permission_with_plugins(
 
 async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     """
-    Get all permissions for a user as a list of 'resource:action' strings
+    Get all permissions for a user as a list of 'resource:action' strings.
+    Aggregates permissions from:
+    1. Tenant Role (via role_permissions table)
+    2. Team Roles (via team_role_definitions.permissions JSONB)
     
     Args:
         user_id: User ID
@@ -145,8 +148,11 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     Returns:
         list: List of permission strings like ['shops:read', 'users:write']
     """
-    # OPTIMIZATION: Single query with explicit JOINs instead of multiple round-trips
+    permissions = set()
+
+    # 1. Get Tenant Role Permissions
     result = await db.execute(
+
         select(Resource.name, Action.name)
         .select_from(UserModel)
         .join(Role, UserModel.role_id == Role.id)
@@ -157,11 +163,48 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
         .where(Role.is_active == True)
     )
     
-    permissions = []
     for resource_name, action_name in result:
-        permissions.append(f"{resource_name}:{action_name}")
+        permissions.add(f"{resource_name}:{action_name}")
+
+    # 2. Get Team Role Permissions
+    # Join TeamMember -> TeamRoleDefinition to get the JSONB permissions list
+    from modules.b2b.models.team_member import TeamMember
+    from modules.b2b.models.team_role_definition import TeamRoleDefinition
     
-    return permissions
+    team_roles_result = await db.execute(
+        select(TeamRoleDefinition.permissions)
+        .join(TeamMember, TeamMember.team_role == TeamRoleDefinition.name)
+        .where(TeamMember.user_id == user_id)
+    )
+
+    # Each row is a JSONB list of permissions: [{'resource': 'r', 'actions': ['read']}]
+    # Note: The format in YAML/Seeder might be flattened or nested.
+    # checking seed_rbac.py: flatten_permissions converts to [{'resource': 'r', 'action': 'a'}] ?
+    # Let's handle the structure safely.
+    
+    # Each row is a JSONB list of permissions
+    for row in team_roles_result.scalars():
+        if not row:
+            continue
+            
+        for perm in row:
+            # Handle flattened format from TeamRoleDefinition
+            res = perm.get('resource')
+            if not res:
+                continue
+                
+            # Handle 'actions' list
+            actions = perm.get('actions', [])
+            if actions:
+                for act in actions:
+                    permissions.add(f"{res}:{act}")
+            
+            # Handle single 'action'
+            action = perm.get('action')
+            if action:
+                permissions.add(f"{res}:{action}")
+    
+    return list(permissions)
 
 
 async def get_user_role_name(user_id: UUID, db: AsyncSession) -> str | None:

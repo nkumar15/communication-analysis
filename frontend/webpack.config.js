@@ -98,6 +98,9 @@ module.exports = {
                 changeOrigin: true,
                 secure: false
             }
+        },
+        client: {
+            webSocketURL: 'auto://0.0.0.0:0/ws',
         }
     },
     resolve: {

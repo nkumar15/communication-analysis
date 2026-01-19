@@ -11,6 +11,9 @@ Applies to: **UI Architecture, React Patterns, State Management**
   - `components/`: Presentational components.
   - `layouts/`: Page wrappers (Sidebar, Header).
   - `services/`: API clients (TanStack Query hooks).
+- **Isolation Boundaries**:
+  - **B2B vs B2C**: Strict isolation. Components in `modules/b2b` MUST NOT import from `modules/b2c` and vice versa.
+  - **Shared Components**: Common UI/logic must exist in `src/core/` or `src/shared/` and be imported from there.
 
 ## 2. State Management
 - **Server State**: Use **TanStack Query (React Query)** for all API data.

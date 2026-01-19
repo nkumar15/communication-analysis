@@ -39,6 +39,8 @@ team_roles:
         actions: [read]
       - resource: audit_logs
         actions: [read, export] # Critical for Chief to audit IT
+      - resource: rag_enron
+        actions: [read, export]
 
   - name: regional_director
     display_name: Regional Surveillance Director

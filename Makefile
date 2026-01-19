@@ -54,7 +54,7 @@ db-recreate: ## Fast Database Reset (Drop DB -> Create DB). Uses POSTGRES_USER/D
 	@echo "$(GREEN)✓ Database recreated$(NC)"
 	@$(MAKE) migrate-only
 	@echo "$(BLUE)Starting backend API services (required for seeding)...$(NC)"
-	@docker-compose up -d b2b-api platform-api b2c-api domain-api b2b-worker b2c-worker domain-worker
+	@docker-compose up -d b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo ""
 	@echo "$(BLUE)=== Running Services ===$(NC)"
@@ -90,7 +90,7 @@ test-b2b-task-fast: ## Run B2B Task Tests (Core + Domain) WITHOUT recreating DB 
 up: ## Start all backend services (frontend runs locally)
 	echo "Deleting containers and volumes (full reset)..."
 	docker-compose down -v
-	docker-compose up -d postgres elasticsearch minio b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker domain-worker nginx mailhog prometheus grafana jaeger
+	docker-compose up -d postgres elasticsearch minio b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api dbmigrate redis b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 	@echo ""
 	@echo "$(BLUE)=== Running Services ===$(NC)"
@@ -121,7 +121,7 @@ logs: ## View logs (usage: make logs [s=service])
 ifdef s
 	docker-compose logs -f $(s)
 else
-	docker-compose logs -f b2b-api platform-api b2c-api domain-api b2c-worker domain-worker nginx
+	docker-compose logs -f b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api b2c-worker b2b-domain-worker b2c-domain-worker nginx
 endif
 
 ps: ## List running services
@@ -190,7 +190,7 @@ reset-db: ## Reset database (WARNING: deletes all data!)
 			sleep 5; \
 			$(MAKE) migrate-only; \
 			echo "$(BLUE)Starting API services...$(NC)"; \
-			docker-compose up -d platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker domain-worker nginx mailhog; \
+			docker-compose up -d platform-api b2b-api b2c-api b2b-domain-api b2c-domain-api dbmigrate b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker nginx mailhog; \
 			echo "$(BLUE)Waiting for services to be ready...$(NC)"; \
 			sleep 10; \
 			$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),); \
@@ -352,7 +352,7 @@ stop-web-all:
 
 up-backend: ## Start only backend services
 	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api b2b-worker b2c-worker domain-worker nginx
+	docker-compose up -d postgres b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker nginx
 	@echo "$(GREEN)✓ Backend services started$(NC)"
 
 dev-b2b: ## Start dev env: backend + B2B frontend (port 3000)
@@ -378,7 +378,7 @@ ifdef s
 	docker-compose exec $(s) /bin/bash
 else
 	@echo "$(YELLOW)Usage: make shell s=<service_name>$(NC)"
-	@echo "Available services: b2b-api, platform-api, b2c-api, domain-api, postgres"
+	@echo "Available services: b2b-api, platform-api, b2c-api, b2b-domain-api, b2c-domain-api, postgres"
 endif
 
 clean: ## Clean up containers, volumes, and build artifacts
@@ -398,10 +398,10 @@ test-api: ## Run all API integration tests
 	docker-compose run --rm e2e-tests pytest -n auto tests/e2e_api/ -v
 	@echo "$(GREEN)✓ API tests complete$(NC)"
 
-test-domain-rag: ## Run NSE RAG domain integration tests
-	@echo "$(BLUE)Running NSE RAG domain tests...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/domain/nserag/ -v
-	@echo "$(GREEN)✓ NSE RAG domain tests complete$(NC)"
+test-domain-rag: ## Run Finance Trader RAG domain integration tests
+	@echo "$(BLUE)Running Finance Trader RAG domain tests...$(NC)"
+	docker-compose run --rm e2e-tests pytest tests/e2e_api/b2c/use_cases/finance_trader/ -v
+	@echo "$(GREEN)✓ Finance Trader RAG domain tests complete$(NC)"
 
 test-b2b: ## Run ALL B2B tests (Combines Core+Bank and Core+Task)
 	@echo "$(BLUE)Running ALL B2B Tests...$(NC)"
@@ -455,7 +455,7 @@ test-b2b-all-new: ## Run complete B2B test suite (core + all use cases)
 # Test Runner Config
 ifdef LOCAL
 TEST_CMD := cd backend && pytest
-PROVISION_BACKEND := docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
+PROVISION_BACKEND := docker-compose up -d postgres b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api nginx
 else
 TEST_CMD := docker-compose run --rm e2e-tests pytest
 PROVISION_BACKEND := docker-compose up -d
@@ -567,7 +567,8 @@ sast-scan-containers: ## Run Trivy vulnerability scan on Docker images
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2b-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-platform-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2c-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
-	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2b-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2c-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@echo "$(YELLOW)Scanning frontend image...$(NC)"
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-frontend:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@echo "$(GREEN)✓ Container security scan complete - Report saved to backend/trivy-report.txt$(NC)"

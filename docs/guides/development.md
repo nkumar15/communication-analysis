@@ -1,6 +1,6 @@
-# Development & Testing Guide
+# Development & Testing Guide - Multi-Tenant SaaS Accelerator
 
-Complete guide for developing and testing the Enterprise SSO tenant onboarding system.
+Complete guide for developing and testing the Multi-Tenant SaaS Accelerator tenant onboarding system.
 
 ---
 
@@ -1199,12 +1199,22 @@ make logs-b2b ARGS="-f"
    ```bash
    make build
    make push   # Push to Container Registry
-   make deploy # Deploy to Cloud Run/ECS
-   ```
+1.  **Set environment for cloud provider:**
+    ```bash
+    LOG_ENVIRONMENT=gcp
+    GCP_PROJECT_ID=my-project
+    ```
+
+2.  **Deploy via Make:**
+    ```bash
+    make build
+    make push   # Push to Container Registry
+    make deploy # Deploy to Cloud Run/ECS
+    ```
 
 ---
 
-# Mobile Development Guide (Android)
+# Mobile Development Guide - Multi-Tenant SaaS Accelerator
 
 This section documents the "Split Workflow" for developing the Mobile Application.
 **Architecture**: Native Windows (Android/Java) + WSL 2 (Backend/Docker).

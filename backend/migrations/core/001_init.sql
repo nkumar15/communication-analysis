@@ -1,3 +1,9 @@
+-- ============================================================================
+-- CORE: MIGRATION TRACKING
+-- ============================================================================
+-- Initialize schema_migrations table (always run first)
+-- ============================================================================
+
 -- Core Migration 001: Initialize Migration Tracking
 -- This is always run first, regardless of which products are enabled
 

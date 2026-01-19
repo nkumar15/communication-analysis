@@ -1,0 +1,19 @@
+-- ============================================================================
+-- BANK SURVEILLANCE: ENRON EMAIL DATASET
+-- ============================================================================
+-- Schema and base table for Enron email corpus (RAG use case)
+-- ============================================================================
+
+CREATE SCHEMA IF NOT EXISTS bank_surveillance;
+
+CREATE TABLE IF NOT EXISTS bank_surveillance.enron_emails (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id VARCHAR UNIQUE NOT NULL,
+    sender VARCHAR NOT NULL,
+    recipients VARCHAR[] NOT NULL,
+    subject VARCHAR,
+    body TEXT,
+    date TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);

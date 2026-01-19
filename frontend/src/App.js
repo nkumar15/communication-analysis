@@ -17,16 +17,17 @@ import TeamRoleManagementPage from './modules/b2b/web/pages/TeamRoleManagementPa
 import ProjectsPage from './modules/domains/projects/pages/ProjectsPage';
 import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPage';
 import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
-import RagKnowledgeBasePage from './modules/b2b/web/pages/RagKnowledgeBasePage';
+
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
+import EnronDashboard from './modules/b2b/EnronDashboard';
+import EnronInvestigationPage from './modules/b2b/EnronInvestigationPage';
+import EnronKnowledgeBasePage from './modules/b2b/EnronKnowledgeBasePage';
 import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
 import CommunicationsPage from './modules/domains/surveillance/pages/CommunicationsPage';
 import InvestigationsPage from './modules/domains/surveillance/pages/InvestigationsPage';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
-
-// Redirect component to handle /join?token=... URLs from emails
 function JoinRedirect() {
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get('token');
@@ -119,19 +120,30 @@ function App() {
                     }
                 />
 
+
+
+                {/* Enron Domain Routes */}
                 <Route
-                    path="/b2b/c/nse/rag"
+                    path="/b2b/c/enron"
                     element={
                         <ProtectedRoute>
-                            <RagKnowledgeBasePage domain="nse" />
+                            <EnronDashboard />
                         </ProtectedRoute>
                     }
                 />
                 <Route
-                    path="/b2b/c/enron/rag"
+                    path="/b2b/c/enron/investigate"
                     element={
                         <ProtectedRoute>
-                            <RagKnowledgeBasePage domain="enron" />
+                            <EnronInvestigationPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/b2b/c/enron/knowledge-base"
+                    element={
+                        <ProtectedRoute>
+                            <EnronKnowledgeBasePage />
                         </ProtectedRoute>
                     }
                 />
