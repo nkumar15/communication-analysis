@@ -10,21 +10,19 @@ This module follows a **Layered Architecture**:
 - `models/`: Database entities
 - `schemas/`: Pydantic models (DTOs)
 
-## 3. Feature Documentation
-Detailed technical documentation for each foundation feature can be found below:
+## 3. Documentation
 
-### Core Identity & Access
-- [Authentication](docs/authentication.md)
-- [RBAC (Role Based Access Control)](docs/rbac.md)
-- [Invitations & Member Management](docs/invitations.md)
-- [Tenant Onboarding](docs/tenant-onboarding.md)
-- [User Management](docs/user.md)
+| Document | Description |
+|----------|-------------|
+| [Product Overview](docs/README.md) | Personas, Navigation, and Feature Specs |
+| [Page Specifications](docs/pages/) | Detailed UI Specs (Dashboard, Billing, Team) |
+| [Technical Reference](docs/technical/) | API, Schema, Architecture |
 
-### Commercialization
-- [Billing & Subscriptions](docs/billing.md)
-
-### Platform
-- [Dashboard](docs/dashboard.md)
+### Key Features
+- [Authentication](docs/technical/authentication.md)
+- [RBAC (Role Based Access Control)](docs/technical/rbac.md)
+- [Billing & Subscriptions](docs/pages/settings_billing.md)
+- [Team Management](docs/pages/team_members.md)
 
 ### Domain Features
 Specialized vertical solutions built on the B2B foundation:
