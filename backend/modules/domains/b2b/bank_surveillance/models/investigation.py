@@ -35,5 +35,5 @@ class Investigation(Base, TimestampMixin):
     assigned_user = relationship("UserModel", foreign_keys=[assigned_to_user_id])
     region = relationship("GeographicRegion")
     sensitivity_level = relationship("SensitivityLevel")
-    communications = relationship("Communication", back_populates="investigation", cascade="all, delete-orphan")
+    sensitivity_level = relationship("SensitivityLevel")
 
