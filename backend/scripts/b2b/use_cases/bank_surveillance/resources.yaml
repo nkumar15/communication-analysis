@@ -1,51 +1,99 @@
 # Bank Surveillance - Domain Resources
+# Derived from Product User Stories & Feature Specifications
 
 bank_surveillance_resources:
-  # Core Surveillance Resources
+  # ===== CORE SURVEILLANCE =====
   - name: communications
-    display_name: Communications Surveillance
+    display_name: Communications
     category: Surveillance
-    description: Email, chat, voice, and electronic communications monitoring
+    description: Raw message access (email, chat, voice content)
     is_system_resource: false
-  
-  - name: investigations
-    display_name: Investigation Cases
+
+  - name: rag_search
+    display_name: RAG Search
     category: Surveillance
-    description: Compliance investigation case management
+    description: Semantic/vector search and guided questions over communications
     is_system_resource: false
-  
+
   - name: alerts
     display_name: Surveillance Alerts
     category: Surveillance
-    description: System-generated compliance and surveillance alerts
+    description: System-generated compliance alerts (filter, bulk-close, escalate)
     is_system_resource: false
-  
+
+  - name: cases
+    display_name: Case Management
+    category: Surveillance
+    description: Investigation case lifecycle (open, assign, notes, evidence, close)
+    is_system_resource: false
+
+  - name: investigations
+    display_name: AI Investigations
+    category: Surveillance
+    description: AI-powered investigation workspace (agents, 4-eyes approval)
+    is_system_resource: false
+
+  - name: graph
+    display_name: Social Graph Analysis
+    category: Surveillance
+    description: Network analysis - cliques, ego networks, centrality
+    is_system_resource: false
+
+  # ===== DATA OPERATIONS =====
+  - name: ingestion
+    display_name: Data Ingestion
+    category: Engineering
+    description: Daily dump ingestion pipeline (trigger, status, retry)
+    is_system_resource: false
+
+  # ===== COMPLIANCE & AUDIT =====
+  - name: audit_logs
+    display_name: Audit Logs
+    category: Compliance
+    description: Chain of custody logs for external auditors
+    is_system_resource: false
+
+  - name: retention_policies
+    display_name: Retention Policies
+    category: Compliance
+    description: Region-specific data retention configuration
+    is_system_resource: false
+
+  # ===== ACCESS CONTROL =====
+  - name: regions
+    display_name: Region Assignment
+    category: Administration
+    description: Geo-fencing and user-to-region assignment
+    is_system_resource: false
+
+  - name: sensitive_content
+    display_name: Sensitive Content
+    category: Administration
+    description: MNPI and clearance-gated content access
+    is_system_resource: false
+
+  - name: cross_region_data
+    display_name: Cross-Region Data
+    category: Administration
+    description: Global CSO access to drill-down across regional data
+    is_system_resource: false
+
+  # ===== REPORTING =====
   - name: surveillance_reports
     display_name: Surveillance Reports
     category: Reporting
     description: Regulatory and management surveillance reports
     is_system_resource: false
 
-  - name: watchlist
-    display_name: Monitored Subjects
-    category: Surveillance
-    description: Management of monitored dealer and trader identities
-    is_system_resource: false
-
-  - name: model_config
-    display_name: AI Model Configuration
-    category: Administration
-    description: Configuration of surveillance models, keywords, and feedback loops
-    is_system_resource: false
-
   - name: analytics
     display_name: Surveillance Analytics
     category: Reporting
-    description: Operational analytics and data processing statistics
+    description: Operational analytics and volume statistics
     is_system_resource: false
 
-  - name: data_pipelines
-    display_name: Data Ingestion Pipelines
-    category: Engineering
-    description: Monitoring of data ingestion pipelines, volumes, and processing stats
+  # ===== AI CONFIGURATION =====
+  - name: model_config
+    display_name: AI Model Configuration
+    category: Administration
+    description: Surveillance model tuning, keywords, and feedback loops
     is_system_resource: false

@@ -46,3 +46,26 @@ graph TD
 - **Search**: `Elasticsearch` 8.x (Vector Store for RAG via LlamaIndex)
 - **Queue**: `Celery` + `Redis` (Async Ingestion)
 - **Schedule**: `Celery Beat` (Daily Cron)
+
+## RBAC Resources
+
+Domain-specific resources defined in [`resources.yaml`](../../../../scripts/b2b/use_cases/bank_surveillance/resources.yaml).
+
+| Resource | Category | Description |
+|----------|----------|-------------|
+| `communications` | Surveillance | Raw message access |
+| `rag_search` | Surveillance | Semantic/vector search |
+| `alerts` | Surveillance | Alert triage workflow |
+| `cases` | Surveillance | Case lifecycle management |
+| `investigations` | Surveillance | AI investigation workspace |
+| `graph` | Surveillance | Social graph analysis |
+| `ingestion` | Engineering | Data pipeline management |
+| `audit_logs` | Compliance | Chain of custody |
+| `retention_policies` | Compliance | Region-specific retention |
+| `regions` | Administration | Geo-fencing control |
+| `sensitive_content` | Administration | MNPI/clearance-gated access |
+| `cross_region_data` | Administration | Global drill-down access |
+| `surveillance_reports` | Reporting | Regulatory reports |
+| `analytics` | Reporting | Volume & ops statistics |
+| `model_config` | Administration | AI model tuning |
+
