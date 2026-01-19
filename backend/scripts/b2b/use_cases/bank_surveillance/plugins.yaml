@@ -58,10 +58,6 @@ hierarchical_teams:
       display_name: Country
       description: Single jurisdiction. Authority within one country.
       hierarchy_order: 3
-    - name: BRANCH
-      display_name: Branch
-      description: Local operational unit. Specific desk or branch operations.
-      hierarchy_order: 4
   
   seed_data:
     - name: "Global Surveillance"

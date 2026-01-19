@@ -37,8 +37,25 @@ graph TD
 | **Agent** | `agents/intent_agent.py` | Fraud intent detection |
 | **Agent** | `agents/policy_agent.py` | Policy violation detection |
 | **Agent** | `agents/evasion_agent.py` | Code word detection |
-| **Model** | `models/investigation.py` | Investigation entity |
-| **Model** | `models/enron_email.py` | Read-only Enron dataset |
+| **Model** | `models/investigation.py` | `Investigation` (Case) entity |
+
+### 3. Demo Topology (Seed Data)
+The demo environment provisions **9 Teams** across 3 Tiers:
+
+```mermaid
+graph TD
+    Global[Global Surveillance] --> APAC[APAC Surveillance]
+    Global --> EMEA[EMEA Surveillance]
+    Global --> Americas[Americas Surveillance]
+    
+    APAC --> SG[SG Desk]
+    APAC --> HK[HK Desk]
+    APAC --> MY[MY Desk]
+    
+    EMEA --> UK[UK Desk]
+    
+    Americas --> US[US Desk]
+```
 
 ## Key Business Rules
 

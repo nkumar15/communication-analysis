@@ -102,7 +102,7 @@ team_roles:
   - name: surveillance_country_lead
     display_name: Country Surveillance Lead
     description: Full management and approval authority for the team data
-    allowed_org_tiers: [COUNTRY, BRANCH]
+    allowed_org_tiers: [COUNTRY]
     is_system: false
     permissions:
       - resource: team_members
@@ -193,7 +193,7 @@ team_roles:
   - name: surveillance_ops
     display_name: Surveillance Ops (SurvOps)
     description: Technical oversight for data pipelines and ingestion health
-    allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY, BRANCH]
+    allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY]
     is_system: false
     permissions:
       - resource: team_members
