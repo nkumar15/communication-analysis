@@ -69,3 +69,29 @@ Domain-specific resources defined in [`resources.yaml`](../../../../scripts/b2b/
 | `analytics` | Reporting | Volume & ops statistics |
 | `model_config` | Administration | AI model tuning |
 
+## RBAC Actions
+
+Domain-specific actions defined in [`actions.yaml`](../../../../scripts/b2b/use_cases/bank_surveillance/actions.yaml).
+
+| Action | Description | Applicable Resources |
+|--------|-------------|---------------------|
+| `search` | Semantic/keyword search | `communications`, `rag_search` |
+| `query` | RAG guided questions | `rag_search` |
+| `investigate` | Formal investigation workflow | `investigations`, `alerts` |
+| `flag` | Mark as suspicious | `communications`, `alerts` |
+| `escalate` | Escalate to senior reviewer | `alerts`, `cases` |
+| `close` | Close with decision rationale | `alerts`, `cases` |
+| `assign` | Assign to analyst | `cases`, `alerts`, `regions` |
+| `approve` | 4-eyes approval | `investigations`, `cases` |
+| `acknowledge` | Acknowledge alert | `alerts` |
+| `analyze` | Graph/network analysis | `graph`, `communications` |
+| `trigger` | Trigger ingestion job | `ingestion` |
+| `retry` | Retry failed job | `ingestion` |
+| `submit` | Submit for review | `surveillance_reports` |
+| `export` | Export for regulatory use | `surveillance_reports`, `audit_logs` |
+| `train` | Train AI models | `model_config` |
+| `configure` | Modify settings | `model_config`, `retention_policies` |
+| `grant` | Grant elevated access | `cross_region_data`, `sensitive_content` |
+| `redact` | Redact sensitive content | `sensitive_content` |
+
+
