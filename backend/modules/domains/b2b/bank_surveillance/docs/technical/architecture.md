@@ -94,4 +94,26 @@ Domain-specific actions defined in [`actions.yaml`](../../../../scripts/b2b/use_
 | `grant` | Grant elevated access | `cross_region_data`, `sensitive_content` |
 | `redact` | Redact sensitive content | `sensitive_content` |
 
+## RBAC Matrix (Role-Permission Summary)
+
+Roles defined in [`team_roles.yaml`](../../../../scripts/b2b/use_cases/bank_surveillance/team_roles.yaml).
+
+| Role | Tier | Key Permissions | User Story |
+|------|------|-----------------|------------|
+| **CSO** | Global | Full surveillance + cross-region | Global risk aggregation, drill-down |
+| **Head Compliance** | Global | Read-only + audit export | External auditor oversight |
+| **Regional Director** | Regional | Full regional surveillance | Cross-border investigation |
+| **Surveillance Manager** | Country | Team mgmt + case approval | SLA monitoring, workload |
+| **Surveillance Analyst** | Country/Branch | Core workflow: search, flag, investigate | Daily alert triage |
+| **Junior Analyst** | Branch | Limited + auto-redacted content | MNPI protection |
+| **Ops Maker** | All | Create cases (no approve) | 4-Eyes: Prepare cases |
+| **Ops Checker** | All | Approve/close (no create) | 4-Eyes: Review & approve |
+| **Compliance Officer** | Country/Branch | Read-only + export | Audit quality |
+| **Risk Officer** | Global/Regional | Analytics + retention config | Region policy setup |
+| **SurvOps** | Global/Regional | Ingestion + model config | Pipeline health |
+| **IT Admin** | Global | Region assign + ingestion | Geo-fencing control |
+| **External Auditor** | Global/Regional | Audit logs only (no content) | Chain of custody |
+| **Legal Counsel** | Global/Regional | Case evidence export | Legal hold |
+
+
 
