@@ -29,11 +29,11 @@ Open → In Review → Escalated → Closed
 
 ## User Stories
 
-- **As a Surveillance Manager**, I want to track case lifecycle stages so that I can manage team workload.
-- **As a Surveillance Analyst**, I want to add internal notes so that I can document my investigation reasoning.
-- **As a Compliance Officer**, I want decision rationale required at closure so that we maintain audit quality.
-- **As a Surveillance Manager**, I want SLA tracking so that I can identify bottlenecks.
-- **As a Legal Counsel**, I want evidence attachments preserved so that we have complete case records.
+1. **As a Surveillance Manager**, I want to track case lifecycle stages so that I can manage team workload.
+2. **As a Surveillance Analyst**, I want to add internal notes so that I can document my investigation reasoning.
+3. **As a Compliance Officer**, I want decision rationale required at closure so that we maintain audit quality.
+4. **As a Surveillance Manager**, I want SLA tracking so that I can identify bottlenecks.
+5. **As a Legal Counsel**, I want evidence attachments preserved so that we have complete case records.
 
 ## UX Rules
 

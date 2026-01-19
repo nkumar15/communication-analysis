@@ -21,11 +21,11 @@
 
 ## User Stories
 
-- **As a Surveillance Analyst**, I want to filter alerts by risk type so that I can focus on my assigned category.
-- **As a Surveillance Analyst**, I want to bulk-close low-confidence alerts so that I can manage my queue efficiently.
-- **As a Surveillance Manager**, I want to see alert aging metrics so that I can ensure SLA compliance.
-- **As a Surveillance Analyst**, I want to escalate alerts with one click so that I can quickly involve senior reviewers.
-- **As a Surveillance Analyst**, I want to convert an alert directly to a case so that I can begin formal investigation.
+1. **As a Surveillance Analyst**, I want to filter alerts by risk type so that I can focus on my assigned category.
+2. **As a Surveillance Analyst**, I want to bulk-close low-confidence alerts so that I can manage my queue efficiently.
+3. **As a Surveillance Manager**, I want to see alert aging metrics so that I can ensure SLA compliance.
+4. **As a Surveillance Analyst**, I want to escalate alerts with one click so that I can quickly involve senior reviewers.
+5. **As a Surveillance Analyst**, I want to convert an alert directly to a case so that I can begin formal investigation.
 
 ## UX Rules
 

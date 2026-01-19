@@ -28,11 +28,11 @@
 
 ## User Stories
 
-- **As a Surveillance Analyst**, I want a unified workspace so that I can investigate without switching between tools.
-- **As a Surveillance Analyst**, I want AI-generated conversation summaries so that I can quickly understand long threads.
-- **As a Surveillance Analyst**, I want risk evolution timelines so that I can identify when behavior patterns changed.
-- **As a Compliance Officer**, I want to see key actors identified so that I can understand organizational exposure.
-- **As a Surveillance Manager**, I want suggested next steps so that junior analysts have guidance on complex cases.
+1. **As a Surveillance Analyst**, I want a unified workspace so that I can investigate without switching between tools.
+2. **As a Surveillance Analyst**, I want AI-generated conversation summaries so that I can quickly understand long threads.
+3. **As a Surveillance Analyst**, I want risk evolution timelines so that I can identify when behavior patterns changed.
+4. **As a Compliance Officer**, I want to see key actors identified so that I can understand organizational exposure.
+5. **As a Surveillance Manager**, I want suggested next steps so that junior analysts have guidance on complex cases.
 
 ## UX Rules
 

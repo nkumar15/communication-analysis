@@ -28,11 +28,11 @@
 
 ## User Stories
 
-- **As a Surveillance Analyst**, I want guided questions so that I can explore without knowing exact query syntax.
-- **As a Surveillance Analyst**, I want semantic search so that I can find conceptually similar content.
-- **As a Compliance Officer**, I want search queries audit-logged so that we can review analyst behavior.
-- **As a Surveillance Analyst**, I want AI confidence scores shown so that I know when to verify results.
-- **As a Risk Officer**, I want region scoping enforced so that data access policies are respected.
+1. **As a Surveillance Analyst**, I want guided questions so that I can explore without knowing exact query syntax.
+2. **As a Surveillance Analyst**, I want semantic search so that I can find conceptually similar content.
+3. **As a Compliance Officer**, I want search queries audit-logged so that we can review analyst behavior.
+4. **As a Surveillance Analyst**, I want AI confidence scores shown so that I know when to verify results.
+5. **As a Risk Officer**, I want region scoping enforced so that data access policies are respected.
 
 ## UX Rules
 

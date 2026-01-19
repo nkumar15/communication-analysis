@@ -4,102 +4,31 @@
 
 ```mermaid
 graph TD
-    User[Compliance Officer] -->|POST /investigate| API[FastAPI Router]
-    API -->|Content| Orchestrator[Orchestrator Service]
-    Orchestrator -->|Parallel| Intent[Intent Agent]
-    Orchestrator -->|Parallel| Policy[Policy Agent]
-    Orchestrator -->|Parallel| Evasion[Evasion Agent]
-    Orchestrator -->|Results| Report[Investigation Report]
-    Report -->|Enrich| Graph[Graph Service]
-    Graph -->|Ego Network| Report
-    
-    subgraph "AI Agents"
-    Intent
-    Policy
-    Evasion
-    end
-    
-    subgraph "Services"
-    Orchestrator
-    Graph
-    RAG[RAG Service]
-    end
+    A[Compliance Officer] -->|POST /investigate| B(API)
+    B -->|Content| C[Orchestrator]
+    C -->|Parallel| D[Intent Agent]
+    C -->|Parallel| E[Policy Agent]
+    C -->|Parallel| F[Evasion Agent]
+    C -->|Results| G[Investigation Report]
+    G -->|Enrich| H[Graph Service]
+    H -->|Ego Network| G
 ```
 
 ## Key Components
 
 | Component | File | Description |
-|-----------|------|-------------|
-| **Router** | `routers/enron.py` | Search, Investigate, Graph endpoints |
+| :--- | :--- | :--- |
+| **API** | `routers/communications.py` | Message CRUD & Search Endpoints |
+| **API** | `routers/investigations.py` | AI Analysis & Agent Coordination |
+| **API** | `routers/graph.py` | Network Analysis Endpoints |
 | **Service** | `services/orchestrator.py` | Coordinates AI Agents & Case Assembly |
 | **Service** | `services/graph.py` | NetworkX Logic (Cliques, Centrality) |
-| **Service** | `services/rag.py` | Vector Search over Email Body |
-| **Agent** | `agents/intent_agent.py` | Fraud intent detection |
-| **Agent** | `agents/policy_agent.py` | Policy violation detection |
-| **Agent** | `agents/evasion_agent.py` | Code word detection |
-| **Model** | `models/investigation.py` | `Investigation` (Case) entity |
-
-### 3. Demo Topology (Seed Data)
-The demo environment provisions **9 Teams** across 3 Tiers:
-
-```mermaid
-graph TD
-    Global[Global Surveillance] --> APAC[APAC Surveillance]
-    Global --> EMEA[EMEA Surveillance]
-    Global --> Americas[Americas Surveillance]
-    
-    APAC --> SG[SG Desk]
-    APAC --> HK[HK Desk]
-    APAC --> MY[MY Desk]
-    
-    EMEA --> UK[UK Desk]
-    
-    Americas --> US[US Desk]
-```
-
-## Key Business Rules
-
-- **Multi-Agent Analysis**: Every investigation runs 3 agents in parallel
-- **Graph Persistence**: Social graphs built lazily from email metadata
-- **Case Management**: High-risk findings promoted to Investigations
-
-## Observability
-
-### Audit Logs
-
-| Event | Payload |
-|-------|---------|
-| `investigate_email` | `user_id`, `email_id`, `ai_tokens_used` |
-| `create_case` | `user_id`, `investigation_id`, `priority` |
-| `search_query` | `user_id`, `query`, `result_count` |
-
-### Metrics
-
-- `ai_token_usage` - LLM token consumption per request
-- `investigation_latency_ms` - End-to-end investigation time
-- `graph_build_duration_s` - Graph construction time
-
-## Testing
-
-### Critical Scenarios
-
-| Scenario | Expected |
-|----------|----------|
-| Evasion Detection | "Let's take this offline" triggers Evasion Agent |
-| Graph Build | Handles disconnected nodes gracefully |
-| RAG Search | Returns semantically similar emails |
-| Multi-Agent | All 3 agents return within timeout |
-
-### Test Location
-
-- `backend/tests/e2e_api/b2b/use_cases/bank_surveillance/test_enron_api.py`
+| **Service** | `services/rag.py` | Vector Search over Communications |
+| **Model** | `models/investigation.py` | Case Management Entity |
+| **Model** | `models/communication.py` | Unified Message Entity (Email/Chat) |
 
 ## Dependencies
 
-- **Internal**: `core.db`, `core.ai`, `modules.b2b.rbac`
-- **External**: 
-  - OpenAI (LLM for agents)
-  - pgvector (Vector search)
-- **Env Vars**: 
-  - `OPENAI_API_KEY`
-  - `DATABASE_URL`
+- **AI/LLM**: `langchain`, `openai` (via Agents)
+- **Graph**: `networkx` (In-memory analysis of communication patterns)
+- **Vector DB**: `pgvector` (via Postgres 15+)

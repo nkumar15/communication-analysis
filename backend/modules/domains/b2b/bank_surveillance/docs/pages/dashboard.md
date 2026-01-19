@@ -20,10 +20,10 @@
 
 ## User Stories
 
-- **As a Compliance Executive**, I want to see today's risk landscape at a glance so that I can prioritize my team's focus areas.
-- **As a Compliance Executive**, I want to filter dashboard metrics by region so that I can compare regional risk profiles.
-- **As a Surveillance Manager**, I want to see case closure velocity so that I can forecast team workload.
-- **As a Compliance Executive**, I want emerging risk themes highlighted so that I can proactively address systemic issues.
+1. **As a Compliance Executive**, I want to see today's risk landscape at a glance so that I can prioritize my team's focus areas.
+2. **As a Compliance Executive**, I want to filter dashboard metrics by region so that I can compare regional risk profiles.
+3. **As a Surveillance Manager**, I want to see case closure velocity so that I can forecast team workload.
+4. **As a Compliance Executive**, I want emerging risk themes highlighted so that I can proactively address systemic issues.
 
 ## UX Rules
 
