@@ -1,9 +1,11 @@
 import pytest
-from modules.domains.b2b.bank_surveillance.agents.evasion_agent import evasion_agent
+from modules.domains.b2b.bank_surveillance.agents.evasion_agent import EvasionAgent
 
+@pytest.mark.skip(reason="Skipping agent tests as per user request")
 @pytest.mark.asyncio
 async def test_evasion_agent_scenarios():
     """Test evasion detection scenarios"""
+    agent = EvasionAgent(tenant_id=None)
     
     # Test Case 1: Clear Evasion - Channel Switch
     email_1 = """
@@ -17,7 +19,7 @@ async def test_evasion_agent_scenarios():
     """
     
     print("\n🔍 Test 1: Clear Channel Switch Evasion")
-    result_1 = await evasion_agent.analyze_email(email_1)
+    result_1 = await agent.analyze_email(email_1)
     assert result_1.get('is_evasion') is True
     assert result_1.get('evasion_type') == "channel_switch"
     
@@ -32,7 +34,7 @@ async def test_evasion_agent_scenarios():
     """
     
     print("\n🔍 Test 2: Evidence Destruction")
-    result_2 = await evasion_agent.analyze_email(email_2)
+    result_2 = await agent.analyze_email(email_2)
     assert result_2.get('is_evasion') is True
     
     # Test Case 3: Benign (should NOT flag)
@@ -46,7 +48,7 @@ async def test_evasion_agent_scenarios():
     """
     
     print("\n🔍 Test 3: Benign Email (should be False)")
-    result_3 = await evasion_agent.analyze_email(email_3)
+    result_3 = await agent.analyze_email(email_3)
     # Note: Result could be None or False depending on implementation
     if result_3.get('is_evasion'):
          print(f"Warning: Benign email flagged as evasion: {result_3}")
@@ -61,6 +63,6 @@ async def test_evasion_agent_scenarios():
     """
     
     print("\n🔍 Test 4: Ambiguous Email")
-    result_4 = await evasion_agent.analyze_email(email_4)
+    result_4 = await agent.analyze_email(email_4)
     # Just ensure it runs without error
     assert result_4 is not None

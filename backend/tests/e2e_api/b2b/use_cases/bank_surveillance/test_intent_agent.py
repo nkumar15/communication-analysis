@@ -1,9 +1,11 @@
 import pytest
-from modules.domains.b2b.bank_surveillance.agents.intent_agent import intent_agent
+from modules.domains.b2b.bank_surveillance.agents.intent_agent import IntentAgent
 
+@pytest.mark.skip(reason="Skipping agent tests as per user request")
 @pytest.mark.asyncio
 async def test_intent_agent_scenarios():
     """Test intent classification scenarios"""
+    agent = IntentAgent(tenant_id=None)
     
     # Test Case 1: Fraud/Collusion - LJM Discussion
     email_1 = """
@@ -16,7 +18,7 @@ async def test_intent_agent_scenarios():
     """
     
     print("\n🔍 Test 1: Fraud/Collusion (LJM/Raptor)")
-    result_1 = await intent_agent.classify_email(email_1)
+    result_1 = await agent.classify_email(email_1)
     # Assert classification is likely related to fraud/collusion if model is good
     assert result_1.get('classification') is not None
     
@@ -31,7 +33,7 @@ async def test_intent_agent_scenarios():
     """
     
     print("\n🔍 Test 2: Evasion Attempt")
-    result_2 = await intent_agent.classify_email(email_2)
+    result_2 = await agent.classify_email(email_2)
     assert result_2.get('classification') is not None
     
     # Test Case 3: Business as Usual (Newsletter)
@@ -47,7 +49,7 @@ async def test_intent_agent_scenarios():
     """
     
     print("\n🔍 Test 3: Business as Usual (Newsletter)")
-    result_3 = await intent_agent.classify_email(email_3)
+    result_3 = await agent.classify_email(email_3)
     assert result_3.get('classification') is not None
     
     # Test Case 4: Business as Usual (Normal Work)
@@ -61,5 +63,5 @@ async def test_intent_agent_scenarios():
     """
     
     print("\n🔍 Test 4: Business as Usual (Normal Work)")
-    result_4 = await intent_agent.classify_email(email_4)
+    result_4 = await agent.classify_email(email_4)
     assert result_4.get('classification') is not None

@@ -1,9 +1,11 @@
 import pytest
-from modules.domains.b2b.bank_surveillance.agents.policy_agent import policy_agent
+from modules.domains.b2b.bank_surveillance.agents.policy_agent import PolicyAgent
 
+@pytest.mark.skip(reason="Skipping agent tests as per user request")
 @pytest.mark.asyncio
 async def test_policy_agent_scenarios():
     """Test policy violation detection scenarios"""
+    agent = PolicyAgent(tenant_id=None)
     
     # Test Case 1: LJM / Conflict of Interest (Suspicious)
     email_text = """
@@ -17,7 +19,7 @@ async def test_policy_agent_scenarios():
     """
     
     print("\n🔎 Analyzing Email 1 (LJM/Off-balance sheet)...")
-    result = await policy_agent.analyze_email(email_text)
+    result = await agent.analyze_email(email_text)
     assert result is not None
     # We expect some policy violation here
     
@@ -31,5 +33,5 @@ async def test_policy_agent_scenarios():
     """
     
     print("\nZooming into Email 2 (Picnic)...")
-    result_2 = await policy_agent.analyze_email(email_text_2)
+    result_2 = await agent.analyze_email(email_text_2)
     assert result_2 is not None

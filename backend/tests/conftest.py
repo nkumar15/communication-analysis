@@ -43,6 +43,21 @@ from modules.b2b.routers import auth, activation, invitations, users, roles, tea
 from modules.b2b.models import RolePermission, Resource, Action, Role
 from sqlalchemy import select
 from modules.domains.b2b.task_management.routers import projects, tasks, comments
+from modules.domains.b2b.bank_surveillance.routers import communications, cases, alerts
+
+# Mock langchain for environment where it is missing (e.g. CI/Test container subset)
+import sys
+from unittest.mock import MagicMock
+if 'langchain' not in sys.modules:
+    sys.modules['langchain'] = MagicMock()
+    sys.modules['langchain.agents'] = MagicMock()
+    sys.modules['langchain.tools'] = MagicMock()
+    sys.modules['langchain.prompts'] = MagicMock()
+    sys.modules['langchain.chat_models'] = MagicMock()
+if 'langchain_openai' not in sys.modules:
+    sys.modules['langchain_openai'] = MagicMock()
+
+from modules.domains.b2b.bank_surveillance.routers import analysis
 from modules.platform.routers import platform, platform_b2b, platform_b2c
 from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
 from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
@@ -109,6 +124,10 @@ app.include_router(regions.router)     # Regions
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(comments.router)
+app.include_router(communications.router)
+app.include_router(cases.router)
+app.include_router(alerts.router)
+app.include_router(analysis.router)
 app.include_router(platform.router)
 app.include_router(platform_b2b.router)
 app.include_router(platform_b2c.router)
@@ -249,67 +268,12 @@ from scripts.b2b.seed_rbac import seed_b2b_rbac_data
 @pytest_asyncio.fixture(scope="session")
 async def seed_db():
     """
-    Session-scoped fixture to seed the database ONCE using production YAML.
-    It creates its OWN engine to avoid Loop Scope Mismatch with function-scoped tests.
-    """
-
-
-    admin_url = os.getenv("ADMIN_DATABASE_URL")
-    seed_engine_to_dispose = None
-    seed_engine = None
+    Session-scoped fixture.
     
-    if admin_url:
-        print(f"\nDEBUG: Using ADMIN_DATABASE_URL for seeding: {admin_url}")
-        # Ensure async driver
-        if "postgresql+asyncpg://" not in admin_url:
-            if admin_url.startswith("postgres://"):
-                admin_url = admin_url.replace("postgres://", "postgresql+asyncpg://", 1)
-            elif admin_url.startswith("postgresql://"):
-                admin_url = admin_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-                
-        seed_engine = create_async_engine(admin_url, echo=False)
-        seed_engine_to_dispose = seed_engine
-    else:
-        print("\nDEBUG: Using TEST_DATABASE_URL for seeding (expect failures if not superuser)")
-        # Create dedicated engine for seeding
-        url = TEST_DATABASE_URL
-        if "postgresql+asyncpg://" not in url:
-             if url.startswith("postgres://"):
-                 url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-             elif url.startswith("postgresql://"):
-                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        seed_engine = create_async_engine(url, echo=False)
-        seed_engine_to_dispose = seed_engine
-
-    try:
-        async with AsyncSession(seed_engine) as session:
-            # Auto-commit mode using begin()
-            async with session.begin():
-                # Force admin permissions if using app user (fallback)
-                if not admin_url:
-                    from sqlalchemy import text
-                    await session.execute(text("SET app.is_platform_admin = 'true'"))
-                
-                # 1. Clean DB (Truncate all tables) - SKIPPED (Handled by Drop/Recreate in Makefile)
-                # print("\n🧹 Cleaning database...")
-                # await clean_test_database(session)
-                
-                # 2. Seed Data from YAML (reusing production script logic)
-                use_case = os.getenv("USE_CASE", "bank_surveillance")
-                os.environ["USE_CASE"] = use_case # Ensure seeder script sees it
-                print(f"\n🌱 Seeding database from YAML for use case: {use_case}...")
-                
-                # Using shared logic from scripts/b2b/seed_rbac.py
-                # This ensures tests use EXACTLY what production/demo uses.
-                await seed_b2b_rbac_data(session)
-                
-                print("✓ Database seeded successfully")
-        
-        yield # Yield control to session
-        
-    finally:
-        if seed_engine_to_dispose:
-            await seed_engine_to_dispose.dispose()
+    NOTE: Global seeding is disabled per user request.
+    Valid baseline data should be created by individual test fixtures (e.g. b2b_test_setup).
+    """
+    yield
 
 
 @pytest_asyncio.fixture
@@ -805,9 +769,11 @@ async def create_test_tenant(
     
     
     # Ensure RBAC seeds exist (Global Templates)
-    # Replaced by session-scoped seed_db fixture
-    # await ensure_rbac_seeds(db_session)
-    # await ensure_team_roles(db_session)
+    # Required now that global seed_db is disabled
+    from scripts.b2b.seed_rbac import seed_b2b_rbac_data
+    # We pass the session. This seeds GLOBAL permissions/roles if missing.
+    # Note: seed_b2b_rbac_data is idempotent.
+    await seed_b2b_rbac_data(db_session)
     
     # Seed roles for this tenant using RoleTemplateService
     from modules.b2b.services.role_template_service import role_template_service
