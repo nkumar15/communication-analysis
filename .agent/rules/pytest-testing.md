@@ -36,8 +36,17 @@ backend/tests/
 
 ### Naming Conventions
 - Test files: `test_{feature}.py`
+- Test classes: `Test{FeatureName}` (e.g. `TestRBACAuthorization`)
 - Test functions: `test_{action}_{scenario}` (e.g., `test_create_team_unauthorized`)
 - Fixtures: `{entity}_fixture` or `{module}_{entity}` (e.g., `b2b_tenant_owner`)
+
+### Class-Based Organization
+Tests MUST be grouped into classes to improve readability and fixture scoping.
+```python
+class TestTeamManagement:
+    async def test_create_team(self, api_client):
+        ...
+```
 
 ## 2. Fixture Hierarchy
 

@@ -69,23 +69,15 @@ setup-task: ## Reset DB & Seed Task Management (Drop -> Migrate -> Seed)
 	@$(MAKE) db-recreate
 	@$(MAKE) seed-all USE_CASE=task_management
 
-test-b2b-bank-full: ## Run ALL B2B tests for Bank Surveillance (Drop -> Migrate -> Seed -> Test)
+test-b2b-bank-full: ## Run ALL B2B tests for Bank Surveillance (Drop -> Migrate -> Test)
 	@echo "$(BLUE)Running B2B Bank Surveillance Full Test Coverage...$(NC)"
-	@$(MAKE) setup-bank
-	@docker-compose run --rm -e USE_CASE=bank_surveillance -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/bank_surveillance
+	@$(MAKE) db-recreate
+	@docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/bank_surveillance
 
-test-b2b-task-full: ## Run ALL B2B tests for Task Management (Drop -> Migrate -> Seed -> Test)
+test-b2b-task-full: ## Run ALL B2B tests for Task Management (Drop -> Migrate -> Test)
 	@echo "$(BLUE)Running B2B Task Management Full Test Coverage...$(NC)"
-	@$(MAKE) setup-task
-	@docker-compose run --rm -e USE_CASE=task_management -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/task_management
-
-test-b2b-bank-fast: ## Run B2B Bank Tests (Core + Domain) WITHOUT recreating DB (Fast Mode)
-	@echo "$(BLUE)Running B2B Bank Tests (Fast - No Seed)...$(NC)"
-	@docker-compose run --rm -e USE_CASE=bank_surveillance -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/bank_surveillance
-
-test-b2b-task-fast: ## Run B2B Task Tests (Core + Domain) WITHOUT recreating DB (Fast Mode)
-	@echo "$(BLUE)Running B2B Task Tests (Fast - No Seed)...$(NC)"
-	@docker-compose run --rm -e USE_CASE=task_management -e SKIP_SEEDING=1 e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/task_management
+	@$(MAKE) db-recreate
+	@docker-compose run --rm -e USE_CASE=task_management e2e-tests pytest tests/e2e_api/b2b/core tests/e2e_api/b2b/use_cases/task_management
 
 up: ## Start all backend services (frontend runs locally)
 	echo "Deleting containers and volumes (full reset)..."
