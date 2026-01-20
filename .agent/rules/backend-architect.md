@@ -69,44 +69,17 @@ Applies to: **System Design, API Patterns, Security, Data Models**
 - **429 Too Many Requests**: Rate limit exceeded.
 - **500 Internal Server Error**: Unhandled exception.
 
-## 9. PostgreSQL Best Practices
-- **Schema Design**:
-  - **UUIDs**: Use `UUID(as_uuid=True)` for all Primary Keys.
-  - **JSONB**: Use `JSONB` for flexible/unstructured data (`features`, `config`). **DO NOT** use it for relational data (foreign keys).
-  - **Timestamps**: Use `TIMESTAMPTZ` (shorthand for `TIMESTAMP WITH TIME ZONE`). Always include `created_at` and `updated_at` with defaults (`DEFAULT now()`).
-- **Indexing**:
-  - **Tenant Isolation**: EVERY tenant-scoped table **MUST** have a `tenant_id` column and an index on it (or compound index starting with `tenant_id`).
-  - **Foreign Keys**: Explicitly index all Foreign Key columns (Postgres does not do this automatically).
-  - **JSONB**: Use **GIN** indexes for JSONB columns if querying by keys (`features ->> 'sso'`).
-- **Concurrency**:
-  - **Atomic Updates**: Use `with_for_update()` (SELECT ... FOR UPDATE) for critical read-modify-write chains (Inventory, Billing, Activation).
-  - **No Table Locks**: Never explicit lock an entire table.
-- **Async SQLAlchemy**:
-  - **N+1 Prevention**: Use `options(selectinload(Model.relation))` for fetching related data in async mode.
-  - **Sessions**: Correctly scope sessions. Rollback on error in middlewares/dependencies.
+## 9. Data Integrity & Schema Requirements
+- **Tenant Isolation**: Every tenant-scoped table MUST have a `tenant_id` column and an index on it.
+- **Primary Keys**: Use `UUID(as_uuid=True)` for all primary keys.
+- **Audit Trails**: Include `created_at` and `updated_at` (TIMESTAMPTZ) in all tables.
+- **Relational Integrity**: Use Foreign Keys for relationships; do NOT store IDs in JSONB.
 
-## 10. Development Workflow Rules
-- **Migrations**:
-  - **ALWAYS** use `make migrate-only` or `docker compose run --rm dbmigrate ...` to run migrations.
-  - **NEVER** run `python run_migrations.py` directly on host machine to avoid environment mismatches.
+## 10. Concurrency & Consistency
+- **Atomicity**: Critical read-modify-write chains must use `with_for_update()`.
+- **Background Tasks**: State transitions that trigger external side effects (emails, webhooks) must use Celery workers to avoid blocking the API.
 
-## 11. Logging Standards
-- **No Print**: `print()` statements are **STRICTLY FORBIDDEN** in application code, libraries, and services. They are only allowed in temporary one-off scripts or debugging sessions.
-- **Use Infrastructure Logger**: MUST use the custom logger wrapper:
-  ```python
-  from infrastructure.logging import get_logger
-  
-  logger = get_logger(__name__)
-  ```
-- **Levels**:
-  - `ERROR`: Exceptions, critical failures. Use `exc_info=True`.
-  - `WARNING`: Recoverable issues, security events, unexpected states.
-  - `INFO`: Business events (Job started, Task completed).
-  - `DEBUG`: Granular development details.
-
-## 12. Security practices
-- NEVER commit .env files to version control.
-- NEVER read from .env during development logic; use the defined Settings
-- ONLY to .env.example for the required schema of the environment. Keep it always upto date
-- PII/Secrets: Never hard code, log raw passwords, API keys, or PII (emails/phone numbers) in INFO or DEBUG logs.
-- 
+## 11. Security Principles
+- **Defense in Depth**: Use RLS at the database layer AND validation in the service layer.
+- **Least Privilege**: Middleware must inject the minimal context required for a request to succeed.
+- **Data Privacy**: Never log PII (emails, names) or secrets in application logs.

@@ -11,34 +11,47 @@ Applies to: **Code Style, FastAPI, SQLAlchemy, Testing**
 ## 1. Core Engineering Principles
 - **DRY (Don't Repeat Yourself)**: Extract common logic into `core/utils` or `services/`.
 - **KISS (Keep It Simple, Stupid)**: Prefer readable, explicit code over "clever" one-liners.
-- **YAGNI (You Ain't Gonna Need It)**: Do not build features "for the future". Solve the current problem.
+- **SOLID**: Adhere to Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion principles to ensure robust and maintainable code.
 
 
 ## 2. Code Style & Typing
 - **Type Hints**: **MANDATORY** for all function arguments and return values.
 - **Async/Await**: Use `async def` for all I/O bound operations (DB, API calls).
 - **Docstrings**: Google-style docstrings for all modules, classes, and public methods.
+- **No Print**: Use `from infrastructure.logging import get_logger`. `print()` is forbidden in production code.
 
-## 3. FastAPI Best Practices
-- **Dependency Injection**: Use `Depends()` for DB sessions, User context.
-- **Pydantic**: Use Schemas for **Request Validation** and **Response Serialization**.
-  - **Naming**: `UserCreate`, `UserUpdate`, `UserResponse`.
-- **Status Codes**: Explicitly define `status_code` in `@router` decorators.
+## 3. FastAPI & Error Handling
+- **Schemas**: Use Pydantic for validation/serialization. Naming: `EntityCreate`, `EntityUpdate`, `EntityResponse`.
+- **Status Codes**: 
+  - `201 Created` for POST success.
+  - `204 No Content` for DELETE success.
+  - `400 Bad Request` for business rule violations.
+  - `403 Forbidden` for RBAC failures.
+- **Dependency Injection**: Use `Depends()` for DB and context.
 
 ## 4. SQLAlchemy (Async) Patterns
-- **Sessions**: Use `AsyncSession`. Do not use sync session methods.
-- **Queries**: Use `select(Model).where(...)` (2.0 style). Avoid legacy `query()`.
-- **Relationships**: Use `await session.refresh(obj, ['relation'])` or `options(selectinload(Model.relation))`.
-- **Migrations**: Always generate migrations for schema changes (`alembic revision --autogenerate`).
+- **Queries**: Use 2.0 style (`select(Model).where(...)`).
+- **N+1 Prevention**: Always use `options(selectinload(Model.relation))` in async queries.
+- **Sessions**: Use `AsyncSession`. Ensure `db.commit()` is called in the Router layer for atomic operations.
+- **Migrations**: Generate via `alembic revision --autogenerate`. Run via `make migrate-only`.
 
 ## 5. Celery & Background Tasks
-- **Idempotency**: Tasks must be safe to retry.
-- **Arguments**: Pass **IDs** (primary keys), not full objects to tasks.
-- **Eager Mode**: Use `task_always_eager = True` for unit tests.
+- **Arguments**: ONLY pass primitive IDs (UUID/int) to tasks. Never pass full SQLAlchemy objects.
+- **Idempotency**: All tasks must be safe to retry.
+- **Trigger**: Initialize from Router AFTER successful DB commit.
 
-## 6. Testing Guidelines
+## 6. Logging Standards
+- **Logger**: import from infrastructure logging 
+- **PII**: Never log emails, names, or cleartext secrets.
+- **Levels**: Use `ERROR` with `exc_info=True` for exceptions.
+
+## 7. Security & Secrets
+- **Credential Safety**: Never hardcode API keys or secrets. Use `Settings` or environment variables to inject them at runtime.
+- **Verification**: If a secret is required, check `.env.example` for the key and prompt the user if it's missing from the local environment.
+
+## 8. Testing Guidelines
 - **Framework**: `pytest` + `pytest-asyncio`.
 - **Fixtures**: Use `conftest.py` fixtures (`api_client`, `db_session`).
 - **RLS Testing**: Use `TenantAwareSession` or `set_tenant_context` helper in tests.
 - **Mocking**: Mock external services (Stripe, Firebase, Email) in unit tests.
-- **Reference**: Refer to pytest-testing.md rule 
+- **Reference**: Refer to pytest-testing.md rule
