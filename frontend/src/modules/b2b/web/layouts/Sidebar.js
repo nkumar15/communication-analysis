@@ -30,7 +30,7 @@ const Sidebar = () => {
             { id: 'surv-dashboard', label: 'Overview', icon: '📊', path: '/b2b/surveillance', feature: 'surveillance' },
             { id: 'alerts', label: 'Risk Alerts', icon: '⚠️', path: '/b2b/surveillance/alerts', feature: 'surveillance' },
             { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
-            { id: 'investigations', label: 'Investigations', icon: '🔍', path: '/b2b/surveillance/investigations', feature: 'surveillance' },
+            { id: 'cases', label: 'Case Management', icon: '⚖️', path: '/b2b/surveillance/cases', feature: 'surveillance' },
             { id: 'knowledge-base', label: 'Knowledge Base', icon: '📚', path: '/b2b/surveillance/knowledge-base', feature: 'surveillance' },
             { id: 'ingestion', label: 'Data Ingestion', icon: '📥', path: '/b2b/surveillance/ingestion', feature: 'surveillance' },
         ],

@@ -157,9 +157,9 @@ class OrchestratorService:
         db: AsyncSession
     ):
         """
-        Assembles a timeline of related emails for the case.
-        Window: +/- 7 days around the email date.
-        Criteria: Emails sent by the same user.
+        Assembles a timeline of related communications for research.
+        Window: +/- 7 days around the communication date.
+        Criteria: Communications sent by the same user.
         """
         if not sender or not date_str:
             return [], []

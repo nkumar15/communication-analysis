@@ -57,10 +57,15 @@ class B2BDomainService {
         return response.json();
     }
 
-    // Investigation
-    async investigateCommunication(data) {
+    // Communication Analysis (AI Engine)
+    async analyzeCommunication(data) {
         // Expected data: { text, metadata, tenant_id }
-        return this.post('/api/b2b/domain/bank_surveillance/investigate', data);
+        return this.post('/api/b2b/domain/bank_surveillance/analyze', data);
+    }
+
+    // Legacy alias
+    async investigateCommunication(data) {
+        return this.analyzeCommunication(data);
     }
 
     // Legacy alias
@@ -154,6 +159,48 @@ class B2BDomainService {
 
     async closeAlert(id) {
         return this.post(`/api/b2b/domain/bank_surveillance/alerts/${id}/close`, {});
+    }
+
+    // Case Management
+    async getCases(params = {}) {
+        const queryParams = new URLSearchParams(params).toString();
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/cases/?${queryParams}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch cases: ${response.status}`);
+        return response.json();
+    }
+
+    async getCase(id) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/cases/${id}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch case: ${response.status}`);
+        return response.json();
+    }
+
+    async createCase(data) {
+        return this.post('/api/b2b/domain/bank_surveillance/cases/', data);
+    }
+
+    async updateCase(id, data) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/cases/${id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `Failed to update case: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    async addCaseNote(id, data) {
+        return this.post(`/api/b2b/domain/bank_surveillance/cases/${id}/notes`, data);
+    }
+
+    async addCaseEvidence(id, data) {
+        return this.post(`/api/b2b/domain/bank_surveillance/cases/${id}/evidence`, data);
     }
 }
 

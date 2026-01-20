@@ -22,8 +22,8 @@ import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billin
 import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
 import AlertsPage from './modules/domains/surveillance/pages/AlertsPage';
 import CommunicationsPage from './modules/domains/surveillance/pages/CommunicationsPage';
-import InvestigationsPage from './modules/domains/surveillance/pages/InvestigationsPage';
-import InvestigationPage from './modules/domains/surveillance/pages/InvestigationPage';
+import CaseListPage from './modules/domains/surveillance/pages/CaseListPage';
+import CaseDetailPage from './modules/domains/surveillance/pages/CaseDetailPage';
 import KnowledgeBasePage from './modules/domains/surveillance/pages/KnowledgeBasePage';
 import IngestionPage from './modules/domains/surveillance/pages/IngestionPage';
 
@@ -124,10 +124,10 @@ function App() {
 
 
                 <Route
-                    path="/b2b/surveillance/investigate"
+                    path="/b2b/surveillance/cases/:caseId"
                     element={
                         <ProtectedRoute>
-                            <InvestigationPage />
+                            <CaseDetailPage />
                         </ProtectedRoute>
                     }
                 />
@@ -155,7 +155,7 @@ function App() {
                 <Route path="/b2b/surveillance" element={<ProtectedRoute><SurveillanceDashboardPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/communications" element={<ProtectedRoute><CommunicationsPage /></ProtectedRoute>} />
-                <Route path="/b2b/surveillance/investigations" element={<ProtectedRoute><InvestigationsPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/cases" element={<ProtectedRoute><CaseListPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/ingestion" element={<ProtectedRoute><IngestionPage /></ProtectedRoute>} />
 
                 {/* Billing routes */}

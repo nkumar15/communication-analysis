@@ -2,13 +2,13 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import uuid
 
-class InvestigateRequest(BaseModel):
-    text: str = Field(..., description="The content to investigate")
+class AnalysisRequest(BaseModel):
+    text: str = Field(..., description="The content to analyze/investigate")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata (sender, recipient, subject, etc.)")
     tenant_id: Optional[uuid.UUID] = Field(default=None, description="Optional tenant ID for multi-tenancy")
 
-class InvestigateResponse(BaseModel):
-    """Investigation report returned to the client"""
+class AnalysisResponse(BaseModel):
+    """Analysis report returned to the client"""
     timestamp: str
     risk_level: str
     requires_action: bool

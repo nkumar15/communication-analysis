@@ -112,10 +112,49 @@ class AlertService:
         return alert
 
     async def escalate_alert(self, db: AsyncSession, alert_id: UUID, tenant_id: UUID) -> Optional[Alert]:
-        """Shortcut to escalate"""
-        return await self.update_alert(
-            db, alert_id, tenant_id, AlertUpdate(status=AlertStatus.ESCALATED)
+        """Shortcut to escalate and automatically create a case."""
+        alert = await self.get_alert(db, alert_id, tenant_id)
+        if not alert:
+            return None
+            
+        # 1. Update Alert Status
+        alert.status = AlertStatus.ESCALATED.value
+        db.add(alert)
+        
+        # 2. Create a Corresponding Case (Delayed import to avoid circular dependencies)
+        from modules.domains.b2b.bank_surveillance.services.case_service import case_service
+        from modules.domains.b2b.bank_surveillance.schemas.case import CaseCreate, CaseEvidenceCreate
+        
+        case_in = CaseCreate(
+            title=f"Investigation: {alert.risk_type.replace('_', ' ').capitalize()}",
+            description=f"Automated case created from escalated alert: {alert.description}",
+            priority=alert.severity, # Map critical/high/medium directly
+            status="open",
+            assigned_to_user_id=alert.assigned_to,
+            initial_evidence=[
+                CaseEvidenceCreate(
+                    evidence_type="alert",
+                    evidence_id=alert.id,
+                    notes="Source Alert"
+                )
+            ]
         )
+        
+        # If alert is linked to a specific communication, add it as evidence
+        if alert.communication_id:
+            case_in.initial_evidence.append(
+                CaseEvidenceCreate(
+                    evidence_type="communication",
+                    evidence_id=alert.communication_id,
+                    notes="Flagged Communication"
+                )
+            )
+
+        await case_service.create_case(db, case_in, tenant_id)
+        
+        await db.commit()
+        await db.refresh(alert)
+        return alert
 
     async def close_alert(self, db: AsyncSession, alert_id: UUID, tenant_id: UUID) -> Optional[Alert]:
         """Shortcut to close"""

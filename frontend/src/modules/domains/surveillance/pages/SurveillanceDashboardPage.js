@@ -28,11 +28,11 @@ const SurveillanceDashboardPage = () => {
         },
         {
             icon: <Assessment sx={{ fontSize: 48, color: 'warning.main' }} />,
-            title: 'AI Investigation',
-            description: 'Deep-dive into specific communications using multi-agent AI to detect fraud, evasion, and intent.',
+            title: 'Case Management',
+            description: 'Enterprise-grade case lifecycle management. Track escalations, link evidence, and record final compliance decisions.',
             status: 'active',
-            path: '/b2b/surveillance/investigate',
-            buttonText: 'Start Investigation',
+            path: '/b2b/surveillance/cases',
+            buttonText: 'Manage Cases',
             color: 'warning'
         },
         {
