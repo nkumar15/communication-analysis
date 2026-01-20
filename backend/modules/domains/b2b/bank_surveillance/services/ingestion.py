@@ -53,7 +53,7 @@ class CommunicationIngestionService:
             email_date = datetime.now()
             if date_str:
                 try:
-                    # Example Enron date: Mon, 14 May 2001 16:39:00 -0700 (PDT)
+                    # Example Standard email date: Mon, 14 May 2001 16:39:00 -0700
                     from email.utils import parsedate_to_datetime
                     email_date = parsedate_to_datetime(date_str)
                 except Exception:
@@ -155,7 +155,7 @@ class CommunicationIngestionService:
             if not email_data:
                 return False
 
-            # Enron specific heuristic for tenant separation (username based)
+            # Specific data folder-based heuristic for tenant separation
             derived_tenant_id = tenant_id
             username = "unknown"
             parts = file_path.split("/")

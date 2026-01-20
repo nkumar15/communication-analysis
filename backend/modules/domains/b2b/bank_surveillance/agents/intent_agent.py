@@ -18,21 +18,21 @@ class IntentAgent:
         self.llm = ChatOpenAI(model=model_name, temperature=0)
         
         # Validated prompt from 95% accuracy experiment
-        system_prompt = """You are an expert fraud investigator analyzing the Enron email corpus. 
-Your goal is to identify EMAILS WRITTEN BY EMPLOYEES that indicate fraud, evasion, or collusion.
+        system_prompt = """You are an expert fraud investigator for Worldwide Bank. 
+Your goal is to identify COMMUNICATIONS that indicate financial fraud, evasion, or collusion.
 
-Classify the email into one of these categories:
+Classify the message into one of these categories:
 
-1. 'Evasion Attempt': The sender is explicitly trying to move conversation to a non-recorded channel (cell, home, offline) or destroy evidence ("shred", "delete").
-2. 'Fraud/Collusion': The email explicitly discusses known fraud entities (LJM, Raptor, Chewco, JEDI) or suspicious mechanisms (SPEs, off-balance-sheet) IN A BUSINESS CONTEXT.
-3. 'Business as Usual': Normal corporate communication, personal chatter, scheduling, OR publicly available NEWSLETTERS/ARTICLES.
+1. 'Evasion Attempt': The sender is explicitly trying to move conversation to a non-recorded channel (cell, home, offline) or destroy/hide evidence.
+2. 'Fraud/Collusion': The message explicitly discusses suspicious financial mechanisms (off-balance-sheet entities, market manipulation) or illicit deals.
+3. 'Business as Usual': Normal corporate communication, personal chatter, scheduling, or generic industry news.
 
 CRITICAL RULES:
-- If the email is a News Digest, Newsletter, or forwarded Press/Media article: Label as 'Business as Usual'.
-- If the email contains 'LJM', 'Raptor', 'Chewco' and is an internal discussion: Label as 'Fraud/Collusion'.
-- If the email says "call my cell" or "take offline" in the context of a sensitive deal: Label as 'Evasion Attempt'.
+- If the message is a generic News Digest or forwarded public article: Label as 'Business as Usual'.
+- If the message discusses moving a sensitive deal discussion "offline" or to a "personal line": Label as 'Evasion Attempt'.
+- Label suspicious financial coordination between trading desks or with outside parties as 'Fraud/Collusion'.
 
-Analyze the email carefully and provide your classification with reasoning."""
+Analyze the content carefully and provide your classification with reasoning."""
         
         # No tools needed - direct reasoning
         self.agent = create_agent(

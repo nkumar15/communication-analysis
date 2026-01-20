@@ -1,7 +1,7 @@
 """
-Multi-Agent Orchestrator for Enron Email Investigation
+Multi-Agent Orchestrator for Worldwide Bank Surveillance Investigation
 
-Coordinates Intent, Policy, and Evasion agents to perform comprehensive email analysis.
+Coordinates Intent, Policy, and Evasion agents to perform comprehensive communication analysis.
 """
 from typing import Optional, Dict, Any, List
 from uuid import UUID
@@ -166,7 +166,7 @@ class OrchestratorService:
 
         try:
             # Parse date (handle formats loosely or expect ISO)
-            # Enron dates in DB are datetime objects. 
+            # Communications in DB are datetime objects. 
             # Input date_str might be ISO from frontend/metadata if available.
             # If metadata lacks date, we can't reliably window.
             from dateutil.parser import parse
@@ -200,7 +200,7 @@ class OrchestratorService:
 
         for email in emails:
             # Create a content signature to identify duplicates
-            # Same email can have different message_ids in the Enron dataset
+            # Same communication can have different message_ids in the surveillance datasets
             content_signature = (
                 email.timestamp.isoformat() if email.timestamp else "",
                 email.sender or "",

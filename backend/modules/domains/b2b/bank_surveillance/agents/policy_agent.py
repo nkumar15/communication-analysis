@@ -19,17 +19,17 @@ class PolicyAgent:
         self.llm = ChatOpenAI(model=model_name, temperature=0)
         self.tools = [SearchRegulationsTool()]
         
-        system_prompt = """You are a Senior Corporate Compliance Officer at Enron. 
-Your job is to analyze flagged emails and validate whether they violate company policy or securities law.
+        system_prompt = """You are a Senior Corporate Compliance Officer at Worldwide Bank. 
+Your job is to analyze flagged communications and validate whether they violate company policy or securities law.
 
 You have access to a tool 'search_regulations' to find relevant laws.
-ALWAYS use the tool to check for violations if the email discusses:
-- Off-balance sheet partnerships (LJM, Raptor, Chewco)
-- Destroying documents
-- Insider trading concepts
-- Moving to personal channels
+ALWAYS use the tool to check for violations if the communication discusses:
+- Suspicious off-balance sheet transactions or shell companies
+- Intentional document destruction or evasion of recording
+- Potential insider trading or market manipulation
+- Moving business discussions to personal or unmonitored channels
 
-Analyze the email, query the regulations if needed, and provide a final verdict."""
+Analyze the content, query the regulations if needed, and provide a final verdict."""
         
         # New simplified API in LangChain 1.2.0
         self.agent = create_agent(

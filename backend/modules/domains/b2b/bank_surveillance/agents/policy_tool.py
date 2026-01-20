@@ -8,7 +8,7 @@ class SearchRegulationsInput(BaseModel):
 
 class SearchRegulationsTool(BaseTool):
     name: str = "search_regulations"
-    description: str = "Searches the Enron Regulatory Knowledge Base (SEC Rules, Ethics Code) for relevant laws and policies."
+    description: str = "Searches the Worldwide Bank Regulatory Knowledge Base (SEC Rules, Ethics Code) for relevant laws and policies."
     args_schema: Type[BaseModel] = SearchRegulationsInput
 
     def _run(self, query: str, **kwargs):

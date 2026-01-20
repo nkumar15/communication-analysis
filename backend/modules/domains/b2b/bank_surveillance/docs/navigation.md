@@ -96,7 +96,7 @@ graph TD
 | Alerts | `surveillance:read` | Hidden |
 | Investigations | `surveillance:read` | Hidden |
 | Cases | `surveillance:read` | Hidden |
-| Search & RAG | `rag_enron:read` | Hidden |
+| Search & RAG | `rag:read` | Hidden |
 | Ingestion | `surveillance:admin` | Hidden |
 | Policies | `surveillance:admin` | Hidden |
 | Teams & Access | `iam:read` | Hidden |

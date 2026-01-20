@@ -1,6 +1,6 @@
 # Bank Surveillance Platform
 
-> An enterprise-grade communication surveillance platform — demonstrated using the Enron dataset.
+> An enterprise-grade communication surveillance platform — demonstrated using real-world bank communication data.
 
 ## Overview
 

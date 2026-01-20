@@ -6,7 +6,7 @@
 |-----------|---------|
 | **Goal** | Demonstrate AI power without gimmicks – positioned as research assistant, not decision-maker |
 | **Target Persona** | Marcus Johnson (Analyst), Dr. Priya Sharma (Risk Officer) |
-| **Permission** | `rag_enron:read` |
+| **Permission** | `rag:read` |
 
 ## Two Search Modes
 

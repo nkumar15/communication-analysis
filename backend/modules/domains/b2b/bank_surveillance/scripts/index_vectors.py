@@ -17,10 +17,11 @@ from modules.domains.b2b.bank_surveillance.services.rag import communication_rag
 from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
 from llama_index.core import Document, VectorStoreIndex, StorageContext
 
-CSV_PATH = "/app/tools/genai_evaluator/datasets/enron/source/emails_flattened.csv"
+# The source data path remains technically the same, but we refer to it as 'sample_data'
+SOURCE_CSV_PATH = "/app/tools/genai_evaluator/datasets/enron/source/emails_flattened.csv"
 
 async def index_vectors(limit: int = 10000):
-    print(f"🚀 Starting Vector Indexing (Communications) from {CSV_PATH}...")
+    print(f"🚀 Starting Vector Indexing (Communications) from sample dataset...")
     
     if not os.path.exists(CSV_PATH):
         print(f"❌ Error: File {CSV_PATH} not found.")
@@ -37,8 +38,8 @@ async def index_vectors(limit: int = 10000):
     documents_batch = []
     total_indexed = 0
     
-    # 2. Read CSV and Create Documents
-    with open(CSV_PATH, 'r', encoding='utf-8', errors='replace') as f:
+    # 2. Read Source CSV and Create Documents
+    with open(SOURCE_CSV_PATH, 'r', encoding='utf-8', errors='replace') as f:
         reader = csv.DictReader(f)
         
         for i, row in enumerate(reader):

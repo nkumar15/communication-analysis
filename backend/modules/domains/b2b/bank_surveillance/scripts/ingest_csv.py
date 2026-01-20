@@ -12,7 +12,7 @@ sys.path.append(str(PROJECT_ROOT))
 
 from core.db.session import AsyncSessionLocal
 from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
-from modules.domains.b2b.bank_surveillance.models.enron_email import EnronEmail
+from modules.domains.b2b.bank_surveillance.models.communication import Communication
 
 # Increase CSV field size limit for large bodies
 csv.field_size_limit(sys.maxsize)
@@ -50,23 +50,24 @@ async def ingest_csv(csv_path: str, batch_size: int = 1000, limit: int = None):
                     if row.get('bcc'): recipients.extend(row['bcc'].split(','))
                     recipients = [r.strip() for r in recipients if r.strip()]
 
-                    email_obj = EnronEmail(
+                    comm_obj = Communication(
                         message_id=row['message_id'],
                         sender=row['sender'],
                         recipients=recipients,
                         subject=row['subject'],
-                        body=row['body'],
-                        date=dt,
+                        content=row['body'],
+                        timestamp=dt,
+                        channel="email",
                         tenant_id=DEFAULT_TENANT_ID
                     )
-                    batch.append(email_obj)
+                    batch.append(comm_obj)
                     count += 1
                     
                     if len(batch) >= batch_size:
                         session.add_all(batch)
                         await session.commit()
                         total_ingested += len(batch)
-                        print(f"Ingested {total_ingested} emails...")
+                        print(f"Ingested {total_ingested} communications...")
                         batch = []
                         
                     if limit and total_ingested >= limit:
@@ -84,6 +85,6 @@ async def ingest_csv(csv_path: str, batch_size: int = 1000, limit: int = None):
         print(f"✅ Ingestion Complete. Total: {total_ingested}")
 
 if __name__ == "__main__":
-    # Ingest first 10,000 for POC to avoid long wait, or remove limit for full
-    # For now, let's do 50,000 to get a good graph
-    asyncio.run(ingest_csv(CSV_PATH, limit=50000))
+    # Ingest historical data for POC
+    SOURCE_CSV_PATH = "/app/scripts/evaluation/datasets/enron/source/emails_flattened.csv"
+    asyncio.run(ingest_csv(SOURCE_CSV_PATH, limit=50000))

@@ -8,7 +8,7 @@ class PolicyRagService(BaseRagService):
     _vector_store_provider = "elasticsearch"
 
     def get_index_name(self) -> str:
-        return "enron_regulations"
+        return "bank_compliance_regulations"
 
     def get_parser(self):
         # Regulations are dense; smaller chunks might be better to pinpoint specific clauses

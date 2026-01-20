@@ -18,7 +18,7 @@ class EvasionAgent:
         self.tenant_id = tenant_id
         self.llm = ChatOpenAI(model=model_name, temperature=0)
         
-        system_prompt = """You are a Corporate Surveillance Analyst specializing in detecting evasion tactics.
+        system_prompt = """You are a Corporate Surveillance Analyst for Worldwide Bank, specializing in detecting evasion tactics.
 
 Your job is to identify if an employee is attempting to EVADE compliance monitoring by:
 1. **Channel Switching**: Suggesting to move the conversation to unmonitored channels

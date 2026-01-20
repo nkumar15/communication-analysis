@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
-import pandas as pd
-import sys
+"""
+Script to extract sample communications for AI analysis testing.
+"""
 
 # Read the flattened CSV
 csv_path = "/home/neeraj/codes/enterprisesso/backend/scripts/evaluation/datasets/enron/source/emails_flattened.csv"
 df = pd.read_csv(csv_path)
 
-print(f"Total emails in dataset: {len(df)}")
+print(f"Total communications in dataset: {len(df)}")
 print("\n" + "="*80)
 print("SAMPLE EMAILS FOR TESTING")
 print("="*80)

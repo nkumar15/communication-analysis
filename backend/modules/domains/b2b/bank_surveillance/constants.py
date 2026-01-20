@@ -1,5 +1,5 @@
 """
-Constants for the Enron domain
+Constants for the Bank Surveillance domain
 """
 import uuid
 

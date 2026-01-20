@@ -25,8 +25,8 @@ These demo scripts are designed for different audiences and time constraints. Ea
 > **[Point to risk theme widget]**
 > But what makes this different from a simple alerting system is here – *Emerging Risk Themes*. Our AI is continuously analyzing communication patterns and surfacing themes before they become problems.
 > 
-> **[Click into Enron demo data]**
-> For example, with the Enron dataset, watch this: In September 2001, weeks before the public crisis, you'd have seen 'Risk spike detected – 47% increase in secrecy-coded language.' That's the lead time you need.
+> **[Using sample surveillance data]**
+> For example, with our predictive models, watch this: Weeks before a potential conduct event, you'd have seen 'Risk spike detected – 47% increase in secrecy-coded language.' That's the lead time you need.
 > 
 > **[NAVIGATE: Cases]**
 > Let's look at how investigations conclude. This case – 'Pre-earnings information leakage' – was opened, investigated, and closed with full documentation. 
@@ -178,7 +178,7 @@ These demo scripts are designed for different audiences and time constraints. Ea
 > These are your active risk policies. Insider trading, market abuse, information barrier breach – each one is independently configurable.
 > 
 > **[Click into 'Secrecy Language Detection']**
-> Let's look at secrecy language detection. This is the policy that would have flagged Enron communications early.
+> Let's look at secrecy language detection. This is the policy that would have flagged suspicious communications early.
 > 
 > **[Show threshold slider]**
 > You can tune the sensitivity. High sensitivity catches more – but generates more alerts. Low sensitivity is precise but might miss edge cases. You find the balance for your organization.
@@ -215,7 +215,8 @@ These demo scripts are designed for different audiences and time constraints. Ea
 |------|--------|---------------|
 | 1 | Open Policies | "Control is in your hands" |
 | 2 | Show policy list | "Each policy is independent" |
-| 3 | Open Secrecy Language | "The Enron early warning policy" |
+> **[Show Secrecy Language Policy]**
+> This policy detected early warning signals in historical conduct events.
 | 4 | Show threshold slider | "Tune sensitivity for your risk appetite" |
 | 5 | Show region toggles | "Different rules per jurisdiction" |
 | 6 | Click Preview Impact | "See effects before deploying" |
@@ -234,7 +235,7 @@ These demo scripts are designed for different audiences and time constraints. Ea
 ### Before the Demo
 - [ ] Reset demo environment to clean state
 - [ ] Pre-load investigation workspace with interesting thread
-- [ ] Ensure Enron data shows October 2001 risk spike
+- [ ] Ensure historical surveillance data shows high-risk spikes
 - [ ] Test screen sharing and resolution
 
 ### During the Demo
