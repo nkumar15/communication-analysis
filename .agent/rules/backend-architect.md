@@ -86,4 +86,16 @@ Applies to: **System Design, API Patterns, Security, Data Models**
   - **ALWAYS** use `make migrate-only` or `docker compose run --rm dbmigrate ...` to run migrations.
   - **NEVER** run `python run_migrations.py` directly on host machine to avoid environment mismatches.
 
-
+## 11. Logging Standards
+- **No Print**: `print()` statements are **STRICTLY FORBIDDEN** in application code, libraries, and services. They are only allowed in temporary one-off scripts or debugging sessions.
+- **Use Infrastructure Logger**: MUST use the custom logger wrapper:
+  ```python
+  from infrastructure.logging import get_logger
+  
+  logger = get_logger(__name__)
+  ```
+- **Levels**:
+  - `ERROR`: Exceptions, critical failures. Use `exc_info=True`.
+  - `WARNING`: Recoverable issues, security events, unexpected states.
+  - `INFO`: Business events (Job started, Task completed).
+  - `DEBUG`: Granular development details.
