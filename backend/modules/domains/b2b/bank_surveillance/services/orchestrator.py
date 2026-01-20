@@ -9,9 +9,10 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 # Import all three agents
-from modules.domains.b2b.bank_surveillance.agents.intent_agent import intent_agent
-from modules.domains.b2b.bank_surveillance.agents.policy_agent import policy_agent
-from modules.domains.b2b.bank_surveillance.agents.evasion_agent import evasion_agent
+# Import all three agent CLASSES
+from modules.domains.b2b.bank_surveillance.agents.intent_agent import IntentAgent
+from modules.domains.b2b.bank_surveillance.agents.policy_agent import PolicyAgent
+from modules.domains.b2b.bank_surveillance.agents.evasion_agent import EvasionAgent
 
 # Investigation Report Schema
 class InvestigationReport(BaseModel):
@@ -72,6 +73,8 @@ class OrchestratorService:
             await graph_service.build_graph(db, effective_tenant_id)
         
         # Step 1: Intent Classification (Triage)
+        # Step 1: Intent Classification (Triage)
+        intent_agent = IntentAgent(tenant_id=effective_tenant_id)
         intent_result = await intent_agent.classify_email(email_text, tenant_id=effective_tenant_id)
         classification = intent_result.get("classification", "").lower()
         
@@ -86,6 +89,11 @@ class OrchestratorService:
         if classification in ["fraud/collusion", "evasion attempt"]:
             # Run Policy and Evasion checks in parallel
             import asyncio
+            # Run Policy and Evasion checks in parallel
+            import asyncio
+            policy_agent = PolicyAgent(tenant_id=effective_tenant_id)
+            evasion_agent = EvasionAgent(tenant_id=effective_tenant_id)
+            
             policy_task = policy_agent.analyze_email(email_text, tenant_id=effective_tenant_id)
             evasion_task = evasion_agent.analyze_email(email_text, tenant_id=effective_tenant_id)
             
@@ -226,6 +234,6 @@ class OrchestratorService:
         return timeline, evidence_ids
 
 # Singleton
-from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
-orchestrator_service = OrchestratorService(tenant_id=DEFAULT_TENANT_ID)
+# Singleton
+orchestrator_service = OrchestratorService(tenant_id=None)
 

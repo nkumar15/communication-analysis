@@ -75,5 +75,5 @@ Analyze the email and determine if there is genuine evasion intent."""
             }
 
 # Demo singleton with default tenant
-from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
-evasion_agent = EvasionAgent(tenant_id=DEFAULT_TENANT_ID)
+# Singleton instance removed - instantiate per request
+# evasion_agent = EvasionAgent(tenant_id=None)

@@ -77,5 +77,5 @@ Analyze the content carefully and provide your classification with reasoning."""
             }
 
 # Demo singleton with default tenant
-from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
-intent_agent = IntentAgent(tenant_id=DEFAULT_TENANT_ID)
+# Singleton instance removed - instantiate per request
+# intent_agent = IntentAgent(tenant_id=None)

@@ -83,5 +83,5 @@ Analyze the content, query the regulations if needed, and provide a final verdic
 
 # Demo singleton with default tenant
 # In production, instantiate PolicyAgent per-request with the user's tenant_id
-from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
-policy_agent = PolicyAgent(tenant_id=DEFAULT_TENANT_ID)
+# Singleton instance removed - instantiate per request
+# policy_agent = PolicyAgent(tenant_id=None)
