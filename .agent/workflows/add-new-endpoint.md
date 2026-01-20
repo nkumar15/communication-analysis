@@ -4,7 +4,7 @@ description: Steps to create a new B2B/B2C API endpoint following the "Thin Rout
 
 1.  **Preparation**
     - Identify the correct module (`b2b`, `b2c`, or `platform`).
-    - Determine required permissions (check `backend-architect.md`).
+    - Determine required permissions (check `backend-architecture.md`).
 
 2.  **Define Schema (`schemas/`)**
     - Create Pydantic models for request (`Create/Update`) and response (`Response`).

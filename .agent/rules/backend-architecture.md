@@ -33,7 +33,8 @@ Applies to: **System Design, API Patterns, Security, Data Models**
   3.  **Plugins** -> Cross-cutting constraints (Geo, Data Classification).
 - **Enforcement**:
   - **Middleware**: Validates token & sets RLS context.
-  - **Service**: Checks permissions via `rbac_service`.
+  - **Router**: Checks permissions via `rbac_service` or dependency injection.
+  - **Service**: Focuses strictly on business logic and data isolation.
 
 ## 4. Error Handling Strategy
 - **400 Bad Request**: Validation failure (Client error).
