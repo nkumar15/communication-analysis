@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, TextField, Button, Paper, Card, CardContent, Chip, CircularProgress, Divider, Alert } from '@mui/material';
 import { Search, Description, Email, DateRange, ArrowBack } from '@mui/icons-material';
-import AdminLayout from './web/layouts/AdminLayout';
-import b2bDomainClient from '../../core/api/b2bDomainClient';
+import AdminLayout from '../../../b2b/web/layouts/AdminLayout';
+import b2bDomainClient from '../../../../core/api/b2bDomainClient';
 
-const EnronKnowledgeBasePage = () => {
+const KnowledgeBasePage = () => {
     const navigate = useNavigate();
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
@@ -40,33 +40,31 @@ const EnronKnowledgeBasePage = () => {
     };
 
     return (
-        <AdminLayout title="Enron Knowledge Base" subtitle="RAG-powered semantic search over email corpus">
+        <AdminLayout title="Institutional Knowledge Base" subtitle="RAG-powered semantic search over corporate communication archives">
             <Box sx={{ p: 4, maxWidth: 1000, margin: '0 auto' }}>
                 <Button
                     startIcon={<ArrowBack />}
                     onClick={() => navigate(-1)}
                     sx={{ mb: 2 }}
                 >
-                    Back
+                    Back to Dashboard
                 </Button>
 
-                {/* Search Header */}
                 <Box textAlign="center" mb={4}>
-                    <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                        <Description fontSize="large" color="primary" /> Enron Knowledge Base
+                    <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, fontWeight: 700 }}>
+                        <Description fontSize="large" color="primary" /> Knowledge Base (RAG)
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                        Search through thousands of emails using semantic understanding.
-                        Ask questions like "Who discussed Raptor?" or "What about LJM partnerships?"
+                        Search through thousands of archived communications using semantic understanding.
+                        Ask questions about past events, policy interpretations, or specific person-to-person interactions.
                     </Typography>
                 </Box>
 
-                {/* Search Input */}
                 <Paper elevation={2} sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', borderRadius: 2 }}>
                     <Search color="action" />
                     <TextField
                         fullWidth
-                        placeholder="Search emails..."
+                        placeholder="e.g. 'Who discussed the partnership terms in October?'"
                         variant="standard"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
@@ -78,27 +76,25 @@ const EnronKnowledgeBasePage = () => {
                         size="large"
                         onClick={handleSearch}
                         disabled={loading || !query.trim()}
-                        sx={{ minWidth: 100 }}
+                        sx={{ minWidth: 100, borderRadius: '8px' }}
                     >
                         {loading ? <CircularProgress size={24} color="inherit" /> : 'Search'}
                     </Button>
                 </Paper>
 
-                {/* Error */}
                 {error && (
-                    <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>
+                    <Alert severity="error" sx={{ mt: 3, borderRadius: 2 }}>{error}</Alert>
                 )}
 
-                {/* Results */}
                 {results && (
                     <Box sx={{ mt: 4 }}>
-                        <Typography variant="h6" gutterBottom color="text.primary">
-                            Found {results.count || (results.results ? results.results.length : 0)} result(s)
+                        <Typography variant="h6" gutterBottom color="text.primary" fontWeight="600">
+                            Found {results.count || (results.results ? results.results.length : 0)} relevant result(s)
                         </Typography>
 
                         {results.results && results.results.length === 0 && (
                             <Typography variant="body1" color="text.secondary" sx={{ mt: 2, fontStyle: 'italic' }}>
-                                No documents matched your query. Try broadening your terms.
+                                No documents matched your query in the current search scope.
                             </Typography>
                         )}
 
@@ -106,14 +102,14 @@ const EnronKnowledgeBasePage = () => {
                             {results.results && results.results.map((item, index) => {
                                 const meta = item.metadata || {};
                                 return (
-                                    <Card key={index} variant="outlined" sx={{ '&:hover': { bgcolor: '#fbfbfb', borderColor: 'primary.light' } }}>
+                                    <Card key={index} variant="outlined" sx={{ borderRadius: 2, '&:hover': { bgcolor: '#fbfbfb', borderColor: 'primary.light' } }}>
                                         <CardContent>
                                             <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                                                 <Typography variant="subtitle1" fontWeight="bold" color="primary">
                                                     {meta.subject || '(No Subject)'}
                                                 </Typography>
                                                 <Chip
-                                                    label={`Score: ${item.score?.toFixed(2)}`}
+                                                    label={`Relevance: ${item.score?.toFixed(2)}`}
                                                     size="small"
                                                     variant="outlined"
                                                     color="default"
@@ -155,4 +151,4 @@ const EnronKnowledgeBasePage = () => {
     );
 };
 
-export default EnronKnowledgeBasePage;
+export default KnowledgeBasePage;

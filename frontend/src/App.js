@@ -19,13 +19,12 @@ import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPag
 import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
 
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
-import EnronDashboard from './modules/b2b/EnronDashboard';
-import EnronInvestigationPage from './modules/b2b/EnronInvestigationPage';
-import EnronKnowledgeBasePage from './modules/b2b/EnronKnowledgeBasePage';
 import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
 import AlertsPage from './modules/domains/surveillance/pages/AlertsPage';
 import CommunicationsPage from './modules/domains/surveillance/pages/CommunicationsPage';
 import InvestigationsPage from './modules/domains/surveillance/pages/InvestigationsPage';
+import InvestigationPage from './modules/domains/surveillance/pages/InvestigationPage';
+import KnowledgeBasePage from './modules/domains/surveillance/pages/KnowledgeBasePage';
 import IngestionPage from './modules/domains/surveillance/pages/IngestionPage';
 
 import apiService from './core/api/b2bClient';
@@ -124,28 +123,19 @@ function App() {
 
 
 
-                {/* Enron Domain Routes */}
                 <Route
-                    path="/b2b/c/enron"
+                    path="/b2b/surveillance/investigate"
                     element={
                         <ProtectedRoute>
-                            <EnronDashboard />
+                            <InvestigationPage />
                         </ProtectedRoute>
                     }
                 />
                 <Route
-                    path="/b2b/c/enron/investigate"
+                    path="/b2b/surveillance/knowledge-base"
                     element={
                         <ProtectedRoute>
-                            <EnronInvestigationPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/b2b/c/enron/knowledge-base"
-                    element={
-                        <ProtectedRoute>
-                            <EnronKnowledgeBasePage />
+                            <KnowledgeBasePage />
                         </ProtectedRoute>
                     }
                 />

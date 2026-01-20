@@ -1,127 +1,192 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Box, Typography, Card, CardContent, CardActions, Button, Grid, Chip, Container } from '@mui/material';
+import { Assessment, Search, MenuBook, BarChart, ArrowForward, AccountTree, NotificationsActive, Forum } from '@mui/icons-material';
 import AdminLayout from '../../../b2b/web/layouts/AdminLayout';
-import { MOCK_KPIS } from '../mockData';
 
 const SurveillanceDashboardPage = () => {
-    const kpis = MOCK_KPIS;
+    const navigate = useNavigate();
 
-    const kpiCards = [
-        { label: 'Total Communications', value: kpis.totalCommunications.toLocaleString(), icon: '💬', color: '#3B82F6' },
-        { label: 'Flagged Items', value: kpis.flaggedItems, icon: '🚩', color: '#EF4444' },
-        { label: 'Open Investigations', value: kpis.openInvestigations, icon: '🔍', color: '#F59E0B' },
-        { label: 'Compliance Score', value: `${kpis.complianceScore}%`, icon: '✅', color: '#10B981' }
+    const features = [
+        {
+            icon: <NotificationsActive sx={{ fontSize: 48, color: 'error.main' }} />,
+            title: 'Risk Alerts',
+            description: 'Monitor and process AI-detected risk events, policy violations, and suspicious patterns across all channels.',
+            status: 'active',
+            path: '/b2b/surveillance/alerts',
+            buttonText: 'Review Alerts',
+            color: 'error'
+        },
+        {
+            icon: <Forum sx={{ fontSize: 48, color: 'primary.main' }} />,
+            title: 'Communications Archive',
+            description: 'Browse and search through all archived communications with full tenant isolation and audit logging.',
+            status: 'active',
+            path: '/b2b/surveillance/communications',
+            buttonText: 'Browse Archive',
+            color: 'primary'
+        },
+        {
+            icon: <Assessment sx={{ fontSize: 48, color: 'warning.main' }} />,
+            title: 'AI Investigation',
+            description: 'Deep-dive into specific communications using multi-agent AI to detect fraud, evasion, and intent.',
+            status: 'active',
+            path: '/b2b/surveillance/investigate',
+            buttonText: 'Start Investigation',
+            color: 'warning'
+        },
+        {
+            icon: <MenuBook sx={{ fontSize: 48, color: 'secondary.main' }} />,
+            title: 'Institutional Knowledge (RAG)',
+            description: 'Semantic search over structured and unstructured data to identify historical patterns and regulatory context.',
+            status: 'active',
+            path: '/b2b/surveillance/knowledge-base',
+            buttonText: 'Knowledge Base',
+            color: 'secondary'
+        },
+        {
+            icon: <AccountTree sx={{ fontSize: 48, color: 'success.main' }} />,
+            title: 'Network Graph Analysis',
+            description: 'Visualize communication patterns between employees and external parties to detect hidden cliques and collusion.',
+            status: 'coming-soon',
+            path: null,
+            buttonText: 'Social Graph',
+            color: 'success'
+        },
+        {
+            icon: <BarChart sx={{ fontSize: 48, color: 'info.main' }} />,
+            title: 'Analytics & Reporting',
+            description: 'Comprehensive risk posture reports, compliance trends, and regional activity heatmaps.',
+            status: 'coming-soon',
+            path: null,
+            buttonText: 'View Reports',
+            color: 'info'
+        }
     ];
 
     return (
-        <AdminLayout>
-            <div style={{ padding: '24px' }}>
-                <div style={{ marginBottom: '24px' }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1F2937', margin: 0 }}>
-                        Surveillance Overview
-                    </h1>
-                    <p style={{ color: '#6B7280', marginTop: '4px' }}>
-                        Monitor communications and investigations across all regions
-                    </p>
-                </div>
+        <AdminLayout title="Worldwide Bank Surveillance Workbench" subtitle="Strategic Intelligence & Multi-Channel Compliance Monitoring">
+            <Box sx={{ p: 4 }}>
+                <Container maxWidth="lg">
+                    {/* Feature Cards Grid */}
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                md: 'repeat(2, 1fr)',
+                                lg: 'repeat(3, 1fr)'
+                            },
+                            gap: 3,
+                            mb: 4
+                        }}
+                    >
+                        {features.map((feature, index) => (
+                            <Card
+                                key={index}
+                                sx={{
+                                    height: '100%',
+                                    minHeight: 220,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    '&:hover': feature.status === 'active' ? {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: 4
+                                    } : {}
+                                }}
+                            >
+                                <CardContent sx={{ flexGrow: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                        {feature.icon}
+                                        {feature.status === 'coming-soon' && (
+                                            <Chip label="Coming Soon" size="small" color="default" variant="outlined" />
+                                        )}
+                                        {feature.status === 'active' && (
+                                            <Chip label="Active" size="small" color="success" />
+                                        )}
+                                    </Box>
 
-                {/* KPI Cards */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                    gap: '16px',
-                    marginBottom: '32px'
-                }}>
-                    {kpiCards.map((kpi, index) => (
-                        <div key={index} style={{
-                            backgroundColor: 'white',
-                            borderRadius: '12px',
-                            padding: '20px',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                            border: '1px solid #E5E7EB'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <p style={{ color: '#6B7280', fontSize: '14px', marginBottom: '4px' }}>{kpi.label}</p>
-                                    <p style={{ fontSize: '28px', fontWeight: '700', color: '#1F2937', margin: 0 }}>
-                                        {kpi.value}
-                                    </p>
-                                </div>
-                                <span style={{ fontSize: '32px' }}>{kpi.icon}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                                    <Typography variant="h6" gutterBottom fontWeight="700">
+                                        {feature.title}
+                                    </Typography>
 
-                {/* Alerts Today */}
-                <div style={{
-                    backgroundColor: '#FEF3C7',
-                    border: '1px solid #F59E0B',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '24px'
-                }}>
-                    <span style={{ fontSize: '24px' }}>⚠️</span>
-                    <div>
-                        <p style={{ fontWeight: '600', color: '#92400E', margin: 0 }}>
-                            {kpis.alertsToday} new alerts today
-                        </p>
-                        <p style={{ color: '#A16207', fontSize: '14px', margin: 0 }}>
-                            Review flagged communications requiring attention
-                        </p>
-                    </div>
-                </div>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {feature.description}
+                                    </Typography>
+                                </CardContent>
 
-                {/* Quick Actions */}
-                <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    border: '1px solid #E5E7EB'
-                }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Quick Actions</h2>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        <button style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#4F46E5',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontWeight: '500'
+                                <CardActions sx={{ p: 2, pt: 0 }}>
+                                    <Button
+                                        fullWidth
+                                        variant={feature.status === 'active' ? 'contained' : 'outlined'}
+                                        color={feature.color}
+                                        endIcon={feature.status === 'active' ? <ArrowForward /> : null}
+                                        onClick={() => feature.path && navigate(feature.path)}
+                                        disabled={feature.status !== 'active'}
+                                        sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 'bold' }}
+                                    >
+                                        {feature.buttonText}
+                                    </Button>
+                                </CardActions>
+                            </Card>
+                        ))}
+                    </Box>
+
+                    {/* Regional Context Summary (Mock) */}
+                    <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid #e0e0e0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                        <Typography variant="h6" gutterBottom color="primary.dark" fontWeight="700">
+                            Regional Risk Posture
+                        </Typography>
+                        <Box sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                sm: 'repeat(3, 1fr)'
+                            },
+                            gap: 4,
+                            mt: 1
                         }}>
-                            📧 Review Flagged
-                        </button>
-                        <button style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#059669',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontWeight: '500'
-                        }}>
-                            📋 Generate Report
-                        </button>
-                        <button style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#7C3AED',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontWeight: '500'
-                        }}>
-                            🔍 New Investigation
-                        </button>
-                    </div>
-                </div>
-            </div>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                                    SINGAPORE HUB (HQ)
+                                </Typography>
+                                <Typography variant="h5" fontWeight="700" color="success.main">
+                                    Low Risk
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Geo-fencing: Active
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                                    EUROPE (UK/GER)
+                                </Typography>
+                                <Typography variant="h5" fontWeight="700" color="warning.main">
+                                    Moderate
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    GDPR Compliance: Verified
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                                    NORTH AMERICA
+                                </Typography>
+                                <Typography variant="h5" fontWeight="700" color="info.main">
+                                    Standard
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    SEC Rules: Enforced
+                                </Typography>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Container>
+            </Box>
         </AdminLayout>
     );
 };
 
 export default SurveillanceDashboardPage;
+
