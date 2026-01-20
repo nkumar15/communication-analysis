@@ -1,15 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from uuid import UUID
 
 from core.db.session import get_db
-from core.middleware.auth import get_current_user
-from modules.b2b.middleware.b2b_auth import get_current_active_user
+from modules.b2b.rbac import require_permission
 from modules.domains.b2b.bank_surveillance.models.alert import AlertStatus, AlertSeverity, RiskType
 from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate, AlertUpdate, AlertFilter, AlertResponse
 from modules.domains.b2b.bank_surveillance.services.alert_service import alert_service
-from core.db.rls import rls_service
 
 router = APIRouter(prefix="/api/b2b/domain/bank_surveillance/alerts", tags=["Bank Surveillance Alerts"])
 
@@ -22,12 +20,11 @@ async def list_alerts(
     communication_id: Optional[UUID] = None,
     limit: int = 50,
     offset: int = 0,
-    current_user: dict = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "read")
 ):
     """List risk alerts with filtering."""
     tenant_id = current_user["tenant_id"]
-    await rls_service.set_tenant_context(db, tenant_id)
     
     filters = AlertFilter(
         status=status,
@@ -40,31 +37,31 @@ async def list_alerts(
     alerts, total = await alert_service.list_alerts(db, tenant_id, filters, limit, offset)
     return alerts
 
-@router.post("/", response_model=AlertResponse)
+@router.post("/", response_model=AlertResponse, status_code=status.HTTP_201_CREATED)
 async def create_alert(
     alert_in: AlertCreate,
-    current_user: dict = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "write")
 ):
     """Manually create an alert (mostly for testing/seeding)."""
     tenant_id = current_user["tenant_id"]
-    await rls_service.set_tenant_context(db, tenant_id)
     
     # Enforce tenant_id matches token
     if alert_in.tenant_id != tenant_id:
         raise HTTPException(status_code=403, detail="Cannot create alert for other tenant")
         
-    return await alert_service.create_alert(db, alert_in)
+    alert = await alert_service.create_alert(db, alert_in)
+    await db.commit()
+    return alert
 
 @router.get("/{alert_id}", response_model=AlertResponse)
 async def get_alert(
     alert_id: UUID = Path(...),
-    current_user: dict = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "read")
 ):
     """Get alert details."""
     tenant_id = current_user["tenant_id"]
-    await rls_service.set_tenant_context(db, tenant_id)
     
     alert = await alert_service.get_alert(db, alert_id, tenant_id)
     if not alert:
@@ -75,44 +72,44 @@ async def get_alert(
 async def update_alert(
     alert_in: AlertUpdate,
     alert_id: UUID = Path(...),
-    current_user: dict = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "update")
 ):
     """Update alert status, assignment, or details."""
     tenant_id = current_user["tenant_id"]
-    await rls_service.set_tenant_context(db, tenant_id)
     
     alert = await alert_service.update_alert(db, alert_id, tenant_id, alert_in)
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
+    await db.commit()
     return alert
 
 @router.post("/{alert_id}/escalate", response_model=AlertResponse)
 async def escalate_alert(
     alert_id: UUID = Path(...),
-    current_user: dict = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "update")
 ):
     """Quickly escalate an alert."""
     tenant_id = current_user["tenant_id"]
-    await rls_service.set_tenant_context(db, tenant_id)
     
     alert = await alert_service.escalate_alert(db, alert_id, tenant_id)
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
+    await db.commit()
     return alert
 
 @router.post("/{alert_id}/close", response_model=AlertResponse)
 async def close_alert(
     alert_id: UUID = Path(...),
-    current_user: dict = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "update")
 ):
     """Close an alert."""
     tenant_id = current_user["tenant_id"]
-    await rls_service.set_tenant_context(db, tenant_id)
     
     alert = await alert_service.close_alert(db, alert_id, tenant_id)
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
+    await db.commit()
     return alert

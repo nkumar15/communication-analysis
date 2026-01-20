@@ -11,7 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
 from core.db.session import AsyncSessionLocal
-from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
+from uuid import UUID
+DEFAULT_TENANT_ID = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 from modules.domains.b2b.bank_surveillance.models.communication import Communication
 
 # Increase CSV field size limit for large bodies

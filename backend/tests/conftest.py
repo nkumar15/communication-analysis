@@ -22,7 +22,7 @@ import pytest_asyncio
 from typing import Dict, Any
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 import secrets
 from contextlib import asynccontextmanager
@@ -88,6 +88,46 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     await close_db()
+
+
+@pytest.fixture(autouse=True)
+def mock_stripe():
+    """Mock Stripe globally for all tests"""
+    import stripe
+    from unittest.mock import MagicMock, patch
+    
+    with patch("stripe.Customer.create") as mock_cust_create, \
+         patch("stripe.Customer.retrieve") as mock_cust_ret, \
+         patch("stripe.checkout.Session.create") as mock_check_create, \
+         patch("stripe.billing_portal.Session.create") as mock_portal_create, \
+         patch("stripe.Subscription.retrieve") as mock_sub_ret:
+        
+        mock_cust_create.return_value = MagicMock(
+            id="cus_test_123", 
+            email="test@example.com", 
+            created=1704067200
+        )
+        mock_cust_ret.return_value = MagicMock(
+            id="cus_test_123",
+            email="test@example.com"
+        )
+        mock_check_create.return_value = MagicMock(
+            id="cs_test_123", 
+            url="https://checkout.stripe.com/test_123", 
+            expires_at=1704153600
+        )
+        mock_portal_create.return_value = MagicMock(
+            url="https://billing.stripe.com/test_123"
+        )
+        mock_sub_ret.return_value = MagicMock(
+            id="sub_test_123",
+            status="active",
+            current_period_start=1704067200,
+            current_period_end=1706745600,
+            items=MagicMock(data=[MagicMock(id="si_test_123")])
+        )
+        
+        yield
 
 
 # Create unified test app
@@ -410,7 +450,7 @@ async def api_client(db_session):
             # DEBUG
             # print(f"DEBUG AUTH: User ID type: {type(user_dict.get('id'))}, Val: {user_dict.get('id')}")
             
-            user_dict['permissions'] = await get_user_permissions(db, user)
+            user_dict['permissions'] = await get_user_permissions(user.id, db)
             
             # Enrich with plugins
             from core.rbac.plugin_registry import plugin_registry
@@ -557,6 +597,32 @@ async def platform_admin_setup(db_session: AsyncSession):
         )
         db_session.add(role)
         await db_session.flush()
+        
+        # Add wildcard permissions to allow all platform operations in tests
+        from modules.platform.models import PlatformPermission
+        wildcard_perm = PlatformPermission(
+            platform_role_id=role.id,
+            resource="*",
+            action="*"
+        )
+        db_session.add(wildcard_perm)
+        await db_session.flush()
+    else:
+        # Relationship check: Ensure it has the wildcard permission even if role existed
+        from modules.platform.models import PlatformPermission
+        perm_result = await db_session.execute(
+            select(PlatformPermission)
+            .where(PlatformPermission.platform_role_id == role.id)
+            .where(PlatformPermission.resource == "*")
+        )
+        if not perm_result.scalar_one_or_none():
+            wildcard_perm = PlatformPermission(
+                platform_role_id=role.id,
+                resource="*",
+                action="*"
+            )
+            db_session.add(wildcard_perm)
+            await db_session.flush()
     
     # 3. Create Platform Admin User with UNIQUE email per test
     # This avoids IntegrityError when tests run in parallel or sequentially
@@ -789,6 +855,63 @@ async def create_test_tenant(
         is_default=True
     )
     
+    # --- Seed Subscription Plans (Idempotent Global Templates) ---
+    from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
+    
+    plans_to_seed = [
+        {
+            "tier_key": "starter",
+            "name": "Starter",
+            "description": "Essential features for small teams",
+            "base_price_monthly": 0,
+            "base_price_yearly": 0,
+            "per_seat_price_monthly": 100000,
+            "per_seat_price_yearly": 1000000,
+            "limits": {"max_users": 5, "max_teams": 2},
+            "features": {"core": True, "rbac": "base"},
+            "provider_config": {"stripe": {"monthly_price_id": "price_starter_monthly", "yearly_price_id": "price_starter_yearly"}}
+        },
+        {
+            "tier_key": "professional",
+            "name": "Professional",
+            "description": "Advanced collaboration and security",
+            "base_price_monthly": 500000,
+            "base_price_yearly": 5000000,
+            "per_seat_price_monthly": 200000,
+            "per_seat_price_yearly": 2000000,
+            "limits": {"max_users": 50, "max_teams": 10},
+            "features": {"core": True, "rbac": "full", "dedicated_support": True},
+            "provider_config": {"stripe": {"monthly_price_id": "price_professional_monthly", "yearly_price_id": "price_professional_yearly"}}
+        },
+        {
+            "tier_key": "enterprise",
+            "name": "Enterprise",
+            "description": "Custom solutions for large organizations",
+            "base_price_monthly": 0,
+            "base_price_yearly": 0,
+            "per_seat_price_monthly": 0,
+            "per_seat_price_yearly": 0,
+            "limits": {"max_users": -1, "max_teams": -1},
+            "features": {"core": True, "rbac": "full", "plugins": ["all"]},
+            "contact_required": True,
+            "provider_config": {"stripe": {"monthly_price_id": "price_enterprise_monthly", "yearly_price_id": "price_enterprise_yearly"}}
+        }
+    ]
+    
+    for plan_data in plans_to_seed:
+        result = await db_session.execute(
+            select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == plan_data["tier_key"])
+        )
+        existing_plan = result.scalar_one_or_none()
+        if not existing_plan:
+            plan = B2BSubscriptionPlan(**plan_data)
+            db_session.add(plan)
+        else:
+            existing_plan.provider_config = plan_data["provider_config"]
+            db_session.add(existing_plan)
+    
+    await db_session.flush()
+
     return tenant
 
 

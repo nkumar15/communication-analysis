@@ -18,56 +18,41 @@ async def has_permission(
     context_extras: dict | None = None
 ) -> bool:
     """
-    Check if user has permission for resource:action
-    
-    This function checks the role_permissions table, NOT role names.
-    This design allows role names to change while permissions remain stable.
+    Check if user has permission for resource:action (Layer 1: Tenant-level RBAC)
     
     Args:
         user_id: User ID to check
-        resource: Resource name (e.g., 'projects', 'users')
-        action: Action name (e.g., 'read', 'write')
+        resource: Resource name
+        action: Action name
         db: Database session
-        role_id: Optional Role ID to skip User lookup if already known
+        role_id: Optional Tenant Role ID to skip User lookup
         
     Returns:
-        bool: True if user has permission, False otherwise
+        bool: True if authorized at the tenant level
     """
     current_role_id = role_id
-
     if not current_role_id:
-        # Get user's role using explicit query (respects RLS)
         user_result = await db.execute(
             select(UserModel).where(UserModel.id == user_id)
         )
         user = user_result.scalar_one_or_none()
-        
-        if not user or not user.role_id:
-            return False
-        current_role_id = user.role_id
-    
-    # Get role using explicit query (respects RLS)
-    # Optimization: Could cache role existence/active check if often repeated
-    role_result = await db.execute(
-        select(Role).where(Role.id == current_role_id)
-    )
-    role = role_result.scalar_one_or_none()
-    
-    if not role or not role.is_active:
-        return False
-    
-    # Check role_permissions table for explicit permission grant
-    result = await db.execute(
-        select(RolePermission)
-        .join(Resource, RolePermission.resource_id == Resource.id)
-        .join(Action, RolePermission.action_id == Action.id)
-        .where(RolePermission.role_id == role.id)
-        .where(Resource.name == resource)
-        .where(Action.name == action)
-    )
-    
-    permission = result.scalar_one_or_none()
-    return permission is not None
+        if user:
+            current_role_id = user.role_id
+
+    if current_role_id:
+        tenant_perm_stmt = (
+            select(RolePermission)
+            .join(Resource, RolePermission.resource_id == Resource.id)
+            .join(Action, RolePermission.action_id == Action.id)
+            .where(RolePermission.role_id == current_role_id)
+            .where(Resource.name == resource)
+            .where(Action.name == action)
+        )
+        tenant_perm_result = await db.execute(tenant_perm_stmt)
+        if tenant_perm_result.scalar_one_or_none():
+            return True
+
+    return False
 
 
 async def has_permission_with_plugins(
@@ -76,61 +61,115 @@ async def has_permission_with_plugins(
     action: str, 
     db: AsyncSession,
     role_id: UUID | None = None,
-    tenant_id: UUID | None = None
+    tenant_id: UUID | None = None,
+    extra_context: dict | None = None
 ) -> bool:
     """
-    Wrapper for has_permission that invokes the PluginRegistry.
-    This is the primary entry point for plugin-aware permission checks.
+    The primary entry point for 3-layer RBAC checks.
+    
+    Flow:
+    1. Interceptor (Plugin Before)
+    2. Core (Tenant + Team/Business RBAC)
+    3. Filter (Plugin After - Geo/Clearance)
+    
+    Enforcement depends on tenant subscription-enabled plugins.
     """
     from core.rbac.plugin_registry import plugin_registry
     from core.rbac.plugin_system import PermissionContext
+    from modules.b2b.models import TenantModel
+    from modules.b2b.models.team_member import TeamMember
+    from modules.b2b.models.team_role_definition import TeamRoleDefinition
     
-    # 1. Fetch User Data (Minimal)
-    # We need user dict for context.
-    # Optimization: We might want to pass user object if available to avoid refetch.
-    # For now, we fetch minimal user info.
-    stmt = select(UserModel).where(UserModel.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
+    # 1. Fetch User and Tenant Context
+    # Optimization: Use selectinload if we need relationships
+    user_stmt = select(UserModel).where(UserModel.id == user_id)
+    user_result = await db.execute(user_stmt)
+    user = user_result.scalar_one_or_none()
     
     if not user:
         return False
+
+    tenant_stmt = select(TenantModel).where(TenantModel.id == user.tenant_id)
+    tenant_result = await db.execute(tenant_stmt)
+    tenant = tenant_result.scalar_one_or_none()
+    
+    if not tenant:
+        return False
+
+    # Extract enabled plugins from subscription-driven tenant.features
+    enabled_plugins = tenant.features.get('plugins', []) if tenant.features else []
+
+    # Get Tenant Role Name
+    role_name = None
+    if user.role_id:
+        role_stmt = select(Role.name).where(Role.id == user.role_id)
+        role_name_result = await db.execute(role_stmt)
+        role_name = role_name_result.scalar()
+
+    # Get all Team Roles
+    team_roles_stmt = (
+        select(TeamRoleDefinition.name)
+        .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
+        .where(TeamMember.user_id == user_id)
+    )
+    team_roles_result = await db.execute(team_roles_stmt)
+    team_role_names = [name for name in team_roles_result.scalars()]
 
     user_dict = {
         "id": str(user.id),
         "tenant_id": str(user.tenant_id),
         "role_id": str(user.role_id) if user.role_id else None,
-        # role name might be needed
+        "role": role_name,
+        "team_roles": team_role_names,
+        "enabled_plugins": enabled_plugins
     }
     
-    # Enrich context
-    # This might be expensive to do on every check. 
-    # Ideally, enriched context is cached per request.
-    enriched_user = await plugin_registry.enrich_user(user_dict, db)
+    # 2. Enrich User Context with Plugins
+    enriched_user = await plugin_registry.enrich_user(user_dict, db, enabled_plugin_names=enabled_plugins)
     
     context = PermissionContext(
         user_id=str(user_id),
         user=enriched_user,
         resource_type=resource,
-        resource_id=None, # Context extras can provide specific resource ID
-        resource=None,    
+        resource_id=extra_context.get("resource_id") if extra_context else None,
+        resource=extra_context.get("resource") if extra_context else None,
         action=action,
-        tenant_id=str(user.tenant_id)
-        # extra_context passed if needed
+        tenant_id=str(user.tenant_id),
+        extra_context=extra_context
     )
     
-    # Define the core checker for the registry callback
+    # 3. Define the core checker (Layer 2: Business/Team Role)
     async def core_checker(ctx, session):
-        # Maps registry context back to simple has_permission call
-        return await has_permission(
+        # 3.1 Check Layer 1 (Tenant Role)
+        tenant_authorized = await has_permission(
             UUID(ctx.user_id), 
             ctx.resource_type, 
             ctx.action, 
             session,
             role_id=UUID(ctx.user['role_id']) if ctx.user.get('role_id') else None
         )
+        if tenant_authorized:
+            return True
+            
+        # 3.2 Check Layer 2 (Team/Business Role)
+        team_perm_stmt = (
+            select(TeamRoleDefinition.permissions)
+            .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
+            .where(TeamMember.user_id == UUID(ctx.user_id))
+        )
+        team_perm_results = await session.execute(team_perm_stmt)
         
-    return await plugin_registry.check_permission(context, core_checker, db)
+        for permissions_json in team_perm_results.scalars():
+            if not permissions_json:
+                continue
+            for perm in permissions_json:
+                if perm.get('resource') == ctx.resource_type:
+                    actions = perm.get('actions', [])
+                    if ctx.action in actions or perm.get('action') == ctx.action:
+                        return True
+        return False
+        
+    return await plugin_registry.check_permission(context, core_checker, db, enabled_plugin_names=enabled_plugins)
 
 
 
@@ -173,7 +212,7 @@ async def get_user_permissions(user_id: UUID, db: AsyncSession) -> list[str]:
     
     team_roles_result = await db.execute(
         select(TeamRoleDefinition.permissions)
-        .join(TeamMember, TeamMember.team_role == TeamRoleDefinition.name)
+        .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
         .where(TeamMember.user_id == user_id)
     )
 

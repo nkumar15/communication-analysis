@@ -44,7 +44,7 @@ class CaseService:
                 )
                 db.add(evidence)
 
-        await db.commit()
+        await db.flush()
         await db.refresh(db_obj)
         return db_obj
 
@@ -84,7 +84,7 @@ class CaseService:
             setattr(db_obj, field, value)
             
         db.add(db_obj)
-        await db.commit()
+        await db.flush()
         await db.refresh(db_obj)
         return db_obj
 
@@ -96,7 +96,7 @@ class CaseService:
             author_id=author_id
         )
         db.add(note)
-        await db.commit()
+        await db.flush()
         await db.refresh(note)
         return note
 
@@ -109,7 +109,7 @@ class CaseService:
             notes=obj_in.notes
         )
         db.add(evidence)
-        await db.commit()
+        await db.flush()
         await db.refresh(evidence)
         return evidence
 

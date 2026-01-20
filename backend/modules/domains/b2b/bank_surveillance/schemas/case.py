@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import uuid
@@ -15,8 +15,7 @@ class CaseNoteResponse(CaseNoteBase):
     case_id: uuid.UUID
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CaseEvidenceBase(BaseModel):
     evidence_type: str # 'communication', 'alert'
@@ -31,8 +30,7 @@ class CaseEvidenceResponse(CaseEvidenceBase):
     case_id: uuid.UUID
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CaseBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -74,5 +72,4 @@ class CaseResponse(CaseBase):
     notes: Optional[List[CaseNoteResponse]] = None
     evidence: Optional[List[CaseEvidenceResponse]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

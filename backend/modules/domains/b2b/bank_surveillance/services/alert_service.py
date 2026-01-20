@@ -152,7 +152,7 @@ class AlertService:
 
         await case_service.create_case(db, case_in, tenant_id)
         
-        await db.commit()
+        await db.flush()
         await db.refresh(alert)
         return alert
 

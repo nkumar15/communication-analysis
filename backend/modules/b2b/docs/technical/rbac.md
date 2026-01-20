@@ -9,9 +9,9 @@ The B2B module uses a **3-Layer RBAC Model** to handle complex enterprise requir
 
 | Layer | Type | Responsibility | Example | Source of Data |
 |-------|------|----------------|---------|----------------|
-| **1** | **System Role** | Authentication & Billing | `tenant_owner` vs `member` | `users` table |
+| **1** | **System Role** | Authentication & Billing | `tenant_owner` vs `member` | `users.role` column |
 | **2** | **Business Role** | Functional Access | `surveillance_analyst` (Team Scope) | `team_members` table |
-| **3** | **Plugin Layer** | Enterprise Constraints | `geographic_boundaries` (APAC-only) | `plugin_hooks` |
+| **3** | **Plugin Layer** | Enterprise Constraints | `geographic_boundaries` (APAC-only) | `plugin_hooks` & `user_context` |
 
 ---
 
@@ -21,45 +21,92 @@ The decisioning flow moves from global context down to specific data attributes.
 
 ```mermaid
 graph TD
-    Request[API Request] -->|Middleware| Auth{Authenticated?}
-    Auth -- No --> 401[401 Unauthorized]
-    Auth -- Yes --> Router[Endpoint Handler]
+    Request["API Request"] -->|Middleware| Auth{"Authenticated?"}
+    Auth -- No --> 401["401 Unauthorized"]
+    Auth -- Yes --> Router["Endpoint Handler"]
     
     subgraph "RBAC Service Decisioning"
-        Router -->|check_permission()| PluginPre[1. Plugin: Enrich Context]
-        PluginPre -->|Geo, Hierarchy| Context[Full User Context]
+        Router -->|"check_permission()"| PluginPre["1. Plugin: Enrich Context"]
+        PluginPre -->|"Geo, Hierarchy"| Context["Full User Context"]
         
-        Context -->|2. Plugin: Pre-Check| ShortCircuit{Deny Now?}
-        ShortCircuit -- Yes --> 403[403 Forbidden]
+        Context -->|"2. Plugin: Pre-Check"| ShortCircuit{"Deny Now?"}
+        ShortCircuit -- Yes --> 403["403 Forbidden"]
         
-        ShortCircuit -- No --> CoreCheck[3. Core RBAC Check]
-        CoreCheck -->|System/Tenant/Team Matching| CoreResult{Allow?}
+        ShortCircuit -- No --> CoreCheck["3. Core RBAC Check"]
+        CoreCheck -->|"System/Tenant/Team Matching"| CoreResult{"Allow?"}
         CoreResult -- No --> 403
         
-        CoreResult -- Yes --> PluginPost[4. Plugin: Post-Check]
-        PluginPost -->|Region Mismatch?| FinalDecision{Final Allow?}
+        CoreResult -- Yes --> PluginPost["4. Plugin: Post-Check"]
+        PluginPost -->|"Region Mismatch?"| FinalDecision{"Final Allow?"}
         FinalDecision -- No --> 403
-        FinalDecision -- Yes --> 200[Grant Access]
+        FinalDecision -- Yes --> 200["Grant Access"]
     end
 ```
 
-### Data Sources for Decisioning
+### Data Sources & Storage
 
-1.  **Identity Context** (`current_user`):
-    - **System Role**: From JWT / DB (`users.role`).
-    - **Tenant ID**: From Hostname/Header (`x-tenant-id`).
-    
-2.  **Functional Context** (`team_members`):
-    - **Team Roles**: Loaded for the specific tenant.
-    - **Scope**: Does the user belong to the team owning the resource?
+| Attribute | Storage Location | Loaded By |
+|-----------|------------------|-----------|
+| **Geography** | `users.geographic_scopes` (JSONB) | `GeographicBoundariesPlugin.enrich_user_context` |
+| **Hierarchy** | `teams.parent_team_id` (FK) | `HierarchicalTeamsPlugin.enrich_user_context` (Standard recursion) |
+| **Clearance** | `users.clearance_level` (Int) | `DataClassificationPlugin.enrich_user_context` |
+| **Plugin Config** | `tenants.features['plugins']` (JSONB) | `TenantService` (at startup) |
 
-3.  **Plugin Context** (`enriched_context`):
-    - **Geographic Scope**: Injected by `GeographicBoundariesPlugin`.
-    - **Hierarchy Access**: Injected by `HierarchicalTeamsPlugin` (access to child teams).
+### Enrichment Process
+1.  **Login**: User authenticates.
+2.  **Middleware**: `RBACMiddleware` loads the `Tenant`.
+3.  **Plugin Initialization**: If `geographic_boundaries` is enabled for tenant:
+    - Middleware calls `plugin.enrich_user_context(user)`.
+    - Plugin reads `db.query(User).filter(User.id == user.id)` to get `geographic_scopes`.
+    - Plugin injects `user.context['geographic_scopes'] = ['APAC', 'SG']`.
+4.  **Ready**: `request.state.user` now has enriched data for Router checks.
 
 ---
 
-## 3. Plugin Architecture
+## 3. Real Example: Accessing an Alert
+
+**Scenario**: A "Compliance Officer" in "APAC" tries to view a "Trading Alert" (High Sensitivity) from the "EMEA" region.
+
+### Step 1: Router Call
+```python
+# routers/alerts.py
+@router.get("/alerts/{alert_id}")
+async def get_alert(alert_id: UUID, current_user = Depends(get_current_active_user)):
+    alert = await alert_service.get(alert_id)
+    
+    # Resource to check
+    resource = {
+        "type": "alert",
+        "region": alert.region,      # "EMEA"
+        "sensitivity": alert.level   # "HIGH" (3)
+    }
+    
+    await rls_service.check_permission(
+        user=current_user,
+        permission="alerts:read",
+        resource=resource
+    )
+```
+
+### Step 2: Plugin Evaluation
+
+1.  **Enrichment**:
+    - `current_user.geographic_scopes` = `['APAC']` (Loaded from User profile)
+    - `current_user.clearance_level` = `2` (Officer Level)
+
+2.  **Pre-Check (Data Classification)**:
+    - **Check**: User Level (2) vs Alert Level (3).
+    - **Result**: `FAIL`. Level 2 < 3.
+    - **Action**: Short-circuit -> **403 Forbidden**.
+
+3.  **Post-Check (Geographic - if Pre-Check passed)**:
+    - **Check**: User Scope (`APAC`) vs Resource Region (`EMEA`).
+    - **Result**: `FAIL`. Mismatch.
+    - **Action**: **403 Forbidden**.
+
+---
+
+## 4. Plugin Architecture
 
 Plugins are **interceptors** that hook into the permission lifecycle.
 
@@ -80,17 +127,19 @@ class RBACPlugin(ABC):
         pass
 ```
 
-### Available Plugins
+### Supported Plugins
 
 #### A. Hierarchical Teams
 **Problem**: A Regional Director needs to see cases from all desks under them, without being an explicit member of every single desk.
 **Solution**:
+- **Storage**: standard `teams` table with `parent_team_id`.
 - **Enrich**: logic finds all child teams of the user's teams.
 - **Result**: User gets access to `team_id: [1, 2, 3]` (explicit + implicit).
 
 #### B. Geographic Boundaries
 **Problem**: An "APAC Analyst" must not access "EMEA" data, even if they have the `read:cases` permission.
 **Solution**:
+- **Storage**: `users` table has `geographic_scopes` column (JSONB).
 - **Post-Check**:
     - Validates `user.geographic_scopes` (e.g., `['APAC']`).
     - Against `resource.data_region` (e.g., `EMEA`).
@@ -99,6 +148,7 @@ class RBACPlugin(ABC):
 #### C. Data Classification
 **Problem**: "Confidential" reports should not be visible to "Junior" staff.
 **Solution**:
+- **Storage**: `users` table has `clearance_level` column (Int).
 - **Pre-Check**:
     - Checks `user.clearance_level` (e.g., 2).
     - Checks `resource.sensitivity` (e.g., 3).

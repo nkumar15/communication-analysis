@@ -4,7 +4,8 @@ from typing import List, Optional
 import uuid
 
 from core.db.session import get_db
-from modules.b2b.auth.dependencies import get_current_user
+from modules.b2b.middleware import get_current_active_user
+from modules.b2b.rbac import require_permission
 from modules.domains.b2b.bank_surveillance.services.case_service import case_service
 from modules.domains.b2b.bank_surveillance.schemas.case import (
     CaseCreate, CaseUpdate, CaseResponse, 
@@ -18,25 +19,25 @@ router = APIRouter(prefix="/api/b2b/domain/bank_surveillance/cases", tags=["Surv
 async def create_case(
     obj_in: CaseCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: dict = require_permission("cases", "write")
 ):
     """Create a new compliance case."""
-    return await case_service.create_case(db, obj_in, tenant_id=current_user.tenant_id)
+    return await case_service.create_case(db, obj_in, tenant_id=current_user['tenant_id'])
 
 @router.get("/", response_model=List[CaseResponse])
 async def list_cases(
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: dict = require_permission("cases", "read")
 ):
     """List all cases for the current tenant."""
-    return await case_service.list_cases(db, tenant_id=current_user.tenant_id, status=status)
+    return await case_service.list_cases(db, tenant_id=current_user['tenant_id'], status=status)
 
 @router.get("/{case_id}", response_model=CaseResponse)
 async def get_case(
     case_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: dict = require_permission("cases", "read")
 ):
     """Fetch details for a specific case."""
     db_obj = await case_service.get_case(db, case_id)
@@ -49,7 +50,7 @@ async def update_case(
     case_id: uuid.UUID,
     obj_in: CaseUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: dict = require_permission("cases", "update")
 ):
     """Update case status, assignment, or metadata."""
     # Validation: Closure requires rationale
@@ -69,17 +70,17 @@ async def add_case_note(
     case_id: uuid.UUID,
     obj_in: CaseNoteCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: dict = require_permission("cases", "update")
 ):
     """Add an internal note to a case."""
-    return await case_service.add_note(db, case_id, obj_in, author_id=current_user.id)
+    return await case_service.add_note(db, case_id, obj_in, author_id=current_user['id'])
 
 @router.post("/{case_id}/evidence", response_model=CaseEvidenceResponse)
 async def add_case_evidence(
     case_id: uuid.UUID,
     obj_in: CaseEvidenceCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: dict = require_permission("cases", "update")
 ):
     """Link evidence (communication or alert) to a case."""
     return await case_service.add_evidence(db, case_id, obj_in)

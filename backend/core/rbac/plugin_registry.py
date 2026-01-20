@@ -39,7 +39,9 @@ class PluginRegistry:
                 logger.error(f"Failed to initialize plugin {name}: {str(e)}")
                 # Depending on strictness, we might want to raise here
                 
-    async def check_permission(self, context: PermissionContext, core_checker, db) -> bool:
+    async def check_permission(
+        self, context: PermissionContext, core_checker, db, enabled_plugin_names: Optional[List[str]] = None
+    ) -> bool:
         """
         Execute permission check with all plugins.
         Flow:
@@ -49,7 +51,10 @@ class PluginRegistry:
         """
         
         # 1. Pre-Check Hooks
-        for plugin in self._plugins.values():
+        for name, plugin in self._plugins.items():
+            if enabled_plugin_names is not None and name not in enabled_plugin_names:
+                continue
+                
             try:
                 result = await plugin.before_permission_check(context, db)
                 if result is True:
@@ -57,7 +62,7 @@ class PluginRegistry:
                 if result is False:
                     return False # Short-circuit DENY
             except Exception as e:
-                logger.error(f"Error in before_permission_check for plugin {plugin.get_metadata()['name']}: {e}")
+                logger.error(f"Error in before_permission_check for plugin {name}: {e}")
                 # Fail safe? Or continue? Continuing for now.
 
         # 2. Core Check
@@ -66,23 +71,29 @@ class PluginRegistry:
         
         # 3. Post-Check Hooks
         final_result = core_result
-        for plugin in self._plugins.values():
+        for name, plugin in self._plugins.items():
+            if enabled_plugin_names is not None and name not in enabled_plugin_names:
+                continue
+                
             try:
                 final_result = await plugin.after_permission_check(context, final_result, db)
             except Exception as e:
-                logger.error(f"Error in after_permission_check for plugin {plugin.get_metadata()['name']}: {e}")
+                logger.error(f"Error in after_permission_check for plugin {name}: {e}")
         
         return final_result
     
-    async def enrich_user(self, user: Dict, db) -> Dict:
+    async def enrich_user(self, user: Dict, db, enabled_plugin_names: Optional[List[str]] = None) -> Dict:
         """Enrich user dictionary with plugin data."""
         enriched = user.copy()
-        for plugin in self._plugins.values():
+        for name, plugin in self._plugins.items():
+            if enabled_plugin_names is not None and name not in enabled_plugin_names:
+                continue
+                
             try:
                 plugin_data = await plugin.enrich_user_context(user, db)
                 enriched.update(plugin_data)
             except Exception as e:
-                logger.error(f"Error enriching user context for plugin {plugin.get_metadata()['name']}: {e}")
+                logger.error(f"Error enriching user context for plugin {name}: {e}")
         return enriched
 
 # Global instance

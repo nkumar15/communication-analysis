@@ -8,7 +8,8 @@ import uuid
 sys.path.append("/app")
 
 from modules.domains.b2b.bank_surveillance.services.policy import policy_rag_service
-from modules.domains.b2b.bank_surveillance.constants import DEFAULT_TENANT_ID
+from uuid import UUID
+DEFAULT_TENANT_ID = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 async def ingest_regulations():
     # Path to regulation text files

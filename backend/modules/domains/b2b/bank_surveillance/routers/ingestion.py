@@ -11,15 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from core.db.session import get_db
+from modules.b2b.rbac import require_permission
 from modules.domains.b2b.bank_surveillance.models.ingestion_log import IngestionLog
 from modules.domains.b2b.bank_surveillance.tasks.ingestion import ingest_daily_dump
 
-from core.middleware.auth import get_current_user
-
 router = APIRouter(
     prefix="/api/b2b/domain/bank_surveillance/ingestion", 
-    tags=["Ingestion"],
-    dependencies=[Depends(get_current_user)]
+    tags=["Ingestion"]
 )
 
 
@@ -49,7 +47,8 @@ class JobStatusResponse(BaseModel):
 @router.post("/trigger", response_model=TriggerResponse)
 async def trigger_ingestion(
     request: TriggerRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("ingestion", "write")
 ):
     """
     Manually trigger ingestion for a specific date's dump file.
@@ -91,7 +90,8 @@ async def trigger_ingestion(
 @router.get("/status/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(
     job_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("ingestion", "read")
 ):
     """
     Get status of an ingestion job.
@@ -121,7 +121,8 @@ async def get_job_status(
 @router.post("/retry/{job_id}", response_model=TriggerResponse)
 async def retry_ingestion(
     job_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("ingestion", "write")
 ):
     """
     Retry a failed ingestion job.
@@ -168,7 +169,8 @@ class IngestionStatsResponse(BaseModel):
 @router.get("/jobs", response_model=List[JobStatusResponse])
 async def list_jobs(
     limit: int = 20,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("ingestion", "read")
 ):
     """
     List recent ingestion jobs.
@@ -193,7 +195,10 @@ async def list_jobs(
 
 
 @router.get("/stats", response_model=IngestionStatsResponse)
-async def get_stats(db: AsyncSession = Depends(get_db)):
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("ingestion", "read")
+):
     """
     Get ingestion statistics for dashboard.
     """
