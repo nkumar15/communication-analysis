@@ -277,7 +277,7 @@ services:
       redis:
         condition: service_healthy
       elasticsearch:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_healthy
     command: uvicorn modules.domains.b2b.main:app --host 0.0.0.0 --port 8003 --reload
@@ -436,7 +436,7 @@ services:
       redis:
         condition: service_healthy
       elasticsearch:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_healthy
     command: uvicorn modules.domains.b2c.main:app --host 0.0.0.0 --port 8004 --reload
