@@ -38,6 +38,7 @@ from modules.domains.b2b.bank_surveillance.routers.communications import router 
 from modules.domains.b2b.bank_surveillance.routers.investigations import router as investigations_router
 from modules.domains.b2b.bank_surveillance.routers.graph import router as graph_router
 from modules.domains.b2b.bank_surveillance.routers.ingestion import router as ingestion_router
+from modules.domains.b2b.bank_surveillance.routers.alerts import router as alerts_router
 
 
 @asynccontextmanager
@@ -98,6 +99,7 @@ app.include_router(communications_router)
 app.include_router(investigations_router)
 app.include_router(graph_router)
 app.include_router(ingestion_router)
+app.include_router(alerts_router)
 
 
 @app.get("/")

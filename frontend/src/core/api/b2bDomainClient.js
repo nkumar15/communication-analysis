@@ -48,6 +48,14 @@ class B2BDomainService {
     }
 
     // Communication Domain Endpoints (Replaces Enron)
+    async getCommunications(params) {
+        // params: { limit, offset }
+        const queryParams = new URLSearchParams(params).toString();
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/communications?${queryParams}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch communications: ${response.status}`);
+        return response.json();
+    }
 
     // Investigation
     async investigateCommunication(data) {
@@ -109,6 +117,43 @@ class B2BDomainService {
 
     async retryIngestion(jobId) {
         return this.post(`/api/b2b/domain/bank_surveillance/ingestion/retry/${jobId}`, {});
+    }
+
+    // Alerts
+    async getAlerts(params) {
+        // params: { status, severity, risk_type, assigned_to, limit, offset }
+        const queryParams = new URLSearchParams(params).toString();
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/alerts/?${queryParams}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch alerts: ${response.status}`);
+        return response.json();
+    }
+
+    async getAlert(id) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/alerts/${id}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch alert: ${response.status}`);
+        return response.json();
+    }
+
+    async updateAlert(id, data) {
+        // data: { status, assigned_to, description, etc }
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/alerts/${id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error(`Failed to update alert: ${response.status}`);
+        return response.json();
+    }
+
+    async escalateAlert(id) {
+        return this.post(`/api/b2b/domain/bank_surveillance/alerts/${id}/escalate`, {});
+    }
+
+    async closeAlert(id) {
+        return this.post(`/api/b2b/domain/bank_surveillance/alerts/${id}/close`, {});
     }
 }
 

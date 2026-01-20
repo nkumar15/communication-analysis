@@ -23,6 +23,7 @@ import EnronDashboard from './modules/b2b/EnronDashboard';
 import EnronInvestigationPage from './modules/b2b/EnronInvestigationPage';
 import EnronKnowledgeBasePage from './modules/b2b/EnronKnowledgeBasePage';
 import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
+import AlertsPage from './modules/domains/surveillance/pages/AlertsPage';
 import CommunicationsPage from './modules/domains/surveillance/pages/CommunicationsPage';
 import InvestigationsPage from './modules/domains/surveillance/pages/InvestigationsPage';
 import IngestionPage from './modules/domains/surveillance/pages/IngestionPage';
@@ -162,6 +163,7 @@ function App() {
 
                 {/* Surveillance routes */}
                 <Route path="/b2b/surveillance" element={<ProtectedRoute><SurveillanceDashboardPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/communications" element={<ProtectedRoute><CommunicationsPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/investigations" element={<ProtectedRoute><InvestigationsPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/ingestion" element={<ProtectedRoute><IngestionPage /></ProtectedRoute>} />
