@@ -1,5 +1,4 @@
-"""Comment schemas"""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -31,16 +30,14 @@ class CommentResponse(CommentBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CommentResponseWithReplies(CommentResponse):
     """Schema for comment response with nested replies"""
     replies: List['CommentResponseWithReplies'] = Field(default_factory=list)
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Update forward reference

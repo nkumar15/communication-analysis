@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TeamRoleCreate(BaseModel):
@@ -31,5 +31,4 @@ class TeamRoleResponse(BaseModel):
     is_system: bool
     is_default: bool
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

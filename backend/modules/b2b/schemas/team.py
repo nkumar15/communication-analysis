@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -35,8 +35,7 @@ class TeamResponse(TeamBase):
     member_count: int = 0
     org_tier: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TeamListResponse(BaseModel):
     """Schema for team list item"""
@@ -49,8 +48,7 @@ class TeamListResponse(BaseModel):
     parent_team_id: Optional[UUID] = None
     org_tier: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ============================================================================
 # Team Member Schemas
@@ -85,8 +83,7 @@ class TeamMemberResponse(BaseModel):
     user_name: Optional[str] = None
     joined_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MoveUserRequest(BaseModel):
     """Schema for moving user between teams"""
@@ -109,5 +106,4 @@ class TeamStatsResponse(BaseModel):
     default_team_id: Optional[UUID]
     user_teams_count: int  # Number of teams current user belongs to
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -8,7 +8,7 @@ from core.db.session import get_db
 from core.db.rls import rls_service
 from modules.b2b.middleware import get_current_active_user
 from modules.b2b.models.geographic_region import GeographicRegion
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 router = APIRouter(prefix="/api/b2b/regions", tags=["regions"])
 
@@ -16,8 +16,7 @@ class RegionResponse(BaseModel):
     id: UUID
     code: str
     name: str
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 @router.get("/", response_model=List[RegionResponse])
 async def list_regions(
