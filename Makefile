@@ -97,7 +97,7 @@ b2b-seed-roles: ## Seed RBAC roles and resources (USE_CASE=bank_surveillance|mar
 	@echo "$(BLUE)Seeding RBAC data...$(NC)"
 	@if [ -n "$(USE_CASE)" ]; then \
 		echo "$(YELLOW)Loading use case: $(USE_CASE)$(NC)"; \
-		docker-compose run --rm b2b-api env USE_CASE=$(USE_CASE) python /app/scripts/b2b/seed_rbac.py; \
+		docker-compose run --rm b2b-api env USE_CASE=$(USE_CASE) INCLUDE_BASE_ROLES=$(INCLUDE_BASE_ROLES) python /app/scripts/b2b/seed_rbac.py; \
 	else \
 		docker-compose run --rm b2b-api python /app/scripts/b2b/seed_rbac.py; \
 	fi
@@ -191,6 +191,7 @@ test-b2b-bank-only: ## Run bank surveillance specific tests only
 test-b2b-bank-use-case: ## Run bank surveillance tests (core + domain with base + bank roles)
 	@echo "$(BLUE)Running Bank Surveillance Use Case and core tests...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=bank_surveillance INCLUDE_BASE_ROLES=true
 	@$(MAKE) restart
 	@docker-compose run -e USE_CASE=bank_surveillance --rm e2e-tests \
 									pytest \
