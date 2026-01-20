@@ -163,7 +163,7 @@ b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant v
 	@echo "$(BLUE)🏦 Resetting DB for Bank Surveillance Demo...$(NC)"
 	@$(MAKE) db-recreate
 	@$(MAKE) restart
-	@$(MAKE) seed-all
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
 	@echo ""
 	@echo "$(GREEN)✅ Bank Surveillance RBAC Ready!$(NC)"
 	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
@@ -179,12 +179,14 @@ b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant v
 test-b2b-core-only: ## Run core platform tests only (defaults to bank seed)
 	@echo "$(BLUE)Running Core Platform Tests (bank seed)...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) seed-all
 	@$(MAKE) restart
 	@docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/core -v
 
 test-b2b-bank-only: ## Run bank surveillance specific tests only
 	@echo "$(BLUE)Running Bank Surveillance Tests (bank seed)...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
 	@$(MAKE) restart
 	@docker-compose run --rm e2e-tests env USE_CASE=bank_surveillance pytest tests/e2e_api/b2b/use_cases/bank_surveillance -v
 

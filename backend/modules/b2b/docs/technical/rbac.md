@@ -47,19 +47,18 @@ graph TD
 
 | Attribute | Storage Location | Loaded By |
 |-----------|------------------|-----------|
-| **Geography** | `users.geographic_scopes` (JSONB) | `GeographicBoundariesPlugin.enrich_user_context` |
-| **Hierarchy** | `teams.parent_team_id` (FK) | `HierarchicalTeamsPlugin.enrich_user_context` (Standard recursion) |
-| **Clearance** | `users.clearance_level` (Int) | `DataClassificationPlugin.enrich_user_context` |
+| **Geography** | `teams.config_data['region_code']` | `GeographicBoundariesPlugin` (Derived from Team Membership) |
+| **Hierarchy** | `teams.parent_team_id` (FK) | `HierarchicalTeamsPlugin` (Standard recursion) |
+| **Clearance** | `roles.clearance_level` (Integer) | `DataClassificationPlugin` (Derived from System Role) |
 | **Plugin Config** | `tenants.features['plugins']` (JSONB) | `TenantService` (at startup) |
 
 ### Enrichment Process
 1.  **Login**: User authenticates.
 2.  **Middleware**: `RBACMiddleware` loads the `Tenant`.
-3.  **Plugin Initialization**: If `geographic_boundaries` is enabled for tenant:
-    - Middleware calls `plugin.enrich_user_context(user)`.
-    - Plugin reads `db.query(User).filter(User.id == user.id)` to get `geographic_scopes`.
-    - Plugin injects `user.context['geographic_scopes'] = ['APAC', 'SG']`.
-4.  **Ready**: `request.state.user` now has enriched data for Router checks.
+3.  **Plugin Initialization**:
+    - **Geography**: Plugin queries `team_members` -> `teams` to find all regions the user is part of (e.g., "SG", "APAC"). It injects these as `geographic_scopes` into the user context.
+    - **Clearance**: Plugin queries the user's assigned **System Role** (`b2b.roles`) to find the `clearance_level` (e.g., 2) and injects it.
+4.  **Ready**: `request.state.user` now has enriched data (`geographic_scopes`, `clearance_level`) for Router checks.
 
 ---
 
@@ -139,7 +138,8 @@ class RBACPlugin(ABC):
 #### B. Geographic Boundaries
 **Problem**: An "APAC Analyst" must not access "EMEA" data, even if they have the `read:cases` permission.
 **Solution**:
-- **Storage**: `users` table has `geographic_scopes` column (JSONB).
+- **Storage**: Defined in `teams` (User inherits via membership).
+- **Requirements**: Resource Model must have `data_region_id` (FK to `geographic_regions`) OR pass it in check context.
 - **Post-Check**:
     - Validates `user.geographic_scopes` (e.g., `['APAC']`).
     - Against `resource.data_region` (e.g., `EMEA`).
@@ -148,7 +148,7 @@ class RBACPlugin(ABC):
 #### C. Data Classification
 **Problem**: "Confidential" reports should not be visible to "Junior" staff.
 **Solution**:
-- **Storage**: `users` table has `clearance_level` column (Int).
+- **Storage**: Defined in `roles` (System Role).
 - **Pre-Check**:
     - Checks `user.clearance_level` (e.g., 2).
     - Checks `resource.sensitivity` (e.g., 3).

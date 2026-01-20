@@ -15,6 +15,9 @@
 | Pipeline Status | Real-time status of daily jobs (Running, Completed, Failed) | `ingestion_logs` |
 | File Watcher | Source path monitoring for `YYYYMMDD` patterns | File System / S3 |
 | Volume Metrics | Today's Volume and Total Messages processed | Ingestion Metrics |
+| **Multi-Format Ingestion**| Support for Email, Chat Logs, Voice Transcripts | Universal Connector |
+| **Entity Resolution** | Fuzzy matching of external IDs (email) to Internal Profiles | Directory Service |
+| **Risk Tagging** | Auto-apply risk classifiers during ingestion | Model Service |
 
 ## User Stories
 
@@ -23,6 +26,8 @@
 2. **As an IT Admin**, I want to manually retry failed file segments so that I can resolve transient network errors.
 3. **As a Risk Officer**, I want to see daily volume charts so that I can detect anomalous spikes in communication traffic.
 4. **As a Data Engineer**, I want confirmation that indexed data is available for both RAG and Keyword search engines.
+5. **As a Surveillance Ops Officer**, I want the system to automatically map external email addresses to internal employee profiles so that risk history is tracked against the right person.
+6. **As a Compliance Officer**, I want every message scanned for risk signals immediately upon ingestion so that no critical alert is delayed.
 
 ## UX Rules
 

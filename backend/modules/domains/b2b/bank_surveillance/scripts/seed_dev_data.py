@@ -27,6 +27,9 @@ elif db_url.startswith("postgresql://"):
 engine = create_async_engine(db_url)
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+DATA_REGION='US'
+SENSITIVITY_LEVEL_ID='1'
+
 def parse_csv_date(date_str: str) -> datetime:
     try:
         # parsedate_to_datetime parses email standard date header format (RFC 2822)
@@ -90,7 +93,8 @@ async def seed_communications(db: AsyncSession, tenant_id: uuid.UUID, target_cou
                         recipients=recipients_list,
                         subject=row.get('subject', 'No Subject'),
                         content=row.get('body', ''),
-                        timestamp=sent_at
+                        timestamp=sent_at,
+                        data_region_id=DATA_REGION,
                         # removed invalid metadata field
                     )
                     db.add(comm)

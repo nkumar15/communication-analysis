@@ -18,6 +18,8 @@
 | Region Filter | APAC, EMEA, Americas, Global |
 | Bulk Actions | Close, Escalate, Convert to Case |
 | Quick Stats | Open alerts count, critical count, oldest alert age |
+| **Dynamic Aggregation** | Group related signals into single "Alert Case" (Time/Context window) |
+| **Conversational Context**| View full thread context for grouped alerts |
 
 ## User Stories
 
@@ -26,6 +28,8 @@
 3. **As a Surveillance Manager**, I want to see alert aging metrics so that I can ensure SLA compliance.
 4. **As a Surveillance Analyst**, I want to escalate alerts with one click so that I can quickly involve senior reviewers.
 5. **As a Surveillance Analyst**, I want to convert an alert directly to a case so that I can begin formal investigation.
+6. **As a Surveillance Analyst**, I want related risky messages grouped into a single alert so that I don't review 5 separate items for one incident.
+7. **As a Surveillance Analyst**, I want to see the full conversational thread so that I understand the context of a flagged message.
 
 ## UX Rules
 

@@ -40,6 +40,7 @@ This platform transforms raw communication data into actionable compliance insig
 - [Investigation Workspace](./pages/investigation.md)
 - [Case Management](./pages/case_management.md)
 - [Search & RAG](./pages/search_rag.md)
+- [Policies (Risk Rules)](./pages/policies.md)
 - [More pages...](./pages/)
 
 ### Technical Docs
