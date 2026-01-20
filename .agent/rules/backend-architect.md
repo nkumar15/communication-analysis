@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Backend Architecture Rules
 
 ## Scope
@@ -99,3 +103,10 @@ Applies to: **System Design, API Patterns, Security, Data Models**
   - `WARNING`: Recoverable issues, security events, unexpected states.
   - `INFO`: Business events (Job started, Task completed).
   - `DEBUG`: Granular development details.
+
+## 12. Security practices
+- NEVER commit .env files to version control.
+- NEVER read from .env during development logic; use the defined Settings
+- ONLY to .env.example for the required schema of the environment. Keep it always upto date
+- PII/Secrets: Never hard code, log raw passwords, API keys, or PII (emails/phone numbers) in INFO or DEBUG logs.
+- 
