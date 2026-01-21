@@ -40,6 +40,8 @@ from modules.domains.b2b.bank_surveillance.routers.cases import router as cases_
 from modules.domains.b2b.bank_surveillance.routers.graph import router as graph_router
 from modules.domains.b2b.bank_surveillance.routers.ingestion import router as ingestion_router
 from modules.domains.b2b.bank_surveillance.routers.alerts import router as alerts_router
+from modules.domains.b2b.bank_surveillance.routers.regulatory import router as regulatory_router
+from modules.domains.b2b.bank_surveillance.routers.controls import router as controls_router
 
 
 @asynccontextmanager
@@ -102,6 +104,8 @@ app.include_router(cases_router)
 app.include_router(graph_router)
 app.include_router(ingestion_router)
 app.include_router(alerts_router)
+app.include_router(regulatory_router)
+app.include_router(controls_router)
 
 
 @app.get("/")

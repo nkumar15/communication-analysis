@@ -202,6 +202,32 @@ class B2BDomainService {
     async addCaseEvidence(id, data) {
         return this.post(`/api/b2b/domain/bank_surveillance/cases/${id}/evidence`, data);
     }
+
+    // Regulatory Library
+    async getRegulatoryDocuments(params = {}) {
+        const queryParams = new URLSearchParams(params).toString();
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/regulatory/?${queryParams}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch regulatory documents: ${response.status}`);
+        return response.json();
+    }
+
+    async createRegulatoryDocument(data) {
+        return this.post('/api/b2b/domain/bank_surveillance/regulatory/', data);
+    }
+
+    // Surveillance Controls
+    async getSurveillanceControls(params = {}) {
+        const queryParams = new URLSearchParams(params).toString();
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/controls/?${queryParams}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch surveillance controls: ${response.status}`);
+        return response.json();
+    }
+
+    async createSurveillanceControl(data) {
+        return this.post('/api/b2b/domain/bank_surveillance/controls/', data);
+    }
 }
 
 export default new B2BDomainService();

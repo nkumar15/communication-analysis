@@ -142,7 +142,34 @@ headers = create_auth_headers(user, tenant)
 | `_validation_error` | Invalid input payload (400/422) |
 | `_tenant_isolation` | Other tenant's data not accessible (404 or empty) |
 
-## 8. Asyncio Configuration (CRITICAL)
+## 8. Role Usage & Domain Isolation
+
+### Rule: Use Domain-Specific Roles for Use Case Features
+**CRITICAL**: System roles (`owner`, `member`, `admin`, `viewer`) MUST NOT be used to test use case features (e.g., Bank Surveillance, Marketing Agency). These roles are reserved for testing core B2B SaaS platform features.
+
+For all domain/use-case specific features:
+- **Use Only Use Case Roles**: Use roles defined in the use case's `team_roles.yaml` (e.g., `surveillance_chief`, `desk_manager`).
+- **Authorization Setup**: If a test user needs permission to access a specific resource, assign them the appropriate team role during test setup instead of using a platform `owner` role.
+- **Permission Elevation**: If necessary for a specific test scenario, add the required permissions to the domain role in `team_roles.yaml` or via role-assignment in the test fixture.
+
+### Example: Use Case Role Assignment
+```python
+async def setup_rbac(self, setup):
+    """Assign domain-specific role to the test user."""
+    db = setup["session"]
+    user_id = setup["owner"].id
+    
+    # Correct: Use use-case roles like 'surveillance_chief'
+    # Incorrect: Using 'owner' or 'admin' for bank features
+    from modules.b2b.models.team_role_definition import TeamRoleDefinition
+    role = (await db.execute(
+        select(TeamRoleDefinition).where(TeamRoleDefinition.name == "surveillance_chief")
+    )).scalars().first()
+    
+    # Assign to user...
+```
+
+## 9. Asyncio Configuration (CRITICAL)
 
 ### Problem: Scope Mismatch causing RuntimeError
 Using `session`-scoped fixtures (like `test_db_engine`) with default `pytest-asyncio` settings causes `RuntimeError: Task attached to a different loop`. This is because tests run in a Function-Scoped loop, but the DB engine was created in a (closed) Session Setup loop.
@@ -157,3 +184,9 @@ asyncio_mode = auto
 asyncio_default_fixture_loop_scope = session
 ```
 This ensures ALL async fixtures and tests share the same event loop lifecycle.
+
+## 10. Test commands and docker : Look at Makefile for docker commands
+Always look at makefile to identify relevant test commands and execute
+if you see any network failures or inconsistent container states, ALWAYS prune, recreate services and network for fresh start
+
+

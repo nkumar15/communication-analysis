@@ -26,6 +26,8 @@ import CaseListPage from './modules/domains/surveillance/pages/CaseListPage';
 import CaseDetailPage from './modules/domains/surveillance/pages/CaseDetailPage';
 import KnowledgeBasePage from './modules/domains/surveillance/pages/KnowledgeBasePage';
 import IngestionPage from './modules/domains/surveillance/pages/IngestionPage';
+import RegulatoryLibraryPage from './modules/domains/surveillance/pages/RegulatoryLibraryPage';
+import SurveillanceControlsPage from './modules/domains/surveillance/pages/SurveillanceControlsPage';
 
 import apiService from './core/api/b2bClient';
 import './styles/main.css';
@@ -157,6 +159,8 @@ function App() {
                 <Route path="/b2b/surveillance/communications" element={<ProtectedRoute><CommunicationsPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/cases" element={<ProtectedRoute><CaseListPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/ingestion" element={<ProtectedRoute><IngestionPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/regulatory" element={<ProtectedRoute><RegulatoryLibraryPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/controls" element={<ProtectedRoute><SurveillanceControlsPage /></ProtectedRoute>} />
 
                 {/* Billing routes */}
                 <Route path="/billing/subscription" element={<ProtectedRoute><SubscriptionSettingsPage /></ProtectedRoute>} />

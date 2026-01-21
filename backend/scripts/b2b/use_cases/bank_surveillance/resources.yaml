@@ -91,6 +91,19 @@ bank_surveillance_resources:
     description: Operational analytics and volume statistics
     is_system_resource: false
 
+  # ===== REGULATORY & CONTROLS =====
+  - name: regulatory
+    display_name: Regulatory Library
+    category: Surveillance
+    description: Storage and indexing of regulatory frameworks and guidelines
+    is_system_resource: false
+
+  - name: controls
+    display_name: Surveillance Controls
+    category: Surveillance
+    description: Risk typology and indicator control management
+    is_system_resource: false
+
   # ===== AI CONFIGURATION =====
   - name: model_config
     display_name: AI Model Configuration

@@ -43,7 +43,7 @@ from modules.b2b.routers import auth, activation, invitations, users, roles, tea
 from modules.b2b.models import RolePermission, Resource, Action, Role
 from sqlalchemy import select
 from modules.domains.b2b.task_management.routers import projects, tasks, comments
-from modules.domains.b2b.bank_surveillance.routers import communications, cases, alerts
+from modules.domains.b2b.bank_surveillance.routers import communications, cases, alerts, regulatory, controls
 
 # Mock langchain for environment where it is missing (e.g. CI/Test container subset)
 import sys
@@ -168,6 +168,8 @@ app.include_router(communications.router)
 app.include_router(cases.router)
 app.include_router(alerts.router)
 app.include_router(analysis.router)
+app.include_router(regulatory.router)
+app.include_router(controls.router)
 app.include_router(platform.router)
 app.include_router(platform_b2b.router)
 app.include_router(platform_b2c.router)

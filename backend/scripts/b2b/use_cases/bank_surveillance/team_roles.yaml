@@ -59,6 +59,11 @@ team_roles:
         actions: [read]
       - resource: teams
         actions: [read]
+      # REGULATORY & CONTROLS
+      - resource: regulatory
+        actions: [read, write, update, delete]
+      - resource: controls
+        actions: [read, write, update, delete]
 
   - name: head_compliance
     display_name: Head of Compliance
@@ -129,6 +134,11 @@ team_roles:
         actions: [read]
       - resource: teams
         actions: [read]
+      # REGULATORY & CONTROLS (Regional)
+      - resource: regulatory
+        actions: [read, write, update]
+      - resource: controls
+        actions: [read, write, update]
       - resource: team_members
         actions: [read]
 
