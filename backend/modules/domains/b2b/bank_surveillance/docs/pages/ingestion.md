@@ -1,48 +1,58 @@
-# Ingestion
+# Ingestion Pipeline
 
 ## Overview
 
 | Attribute | Details |
 |-----------|---------|
-| **Goal** | Monitor and manage the daily ingestion pipeline for communication data |
+| **Goal** | Efficiently ingest communication dumps and execute the multi-step risk detection pipeline |
 | **Target Persona** | David Zheng (IT Admin), Dr. Priya Sharma (Risk Officer) |
 | **Permission** | `surveillance:admin` |
+
+## The Multi-Step Pipeline
+
+In accordance with banking standards for high-volume data, the ingestion process is split into separate **Detection** and **Aggregation** phases to ensure accuracy and noise reduction.
+
+### Step 1: Risk Identification (Potential Incidents)
+Every single message ingested is immediately passed through the **[Surveillance Controls](./surveillance_controls.md)** engine.
+- **Action**: The system checks if the message matches any active **Risk Indicators**.
+- **Output**: Each match is recorded as a **"Risk Signal"** (Potential Incident). 
+- **Retention**: All Risk Signals (including low-confidence or non-alerting ones) are retained for historical **Risk Scoring** and audit, even if they don't result in an Alert.
+- **Effective Dating**: Detection only uses Surveillance Controls that are **active** for the message's timestamp. Updates to controls apply to **future data only** (no retroactive signal generation).
+
+### Step 2: Alert Aggregation (End-of-Day Batch)
+After the daily data dump is fully processed, an aggregation job runs to generate actionable Alerts.
+- **Constraint**: **1 Alert per [Sender] per [Day] per [Risk Indicator]**. 
+- **Example**: If a sender triggers "Load Shifting" 5 times in a day, only **one** alert is created for that specific indicator.
+- **Context**: Although the alert is sender-based, the Alert Details view will show the **entire conversation thread** for all flagged messages to provide full context.
+
+### Idempotency & Re-Ingestion
+To handle data corrections or duplicate uploads:
+- **Identifier Hash**: Every message is hashed (content + timestamp + sender) to prevent duplicate Step 1 processing.
+- **Daily Flush & Replace**: If Step 2 (Aggregation) is re-run for a specific date, existing "Open" alerts for that date/sender/indicator are updated/refreshed, while "Addressed" alerts are preserved to maintain the audit trail.
+- **Job Locking**: Only one aggregation job can run per tenant per day.
 
 ## Features/Widgets
 
 | Feature | Description | Data Source |
 |---------|-------------|-------------|
-| Pipeline Status | Real-time status of daily jobs (Running, Completed, Failed) | `ingestion_logs` |
-| File Watcher | Source path monitoring for `YYYYMMDD` patterns | File System / S3 |
-| Volume Metrics | Today's Volume and Total Messages processed | Ingestion Metrics |
-| **Multi-Format Ingestion**| Support for Email, Chat Logs, Voice Transcripts | Universal Connector |
-| **Entity Resolution** | Fuzzy matching of external IDs (email) to Internal Profiles | Directory Service |
-| **Risk Tagging** | Auto-apply risk classifiers during ingestion | Model Service |
+| **Pipeline Monitor** | Visual track of Step 1 (Processing) vs Step 2 (Aggregation). | `ingestion_logs` |
+| **Signal Tally** | Counter showing "Signals Detected" vs "Alerts Created" (Noise filter ratio). | `risk_signals` / `alerts` |
+| **Re-process Control** | Force re-run of Alert Aggregation without re-ingesting raw data. | `tasks/aggregation` |
 
 ## User Stories
 
-<!-- Page-Specific Interactions & UI Needs -->
-1. **As an IT Admin**, I want to see the status of today's `YYYYMMDD` ingestion job so that I can confirm data freshness.
-2. **As an IT Admin**, I want to manually retry failed file segments so that I can resolve transient network errors.
-3. **As a Risk Officer**, I want to see daily volume charts so that I can detect anomalous spikes in communication traffic.
-4. **As a Data Engineer**, I want confirmation that indexed data is available for both RAG and Keyword search engines.
-5. **As a Surveillance Ops Officer**, I want the system to automatically map external email addresses to internal employee profiles so that risk history is tracked against the right person.
-6. **As a Compliance Officer**, I want every message scanned for risk signals immediately upon ingestion so that no critical alert is delayed.
+1. **As a Surveillance Risk Officer**, I want to see how many "Potential Incidents" were identified before aggregation so I can tune my control thresholds.
+2. **As an Analyst**, I want the aggregated alert to contain all related messages so I can see the full evidence path in one view.
+3. **As an IT Admin**, I want Step 1 (Ingestion) to be fast, while Step 2 (AI Analysis) runs asynchronously.
 
 ## UX Rules
 
-- Status indicators use traffic light colors (Green=Healthy, Red=Failed)
-- Failed jobs must show clear error messages (e.g., "Corrupt archive", "Permission denied")
-- "Force Re-ingest" requires double confirmation
-
-## Demo Hook
-
-> "System auto-detects '20011023.zip', processes 15k messages in 45s, and immediately flags 12 high-risk items."
-
-## Wireframe
-
-![Ingestion Wireframe](../wireframes/ingestion.png)
+- **Status Separation**: Distinctly show if a job failed at the Ingestion step or the Aggregating step.
+- **Volume Indicators**: Display a "Fan-in" chart showing how thousands of messages result in hundreds of signals and ultimately tens of alerts.
 
 ## Technical Implementation
 
-See [API Reference](../technical/api.md#ingestion)
+- **Step 1 Worker**: High-speed parallel scanning (Keyword/Regex).
+- **Step 2 Worker**: Enrichment and Aggregation (GenAI/Semantic/Metadata clustering).
+
+See [Architecture Diagram](../technical/architecture.md) for data flow.

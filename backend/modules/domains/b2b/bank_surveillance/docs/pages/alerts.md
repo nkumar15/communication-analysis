@@ -1,25 +1,19 @@
-# Alerts
+## Alert Generation Logic
 
-## Overview
-
-| Attribute | Details |
-|-----------|---------|
-| **Goal** | The daily workflow hub where analysts live |
-| **Target Persona** | Marcus Johnson (Surveillance Analyst) |
-| **Permission** | `surveillance:read` |
+To reduce noise and ensure focused reviews, the system aggregates signals using a strict hierarchy:
+- **Aggregation**: **1 Alert per [Sender] per [Day] per [Risk Indicator]**.
+- **Contextual Evidence**: When viewing an alert, the system displays the **full conversation thread** containing all triggered Risk Signals for that sender, even if only one message was the primary trigger.
+- **Incident Trail**: Historical Risk Signals (including low-score incidents) are visible in the user's risk profile for long-term behavioral analysis.
 
 ## Features/Widgets
 
 | Feature | Description |
 |---------|-------------|
-| Alert List | Sortable table with risk type, confidence, region, team |
-| Risk Type Filter | Insider Trading, Market Abuse, Information Barrier, Evasion |
-| Date Range Filter | Today, Last 7 days, Custom range |
-| Region Filter | APAC, EMEA, Americas, Global |
-| Bulk Actions | Close, Escalate, Convert to Case |
-| Quick Stats | Open alerts count, critical count, oldest alert age |
-| **Dynamic Aggregation** | Group related signals into single "Alert Case" (Time/Context window) |
-| **Conversational Context**| View full thread context for grouped alerts |
+| Alert List | Sortable table with Risk Typology, Indicator, Confidence, and Signal Count. |
+| **Signal Evidence** | A list of all specific messages (Risk Signals) that contributed to this Alert. |
+| **Indicator Breakdown** | Visual summary of why these signals were grouped (e.g., "5 matches for 'Load Shifting' detected"). |
+| Risk Type Filter | Filter by **Risk Typology** (e.g., Market Manipulation) or **Risk Indicator** (e.g., Front Running). |
+
 
 ## User Stories
 

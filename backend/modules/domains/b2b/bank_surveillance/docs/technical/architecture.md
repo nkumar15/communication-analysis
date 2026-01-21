@@ -25,15 +25,12 @@ graph TD
 
 | Component | File | Description |
 | :--- | :--- | :--- |
-| **API** | `routers/communications.py` | Message CRUD & Search Endpoints |
-| **API** | `routers/investigations.py` | AI Analysis & Agent Coordination |
-| **API** | `routers/graph.py` | Network Analysis Endpoints |
-| **API** | `routers/ingestion.py` | Ingestion Trigger & Status |
-| **Service** | `services/orchestrator.py` | Coordinates AI Agents & Case Assembly |
-| **Service** | `services/graph.py` | NetworkX Logic (Cliques, Centrality) |
-| **Service** | `services/rag.py` | Vector Search over Communications |
-| **Service** | `services/ingestion.py` | ETL Logic for Daily Dumps |
-| **Worker** | `tasks/ingestion.py` | Celery Background Task |
+| **Control Engine** | `services/engine.py` | Executes Risk Indicators against incoming messages |
+| **Alerting Service** | `services/alerting.py`| Aggregates Risk Signals into singular Alerts |
+| **Risk Signal Model** | `models/signal.py` | Persistent store for "Potential Incidents" |
+| **Surv. Control Model**| `models/control.py` | Configuration for Typologies and Indicators |
+| **Ingestion Service** | `services/ingestion.py` | ETL Logic + Step 1 Coordination |
+| **Worker** | `tasks/ingestion.py` | Celery Background Task (Step 1 & 2) |
 | **Model** | `models/investigation.py` | Case Management Entity |
 | **Model** | `models/communication.py` | Unified Message Entity (Email/Chat) |
 | **Model** | `models/ingestion_log.py` | ETL Job Status Tracking |
