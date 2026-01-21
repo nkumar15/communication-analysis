@@ -56,22 +56,23 @@
 
 ---
 
-## Policies
+## Surveillance Controls
 
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
-| `GET` | `/policies` | List risk policies | `policy:read` |
-| `POST` | `/policies` | Create new policy | `policy:manage` |
-| `PUT` | `/policies/{id}` | Update policy rules | `policy:manage` |
-| `POST` | `/policies/test` | Test rules against sample | `policy:manage` |
+| `GET` | `/surveillance-controls` | List detection controls | `controls:read` |
+| `POST` | `/surveillance-controls` | Create new control (JSON) | `controls:manage` |
+| `PUT` | `/surveillance-controls/{id}` | Update control logic | `controls:manage` |
+| `POST` | `/surveillance-controls/test` | Test control against sample | `controls:manage` |
 
-### Regulatory Documents (Knowledge Base)
+### Regulatory Library (Knowledge Base)
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
-| `POST` | `/policies/documents` | Upload PDF (MAS/SEC/FCA) | `policy:manage` |
-| `GET` | `/policies/documents/{id}/citation` | Retrieve specific clause text | `policy:read` |
+| `POST` | `/regulatory-library/documents` | Upload PDF (MAS/SEC/FCA) | `regulatory:manage` |
+| `GET` | `/regulatory-library/documents` | List stored frameworks | `regulatory:read` |
+| `GET` | `/regulatory-library/documents/{id}/citation` | Retrieve specific clause text | `regulatory:read` |
 
-### Policy Feedback
+### Control Feedback
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
 | `POST` | `/alerts/{id}/feedback` | Mark False Positive | `surveillance:write` |

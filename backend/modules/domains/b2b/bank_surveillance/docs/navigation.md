@@ -21,7 +21,8 @@ The navigation follows a **task-based** mental model, grouping features by workf
 │                                  │                             ││
 │  ─── OPERATIONS ───              │                             ││
 │  📥 Ingestion                    │                             ││
-│  📋 Policies                     │                             ││
+│  🛡️ Surveillance Controls         │                             ││
+│  📚 Regulatory Library           │                             ││
 │                                  │                             ││
 │  ─── GOVERNANCE ───              │                             ││
 │  👥 Teams & Access               │                             ││
@@ -42,7 +43,7 @@ The navigation follows a **task-based** mental model, grouping features by workf
 | **Core** | Dashboard | All users |
 | **Surveillance** | Alerts, Investigations, Cases | Analysts, Managers |
 | **Discovery** | Search & RAG | Analysts, Risk Officers |
-| **Operations** | Ingestion, Policies | Risk Officers, Admins |
+| **Operations** | Ingestion, Surveillance Controls, Regulatory Library | Risk Officers, Admins |
 | **Governance** | Teams & Access, Audit & Reports | Managers, Compliance |
 | **Platform** | Admin Settings | Platform Admins only |
 
@@ -65,7 +66,8 @@ graph TD
     G --> D
     
     H[Ingestion] --> A
-    I[Policies] --> B
+    I[Surveillance Controls] --> B
+    P[Regulatory Library] --> I
     
     J[Teams & Access] --> K[User Profile]
     L[Audit & Reports] --> M[Export]
@@ -98,7 +100,8 @@ graph TD
 | Cases | `surveillance:read` | Hidden |
 | Search & RAG | `rag:read` | Hidden |
 | Ingestion | `surveillance:admin` | Hidden |
-| Policies | `surveillance:admin` | Hidden |
+| Surveillance Controls | `controls:admin` | Hidden |
+| Regulatory Library | `regulatory:read` | Hidden |
 | Teams & Access | `iam:read` | Hidden |
 | Audit & Reports | `audit:read` | Hidden |
 | Admin Settings | `platform:admin` | Hidden |
