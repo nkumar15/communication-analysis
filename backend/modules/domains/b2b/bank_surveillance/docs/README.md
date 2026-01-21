@@ -37,11 +37,13 @@ This platform transforms raw communication data into actionable compliance insig
 ### Pages
 - [Dashboard](./pages/dashboard.md)
 - [Alerts](./pages/alerts.md)
+- [Alert Details View](./pages/alert_details.md)
 - [Investigation Workspace](./pages/investigation.md)
 - [Case Management](./pages/case_management.md)
 - [Search & RAG](./pages/search_rag.md)
 - [Surveillance Controls](./pages/surveillance_controls.md)
 - [Regulatory Library](./pages/regulatory_library.md)
+- [AI Trust & Governance](./pages/ai_trust.md)
 - [More pages...](./pages/)
 
 ### Technical Docs

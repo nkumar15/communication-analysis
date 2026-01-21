@@ -25,6 +25,7 @@ The navigation follows a **task-based** mental model, grouping features by workf
 │  📚 Regulatory Library           │                             ││
 │                                  │                             ││
 │  ─── GOVERNANCE ───              │                             ││
+│  🛡️ AI Trust & Governance        │                             ││
 │  👥 Teams & Access               │                             ││
 │  📈 Audit & Reports              │                             ││
 │                                  │                             ││

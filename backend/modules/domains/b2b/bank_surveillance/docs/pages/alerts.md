@@ -12,6 +12,9 @@ To reduce noise and ensure focused reviews, the system aggregates signals using 
 | Alert List | Sortable table with Risk Typology, Indicator, Confidence, and Signal Count. |
 | **Signal Evidence** | A list of all specific messages (Risk Signals) that contributed to this Alert. |
 | **Indicator Breakdown** | Visual summary of why these signals were grouped (e.g., "5 matches for 'Load Shifting' detected"). |
+| **AI Reasoning Sidebar** | **(AI Trust)** A slide-out panel showing the AI's "Chain of Thought" logic for this specific classification. |
+| **Regulatory Citation** | **(AI Trust)** Explicit links to specific clauses in the **[Regulatory Library](./regulatory_library.md)** explaining the legal context. |
+| **Consensus Badge** | **(AI Trust)** Visual indicator of model agreement (e.g., "3/3 Models Agree") to prove robustness. |
 | Risk Type Filter | Filter by **Risk Typology** (e.g., Market Manipulation) or **Risk Indicator** (e.g., Front Running). |
 
 
@@ -27,9 +30,12 @@ To reduce noise and ensure focused reviews, the system aggregates signals using 
 
 ## UX Rules
 
-- Alerts are business objects, not raw emails
-- Never show a simple "email list" – always contextualize
-- Color-coded risk levels (Red/Amber/Green)
+- **Alerts as Business Objects**: Alerts are not raw emails; they are containers of evidence.
+- **Explainability First**: Never show a "Risk" flag without an immediately accessible "Why?" reasoning sidebar.
+- **Source Highlighting**: Within a message, the system MUST highlight the specific phrases that triggered the Risk Indicator.
+- **Model Consensus**: Visually badge alerts that have been verified by multiple models (AI Verify standard).
+- **Control Traceability**: Every alert must link back to the exact **[Surveillance Control](./surveillance_controls.md)** version that detected it.
+- **Color Coding**: Risk levels (Red/Amber/Green) must be based on "Aggregated Confidence," not just single keyword hits.
 
 ## Demo Hook
 
