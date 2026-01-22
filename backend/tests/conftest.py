@@ -1,9 +1,3 @@
-"""
-Pytest configuration and shared fixtures for E2E testing - SIMPLIFIED VERSION
-"""
-import os
-
-# Set TESTING flag BEFORE importing app (enables Celery eager mode for sync task execution)
 import os
 from dotenv import load_dotenv
 
@@ -302,24 +296,10 @@ async def test_db_engine():
     await engine.dispose()
 
 
-# from tests.seed_utils import seed_test_database_from_yaml, clean_test_database # DELETED
-from scripts.b2b.seed_rbac import seed_b2b_rbac_data
-
 # ... (omitted)
 
-@pytest_asyncio.fixture(scope="session")
-async def seed_db():
-    """
-    Session-scoped fixture.
-    
-    NOTE: Global seeding is disabled per user request.
-    Valid baseline data should be created by individual test fixtures (e.g. b2b_test_setup).
-    """
-    yield
-
-
 @pytest_asyncio.fixture
-async def db_session(test_db_engine, seed_db) -> AsyncSession:
+async def db_session(test_db_engine) -> AsyncSession:
     """Create a fresh database session for each test"""
     async_session_factory = async_sessionmaker(
         test_db_engine, class_=AsyncSession, expire_on_commit=False
@@ -834,15 +814,6 @@ async def create_test_tenant(
     # Set tenant context for RLS before inserting tenant-scoped data
     from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
-    
-    
-    # Ensure RBAC seeds exist (Global Templates)
-    # Required now that global seed_db is disabled
-    from scripts.b2b.seed_rbac import seed_b2b_rbac_data
-    # We pass the session. This seeds GLOBAL permissions/roles if missing.
-    # Note: seed_b2b_rbac_data is idempotent.
-    await seed_b2b_rbac_data(db_session)
-    
     # Seed roles for this tenant using RoleTemplateService
     from modules.b2b.services.role_template_service import role_template_service
     await role_template_service.seed_tenant_roles(db_session, tenant.id)
@@ -857,63 +828,6 @@ async def create_test_tenant(
         is_default=True
     )
     
-    # --- Seed Subscription Plans (Idempotent Global Templates) ---
-    from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
-    
-    plans_to_seed = [
-        {
-            "tier_key": "starter",
-            "name": "Starter",
-            "description": "Essential features for small teams",
-            "base_price_monthly": 0,
-            "base_price_yearly": 0,
-            "per_seat_price_monthly": 100000,
-            "per_seat_price_yearly": 1000000,
-            "limits": {"max_users": 5, "max_teams": 2},
-            "features": {"core": True, "rbac": "base"},
-            "provider_config": {"stripe": {"monthly_price_id": "price_starter_monthly", "yearly_price_id": "price_starter_yearly"}}
-        },
-        {
-            "tier_key": "professional",
-            "name": "Professional",
-            "description": "Advanced collaboration and security",
-            "base_price_monthly": 500000,
-            "base_price_yearly": 5000000,
-            "per_seat_price_monthly": 200000,
-            "per_seat_price_yearly": 2000000,
-            "limits": {"max_users": 50, "max_teams": 10},
-            "features": {"core": True, "rbac": "full", "dedicated_support": True},
-            "provider_config": {"stripe": {"monthly_price_id": "price_professional_monthly", "yearly_price_id": "price_professional_yearly"}}
-        },
-        {
-            "tier_key": "enterprise",
-            "name": "Enterprise",
-            "description": "Custom solutions for large organizations",
-            "base_price_monthly": 0,
-            "base_price_yearly": 0,
-            "per_seat_price_monthly": 0,
-            "per_seat_price_yearly": 0,
-            "limits": {"max_users": -1, "max_teams": -1},
-            "features": {"core": True, "rbac": "full", "plugins": ["all"]},
-            "contact_required": True,
-            "provider_config": {"stripe": {"monthly_price_id": "price_enterprise_monthly", "yearly_price_id": "price_enterprise_yearly"}}
-        }
-    ]
-    
-    for plan_data in plans_to_seed:
-        result = await db_session.execute(
-            select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == plan_data["tier_key"])
-        )
-        existing_plan = result.scalar_one_or_none()
-        if not existing_plan:
-            plan = B2BSubscriptionPlan(**plan_data)
-            db_session.add(plan)
-        else:
-            existing_plan.provider_config = plan_data["provider_config"]
-            db_session.add(existing_plan)
-    
-    await db_session.flush()
-
     return tenant
 
 
