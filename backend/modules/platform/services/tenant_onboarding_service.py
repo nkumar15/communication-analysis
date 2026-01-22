@@ -59,28 +59,14 @@ class TenantOnboardingService:
             # Initialize Firebase if not already done
             get_auth_provider().initialize()
             
-            # Resolve Plan & Features if Tier provided
+            # Resolve Plan if Tier provided
             target_plan = None
-            tier_features = {}
             
             if subscription_tier:
                 stmt_plan = select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == subscription_tier)
                 res_plan = await db.execute(stmt_plan)
                 target_plan = res_plan.scalar_one_or_none()
-                if target_plan:
-                    tier_features = target_plan.features or {}
             
-            # Merge features: Plan Features + Manual overrides
-            # Using simple update logic (manual overrides plan)
-            final_features = tier_features.copy()
-            if features:
-                # We need a proper merge for 'plugins' list if present in both
-                for key, val in features.items():
-                    if key == 'plugins' and 'plugins' in final_features:
-                         # Union
-                         final_features['plugins'] = sorted(list(set(final_features['plugins'] + val)))
-                    else:
-                         final_features[key] = val
             # Check for existing tenant in DB first to handle idempotency
             stmt = select(TenantModel).where(TenantModel.domain == domain.lower())
             result = await db.execute(stmt)
@@ -93,10 +79,11 @@ class TenantOnboardingService:
                 
                 print(f"♻️  Tenant exists (pending), resending activation for {domain}")
                 
-                # Update features if provided (for repair/updating existing demo tenant)
-                if final_features:
-                     # Use service to ensure hooks run even on repair
-                     await tenant_service.update_tenant_features(db, existing_tenant.id, final_features)
+                # Apply subscription config if plan provided (for repair/updating existing tenant)
+                if target_plan:
+                    from modules.b2b.services.subscription_service import SubscriptionService
+                    sub_service = SubscriptionService(db)
+                    await sub_service.apply_subscription_to_tenant(existing_tenant.id, target_plan)
 
 
                 # Update/Ensure Subscription if Tier provided (Repair/Upgrade)
@@ -226,9 +213,11 @@ class TenantOnboardingService:
                 # Better to leave null or create default if business logic requires.
                 pass
 
-            # 3.6 Apply Features via Service (Hooks for plugins)
-            if final_features:
-                await tenant_service.update_tenant_features(db, tenant.id, final_features)
+            # 3.6 Apply Subscription Config (Plugins + Features + Limits)
+            if target_plan:
+                from modules.b2b.services.subscription_service import SubscriptionService
+                sub_service = SubscriptionService(db)
+                await sub_service.apply_subscription_to_tenant(tenant.id, target_plan)
 
             # 4. Seed roles from templates
             await role_template_service.seed_tenant_roles(db, tenant.id)

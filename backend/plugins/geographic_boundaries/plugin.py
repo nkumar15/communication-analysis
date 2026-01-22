@@ -129,14 +129,46 @@ class GeographicBoundariesPlugin(RBACPlugin):
     async def on_tenant_enable(self, tenant_id: str, db) -> None:
         """
         Lifecycle hook when plugin is enabled.
-        Configuration is now strictly driven by external sources (CLI/YAML) 
-        or Admin API, so we do not seed hardcoded defaults here.
+        Fetches the master template from b2b.plugin_templates and clones it for this tenant.
         """
+        from sqlalchemy import select
+        from modules.b2b.models.plugin_template import PluginTemplate
+        from modules.b2b.models.geographic_region import GeographicRegion
+        from uuid import UUID
+
         logger.info(f"Plugin Hook: Enabling geographic_boundaries for {tenant_id}")
-        # Logic moved to tenant_onboard.py (seed_plugin_config_from_yaml)
-        pass
+        
+        # 1. Fetch Master Template
+        stmt = select(PluginTemplate).where(PluginTemplate.plugin_slug == "geographic_boundaries")
+        result = await db.execute(stmt)
+        template = result.scalar_one_or_none()
+        
+        if not template:
+            logger.warning(f"No master template found for geographic_boundaries. Skipping default seed.")
+            return
 
-
+        # 2. Clone/Insert Regions
+        regions_data = template.template_data.get('default_regions', [])
+        for r in regions_data:
+            # Check if already exists (idempotent)
+            stmt_check = select(GeographicRegion).where(
+                GeographicRegion.tenant_id == UUID(tenant_id),
+                GeographicRegion.code == r['code']
+            )
+            existing = (await db.execute(stmt_check)).scalar_one_or_none()
+            
+            if not existing:
+                new_region = GeographicRegion(
+                    tenant_id=UUID(tenant_id),
+                    name=r['name'],
+                    code=r['code'],
+                    regulatory_jurisdiction=r.get('regulatory_jurisdiction'),
+                    data_residency_rules=r.get('data_residency_rules')
+                )
+                db.add(new_region)
+                logger.info(f"   + Cloned Region: {r['code']}")
+        
+        await db.flush()
 
     async def on_tenant_disable(self, tenant_id: str, db) -> None:
         logger.info(f"Plugin Hook: Disabling geographic_boundaries for {tenant_id} (No data purge)")

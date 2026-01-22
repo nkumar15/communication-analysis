@@ -110,3 +110,50 @@ class HierarchicalTeamsPlugin(RBACPlugin):
         
         result = await db.execute(stmt, {"parent_id": parent_team_id})
         return [str(row.id) for row in result]
+
+    async def on_tenant_enable(self, tenant_id: str, db) -> None:
+        """
+        Lifecycle hook when plugin is enabled.
+        Fetches the master template from b2b.plugin_templates and clones it for this tenant.
+        """
+        from sqlalchemy import select
+        from modules.b2b.models.plugin_template import PluginTemplate
+        from modules.b2b.models.scope_level import OrgTier
+        from uuid import UUID
+
+        logger.info(f"Plugin Hook: Enabling hierarchical_teams for {tenant_id}")
+        
+        # 1. Fetch Master Template
+        stmt = select(PluginTemplate).where(PluginTemplate.plugin_slug == "hierarchical_teams")
+        result = await db.execute(stmt)
+        template = result.scalar_one_or_none()
+        
+        if not template:
+            logger.warning(f"No master template found for hierarchical_teams. Skipping default seed.")
+            return
+
+        # 2. Clone/Insert Org Tiers
+        tier_data = template.template_data.get('org_tiers', [])
+        for tier in tier_data:
+            # Check if already exists (idempotent)
+            stmt_check = select(OrgTier).where(
+                OrgTier.tenant_id == UUID(tenant_id),
+                OrgTier.name == tier['name']
+            )
+            existing = (await db.execute(stmt_check)).scalar_one_or_none()
+            
+            if not existing:
+                new_tier = OrgTier(
+                    tenant_id=UUID(tenant_id),
+                    name=tier['name'],
+                    display_name=tier['display_name'],
+                    description=tier.get('description'),
+                    hierarchy_order=tier['hierarchy_order']
+                )
+                db.add(new_tier)
+                logger.info(f"   + Cloned Org Tier: {tier['name']}")
+        
+        await db.flush()
+
+    async def on_tenant_disable(self, tenant_id: str, db) -> None:
+        logger.info(f"Plugin Hook: Disabling hierarchical_teams for {tenant_id} (No data purge)")

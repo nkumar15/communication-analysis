@@ -82,25 +82,3 @@ resources:
     category: Analytics
     description: System reports and analytics
     is_system_resource: true
-
-  # =========================================================================
-  # COMMON DOMAIN RESOURCES (Available to all)
-  # =========================================================================
-
-  - name: projects
-    display_name: Projects
-    category: Task Management
-    description: Cross-functional projects
-    is_system_resource: false
-
-  - name: rag_nse
-    display_name: NSE Earnings
-    category: Research
-    description: RAG analysis of NSE earnings calls
-    is_system_resource: false
-
-  - name: rag_enron
-    display_name: Enron Emails
-    category: Research
-    description: RAG analysis of Enron emails
-    is_system_resource: false

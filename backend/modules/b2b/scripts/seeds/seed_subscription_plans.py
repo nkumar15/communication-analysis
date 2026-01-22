@@ -5,18 +5,19 @@ import asyncio
 import os
 import sys
 import yaml
+from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import select, text
 from sqlalchemy.orm import sessionmaker
 
-# Add backend directory to path
-sys.path.append('/app')
+# Setup path to import from backend
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../")))
 
 from core.config import settings
 from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
 
 def load_plans_from_yaml():
-    yaml_path = os.path.join(os.path.dirname(__file__), 'subscription_plans.yaml')
+    yaml_path = Path(__file__).parent / 'foundation_subscription_plans.yaml'
     with open(yaml_path, 'r') as f:
         data = yaml.safe_load(f)
     return data.get('plans', [])
@@ -36,7 +37,9 @@ async def seed_b2b_plans():
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as db:
-        print("Seeding B2B Plans (with Feature Inheritance)...")
+        # We now ALWAYS seed foundational plans. 
+        # Domains will overlay their specific tiers if they provide them.
+        print("Seeding Foundational B2B Plans...")
         
         # Set RLS context for seeding (simulate platform admin)
         await db.execute(text("SELECT set_config('app.current_user_role', 'platform_admin', false)"))
@@ -163,6 +166,9 @@ def deep_merge_features(base, override):
             result[key] = value
             
     return result
+
+if __name__ == "__main__":
+    asyncio.run(seed_b2b_plans())
 
 if __name__ == "__main__":
     asyncio.run(seed_b2b_plans())

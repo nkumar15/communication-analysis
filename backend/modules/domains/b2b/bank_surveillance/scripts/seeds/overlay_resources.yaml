@@ -47,11 +47,6 @@ bank_surveillance_resources:
     is_system_resource: false
 
   # ===== COMPLIANCE & AUDIT =====
-  - name: audit_logs
-    display_name: Audit Logs
-    category: Compliance
-    description: Chain of custody logs for external auditors
-    is_system_resource: false
 
   - name: retention_policies
     display_name: Retention Policies

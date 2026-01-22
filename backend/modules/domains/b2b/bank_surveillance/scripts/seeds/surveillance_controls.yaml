@@ -1,0 +1,30 @@
+surveillance_controls:
+  - risk_typology: "Market Manipulation"
+    risk_indicator: "Gaming Strategies"
+    regulatory_reference: "FERC Anti-Manipulation Rule"
+    detection_methods: ["Keyword"]
+    status: "Active"
+  
+  - risk_typology: "Market Manipulation"
+    risk_indicator: "Load Shifting"
+    regulatory_reference: "FERC Anti-Manipulation Rule"
+    detection_methods: ["Semantic"]
+    status: "Active"
+
+  - risk_typology: "Financial Fraud"
+    risk_indicator: "Off-Balance Sheet"
+    regulatory_reference: "MAS Guidelines on Risk Management"
+    detection_methods: ["Keyword", "Graph"]
+    status: "Active"
+
+  - risk_typology: "Conflict of Interest"
+    risk_indicator: "Analyst Pressure"
+    regulatory_reference: "FCA Market Abuse Regulation (MAR)"
+    detection_methods: ["Semantic"]
+    status: "Active"
+
+  - risk_typology: "Evasion & Secrecy"
+    risk_indicator: "Channel Hopping"
+    regulatory_reference: "SEC Rule 10b-5: Employment of Manipulative and Deceptive Devices"
+    detection_methods: ["Semantic"]
+    status: "Active"

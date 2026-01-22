@@ -7,16 +7,15 @@ import sys
 import os
 import asyncio
 import click
+
+
 # Add backend directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from core.db.session import AsyncSessionLocal
 from infrastructure.auth import get_auth_provider
-from modules.platform.services.tenant_onboarding_service import tenant_onboarding_service
 from core.rbac.init_plugins import initialize_plugins
-
-# Initialize plugins (load registry)
-# initialize_plugins() -> REMOVED (Moved to async functions)
+from modules.platform.services.tenant_onboarding_service import tenant_onboarding_service
 
 
 @click.group()
@@ -25,10 +24,11 @@ def cli():
 # ...
 
 async def _seed_teams_recursive(db, tenant_id, team_list, parent_id=None, level=0):
-    """Recursively seed teams with parent-child relationships"""
+    """Recursively seed teams with parent-child relationships. Returns count of teams created/updated."""
     from modules.b2b.models.team import Team
     from sqlalchemy import select
     
+    count = 0
     for t_config in team_list:
         name = t_config['name']
         desc = t_config.get('description')
@@ -62,6 +62,7 @@ async def _seed_teams_recursive(db, tenant_id, team_list, parent_id=None, level=
             await db.flush() # Need ID for children
             team_id = new_team.id
             click.echo(f"      + Created Team: {name} (Level {level})")
+            count += 1
         else:
             team_id = existing.id
             # Update parent/level/org_tier if needed
@@ -79,90 +80,41 @@ async def _seed_teams_recursive(db, tenant_id, team_list, parent_id=None, level=
                 db.add(existing)
                 await db.flush()
                 click.echo(f"      ~ Updated Team Hierarchy/Tier: {name}")
+                count += 1
             else:
                  click.echo(f"      . Team {name} exists")
         
         # Process Children
         if t_config.get('children'):
-            await _seed_teams_recursive(db, tenant_id, t_config['children'], team_id, level + 1)
+            child_count = await _seed_teams_recursive(db, tenant_id, t_config['children'], team_id, level + 1)
+            count += child_count
+    
+    return count
 
 
 async def seed_plugin_config_from_yaml(db, tenant_id, yaml_path):
-    """Seed plugin configuration (e.g. Regions) from YAML file"""
+    """Seed instance-specific data (e.g. Teams) from YAML file. 
+    Blueprints (Regions, Levels, Tiers) are now handled automatically by service hooks.
+    """
     import yaml
     import os
     if not os.path.exists(yaml_path):
         return
 
-    click.echo(f"📄 Seeding plugin config from {yaml_path}")
+    click.echo(f"📄 Seeding instance data from {yaml_path}")
     try:
         with open(yaml_path, 'r') as f:
             config = yaml.safe_load(f)
             
-        # 1. Geographic Boundaries
-        if config.get("geographic_boundaries") and config["geographic_boundaries"].get("default_regions"):
-            from modules.b2b.models.geographic_region import GeographicRegion
-            from sqlalchemy import select
-            
-            regions = config["geographic_boundaries"]["default_regions"]
-            click.echo(f"   -> Seeding {len(regions)} regions from config...")
-            
-            for r in regions:
-                stmt = select(GeographicRegion).where(
-                    GeographicRegion.tenant_id == tenant_id,
-                    GeographicRegion.code == r['code']
-                )
-                existing = (await db.execute(stmt)).scalar_one_or_none()
-                
-                if not existing:
-                    new_region = GeographicRegion(
-                        tenant_id=tenant_id,
-                        name=r['name'],
-                        code=r['code'],
-                    )
-                    db.add(new_region)
-                    click.echo(f"      + Created Region: {r['code']}")
-                else:
-                    click.echo(f"      . Region {r['code']} exists")
-
-        # 2. Data Classification (Sensitivity Levels)
-        if config.get("data_classification") and config["data_classification"].get("sensitivity_levels"):
-            # Dynamic Table Model (since it was just created in migration and might not have ORM yet)
-            # We can use raw SQL or quickly define a temporary model. Raw SQL is safer for migration scripts.
-            from sqlalchemy import text
-            
-            levels = config["data_classification"]["sensitivity_levels"]
-            click.echo(f"   -> Seeding {len(levels)} sensitivity levels from config...")
-            
-            for lvl in levels:
-                # Check exist by level integer
-                stmt = text("SELECT id FROM b2b.sensitivity_levels WHERE tenant_id = :tid AND level = :lvl")
-                result = await db.execute(stmt, {"tid": tenant_id, "lvl": lvl['level']})
-                existing = result.first()
-                
-                if not existing:
-                    ins = text("""
-                        INSERT INTO b2b.sensitivity_levels (tenant_id, name, level, description)
-                        VALUES (:tid, :name, :lvl, :desc)
-                    """)
-                    await db.execute(ins, {
-                        "tid": tenant_id,
-                        "name": lvl['name'],
-                        "lvl": lvl['level'],
-                        "desc": lvl.get('description', '')
-                    })
-                    click.echo(f"      + Created Level: {lvl['name']} ({lvl['level']})")
-                else:
-                    click.echo(f"      . Level {lvl['name']} exists")
-
-        # 3. Hierarchical Teams
+        # Hierarchical Teams (Instance data like APAC Desk, UK Desk)
         if config.get("hierarchical_teams") and config["hierarchical_teams"].get("seed_data"):
             teams_data = config["hierarchical_teams"]["seed_data"]
             click.echo(f"   -> Seeding Team Hierarchy from config...")
-            await _seed_teams_recursive(db, tenant_id, teams_data)
+            team_count = await _seed_teams_recursive(db, tenant_id, teams_data)
+            click.echo(f"      ✓ Created {team_count} teams")
 
     except Exception as e:
-        click.echo(f"⚠️  Failed to seed plugin config: {e}", err=True)
+        click.echo(f"⚠️  Failed to seed instance config: {e}", err=True)
 
 async def create_local_async(
     company, domain, firebase_tenant_id, owner_email, tenant_id=None, plugins=None, subscription_tier=None, plugins_yaml_path=None):
@@ -473,10 +425,10 @@ def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file
         click.echo(f"   Using Tenant ID: {tenant_id}")
 
     # Infer plugins.yaml path from config file path
-    # Convention: If 'file' is '.../bank_surveillance_demo.json', look for '.../plugins.yaml'
+    # Convention: If 'file' is '.../demo_tenant.json', look for '.../overlay_plugins.yaml'
     plugins_yaml_path = None
     config_dir = os.path.dirname(os.path.abspath(file))
-    potential_yaml = os.path.join(config_dir, "plugins.yaml")
+    potential_yaml = os.path.join(config_dir, "overlay_plugins.yaml")
     if os.path.exists(potential_yaml):
         click.echo(f"   found companion config: {potential_yaml}")
         plugins_yaml_path = potential_yaml
@@ -895,18 +847,12 @@ async def set_subscription_async(tenant_id, domain, tier):
 
             click.echo(f"🔄 Upgrading/Downgrading {tenant.name} to {plan.name}...")
             
-            # 3. Extract Plugins from Plan (The Feature Flag Logic)
-            target_plugins = plan.features.get('plugins', [])
-            click.echo(f"   📋 Plan Features plugins: {target_plugins}")
+            # 3. Apply Subscription Config (Plugins + Features + Limits)
+            from modules.b2b.services.subscription_service import SubscriptionService
+            sub_service = SubscriptionService(db)
+            config_result = await sub_service.apply_subscription_to_tenant(tenant.id, plan)
             
-            # 4. Call Service to Sync Plugins
-            plugin_result = await tenant_onboarding_service.tenant_service.update_tenant_plugins(
-                db=db,
-                tenant_id=tenant.id,
-                new_plugin_list=target_plugins
-            )
-            
-            # 5. Update Subscription Record (The Billing Logic)
+            # 4. Update Subscription Record (The Billing Logic)
             # Find or Create subscription
             sub = await db.scalar(
                 select(B2BSubscription).where(B2BSubscription.tenant_id == tenant.id)
@@ -937,9 +883,12 @@ async def set_subscription_async(tenant_id, domain, tier):
             
             # Summary
             click.echo(f"\n✅ Subscription set to: {tier.upper()}")
-            if plugin_result['added']: click.echo(f"   🟢 Plugins Enabled: {plugin_result['added']}")
-            if plugin_result['removed']: click.echo(f"   🔴 Plugins Disabled: {plugin_result['removed']}")
-            click.echo(f"   🔌 Final Active Plugins: {plugin_result['active_plugins']}")
+            if config_result.get('added_plugins'): 
+                click.echo(f"   🟢 Plugins Enabled: {config_result['added_plugins']}")
+            if config_result.get('removed_plugins'): 
+                click.echo(f"   🔴 Plugins Disabled: {config_result['removed_plugins']}")
+            click.echo(f"   🔌 Final Active Plugins: {config_result.get('active_features', {}).get('plugins', [])}")
+
 
         except Exception as e:
             click.echo(f"\n❌ Error: {str(e)}", err=True)

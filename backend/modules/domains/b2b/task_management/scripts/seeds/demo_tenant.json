@@ -4,7 +4,9 @@
   "domain": "firstcompany.net",
   "company": "First Company",
   "owner_email": "owner@firstcompany.net",
-  "last_updated": "1767973115.6554976",
+  "last_updated": "1769043694.3125951",
   "description": "Default task management demo tenant",
-  "use_case": "task_management"
+  "use_case": "task_management",
+  "plugins": [],
+  "subscription_tier": null
 }

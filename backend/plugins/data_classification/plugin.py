@@ -96,4 +96,50 @@ class DataClassificationPlugin(RBACPlugin):
         if row:
             return {"clearance_level": row.clearance_level}
             
-        return {"clearance_level": 1} 
+        return {"clearance_level": 1}
+
+    async def on_tenant_enable(self, tenant_id: str, db) -> None:
+        """
+        Lifecycle hook when plugin is enabled.
+        Fetches the master template from b2b.plugin_templates and clones it for this tenant.
+        """
+        from sqlalchemy import select
+        from modules.b2b.models.plugin_template import PluginTemplate
+        from modules.b2b.models.sensitivity_level import SensitivityLevel
+        from uuid import UUID
+
+        logger.info(f"Plugin Hook: Enabling data_classification for {tenant_id}")
+        
+        # 1. Fetch Master Template
+        stmt = select(PluginTemplate).where(PluginTemplate.plugin_slug == "data_classification")
+        result = await db.execute(stmt)
+        template = result.scalar_one_or_none()
+        
+        if not template:
+            logger.warning(f"No master template found for data_classification. Skipping default seed.")
+            return
+
+        # 2. Clone/Insert Sensitivity Levels
+        levels_data = template.template_data.get('sensitivity_levels', [])
+        for lvl in levels_data:
+            # Check if already exists (idempotent)
+            stmt_check = select(SensitivityLevel).where(
+                SensitivityLevel.tenant_id == UUID(tenant_id),
+                SensitivityLevel.level == lvl['level']
+            )
+            existing = (await db.execute(stmt_check)).scalar_one_or_none()
+            
+            if not existing:
+                new_lvl = SensitivityLevel(
+                    tenant_id=UUID(tenant_id),
+                    name=lvl['name'],
+                    level=lvl['level'],
+                    description=lvl.get('description')
+                )
+                db.add(new_lvl)
+                logger.info(f"   + Cloned Sensitivity Level: {lvl['name']}")
+        
+        await db.flush()
+
+    async def on_tenant_disable(self, tenant_id: str, db) -> None:
+        logger.info(f"Plugin Hook: Disabling data_classification for {tenant_id} (No data purge)")

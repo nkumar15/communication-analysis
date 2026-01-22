@@ -93,30 +93,32 @@ platform-seed-admin: ## Create Platform Admin User
 platform-seed-permissions: ## Seed platform permissions
 	docker-compose exec -T platform-api python /app/scripts/platform/seed_platform_permissions.py
 
-b2b-seed-roles: ## Seed RBAC roles and resources (USE_CASE=bank_surveillance|marketing_agency|task_management)
-	@echo "$(BLUE)Seeding RBAC data...$(NC)"
-	@if [ -n "$(USE_CASE)" ]; then \
-		echo "$(YELLOW)Loading use case: $(USE_CASE)$(NC)"; \
-		docker-compose run --rm b2b-api env USE_CASE=$(USE_CASE) INCLUDE_BASE_ROLES=$(INCLUDE_BASE_ROLES) python /app/scripts/b2b/seed_rbac.py; \
-	else \
-		docker-compose run --rm b2b-api python /app/scripts/b2b/seed_rbac.py; \
-	fi
-	@echo "$(GREEN)✓ RBAC data seeded$(NC)"
+b2b-seed-roles: ## Seed B2B RBAC Roles (Foundation + [USE_CASE])
+	@echo "$(BLUE)=== SaaS Admin Console - RBAC Seeding ===$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/seed_rbac.py
+ifdef USE_CASE
+	@echo "$(YELLOW)Loading domain use case: $(USE_CASE)$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_rbac.py
+endif
 
-b2b-seed-plans: ## Seed B2B subscription plans
-	@echo "$(BLUE)Seeding B2B subscription plans...$(NC)"
-	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_subscription_plans.py
-	@echo "$(GREEN)✓ B2B plans seeded$(NC)"
+b2b-seed-plans: ## Seed B2B Subscription Plans
+	@echo "$(BLUE)=== SaaS Admin Console - Subscription Seeding ===$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/seed_subscription_plans.py
 
 b2c-seed-plans: ## Seed B2C subscription plans
 	@echo "$(BLUE)Seeding B2C subscription plans...$(NC)"
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
-verify-seed: ## Verify B2B seed data completed successfully
-	@echo "$(BLUE)Verifying seed data...$(NC)"
-	@docker-compose exec -T b2b-api python /app/scripts/b2b/verify_seed.py
-	@echo "$(GREEN)✓ Seed data verified$(NC)"
+b2b-verify-seed: ## Verify B2B Seed Data
+	@echo "$(BLUE)=== SaaS Admin Console - Seed Verification ===$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/verify_seed.py
+
+b2b-seed-meta: ## Seed domain-specific metadata (generic - calls domain's seed_meta.py)
+ifdef USE_CASE
+	@echo "$(BLUE)=== $(USE_CASE) - Meta Seeding ===$(NC)"
+	@docker-compose exec -T b2b-api python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_meta.py
+endif
 
 seed-all: ## Run all seed scripts (requires API services running)
 	@echo "$(BLUE)Running seed scripts...$(NC)"
@@ -124,8 +126,21 @@ seed-all: ## Run all seed scripts (requires API services running)
 	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
 	@$(MAKE) b2b-seed-plans
 	@$(MAKE) b2c-seed-plans
-	@$(MAKE) verify-seed
+	@$(MAKE) b2b-verify-seed
 	@echo "$(GREEN)✓ Seed scripts complete$(NC)"
+
+seed-demo: ## Full demo system (optional USE_CASE=xxx)
+	@echo "$(BLUE)=== Setting up Demo System ===$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) restart
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+ifdef USE_CASE
+	@$(MAKE) b2b-invite f=modules/domains/b2b/$(USE_CASE)/scripts/seeds/demo_tenant.json
+	@$(MAKE) b2b-seed-meta USE_CASE=$(USE_CASE)
+else
+	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/demo_tenant.json
+endif
+	@echo "$(GREEN)✅ Demo system ready$(NC)"
 
 
 ## B2B Onboarding
@@ -133,17 +148,17 @@ seed-all: ## Run all seed scripts (requires API services running)
 b2b-invite: ## Invite B2B Tenant (f=file.json [PLUGINS=p1,p2])
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
 	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local \
-		--file $(or $(f),scripts/b2b/use_cases/task_management/task_management_demo.json) \
+		--file $(or $(f),modules/domains/b2b/task_management/scripts/seeds/task_management_demo.json) \
 		$(if $(PLUGINS),--plugins $(PLUGINS),)
 
 b2b-invite-bank: ## Invite Bank Tenant (Shortcut)
-	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json
+	@$(MAKE) b2b-invite f=modules/domains/b2b/bank_surveillance/scripts/seeds/bank_surveillance_demo.json
 
 b2b-invite-marketing: ## Invite Marketing Tenant (Shortcut)
-	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/marketing_agency/marketing_agency_demo.json
+	@$(MAKE) b2b-invite f=modules/domains/b2b/marketing_agency/scripts/seeds/marketing_agency_demo.json
 
 b2b-invite-task: ## Invite Task Management Tenant (Shortcut)
-	@$(MAKE) b2b-invite f=scripts/b2b/use_cases/task_management/task_management_demo.json
+	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/task_management_demo.json
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -159,20 +174,15 @@ endif
 
 ##@ B2B Demos
 
-b2b-demo-bank: ## Reset DB and seed bank surveillance RBAC (then create tenant via UI)
-	@echo "$(BLUE)🏦 Resetting DB for Bank Surveillance Demo...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) restart
-	@$(MAKE) seed-all USE_CASE=bank_surveillance
+b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + tenant + demo data)
+	@$(MAKE) seed-demo USE_CASE=bank_surveillance
 	@echo ""
-	@echo "$(GREEN)✅ Bank Surveillance RBAC Ready!$(NC)"
+	@echo "$(GREEN)✅ Bank Surveillance Demo Ready!$(NC)"
 	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
-	@echo "  👥 Roles: surveillance_lead (STL), surveillance_analyst (SA), operations_maker, operations_checker, compliance_officer (LCO), guest_analyst"
+	@echo "  👥 Roles: surveillance_chief, surveillance_analyst, operations_maker, operations_checker"
 	@echo ""
-	@echo "$(YELLOW)Next: Create demo tenant + owner user:$(NC)"
-	@echo "  make b2b-invite-bank"
-	@echo ""
-	@echo "$(BLUE)Then login as:$(NC) owner@worldwidebank.com and invite users via UI"
+	@echo "$(BLUE)Login as:$(NC) owner@worldwidebank.com"
+
 
 ##@ Testing
 

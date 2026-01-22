@@ -24,6 +24,8 @@ from .subscription_plan import B2BSubscriptionPlan
 from .coupon import B2BCoupon, B2BCouponRedemption
 
 from .geographic_region import GeographicRegion
+from .sensitivity_level import SensitivityLevel
+from .plugin_template import PluginTemplate
 
 # Backwards compatibility aliases
 Subscription = B2BSubscription
@@ -49,6 +51,8 @@ __all__ = [
     "OrgTier",
     "AuditLog",
     "GeographicRegion",
+    "SensitivityLevel",
+    "PluginTemplate",
     # Billing models
     "Subscription",
     "B2BSubscription",

@@ -1,0 +1,28 @@
+regulatory_documents:
+  - title: "MAS Guidelines on Risk Management"
+    framework: "MAS"
+    region: "Singapore"
+    year: 2023
+    version: "v1.2"
+    storage_path: "regulatory/mas_risk_mgmt_2023.pdf"
+  
+  - title: "SEC Rule 10b-5: Employment of Manipulative and Deceptive Devices"
+    framework: "SEC"
+    region: "USA"
+    year: 1942
+    version: "Codified"
+    storage_path: "regulatory/sec_rule_10b5.pdf"
+
+  - title: "FCA Market Abuse Regulation (MAR)"
+    framework: "FCA"
+    region: "UK"
+    year: 2016
+    version: "v3.0"
+    storage_path: "regulatory/fca_mar_2016.pdf"
+
+  - title: "FERC Anti-Manipulation Rule"
+    framework: "FERC"
+    region: "USA"
+    year: 2006
+    version: "Final"
+    storage_path: "regulatory/ferc_anti_manipulation.pdf"

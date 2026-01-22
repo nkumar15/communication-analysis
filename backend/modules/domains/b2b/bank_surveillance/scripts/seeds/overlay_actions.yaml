@@ -76,10 +76,6 @@ actions:
     description: Submit a report or finding for final review
     applicable_resources: [surveillance_reports]
 
-  - name: export
-    display_name: Export
-    description: Export data for regulatory submission
-    applicable_resources: [surveillance_reports, audit_logs, cases]
 
   # ===== AI CONFIGURATION =====
   - name: train

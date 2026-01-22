@@ -26,7 +26,7 @@ actions:
   - name: export
     display_name: Export Data
     description: Export data in various formats
-    applicable_resources: [projects, tasks, comments, reports, analytics, audit_logs, invoices]
+    # Removed specific resources to make it generic and applicable globally
   
   - name: manage
     display_name: Full Management
