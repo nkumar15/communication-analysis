@@ -186,31 +186,84 @@ b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + tenant + demo d
 
 ##@ Testing
 
-test-b2b-core-only: ## Run core platform tests only (defaults to bank seed)
-	@echo "$(BLUE)Running Core Platform Tests (bank seed)...$(NC)"
+test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units)
+	@echo "$(BLUE)Running B2B Foundation Full Suite...$(NC)"
 	@$(MAKE) db-recreate
 	@$(MAKE) seed-all
 	@$(MAKE) restart
-	@docker-compose run --rm e2e-tests pytest tests/e2e_api/b2b/core -v
+	@docker-compose run --rm e2e-tests pytest \
+		tests/b2b/api/foundation \
+		tests/b2b/services/foundation \
+		tests/b2b/units \
+		-v
 
-test-b2b-bank-only: ## Run bank surveillance specific tests only
-	@echo "$(BLUE)Running Bank Surveillance Tests (bank seed)...$(NC)"
+
+test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, Units)
+	@echo "$(BLUE)Running Bank Surveillance specific suite...$(NC)"
 	@$(MAKE) db-recreate
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
 	@$(MAKE) restart
-	@docker-compose run --rm e2e-tests env USE_CASE=bank_surveillance pytest tests/e2e_api/b2b/use_cases/bank_surveillance -v
+	@docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests \
+		pytest \
+		tests/b2b/api/use_cases/bank_surveillance \
+		tests/b2b/services/use_cases/bank_surveillance \
+		tests/b2b/units/use_cases/bank_surveillance \
+		-v
 
-test-b2b-bank-use-case: ## Run bank surveillance tests (core + domain with base + bank roles)
-	@echo "$(BLUE)Running Bank Surveillance Use Case and core tests...$(NC)"
+test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank)
+	@echo "$(BLUE)Running Bank Surveillance full suite (Foundation + Bank)...$(NC)"
 	@$(MAKE) db-recreate
-	@$(MAKE) seed-all USE_CASE=bank_surveillance INCLUDE_BASE_ROLES=true
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
 	@$(MAKE) restart
-	@docker-compose run -e USE_CASE=bank_surveillance --rm e2e-tests \
-									pytest \
-									tests/e2e_api/b2b/core/ \
-									tests/e2e_api/b2b/use_cases/bank_surveillance/ \
-									-v
-	@echo "$(GREEN)✓ Bank surveillance tests complete$(NC)"
+	@docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests \
+		pytest \
+		tests/b2b/api/foundation \
+		tests/b2b/api/use_cases/bank_surveillance \
+		tests/b2b/services/foundation \
+		tests/b2b/services/use_cases/bank_surveillance \
+		tests/b2b/units \
+		-v
+
+test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units)
+	@echo "$(BLUE)Running B2C Foundation Full Suite...$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all
+	@$(MAKE) restart
+	@docker-compose run --rm e2e-tests pytest \
+		tests/b2c/api/foundation \
+		tests/b2c/services/foundation \
+		tests/b2c/units \
+		-v
+
+
+test-platform-foundation-only: ## Run Platform foundation full suite (API, Services, Units)
+	@echo "$(BLUE)Running Platform Foundation Full Suite...$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all
+	@$(MAKE) restart
+	@docker-compose run --rm e2e-tests pytest \
+		tests/platform/api \
+		tests/platform/services \
+		tests/platform/units \
+		-v
+
+
+test-all-foundation: ## Run all foundation tests (B2B, B2C, Platform)
+	@echo "$(BLUE)Running All Foundation Tests...$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) seed-all
+	@$(MAKE) restart
+	@docker-compose run --rm e2e-tests pytest \
+		tests/b2b/api/foundation \
+		tests/b2b/services/foundation \
+		tests/b2b/units \
+		tests/b2c/api/foundation \
+		tests/b2c/services/foundation \
+		tests/b2c/units \
+		tests/platform/api \
+		tests/platform/services \
+		tests/platform/units \
+		-v
 
 ##@ Frontend (Local Development)
 
