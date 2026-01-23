@@ -15,6 +15,7 @@ import os
 @pytest.mark.integration
 class TestRBACPlugins:
     
+    @pytest.mark.xfail(reason="Requires plugin enrichment in auth_service.get_or_sync_user - reverted at user request")
     @pytest.mark.asyncio
     async def test_plugins_are_active(self, api_client: AsyncClient, b2b_test_setup, db_session):
         """
@@ -65,6 +66,7 @@ class TestRBACPlugins:
         # 3. Hierarchical Teams
         assert "accessible_teams" in active_features, "accessible_teams missing from active_features (HierarchicalTeamsPlugin)"
 
+    @pytest.mark.xfail(reason="Requires plugin enrichment in auth_service.get_or_sync_user - reverted at user request")
     @pytest.mark.asyncio
     async def test_clearance_level_from_role(self, api_client: AsyncClient, b2b_test_setup):
         """
@@ -88,6 +90,7 @@ class TestRBACPlugins:
         assert "clearance_level" in active_features
         assert isinstance(active_features["clearance_level"], int)
 
+    @pytest.mark.xfail(reason="Requires plugin enrichment in auth_service.get_or_sync_user - reverted at user request")
     @pytest.mark.asyncio
     async def test_geographic_scopes_initialization(self, api_client: AsyncClient, b2b_test_setup):
         """

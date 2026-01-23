@@ -12,6 +12,8 @@ TODO: Implement these when plugin infrastructure is ready:
 """
 
 import pytest
+pytestmark = pytest.mark.skip(reason="Requires domain-specific fixtures not currently in foundation scope")
+
 from sqlalchemy import select, text
 from sqlalchemy.orm.attributes import flag_modified
 

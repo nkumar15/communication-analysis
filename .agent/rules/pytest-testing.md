@@ -20,23 +20,28 @@ Applies to: **All test code in `backend/tests/`**
 ```
 backend/tests/
 ├── conftest.py                   # ROOT: Core fixtures ONLY (db_session, api_client)
-├── b2b/
-│   ├── conftest.py               # B2B SHARED: b2b_test_setup, helpers, TenantAwareSession
+├── b2b/                          # B2B Module Tests
+│   ├── conftest.py               # B2B SHARED: b2b_test_setup, helpers
 │   ├── api/
-│   │   ├── foundation/           # API tests for core B2B (auth, teams, users, billing)
+│   │   ├── foundation/           # Core B2B (Auth, Teams, Billing)
+│   │   └── use_cases/            # Domain B2B (Bank, Task Management)
+│   ├── services/
+│   │   ├── foundation/ 
 │   │   └── use_cases/
-│   │       ├── bank_surveillance/ # API tests for Bank domain
-│   │       └── task_management/   # API tests for Task domain
-│   └── services/
-│       ├── foundation/           # Service tests for core B2B logic
-│       └── use_cases/
-│           ├── bank_surveillance/ # Service tests for Bank logic
-│           └── task_management/   # Service tests for Task logic
-├── e2e_api/                      # Legacy/B2C/Platform
-│   ├── b2c/
-│   └── platform/
+│   └── units/                    # Pure unit tests (no DB) for B2B
+│       └── plugins/              # Plugin-specific logic tests
+├── b2c/                          # B2C Module Tests
+│   ├── conftest.py               # B2C SHARED: b2c_billing_user, etc.
+│   ├── api/
+│   │   ├── foundation/           # Core B2C (Workspaces, Auth)
+│   │   └── use_cases/            # Domain B2C (Finance Trader, etc.)
+│   ├── services/
+│   └── units/                    # Pure unit tests (no DB) for B2C
+├── platform/                     # Platform Module Tests
+│   ├── api/                      # Platform API tests
+│   ├── services/                 # Platform Service tests
+│   └── units/                    # Pure unit tests (no DB) for Platform
 ├── e2e_browser/                  # Playwright browser tests
-├── units/                        # Pure unit tests (no DB)
 └── load/                         # Performance/stress tests
 ```
 

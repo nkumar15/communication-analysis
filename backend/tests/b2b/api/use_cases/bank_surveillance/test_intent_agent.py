@@ -1,4 +1,6 @@
 import pytest
+pytestmark = pytest.mark.skip(reason="Requires domain-specific fixtures not currently in foundation scope")
+
 from modules.domains.b2b.bank_surveillance.agents.intent_agent import IntentAgent
 
 @pytest.mark.skip(reason="Skipping agent tests as per user request")

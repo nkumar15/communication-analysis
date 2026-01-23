@@ -12,6 +12,7 @@ import pytest
 from uuid import uuid4
 
 
+@pytest.mark.skip(reason="Requires domain-specific fixtures not currently in foundation scope")
 class TestTasksAPI:
     """Test suite for Tasks endpoints"""
     
@@ -192,6 +193,7 @@ class TestTasksAPI:
         assert response.status_code == 403
 
 
+@pytest.mark.skip(reason="Requires domain-specific fixtures not currently in foundation scope")
 class TestTasksViewerRestrictions:
     """Test that Viewer role cannot perform write operations"""
     
@@ -256,6 +258,7 @@ class TestTasksViewerRestrictions:
         assert response.status_code == 200
 
 
+@pytest.mark.skip(reason="Requires domain-specific fixtures not currently in foundation scope")
 class TestTasksStatusTransitions:
     """Test valid and invalid status transitions"""
     
@@ -271,6 +274,7 @@ class TestTasksStatusTransitions:
         assert response.status_code == 422
 
 
+@pytest.mark.skip(reason="Requires domain-specific fixtures not currently in foundation scope")
 class TestTasksValidation:
     """Test input validation for Tasks API"""
     

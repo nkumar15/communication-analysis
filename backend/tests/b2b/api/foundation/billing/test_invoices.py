@@ -16,6 +16,12 @@ from modules.b2b.models import (
     InvoiceStatus
 )
 from modules.b2b.services.invoice_service import InvoiceService
+from tests.conftest import (
+    create_test_user,
+    create_test_tenant,
+    create_mock_firebase_token,
+    encode_mock_jwt
+)
 
 @pytest.mark.asyncio
 class TestInvoiceManagement:
@@ -66,10 +72,27 @@ class TestInvoiceManagement:
         assert "INV-" in verified_invoice.invoice_number
 
     async def test_list_invoices_success(self, api_client, b2b_test_setup):
-        """Test listing invoices via API"""
+        """Test listing invoices via API
+        
+        Note: Requires billing:read permission which only owner role has.
+        """
         setup = b2b_test_setup
+        tenant = setup["tenant"]
         tenant_id = setup["tenant_id"]
         tenant_session = setup["session"]
+        
+        # Create OWNER user (has billing:read permission)
+        owner = await create_test_user(
+            tenant_session,
+            tenant_id=tenant.id,
+            email=f"owner_inv@{tenant.domain}",
+            role_slug="owner"
+        )
+        owner_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=owner.firebase_uid,
+            email=owner.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
         
         # Setup data
         subscription = Subscription(
@@ -97,10 +120,10 @@ class TestInvoiceManagement:
         tenant_session.add(invoice)
         await tenant_session.commit()
         
-        # API Call
+        # API Call (using OWNER token - required for billing:read)
         response = await api_client.get(
             "/api/b2b/billing/invoices",
-            headers={"Authorization": f"Bearer {setup['token']}"}
+            headers={"Authorization": f"Bearer {owner_token}"}
         )
         
         assert response.status_code == 200
@@ -109,10 +132,27 @@ class TestInvoiceManagement:
         assert any(inv["id"] == str(invoice.id) for inv in data)
 
     async def test_get_invoice_detail_success(self, api_client, b2b_test_setup):
-        """Test getting a single invoice by ID"""
+        """Test getting a single invoice by ID
+        
+        Note: Requires billing:read permission which only owner role has.
+        """
         setup = b2b_test_setup
+        tenant = setup["tenant"]
         tenant_id = setup["tenant_id"]
         tenant_session = setup["session"]
+        
+        # Create OWNER user (has billing:read permission)
+        owner = await create_test_user(
+            tenant_session,
+            tenant_id=tenant.id,
+            email=f"owner_detail@{tenant.domain}",
+            role_slug="owner"
+        )
+        owner_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=owner.firebase_uid,
+            email=owner.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
         
         subscription = Subscription(
             tenant_id=tenant_id,
@@ -139,10 +179,10 @@ class TestInvoiceManagement:
         tenant_session.add(invoice)
         await tenant_session.commit()
         
-        # Action
+        # Action (using OWNER token - required for billing:read)
         response = await api_client.get(
             f"/api/b2b/billing/invoices/{invoice.id}",
-            headers={"Authorization": f"Bearer {setup['token']}"}
+            headers={"Authorization": f"Bearer {owner_token}"}
         )
         
         assert response.status_code == 200
@@ -156,20 +196,56 @@ class TestInvoiceManagement:
         assert response.status_code == 401
 
     async def test_get_invoice_not_found(self, api_client, b2b_test_setup):
-        """Rule 7: Test non-existent invoice (404)"""
+        """Rule 7: Test non-existent invoice (404)
+        
+        Note: Requires billing:read permission which only owner role has.
+        """
+        setup = b2b_test_setup
+        tenant = setup["tenant"]
+        
+        # Create OWNER user (has billing:read permission)
+        owner = await create_test_user(
+            setup['session'],
+            tenant_id=tenant.id,
+            email=f"owner_notfound@{tenant.domain}",
+            role_slug="owner"
+        )
+        owner_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=owner.firebase_uid,
+            email=owner.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
+        
         response = await api_client.get(
             f"/api/b2b/billing/invoices/{uuid4()}",
-            headers={"Authorization": f"Bearer {b2b_test_setup['token']}"}
+            headers={"Authorization": f"Bearer {owner_token}"}
         )
         assert response.status_code == 404
 
     async def test_invoice_tenant_isolation(self, api_client, b2b_test_setup, db_session):
-        """Rule 7: Test that tenant cannot access another tenant's invoice"""
+        """Rule 7: Test that tenant cannot access another tenant's invoice
+        
+        Note: Requires billing:read permission which only owner role has.
+        """
         from tests.conftest import create_test_tenant
         from modules.b2b.models import Invoice, Subscription, SubscriptionTier, PaymentMode, SubscriptionStatus
         
         # Setup: Current tenant (A)
         setup_a = b2b_test_setup
+        tenant_a = setup_a["tenant"]
+        
+        # Create OWNER user for tenant A (has billing:read permission)
+        owner_a = await create_test_user(
+            setup_a['session'],
+            tenant_id=tenant_a.id,
+            email=f"owner_iso@{tenant_a.domain}",
+            role_slug="owner"
+        )
+        owner_a_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=owner_a.firebase_uid,
+            email=owner_a.email,
+            firebase_tenant_id=tenant_a.firebase_tenant_id
+        ))
         
         # Setup: Another tenant (B)
         tenant_b = await create_test_tenant(db_session)
@@ -202,10 +278,10 @@ class TestInvoiceManagement:
         db_session.add(invoice_b)
         await db_session.flush()
         
-        # Action: Tenant A tries to access Tenant B's invoice
+        # Action: Tenant A owner tries to access Tenant B's invoice
         response = await api_client.get(
             f"/api/b2b/billing/invoices/{invoice_b.id}",
-            headers={"Authorization": f"Bearer {setup_a['token']}"}
+            headers={"Authorization": f"Bearer {owner_a_token}"}
         )
         
         # Assert: Should return 404 owing to RLS isolation

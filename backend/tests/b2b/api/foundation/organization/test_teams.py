@@ -100,22 +100,38 @@ class TestTeamManagement:
 
     @pytest.mark.asyncio
     async def test_delete_team(self, api_client: AsyncClient, b2b_test_setup):
-        """Test deleting a team"""
-        setup = b2b_test_setup
-        token = setup["token"]
+        """Test deleting a team
         
-        # Create team
+        Note: Team deletion requires 'teams:delete' permission which only owner role has.
+        """
+        setup = b2b_test_setup
+        tenant = setup["tenant"]
+        
+        # Create OWNER user (has teams:delete permission)
+        owner = await create_test_user(
+            setup['session'],
+            tenant_id=tenant.id,
+            email=f"owner_del@{tenant.domain}",
+            role_slug="owner"
+        )
+        owner_token = encode_mock_jwt(create_mock_firebase_token(
+            uid=owner.firebase_uid,
+            email=owner.email,
+            firebase_tenant_id=tenant.firebase_tenant_id
+        ))
+        
+        # Create team (using admin token for creation)
         create_response = await api_client.post(
             "/api/b2b/teams/",
             json={"name": "To Delete"},
-            headers={"Authorization": f"Bearer {token}"}
+            headers={"Authorization": f"Bearer {setup['token']}"}
         )
         team_id = create_response.json()["id"]
         
-        # Delete
+        # Delete (using OWNER token - required for teams:delete)
         response = await api_client.delete(
             f"/api/b2b/teams/{team_id}",
-            headers={"Authorization": f"Bearer {token}"}
+            headers={"Authorization": f"Bearer {owner_token}"}
         )
         
         assert response.status_code == 200

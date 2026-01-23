@@ -24,29 +24,22 @@ Use this matrix to resolve ambiguity on where to place a test:
 
 ## 1. Determine Test Location
 
-### Directory Structure
+### Directory Hierarchy
+Follow the standardized tier-based structure across all modules:
 ```
 backend/tests/
-├── conftest.py                   # ROOT: Core fixtures ONLY (db_session, api_client)
-├── b2b/
-│   ├── conftest.py               # B2B SHARED: b2b_test_setup, helpers, TenantAwareSession
+├── conftest.py                   # ROOT: Core fixtures (db_session, api_client)
+├── {module}/                     # b2b, b2c, or platform
+│   ├── conftest.py               # Module-specific fixtures
 │   ├── api/
-│   │   ├── foundation/           # API tests for core B2B (auth, teams, users, billing)
+│   │   ├── foundation/           # Core features (IAM, Billing, Org)
+│   │   └── use_cases/            # Domain features (Bank, Task, etc.)
+│   ├── services/
+│   │   ├── foundation/ 
 │   │   └── use_cases/
-│   │       ├── bank_surveillance/ # API tests for Bank domain
-│   │       └── task_management/   # API tests for Task domain
-│   └── services/
-│       ├── foundation/           # Service tests for core B2B logic
-│       └── use_cases/
-│           ├── bank_surveillance/ # Service tests for Bank logic
-│           └── task_management/   # Service tests for Task logic
-├── e2e_api/                      # Legacy/B2C/Platform
-│   ├── b2c/
-│   └── platform/
-├── e2e_browser/                  # Playwright browser tests
-├── units/                        # Pure unit tests (no DB)
-└── load/                         # Performance/stress tests
+│   └── units/                    # Pure unit tests (no DB)
 ```
+*Note: For `platform`, only `api/`, `services/`, and `units/` are used as there are no domain use cases.*
 
 ## 2. Fixture Hierarchy
 
