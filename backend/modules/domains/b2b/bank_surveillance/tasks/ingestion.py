@@ -164,7 +164,7 @@ async def _run_ingestion_async(
     await db.commit()
     
     try:
-        service = CommunicationIngestionService(db)
+        service = CommunicationIngestionService(db) 
         count = 0
         errors = 0
         vector_batch = []

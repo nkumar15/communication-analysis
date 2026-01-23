@@ -6,76 +6,90 @@
 
 ### communications
 
-**Central Message Store** for all communication types (Email, Chat, Voice).
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `tenant_id` | UUID | FK to tenants (RLS enabled) |
-| `message_id` | VARCHAR | Unique external ID (e.g. email Message-ID) |
-| `sub_channel` | VARCHAR | Specific sub-channel (e.g. 'slack-general') |
-| `sender` | VARCHAR | Sender address/handle |
-| `recipients` | VARCHAR[] | Array of recipient addresses |
-| `subject` | VARCHAR | Message subject/thread title |
-| `content` | TEXT | Message body content |
-| `timestamp` | TIMESTAMPTZ | Message time |
-| `embedding` | VECTOR(1536) | OpenAI embedding for RAG |
-| `created_at` | TIMESTAMPTZ | Ingestion time |
-
-**Indexes:**
-- `idx_communications_tenant_id` on `tenant_id`
-- `idx_communications_sender` on `sender`
-- `idx_communications_timestamp` on `timestamp`
-- `idx_communications_embedding` using IVFFlat for vector search
-
-**RLS Policy:** Enabled, filtered by `tenant_id`
-
----
-
-### investigations
-
-Active cases requiring human or AI review.
+**Lightweight Message Reference**. Raw content resides in Elasticsearch.
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID | Primary key |
 | `tenant_id` | UUID | FK to tenants |
-| `title` | VARCHAR | Investigation title |
-| `description` | TEXT | Investigation description |
-| `priority` | VARCHAR | high/medium/low |
-| `status` | VARCHAR | open/in_review/escalated/closed |
-| `assigned_to` | UUID | FK to users |
-| `created_by` | UUID | FK to users |
-| `created_at` | TIMESTAMPTZ | Creation time |
-| `updated_at` | TIMESTAMPTZ | Last update |
-| `closed_at` | TIMESTAMPTZ | Closure time |
-| `decision_rationale` | TEXT | Required at closure |
+| `sender` | VARCHAR | Sender address/handle |
+| `recipients` | VARCHAR[] | Array of recipient addresses |
+| `timestamp` | TIMESTAMPTZ | Message time |
+| `thread_id` | VARCHAR | Grouping ID for conversation view |
+| `es_document_id` | VARCHAR | Unique ID in Elasticsearch index |
+| `created_at` | TIMESTAMPTZ | Ingestion time |
 
 **Indexes:**
-- `idx_investigations_tenant_id` on `tenant_id`
-- `idx_investigations_status` on `status`
-- `idx_investigations_assigned_to` on `assigned_to`
+- `idx_comm_tenant` on `tenant_id`
+- `idx_comm_sender` on `sender`
+- `idx_comm_thread` on `thread_id`
+- `idx_comm_es_id` (Unique) on `es_document_id`
 
 ---
 
-### ingestion_logs
+### surveillance_controls
 
-Tracks status of daily ETL jobs.
+**Risk Detection Configuration**.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `job_id` | UUID | Primary key |
-| `date` | CHAR(8) | YYYYMMDD identifier |
-| `status` | VARCHAR | running/completed/failed |
-| `file_path` | VARCHAR | Source file location |
-| `processed_count` | INT | Messages successfully indexed |
-| `error_count` | INT | Failed messages |
-| `started_at` | TIMESTAMPTZ | Job start time |
-| `completed_at` | TIMESTAMPTZ | Job completion time |
+| `id` | UUID | Primary key |
+| `tenant_id` | UUID | FK to tenants |
+| `risk_typology` | VARCHAR | e.g. "Market Manipulation" |
+| `risk_indicator` | VARCHAR | e.g. "Load Shifting" |
+| `detection_methods` | JSONB | Keywords, regex, and ML configs |
+| `status` | VARCHAR | Active/Inactive |
 
-**Indexes:**
-- `idx_ingestion_logs_date` on `date`
-- `idx_ingestion_logs_status` on `status`
+---
+
+### risk_events (Tier 1)
+
+**Individual Signal Evidence**.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `tenant_id` | UUID | FK to tenants |
+| `communication_id` | UUID | FK to communications |
+| `control_id` | UUID | FK to surveillance_controls |
+| `sender` | VARCHAR | Denormalized for aggregation |
+| `event_timestamp` | TIMESTAMPTZ | Denormalized for aggregation |
+| `matched_keywords` | JSONB | Evidence: specific words found |
+| `matched_snippet` | TEXT | Evidence: context snippet |
+| `incident_id` | UUID | FK to incidents (nullable) |
+
+---
+
+### incidents (Tier 2)
+
+**Aggregated Signals**.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `tenant_id` | UUID | FK to tenants |
+| `control_id` | UUID | FK to surveillance_controls |
+| `sender` | VARCHAR | Actor identity |
+| `incident_date` | DATE | Aggregation window |
+| `event_count` | INT | Number of risk events in group |
+| `severity` | VARCHAR | Low/Med/High |
+| `alert_id` | UUID | FK to alerts (nullable) |
+
+---
+
+### alerts (Tier 3)
+
+**Analyst Action Items**.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `tenant_id` | UUID | FK to tenants |
+| `subject` | VARCHAR | Alert title |
+| `status` | VARCHAR | open/investigating/escalated/closed |
+| `severity` | VARCHAR | Aggregated priority |
+| `assigned_to` | UUID | FK to users |
+| `created_at` | TIMESTAMPTZ | Generation time |
 
 ---
 
@@ -83,7 +97,9 @@ Tracks status of daily ETL jobs.
 
 ```mermaid
 erDiagram
-    TENANTS ||--o{ COMMUNICATIONS : "owns"
-    TENANTS ||--o{ INVESTIGATIONS : "owns"
-    USERS ||--o{ INVESTIGATIONS : "assigned to"
+    COMMUNICATIONS ||--o{ RISK_EVENTS : "triggers"
+    SURVEILLANCE_CONTROLS ||--o{ RISK_EVENTS : "detects"
+    RISK_EVENTS }o--|| INCIDENTS : "grouped into"
+    INCIDENTS }o--|| ALERTS : "escalated to"
+    USERS ||--o{ ALERTS : "assigned to"
 ```

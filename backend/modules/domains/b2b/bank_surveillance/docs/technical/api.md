@@ -2,141 +2,82 @@
 
 **Base Path**: `/api/b2b/domain/bank_surveillance`
 
-## Communications (Messaging)
+## 1. Communications & Search
 
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
-| `GET` | `/search` | RAG Semantic Search | `surveillance:read` |
-| `GET` | `/messages/{id}` | Get raw message content | `surveillance:read` |
-
-### Search Example
-```json
-// GET /search?q=earnings+leak&limit=10
-{
-  "results": [
-    {
-      "id": "msg-uuid",
-      "relevance": 0.92,
-      "text": "...discussing quarterly earnings...",
-      "metadata": {
-         "sender": "trader@bank.com",
-         "timestamp": "2023-10-27T10:00:00Z"
-      }
-    }
-  ]
-}
-```
+| `GET` | `/search` | RAG Semantic Search (ES-backed) | `surveillance:read` |
+| `GET` | `/messages/{id}` | Get metadata + thread context | `surveillance:read` |
 
 ---
 
-## Alerts
+## 2. Risk Workflows (UI Triggerable)
+
+These endpoints initiate the background surveillance workflows.
+
+### Workflow A: Ingest + Detect
+| Method | Path | Description | Permission |
+|--------|------|-------------|------------|
+| `POST` | `/ingestion/trigger` | Ingest Daily Dump & Run Detection | `surveillance:admin` |
+
+- **Payload**: `{"date": "YYYYMMDD", "file_path": "..."}`
+- **Sub-tasks**: Automatically triggers `analyze_message` per record to generate **RiskEvents**.
+
+### Workflow B: Group + Alert
+| Method | Path | Description | Permission |
+|--------|------|-------------|------------|
+| `POST` | `/alerts/generate` | Aggregate Events into Alerts | `surveillance:admin` |
+
+- **Payload**: `{"start_date": "...", "end_date": "..."}`
+- **Process**: Groups `RiskEvents` into **Incidents** and links them to **Alerts**.
+
+---
+
+## 3. Alerts & Investigation
 
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
 | `GET` | `/alerts` | List alerts (with filters) | `surveillance:read` |
-| `GET` | `/alerts/{id}` | Get alert details | `surveillance:read` |
+| `GET` | `/alerts/{id}` | Get alert, incidents, and context | `surveillance:read` |
 | `PATCH` | `/alerts/{id}` | Update status (Close, Escalate) | `surveillance:write` |
-| `POST` | `/alerts/{id}/case` | Convert to Case | `surveillance:write` |
+| `POST` | `/alerts/{id}/case` | Convert to Investigation Case | `surveillance:write` |
 
-### Alert List Example
+### Alert Details Example
 ```json
-// GET /alerts?status=open&risk_type=insider_trading
+// GET /alerts/alert-abc
 {
-  "items": [
+  "alert": { "id": "alert-abc", "status": "open", "severity": "high" },
+  "incidents": [
     {
-      "id": "alert-123",
-      "risk_type": "insider_trading",
-      "severity": "critical",
-      "status": "open",
-      "aggregation_count": 5
+      "id": "inc-1",
+      "sender": "trader@bank.com",
+      "date": "2023-10-27",
+      "risk_indicator": "Load Shifting",
+      "event_count": 5
     }
+  ],
+  "conversation_thread": [
+     { "sender": "user1", "content": "...", "is_flagged": false },
+     { "sender": "user1", "content": "risky text", "is_flagged": true }
   ]
 }
 ```
 
 ---
 
-## Surveillance Controls
+## 4. Surveillance Controls
 
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
 | `GET` | `/surveillance-controls` | List detection controls | `controls:read` |
-| `POST` | `/surveillance-controls` | Create new control (JSON) | `controls:manage` |
-| `PUT` | `/surveillance-controls/{id}` | Update control logic | `controls:manage` |
-| `POST` | `/surveillance-controls/test` | Test control against sample | `controls:manage` |
-
-### Regulatory Library (Knowledge Base)
-| Method | Path | Description | Permission |
-|--------|------|-------------|------------|
-| `POST` | `/regulatory-library/documents` | Upload PDF (MAS/SEC/FCA) | `regulatory:manage` |
-| `GET` | `/regulatory-library/documents` | List stored frameworks | `regulatory:read` |
-| `GET` | `/regulatory-library/documents/{id}/citation` | Retrieve specific clause text | `regulatory:read` |
-
-### Control Feedback
-| Method | Path | Description | Permission |
-|--------|------|-------------|------------|
-| `POST` | `/alerts/{id}/feedback` | Mark False Positive | `surveillance:write` |
+| `POST` | `/surveillance-controls` | Create control (Keywords/Regex) | `controls:manage` |
+| `PUT` | `/surveillance-controls/{id}` | Update indicator/aggregation policy | `controls:manage` |
 
 ---
 
-## Investigations (AI Agents)
-
-| Method | Path | Description | Permission |
-|--------|------|-------------|------------|
-| `POST` | `/investigate` | Run Multi-Agent Analysis | `surveillance:write` |
-| `POST` | `/cases` | Create Investigation Case | `surveillance:write` |
-
-### Investigate Payload
-```json
-// POST /investigate
-{
-  "text": "We need to get shorty on these California power grids. Move the load to the death star strategy.",
-  "metadata": {
-    "sender": "trader@bank.com",
-    "risk_classifier": "market_manipulation"
-  }
-}
-```
-
----
-
-## Graph Analysis
+## 5. AI Graph Analysis
 
 | Method | Path | Description | Permission |
 |--------|------|-------------|------------|
 | `POST` | `/graph/build` | Rebuild network graph | `surveillance:admin` |
-| `GET` | `/graph/summary` | Get graph stats | `surveillance:read` |
-| `GET` | `/graph/cliques` | Detect collusion rings | `surveillance:read` |
-| `GET` | `/graph/ego/{target}` | Get target's network | `surveillance:read` |
-
-### Ego Network Example
-```json
-// GET /graph/ego/trader@bank.com
-{
-  "center": "trader@bank.com",
-  "connections": [
-    {"target": "manager@bank.com", "weight": 45},
-    {"target": "outsider@gmail.com", "weight": 23}
-  ],
-  "centrality": 0.78
-}
-```
-
----
-
-## Ingestion (Async Pipeline)
-
-| Method | Path | Description | Permission |
-|--------|------|-------------|------------|
-| `POST` | `/ingestion/trigger` | Manually trigger daily dump ingestion | `surveillance:admin` |
-| `GET` | `/ingestion/status/{job_id}` | Get status of ingestion job | `surveillance:admin` |
-| `POST` | `/ingestion/retry/{job_id}` | Retry failed file segments | `surveillance:admin` |
-
-### Trigger Payload
-```json
-// POST /ingestion/trigger
-{
-  "date": "20231027",
-  "force": false
-}
-```
+| `GET` | `/graph/ ego/{id}` | Get sender's network centrality | `surveillance:read` |

@@ -2,38 +2,84 @@
 
 ## Data Flow
 
-```mermaid
-graph TD
-    A[Compliance Officer] -->|POST /investigate| B(API)
-    B -->|Content| C[Orchestrator]
-    C -->|Parallel| D[Intent Agent]
-    C -->|Parallel| E[Policy Agent]
-    C -->|Parallel| F[Evasion Agent]
-    C -->|Results| G[Investigation Report]
-    G -->|Enrich| H[Graph Service]
-    H -->|Ego Network| G
+The platform operates via two decoupled background workflows to transform raw communication data into actionable alerts.
 
-    I[IT Admin] -->|POST /ingestion| B
-    B -->|Async Task| J[Celery Worker]
-    J -->|File Read| K[Ingestion Service]
-    K -->|Store| L[(Postgres)]
-    K -->|Index| M[Elasticsearch]
-    M -->|Vectors| N[RAG Service]
+### Workflow A: Ingest + Detect
+**Goal**: Normalize data and flag individual risky messages immediately.
+
+```mermaid
+flowchart LR
+    CSV[CSV/Email] --> Ingest[Ingestion Task]
+    Ingest --> ES[(Elasticsearch)]
+    Ingest --> PG[(Postgres: Communications)]
+    PG --> Detect[Detection Task]
+    Detect --> RE[(Postgres: RiskEvents)]
+```
+
+### Workflow B: Group + Alert
+**Goal**: Reduce noise by aggregating signals into logical incidents and analyst-facing alerts.
+
+```mermaid
+flowchart TB
+    RE[(Postgres: RiskEvents)] --> Group[Aggregation Task]
+    Group --> Inc[(Postgres: Incidents)]
+    Inc --> AlertGen[Alert Generation]
+    AlertGen --> Alert[(Postgres: Alerts)]
 ```
 
 ## Key Components
 
 | Component | File | Description |
 | :--- | :--- | :--- |
-| **Control Engine** | `services/engine.py` | Executes Risk Indicators against incoming messages |
-| **Alerting Service** | `services/alerting.py`| Aggregates Risk Signals into singular Alerts |
-| **Risk Signal Model** | `models/signal.py` | Persistent store for "Potential Incidents" |
-| **Surv. Control Model**| `models/control.py` | Configuration for Typologies and Indicators |
-| **Ingestion Service** | `services/ingestion.py` | ETL Logic + Step 1 Coordination |
-| **Worker** | `tasks/ingestion.py` | Celery Background Task (Step 1 & 2) |
-| **Model** | `models/investigation.py` | Case Management Entity |
-| **Model** | `models/communication.py` | Unified Message Entity (Email/Chat) |
-| **Model** | `models/ingestion_log.py` | ETL Job Status Tracking |
+| **Detection Service** | `services/detection.py` | Executes Risk Indicators (Keyword/Regex) against ES messages |
+| **Aggregation Service** | `services/aggregation.py`| Pluggable logic to group RiskEvents into Incidents |
+| **Alerting Service** | `services/alerting.py`| Consolidates Incidents into actionable Alerts |
+| **RiskEvent Model** | `models/risk_event.py` | Tier 1: Individual match evidence |
+| **Incident Model** | `models/incident.py` | Tier 2: Aggregated signals per sender/day |
+| **Alert Model** | `models/alert.py` | Tier 3: Investigation work unit |
+| **Surv. Control Model**| `models/control.py` | Config for Typologies, Indicators, and Aggregation Policies |
+| **Ingestion Service** | `services/ingestion.py` | ETL Logic + Triggering Detection Workflow |
+| **Ingestion Worker** | `tasks/ingestion.py` | Celery task for Ingest + Detect workflow |
+| **Alert Worker** | `tasks/alerting.py` | Celery task for Group + Alert workflow |
+| **Communication Model**| `models/communication.py` | Lightweight reference to ES message |
+| **Intent Agent** | `services/agents/intent.py` | **[DESIGN]** Infers willful misconduct intent |
+| **Policy Agent** | `services/agents/policy.py` | **[DESIGN]** Maps signals to regulatory clauses |
+| **Evasion Agent** | `services/agents/evasion.py`| **[DESIGN]** Detects surveillance circumvention |
+
+## 3-Tier Data Model Hierarchy
+
+To manage high communication volumes, the system uses a progressive aggregation strategy:
+
+| Layer | Model | Frequency | Grouping / Pivot |
+|-------|-------|-----------|------------------|
+| **Tier 1** | `RiskEvent` | Once per match | Message + Control |
+| **Tier 2** | `Incident` | Per Grouping Policy | Sender + Control + Time Window (e.g. Day) |
+| **Tier 3** | `Alert` | Investigation Unit | Multiple Incidents (e.g. "Trader John's weekly risk summary") |
+
+## Tier 4: Agentic Investigation (Advanced AI Analysis)
+
+> [!NOTE]
+> High-priority research area: Currently identifying specific bank surveillance use cases for these agents.
+
+For complex Alerts, analysts can trigger a **Multi-Agent Deep Dive** to assemble evidence and infer intent.
+
+```mermaid
+flowchart TD
+    Alert[Analyst Opens Alert] --> Trigger[Trigger Deep Investigation]
+    Trigger --> Orchestrator[Analysis Orchestrator]
+    Orchestrator --> Intent[Intent Agent]
+    Orchestrator --> Policy[Policy Agent]
+    Orchestrator --> Evasion[Evasion Agent]
+    Intent & Policy & Evasion --> Summary[GenAI Case Summary]
+```
+
+### Proposed AI Agents Roles
+
+| Agent | Proposed Role | Potential Use Case |
+| :--- | :--- | :--- |
+| **Intent Agent** | Understands the "why" behind a message | Detecting willful manipulation vs. fat-finger error |
+| **Policy Agent** | Cross-references message with regulatory library | Mapping a chat to a specific MAS/SEC violation clause |
+| **Evasion Agent** | Detects attempts to hide communications | Flagging "let's take this to WhatsApp" or code words |
 
 ## Dependencies
 
