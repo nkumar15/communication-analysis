@@ -196,4 +196,29 @@ This ensures ALL async fixtures and tests share the same event loop lifecycle.
 Always look at makefile to identify relevant test commands and execute
 if you see any network failures or inconsistent container states, ALWAYS prune, recreate services and network for fresh start
 
+## 11. Test Ratio Policy
+
+For each new feature or service, maintain the following test distribution:
+
+| Layer | Ratio | Location |
+|-------|-------|----------|
+| **Unit** | 50% | `tests/{module}/units/` |
+| **Service** | 30% | `tests/{module}/services/` |
+| **API** | 20% | `tests/{module}/api/` |
+
+### Guidelines
+- **Unit tests**: No DB, no I/O. Mock all dependencies. Fast (<50ms each).
+- **Service tests**: Real DB session. Test business logic isolation.
+- **API tests**: Full request/response cycle. Test auth + RBAC.
+
+### When to Prioritize
+- New service → Start with Service tests
+- New plugin → Start with Unit tests
+- New endpoint → Add corresponding API test
+
+### Middleware/Plugin Testing
+When plugins enforce access control at the API layer via middleware:
+1. **Unit tests** verify plugin logic in isolation
+2. **Service tests** verify plugin + DB interactions
+3. **API tests** verify the full middleware enforcement (request → plugin → response)
 
