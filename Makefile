@@ -189,8 +189,9 @@ b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + tenant + demo d
 test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units)
 	@echo "$(BLUE)Running B2B Foundation Full Suite...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@sleep 5
 	@$(MAKE) seed-all
-	@$(MAKE) restart
 	@docker-compose run --rm e2e-tests pytest \
 		tests/b2b/api/foundation \
 		tests/b2b/services/foundation \
@@ -201,8 +202,9 @@ test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units
 test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, Units)
 	@echo "$(BLUE)Running Bank Surveillance specific suite...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
-	@$(MAKE) restart
 	@docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests \
 		pytest \
 		tests/b2b/api/use_cases/bank_surveillance \
@@ -213,8 +215,9 @@ test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, 
 test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank)
 	@echo "$(BLUE)Running Bank Surveillance full suite (Foundation + Bank)...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
-	@$(MAKE) restart
 	@docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests \
 		pytest \
 		tests/b2b/api/foundation \
@@ -227,8 +230,9 @@ test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank)
 test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units)
 	@echo "$(BLUE)Running B2C Foundation Full Suite...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@sleep 5
 	@$(MAKE) seed-all
-	@$(MAKE) restart
 	@docker-compose run --rm e2e-tests pytest \
 		tests/b2c/api/foundation \
 		tests/b2c/services/foundation \
@@ -239,8 +243,9 @@ test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units
 test-platform-foundation-only: ## Run Platform foundation full suite (API, Services, Units)
 	@echo "$(BLUE)Running Platform Foundation Full Suite...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@sleep 5
 	@$(MAKE) seed-all
-	@$(MAKE) restart
 	@docker-compose run --rm e2e-tests pytest \
 		tests/platform/api \
 		tests/platform/services \
@@ -251,8 +256,9 @@ test-platform-foundation-only: ## Run Platform foundation full suite (API, Servi
 test-all-foundation: ## Run all foundation tests (B2B, B2C, Platform)
 	@echo "$(BLUE)Running All Foundation Tests...$(NC)"
 	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@sleep 5
 	@$(MAKE) seed-all
-	@$(MAKE) restart
 	@docker-compose run --rm e2e-tests pytest \
 		tests/b2b/api/foundation \
 		tests/b2b/services/foundation \
