@@ -18,7 +18,7 @@ from modules.b2b.schemas.sso_settings import (
 )
 
 
-router = APIRouter(prefix="/api/b2b/settings", tags=["sso-settings"])
+router = APIRouter(prefix="/settings", tags=["sso-settings"])
 
 
 def mask_client_id(client_id: str) -> str:

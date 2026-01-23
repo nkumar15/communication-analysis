@@ -32,13 +32,6 @@ from core.config import settings
 from core.utils import get_utc_now
 from infrastructure.auth import get_auth_provider
 
-# Import ALL routers for testing
-from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles, dashboard, regions
-from modules.b2b.models import RolePermission, Resource, Action, Role
-from sqlalchemy import select
-from modules.domains.b2b.task_management.routers import projects, tasks, comments
-from modules.domains.b2b.bank_surveillance.routers import communications, cases, alerts, regulatory, controls
-
 # Mock langchain for environment where it is missing (e.g. CI/Test container subset)
 import sys
 from unittest.mock import MagicMock
@@ -51,18 +44,12 @@ if 'langchain' not in sys.modules:
 if 'langchain_openai' not in sys.modules:
     sys.modules['langchain_openai'] = MagicMock()
 
-from modules.domains.b2b.bank_surveillance.routers import analysis
-from modules.platform.routers import platform, platform_b2b, platform_b2c
-from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
-from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
-
-
-# B2C billing router requires stripe - import conditionally
-try:
-    from modules.b2c.routers import billing as b2c_billing
-    HAS_B2C_BILLING = True
-except ImportError:
-    HAS_B2C_BILLING = False
+# Import ALL primary apps (sub-apps are internal to these)
+from modules.b2b.main import app as b2b_app
+from modules.platform.main import app as platform_app
+from modules.b2c.main import app as b2c_app
+from modules.domains.b2b.main import app as b2b_domain_app
+from modules.domains.b2c.main import app as b2c_domain_app
 
 
 # ============================================================================
@@ -141,46 +128,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include ALL routers
-app.include_router(auth.router)
-app.include_router(activation.router)
-app.include_router(invitations.router)  # B2B invitations
-app.include_router(users.router)
-app.include_router(roles.router)  # B2B roles
-app.include_router(teams.router)
-app.include_router(team_roles.router)  # B2B team roles
-app.include_router(account.router)
-app.include_router(audit_logs.router)
-app.include_router(billing.router)  # B2B billing
-app.include_router(sso_settings.router)  # SSO settings
-app.include_router(dashboard.router)   # Dashboard Stats
-app.include_router(regions.router)     # Regions
-app.include_router(projects.router)
-app.include_router(tasks.router)
-app.include_router(comments.router)
-app.include_router(communications.router)
-app.include_router(cases.router)
-app.include_router(alerts.router)
-app.include_router(analysis.router)
-app.include_router(regulatory.router)
-app.include_router(controls.router)
-app.include_router(platform.router)
-app.include_router(platform_b2b.router)
-app.include_router(platform_b2c.router)
-app.include_router(platform_roles.router)  # Platform roles management
-app.include_router(platform_invitations.router)  # Platform invitations
-app.include_router(platform_billing.router)
-app.include_router(b2c_auth.router)
-app.include_router(b2c_workspaces.router)
-app.include_router(b2c_invitations.router)
-
-# Include NSE RAG router
-from modules.domains.b2c.finance_trader.routers import rag as nse_rag
-app.include_router(nse_rag.router)
-
-# Include B2C billing router if stripe is available
-if HAS_B2C_BILLING:
-    app.include_router(b2c_billing.router)
+# Mount ALL primary apps with their correct prefixes
+app.mount("/api/b2b", b2b_app)
+app.mount("/api/platform", platform_app)
+app.mount("/api/b2c", b2c_app)
+app.mount("/api/b2b/domain", b2b_domain_app)
+app.mount("/api/b2c/domain", b2c_domain_app)
 
 
 @app.get("/")
@@ -530,7 +483,11 @@ async def api_client(db_session):
             )
     
     app.dependency_overrides[get_current_b2c_user] = override_get_current_b2c_user
-    # Removed override_get_current_active_user to verify real middleware logic
+    
+    # Propagate overrides to all sub-apps
+    # This is required because FastAPI sub-apps do not inherit dependency overrides from the parent
+    for sub_app in [b2b_app, platform_app, b2c_app, b2b_domain_app, b2c_domain_app]:
+        sub_app.dependency_overrides.update(app.dependency_overrides)
     
     # httpx 0.27+ requires ASGITransport instead of app parameter
     from httpx import ASGITransport

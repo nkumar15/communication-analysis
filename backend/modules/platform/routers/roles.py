@@ -11,7 +11,7 @@ from modules.platform.middleware.platform_auth import verify_platform_admin, Req
 from modules.platform.models import PlatformRole, PlatformPermission
 
 router = APIRouter(
-    prefix="/api/platform/roles",
+    prefix="/roles",
     tags=["platform-roles"]
 )
 

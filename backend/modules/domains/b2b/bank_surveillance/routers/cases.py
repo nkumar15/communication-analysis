@@ -13,7 +13,7 @@ from modules.domains.b2b.bank_surveillance.schemas.case import (
     CaseEvidenceCreate, CaseEvidenceResponse
 )
 
-router = APIRouter(prefix="/api/b2b/domain/bank_surveillance/cases", tags=["Surveillance Case Management"])
+router = APIRouter(prefix="/cases", tags=["Surveillance Case Management"])
 
 @router.post("/", response_model=CaseResponse, status_code=status.HTTP_201_CREATED)
 async def create_case(

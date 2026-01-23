@@ -18,7 +18,7 @@ from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/b2c/workspaces", tags=["B2C Workspaces"])
+router = APIRouter(prefix="/workspaces", tags=["B2C Workspaces"])
 
 
 # ============================================================================

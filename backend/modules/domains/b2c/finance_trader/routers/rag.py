@@ -24,7 +24,7 @@ from modules.domains.b2c.finance_trader.services.rag_service import rag_service
 logger = get_logger(__name__)
 
 router = APIRouter(
-    prefix="/api/b2c/domain/finance_trader/rag",
+    prefix="/rag",
     tags=["RAG"],
     responses={404: {"description": "Not found"}},
 )

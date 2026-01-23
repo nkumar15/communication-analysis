@@ -9,7 +9,7 @@ from modules.domains.b2b.bank_surveillance.schemas.analysis import (
     AnalysisResponse
 )
 
-router = APIRouter(prefix="/api/b2b/domain/bank_surveillance", tags=["Surveillance Analysis Engine"])
+router = APIRouter(prefix="", tags=["Surveillance Analysis Engine"])
 
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze_communication(

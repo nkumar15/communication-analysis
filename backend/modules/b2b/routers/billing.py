@@ -23,7 +23,7 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-router =APIRouter(prefix="/api/b2b/billing", tags=["B2B Billing"])
+router = APIRouter(prefix="/billing", tags=["B2B Billing"])
 
 
 # ============================================================================

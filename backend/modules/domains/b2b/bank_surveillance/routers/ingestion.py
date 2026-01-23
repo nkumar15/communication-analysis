@@ -16,7 +16,7 @@ from modules.domains.b2b.bank_surveillance.models.ingestion_log import Ingestion
 from modules.domains.b2b.bank_surveillance.tasks.ingestion import ingest_daily_dump
 
 router = APIRouter(
-    prefix="/api/b2b/domain/bank_surveillance/ingestion", 
+    prefix="/ingestion", 
     tags=["Ingestion"]
 )
 

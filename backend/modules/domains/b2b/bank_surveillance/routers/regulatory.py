@@ -12,7 +12,7 @@ from modules.domains.b2b.bank_surveillance.schemas.regulatory import (
 )
 from modules.domains.b2b.bank_surveillance.services.regulatory_service import regulatory_service
 
-router = APIRouter(prefix="/api/b2b/domain/bank_surveillance/regulatory", tags=["Regulatory Library"])
+router = APIRouter(prefix="/regulatory", tags=["Regulatory Library"])
 
 @router.get("/", response_model=List[RegulatoryDocumentResponse])
 async def list_documents(

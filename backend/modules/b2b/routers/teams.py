@@ -24,7 +24,7 @@ from modules.b2b.schemas.team import (
 from modules.b2b.services import team_service
 from modules.b2b.models import UserModel
 
-router = APIRouter(prefix="/api/b2b/teams", tags=["teams"])
+router = APIRouter(prefix="/teams", tags=["teams"])
 
 
 @router.get("/stats", response_model=TeamStatsResponse)

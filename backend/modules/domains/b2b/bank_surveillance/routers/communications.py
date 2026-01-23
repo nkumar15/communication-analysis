@@ -10,7 +10,7 @@ from modules.domains.b2b.bank_surveillance.models.communication import Communica
 from modules.domains.b2b.bank_surveillance.services.rag import communication_rag_service
 from modules.domains.b2b.bank_surveillance.schemas.communication import CommunicationResponse
 
-router = APIRouter(prefix="/api/b2b/domain/bank_surveillance", tags=["Communications"])
+router = APIRouter(prefix="", tags=["Communications"])
 
 @router.get("/messages/{message_id}", response_model=CommunicationResponse)
 async def get_message(

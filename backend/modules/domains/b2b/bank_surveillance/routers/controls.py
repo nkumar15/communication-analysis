@@ -12,7 +12,7 @@ from modules.domains.b2b.bank_surveillance.schemas.control import (
 )
 from modules.domains.b2b.bank_surveillance.services.control_service import control_service
 
-router = APIRouter(prefix="/api/b2b/domain/bank_surveillance/controls", tags=["Surveillance Controls"])
+router = APIRouter(prefix="/controls", tags=["Surveillance Controls"])
 
 @router.get("/", response_model=List[SurveillanceControlResponse])
 async def list_controls(

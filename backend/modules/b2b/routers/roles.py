@@ -17,7 +17,7 @@ from modules.b2b.services.role_service import role_service
 from modules.b2b.services.role_template_service import role_template_service
 
 
-router = APIRouter(prefix="/api/b2b/roles", tags=["roles"])
+router = APIRouter(prefix="/roles", tags=["roles"])
 
 
 @router.get("/templates", response_model=List[RoleTemplateResponse])

@@ -22,7 +22,7 @@ from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/b2b/auth", tags=["authentication"])
+router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/mobile-login", response_model=MobileLoginResponse)

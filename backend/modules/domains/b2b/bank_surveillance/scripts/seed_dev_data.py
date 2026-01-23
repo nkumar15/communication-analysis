@@ -4,6 +4,8 @@ import uuid
 import sys
 import argparse
 import csv
+import os
+import yaml
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -16,6 +18,15 @@ from modules.domains.b2b.bank_surveillance.models.alert import Alert, AlertStatu
 from modules.b2b.models.user import UserModel
 from modules.b2b.models.tenant import TenantModel
 from core.db.rls import rls_service
+
+# Service Layer Imports
+from modules.domains.b2b.bank_surveillance.services.alert_service import alert_service
+from modules.domains.b2b.bank_surveillance.services.ingestion import CommunicationIngestionService, EmailParsedData
+from modules.domains.b2b.bank_surveillance.services.regulatory_service import regulatory_service
+from modules.domains.b2b.bank_surveillance.services.control_service import control_service
+from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate
+from modules.domains.b2b.bank_surveillance.schemas.regulatory import RegulatoryDocumentCreate
+from modules.domains.b2b.bank_surveillance.schemas.control import SurveillanceControlCreate
 
 # Configure DB
 db_url = settings.database_url
@@ -39,6 +50,72 @@ def parse_csv_date(date_str: str) -> datetime:
         # Fallback to current time if parsing fails
         return datetime.now(timezone.utc)
 
+async def seed_meta(db: AsyncSession, tenant_id: uuid.UUID):
+    """
+    Seeds meta data (regulatory library and controls) for a given tenant.
+    Reuses logic from seed_use_case_meta.py but integrated here.
+    """
+    print(f"🌱 Seeding meta data (Regulatory & Controls) for tenant: {tenant_id}")
+    
+    # Paths relative to this script
+    base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../scripts/b2b/use_cases/bank_surveillance"))
+    
+    # 1. Load Regulatory Documents
+    reg_path = os.path.join(base_path, "regulatory_library.yaml")
+    if os.path.exists(reg_path):
+        with open(reg_path, "r") as f:
+            reg_data = yaml.safe_load(f)
+            
+        doc_map = {} # title -> id
+        for doc in reg_data.get("regulatory_documents", []):
+            existing_docs = await regulatory_service.list_documents(db, tenant_id, limit=100)
+            existing = next((d for d in existing_docs if d.title == doc["title"]), None)
+            
+            if existing:
+                doc_map[doc["title"]] = existing.id
+                continue
+
+            print(f"   Creating document: {doc['title']}")
+            doc_in = RegulatoryDocumentCreate(
+                tenant_id=tenant_id,
+                title=doc["title"],
+                framework=doc.get("framework"),
+                year=doc.get("year"),
+                version=doc.get("version"),
+                storage_path=doc.get("storage_path")
+            )
+            db_doc = await regulatory_service.create_document(db, doc_in)
+            doc_map[doc["title"]] = db_doc.id
+
+        # 2. Load Surveillance Controls
+        ctrl_path = os.path.join(base_path, "surveillance_controls.yaml")
+        if os.path.exists(ctrl_path):
+            with open(ctrl_path, "r") as f:
+                ctrl_data = yaml.safe_load(f)
+
+            for ctrl in ctrl_data.get("surveillance_controls", []):
+                existing_ctrls = await control_service.list_controls(db, tenant_id, limit=100)
+                existing = next((c for c in existing_ctrls if c.risk_indicator == ctrl["risk_indicator"]), None)
+                
+                if existing:
+                    continue
+
+                print(f"   Creating control: {ctrl['risk_indicator']}")
+                reg_id = doc_map.get(ctrl.get("regulatory_reference"))
+                
+                ctrl_in = SurveillanceControlCreate(
+                    tenant_id=tenant_id,
+                    risk_typology=ctrl["risk_typology"],
+                    risk_indicator=ctrl["risk_indicator"],
+                    regulatory_id=reg_id,
+                    regulatory_reference_text=ctrl.get("regulatory_reference"),
+                    detection_methods=ctrl.get("detection_methods", []),
+                    status=ctrl.get("status", "Active")
+                )
+                await control_service.create_control(db, ctrl_in)
+    else:
+        print(f"⚠️ Meta YAMLs not found at {base_path}. Skipping meta seed.")
+
 async def seed_communications(db: AsyncSession, tenant_id: uuid.UUID, target_count: int = 50, csv_path: str = None) -> List[Communication]:
     """
     Seeds communications for a given tenant.
@@ -52,7 +129,8 @@ async def seed_communications(db: AsyncSession, tenant_id: uuid.UUID, target_cou
     # to avoid double insertion if run twice. However, if CSV is strictly requested, we should probably check duplications differently.
     # For simplicity, if csv_path is present, we try to ingest unique message_ids.
     
-    new_comms = []
+    ingestion_service = CommunicationIngestionService(db)
+    new_comms_count = 0
     
     if csv_path:
         print(f"📂 Ingesting from CSV: {csv_path}")
@@ -63,55 +141,34 @@ async def seed_communications(db: AsyncSession, tenant_id: uuid.UUID, target_cou
                 
                 print(f"   found {len(rows)} rows in CSV.")
                 
-                # Check which message_ids already exist to avoid duplicates
-                existing_msg_ids_res = await db.execute(select(Communication.message_id).where(Communication.tenant_id == tenant_id))
-                existing_msg_ids = set(existing_msg_ids_res.scalars().all())
-                
                 for row in rows:
+                    if new_comms_count >= target_count and target_count > 0:
+                        break
+                        
                     msg_id_str = row.get('message_id', '').strip()
                     if not msg_id_str:
                         continue
-                        
-                    if msg_id_str in existing_msg_ids:
-                        continue
-                        
-                    comm_id = uuid.uuid4()
                     
-                    # Parse recipients: simple comma split cleanup
-                    recipients_raw = row.get('recipients', '')
-                    recipients_list = [r.strip() for r in recipients_raw.split(',') if r.strip()]
-                    
-                    # Parse date
-                    sent_at = parse_csv_date(row.get('date', ''))
-                    
-                    comm = Communication(
-                        id=comm_id,
-                        tenant_id=tenant_id,
-                        channel="email",
+                    email_data = EmailParsedData(
                         message_id=msg_id_str,
                         sender=row.get('sender', 'unknown@example.com'),
-                        recipients=recipients_list,
+                        recipients=[r.strip() for r in row.get('recipients', '').split(',') if r.strip()],
                         subject=row.get('subject', 'No Subject'),
-                        content=row.get('body', ''),
-                        timestamp=sent_at,
-                        data_region_id=DATA_REGION,
-                        # removed invalid metadata field
+                        body=row.get('body', ''),
+                        date=parse_csv_date(row.get('date', ''))
                     )
-                    db.add(comm)
-                    new_comms.append(comm)
-                    existing_msg_ids.add(msg_id_str) # prevent dups within same file
                     
-                    if len(new_comms) >= target_count and target_count > 0:
-                        break
+                    success = await ingestion_service.ingest_message(email_data, tenant_id)
+                    if success:
+                        new_comms_count += 1
 
             await db.commit()
-            await rls_service.set_platform_admin_context(db) # Re-apply context after commit
-            print(f"✅ Ingested {len(new_comms)} communications from CSV.")
+            print(f"✅ Ingested {new_comms_count} communications from CSV.")
 
         except FileNotFoundError:
             print(f"❌ CSV file not found: {csv_path}")
         except Exception as e:
-             print(f"❌ Error reading CSV: {e}")
+             print(f"❌ Error reading/ingesting CSV: {e}")
              
     else:
         # Fallback to dummy generation if no CSV
@@ -128,26 +185,19 @@ async def seed_communications(db: AsyncSession, tenant_id: uuid.UUID, target_cou
             needed = target_count - comm_count
             
             for i in range(needed):
-                comm_id = uuid.uuid4()
-                sent_at = datetime.now(timezone.utc) - timedelta(days=random.randint(0, 60))
-                
-                comm = Communication(
-                    id=comm_id,
-                    tenant_id=tenant_id,
-                    channel="email",
-                    message_id=f"msg_{comm_id.hex[:12]}",
+                email_data = EmailParsedData(
+                    message_id=f"msg_{uuid.uuid4().hex[:12]}",
                     sender=f"trader{random.randint(1,10)}@example.com",
                     recipients=[f"client{random.randint(1,5)}@external.com"],
                     subject=random.choice(subjects),
-                    content=f"This is a dummy message processing transaction #{random.randint(1000,9999)}. {'Use signal app' if random.random() > 0.8 else 'Standard procedure'}.",
-                    timestamp=sent_at
+                    body=f"This is a dummy message processing transaction #{random.randint(1000,9999)}. {'Use signal app' if random.random() > 0.8 else 'Standard procedure'}.",
+                    date=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 60))
                 )
-                db.add(comm)
-                new_comms.append(comm)
+                await ingestion_service.ingest_message(email_data, tenant_id)
+                new_comms_count += 1
             
             await db.commit()
-            await rls_service.set_platform_admin_context(db) # Re-apply context after commit
-            print(f"✅ Created {len(new_comms)} dummy communications.")
+            print(f"✅ Created {new_comms_count} dummy communications.")
     
     # Return all communications (existing + new) for alerts
     # We fetch only relevant ones or up to limit for alerts
@@ -178,7 +228,7 @@ async def seed_alerts(db: AsyncSession, tenant_id: uuid.UUID, user_ids: List[uui
         print(f"✅ Found {alert_count} alerts. Skipping generation.")
         return
 
-    print("⚠️ Low alert count. Generating alerts...")
+    print("⚠️ Low alert count. Generating alerts using alert_service...")
     created_count = 0
     
     for comm in communications:
@@ -191,25 +241,25 @@ async def seed_alerts(db: AsyncSession, tenant_id: uuid.UUID, user_ids: List[uui
         status = random.choice(list(AlertStatus))
         assigned_to = random.choice(user_ids) if user_ids and random.random() > 0.3 else None
         
-        alert = Alert(
+        alert_in = AlertCreate(
             tenant_id=tenant_id,
             communication_id=comm.id,
-            risk_type=risk_type.value,
-            severity=severity.value,
-            status=status.value,
+            risk_type=risk_type,
+            severity=severity,
+            status=status,
             assigned_to=assigned_to,
             description=f"Generated alert for {risk_type.value}",
-            metadata_={"confidence": 0.85, "model": "dev-seed"},
+            metadata={"confidence": 0.85, "model": "dev-seed"},
             detected_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30))
         )
-        db.add(alert)
+        await alert_service.create_alert(db, alert_in)
         created_count += 1
     
     await db.commit()
     print(f"✅ Created {created_count} alerts.")
 
 async def seed_dev_data(target_tenant_id: str = None, csv_path: str = None):
-    print("🚀 Starting Bank Surveillance Seeding...")
+    print("🚀 Starting Bank Surveillance Seeding (Refactored)...")
     
     async with SessionLocal() as db:
         # Platform Admin Context for global seeding
@@ -226,7 +276,6 @@ async def seed_dev_data(target_tenant_id: str = None, csv_path: str = None):
                     print(f"❌ Tenant with ID {target_tenant_id} not found.")
                     return
                 tenant_id = tenant.id
-                print(f"✅ Using provided Tenant: {tenant.name} ({tenant_id})")
             except ValueError:
                 print(f"❌ Invalid UUID provided: {target_tenant_id}")
                 return
@@ -241,9 +290,17 @@ async def seed_dev_data(target_tenant_id: str = None, csv_path: str = None):
                 return
             
             tenant_id = tenant.id
-            print(f"✅ Using Tenant: {tenant.name} ({tenant_id})")
+        
+        if not tenant_id:
+            print("❌ No tenant found to seed.")
+            return
 
-        # 2. Use Existing Users (for assignment)
+        print(f"✅ Target Tenant: {tenant.name} ({tenant_id})")
+
+        # 1. Seed Meta Data
+        await seed_meta(db, tenant_id)
+
+        # 2. Fetch users
         print("🔍 Fetching existing users for assignment...")
         users_result = await db.execute(select(UserModel).where(UserModel.tenant_id == tenant_id))
         users = users_result.scalars().all()

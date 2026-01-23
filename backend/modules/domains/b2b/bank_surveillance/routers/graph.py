@@ -6,7 +6,7 @@ import networkx as nx
 
 from modules.domains.b2b.bank_surveillance.services.graph import graph_service
 
-router = APIRouter(prefix="/api/b2b/domain/bank_surveillance/graph", tags=["Surveillance Graph"])
+router = APIRouter(prefix="/graph", tags=["Surveillance Graph"])
 
 @router.post("/build")
 async def build_graph(

@@ -42,7 +42,7 @@ from modules.platform.schemas.billing_schemas import (
 )
 
 router = APIRouter(
-    prefix="/api/platform/billing",
+    prefix="/billing",
     tags=["Platform Billing"],
     dependencies=[Depends(verify_platform_admin)]
 )

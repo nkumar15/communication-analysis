@@ -2,7 +2,7 @@
 B2B Domain Microservice - Domain Logic API
 
 This microservice handles B2B-specific domain business logic:
-- Bank Surveillance (Enron)
+- Bank Surveillance
 - Projects
 - Tasks
 - Comments
@@ -12,64 +12,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 # CRITICAL: Disable LlamaIndex's auto-patching of event loop (nest_asyncio)
-# Monkeypatch nest_asyncio.apply to be a no-op because we use uvloop (incompatible)
 import nest_asyncio
 nest_asyncio.apply = lambda: None
 
 from core.config import settings
-from core.db.session import init_db, close_db, engine
-from infrastructure.auth import get_auth_provider
-
-# Import logging
-from infrastructure.logging.config import setup_logging, get_logger
+from core.db.session import engine
+from core.lifespan import base_lifespan
 from infrastructure.monitoring.config import setup_observability
 from infrastructure.logging.middleware import LoggingMiddleware
 
-# Get logger for this module
-logger = get_logger(__name__)
-
-# Import domain-specific routers (B2B ONLY)
-from modules.domains.b2b.task_management.routers import (
-    projects_router,
-    tasks_router,
-    comments_router
-)
-from modules.domains.b2b.bank_surveillance.routers.communications import router as communications_router
-from modules.domains.b2b.bank_surveillance.routers.analysis import router as analysis_router
-from modules.domains.b2b.bank_surveillance.routers.cases import router as cases_router
-from modules.domains.b2b.bank_surveillance.routers.graph import router as graph_router
-from modules.domains.b2b.bank_surveillance.routers.ingestion import router as ingestion_router
-from modules.domains.b2b.bank_surveillance.routers.alerts import router as alerts_router
-from modules.domains.b2b.bank_surveillance.routers.regulatory import router as regulatory_router
-from modules.domains.b2b.bank_surveillance.routers.controls import router as controls_router
-
+# Import sub-apps
+from modules.domains.b2b.bank_surveillance.main import app as surveillance_app
+from modules.domains.b2b.task_management.main import app as task_management_app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    # Startup - Initialize logging FIRST
-    setup_logging(
-        environment=settings.log_environment,
-        log_level=settings.log_level
-    )
-    logger.info("b2b_domain_api_starting", service="b2b-domain-api", port=8003)
-    
-    await init_db()
-    
-    get_auth_provider().initialize()
-    logger.info("b2b_domain_api_ready",
-                database="connected",
-                firebase="initialized",
-                service="b2b-domain-api")
-    
-    yield
-    
-    # Shutdown
-    logger.info("b2b_domain_api_shutting_down", service="b2b-domain-api")
-    await close_db()
+    async with base_lifespan(app, "b2b-domain-api"):
+        yield
 
-
-# Create FastAPI application
 app = FastAPI(
     title="B2B Domain Logic API",
     description="Domain-specific business logic API for B2B (Surveillance, Projects)",
@@ -91,22 +51,12 @@ app.add_middleware(
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
 
-# Initialize Observability (Tracing, Metrics)
+# Initialize Observability
 setup_observability(app, service_name="b2b-domain-api", sqlalchemy_engine=engine)
 
-# Include domain-specific routers
-app.include_router(projects_router)
-app.include_router(tasks_router)
-app.include_router(comments_router)
-app.include_router(communications_router)
-app.include_router(analysis_router)
-app.include_router(cases_router)
-app.include_router(graph_router)
-app.include_router(ingestion_router)
-app.include_router(alerts_router)
-app.include_router(regulatory_router)
-app.include_router(controls_router)
-
+# Mount sub-apps
+app.mount("/bank_surveillance", surveillance_app)
+app.mount("/task_management", task_management_app)
 
 @app.get("/")
 async def root():
@@ -117,7 +67,6 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
-
 
 @app.get("/health")
 async def health():

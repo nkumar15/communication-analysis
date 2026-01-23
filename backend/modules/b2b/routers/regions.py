@@ -10,7 +10,7 @@ from modules.b2b.middleware import get_current_active_user
 from modules.b2b.models.geographic_region import GeographicRegion
 from pydantic import BaseModel, ConfigDict
 
-router = APIRouter(prefix="/api/b2b/regions", tags=["regions"])
+router = APIRouter(prefix="/regions", tags=["regions"])
 
 class RegionResponse(BaseModel):
     id: UUID

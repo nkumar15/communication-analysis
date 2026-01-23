@@ -33,7 +33,7 @@ from modules.b2b.models import UserModel
 from workers.b2b_worker.audit_tasks import persist_audit_log
 
 
-router = APIRouter(prefix="/api/b2b/invitations", tags=["invitations"])
+router = APIRouter(prefix="/invitations", tags=["invitations"])
 
 
 @router.post("/invite", response_model=InviteUserResponse)
@@ -367,8 +367,8 @@ async def bulk_invite_users(
         "failed": result['failed'],
         "results": result['results'],
         "teams_created": result['teams_created'],
-        "download_url": f"/api/b2b/invitations/bulk/{result['job_id']}/download",
-        "failures_url": f"/api/b2b/invitations/bulk/{result['job_id']}/download/failures"
+        "download_url": f"/invitations/bulk/{result['job_id']}/download",
+        "failures_url": f"/invitations/bulk/{result['job_id']}/download/failures"
     }
 
 
@@ -458,7 +458,7 @@ async def get_bulk_job_status(
             "email": creator.email,
             "name": creator.name
         } if creator else None,
-        "download_url": f"/api/b2b/invitations/bulk/{job.id}/download"
+        "download_url": f"/invitations/bulk/{job.id}/download"
     }
 
 

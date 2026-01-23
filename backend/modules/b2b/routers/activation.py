@@ -21,7 +21,7 @@ from core.db.session import get_db
 from core.middleware import get_current_user
 from infrastructure.logging import get_logger
 
-router = APIRouter(prefix="/api/b2b/activation", tags=["activation"])
+router = APIRouter(prefix="/activation", tags=["activation"])
 
 logger = get_logger(__name__)
 

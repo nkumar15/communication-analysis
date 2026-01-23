@@ -9,52 +9,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 # CRITICAL: Disable LlamaIndex's auto-patching of event loop (nest_asyncio)
-# Monkeypatch nest_asyncio.apply to be a no-op because we use uvloop (incompatible)
 import nest_asyncio
 nest_asyncio.apply = lambda: None
 
 from core.config import settings
-from core.db.session import init_db, close_db, engine
-from infrastructure.auth import get_auth_provider
-
-# Import logging
-from infrastructure.logging.config import setup_logging, get_logger
+from core.db.session import engine
+from core.lifespan import base_lifespan
 from infrastructure.monitoring.config import setup_observability
 from infrastructure.logging.middleware import LoggingMiddleware
 
-# Get logger for this module
-logger = get_logger(__name__)
-
-# Import domain-specific routers (B2C ONLY)
-from modules.domains.b2c.finance_trader.routers.rag import router as rag_router
-
+# Import sub-apps
+from modules.domains.b2c.finance_trader.main import app as finance_trader_app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    # Startup - Initialize logging FIRST
-    setup_logging(
-        environment=settings.log_environment,
-        log_level=settings.log_level
-    )
-    logger.info("b2c_domain_api_starting", service="b2c-domain-api", port=8004)
-    
-    await init_db()
-    
-    get_auth_provider().initialize()
-    logger.info("b2c_domain_api_ready",
-                database="connected",
-                firebase="initialized",
-                service="b2c-domain-api")
-    
-    yield
-    
-    # Shutdown
-    logger.info("b2c_domain_api_shutting_down", service="b2c-domain-api")
-    await close_db()
+    async with base_lifespan(app, "b2c-domain-api"):
+        yield
 
-
-# Create FastAPI application
 app = FastAPI(
     title="B2C Domain Logic API",
     description="Domain-specific business logic API for B2C (Finance Trader)",
@@ -76,12 +47,11 @@ app.add_middleware(
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
 
-# Initialize Observability (Tracing, Metrics)
+# Initialize Observability
 setup_observability(app, service_name="b2c-domain-api", sqlalchemy_engine=engine)
 
-# Include domain-specific routers
-app.include_router(rag_router)
-
+# Mount sub-apps
+app.mount("/finance_trader", finance_trader_app)
 
 @app.get("/")
 async def root():
@@ -92,7 +62,6 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
-
 
 @app.get("/health")
 async def health():

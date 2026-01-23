@@ -14,7 +14,7 @@ from modules.b2b.schemas.users import UserResponse, UserStatsResponse, UserRoleU
 from modules.b2b.services.user_service import user_service
 
 
-router = APIRouter(prefix="/api/b2b/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/stats", response_model=UserStatsResponse)

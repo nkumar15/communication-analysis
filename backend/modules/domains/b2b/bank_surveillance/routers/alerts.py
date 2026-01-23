@@ -9,7 +9,7 @@ from modules.domains.b2b.bank_surveillance.models.alert import AlertStatus, Aler
 from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate, AlertUpdate, AlertFilter, AlertResponse
 from modules.domains.b2b.bank_surveillance.services.alert_service import alert_service
 
-router = APIRouter(prefix="/api/b2b/domain/bank_surveillance/alerts", tags=["Bank Surveillance Alerts"])
+router = APIRouter(prefix="/alerts", tags=["Bank Surveillance Alerts"])
 
 @router.get("/", response_model=List[AlertResponse])
 async def list_alerts(
