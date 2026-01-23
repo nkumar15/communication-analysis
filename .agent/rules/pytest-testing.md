@@ -24,11 +24,14 @@ backend/tests/
 │   ├── conftest.py               # B2B SHARED: b2b_test_setup, helpers, TenantAwareSession
 │   ├── api/
 │   │   ├── foundation/           # API tests for core B2B (auth, teams, users, billing)
-│   │   └── bank_surveillance/    # API tests for Bank use-case
+│   │   └── use_cases/
+│   │       ├── bank_surveillance/ # API tests for Bank domain
+│   │       └── task_management/   # API tests for Task domain
 │   └── services/
 │       ├── foundation/           # Service tests for core B2B logic
 │       └── use_cases/
-│           └── bank_surveillance/ # Service tests for Bank logic
+│           ├── bank_surveillance/ # Service tests for Bank logic
+│           └── task_management/   # Service tests for Task logic
 ├── e2e_api/                      # Legacy/B2C/Platform
 │   ├── b2c/
 │   └── platform/
