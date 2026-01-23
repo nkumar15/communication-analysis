@@ -33,41 +33,32 @@ class HierarchicalTeamsPlugin(RBACPlugin):
     async def enrich_user_context(self, user: Dict[str, Any], db: AsyncSession) -> Dict[str, Any]:
         """
         Enrich User with 'accessible_teams' containing direct memberships + child teams of managed teams.
+        
+        A user gets child team access if:
+        1. They are a tenant-level admin (owner/admin role)
+        2. OR their team role has 'team_members:manage' permission (database-driven)
         """
         user_id = user.get("id")
         if not user_id:
             return {}
 
-        # 1. Get direct team memberships and roles
-        # We need to know which teams the user is a MANAGER of.
-        # Assuming 'role' in team_members or checking permissions.
-        # For simplicity/performance, let's fetch teams where user has a 'manager' type role or owner.
-        # But RBAC is granular. Let's rely on the core system to tell us direct teams, 
-        # or we query here.
-        
-        # Let's query direct teams where user has significant permission or generic 'admin'/'lead' role?
-        # Better: Get all teams user belongs to, check if they have 'manage' permissions on them?
-        # Or simpler: The plugin config might define what constitutes a "manager".
-        
-        # For this implementation, we will query all team memberships.
-        direct_teams = await self._get_direct_teams_with_roles(user_id, db)
+        # Get direct team memberships with role permissions
+        direct_teams = await self._get_direct_teams_with_permissions(user_id, db)
         
         accessible_teams = set()
         
-        for team_id, role_name in direct_teams.items():
+        for team_id, has_manage_permission in direct_teams.items():
             accessible_teams.add(team_id)
             
-            # If user is a "lead", "owner", "manager", or has specific role
-            # We hardcode 'surveillance_lead', 'regional_director', 'owner' for now or use config.
-            # In standard B2B, roles are customizable. 
-            # Ideally we check if the role has 'team_members:manage' or similar.
-            # For Bank Surveillance, 'surveillance_lead' and 'regional_director' are key.
-            
+            # Check if user can manage this team (and thus access children)
             is_manager = False
-            if user.get("role") in ["owner", "admin"]: # Tenant level admin
-                 is_manager = True
-            elif role_name in ["surveillance_lead", "regional_director", "desk_surveillance_manager"]:
-                 is_manager = True
+            
+            # Tenant-level admin bypass
+            if user.get("role") in ["owner", "admin"]:
+                is_manager = True
+            # Database-driven: role has team_members:manage permission
+            elif has_manage_permission:
+                is_manager = True
             
             if is_manager:
                 children = await self._get_child_teams(team_id, db)
@@ -75,9 +66,45 @@ class HierarchicalTeamsPlugin(RBACPlugin):
 
         return {"accessible_teams": list(accessible_teams)}
 
+    async def _get_direct_teams_with_permissions(self, user_id: str, db: AsyncSession) -> Dict[str, bool]:
+        """
+        Returns {team_id: has_manage_permission} for user's direct memberships.
+        
+        Database-driven permission check: looks for 'team_members:manage' or 'team_members:admin'
+        in the team role's permissions JSONB field.
+        """
+        stmt = text("""
+            SELECT 
+                tm.team_id,
+                trd.permissions as role_permissions
+            FROM b2b.team_members tm
+            LEFT JOIN b2b.team_role_definitions trd ON tm.team_role_id = trd.id
+            WHERE tm.user_id = :user_id
+        """)
+        result = await db.execute(stmt, {"user_id": user_id})
+        
+        teams_with_permissions = {}
+        for row in result:
+            team_id = str(row.team_id)
+            permissions = row.role_permissions or []
+            
+            # Check if role has team_members:manage or team_members:admin permission
+            has_manage = False
+            for perm in permissions:
+                resource = perm.get("resource", "")
+                actions = perm.get("actions", [])
+                if resource == "team_members" and ("manage" in actions or "admin" in actions):
+                    has_manage = True
+                    break
+            
+            teams_with_permissions[team_id] = has_manage
+        
+        return teams_with_permissions
+
     async def _get_direct_teams_with_roles(self, user_id: str, db: AsyncSession) -> Dict[str, str]:
         """
         Returns {team_id: role_name} for user's direct memberships.
+        DEPRECATED: Use _get_direct_teams_with_permissions for database-driven checks.
         """
         stmt = text("""
             SELECT tm.team_id, trd.name as role_name 

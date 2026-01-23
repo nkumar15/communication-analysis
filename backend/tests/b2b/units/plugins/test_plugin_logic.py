@@ -150,22 +150,29 @@ class TestGeographicBoundariesPlugin:
 
 
 class TestHierarchicalTeamsPlugin:
+    """Tests for HierarchicalTeamsPlugin - Database-Driven Permission Checks"""
     
-    async def test_enrich_context_recursion(self):
+    async def test_enrich_context_with_manage_permission(self):
+        """
+        [DATABASE-DRIVEN] User with team_members:manage permission gets child team access.
+        
+        This works with ANY role that has the permission, including:
+        - team_manager (foundation)
+        - regional_director (bank surveillance)
+        - operations_manager (generic use case)
+        """
         plugin = HierarchicalTeamsPlugin()
         await plugin.initialize(None, {})
         
-        # Mocks
         db = AsyncMock()
         
-        # Mock _get_direct_teams_with_roles to return User manages Team A
-        # Use a role contained in the hardcoded list: "regional_director"
-        plugin._get_direct_teams_with_roles = AsyncMock(return_value={"team_A": "regional_director"})
+        # Mock: User has manage permission on Team A (True = has team_members:manage)
+        plugin._get_direct_teams_with_permissions = AsyncMock(return_value={"team_A": True})
         
         # Mock _get_child_teams to return children B and C for Team A
         plugin._get_child_teams = AsyncMock(side_effect=lambda tid, db: ["team_B", "team_C"] if tid == "team_A" else [])
         
-        user = {"id": "u1", "role": "member"} # Not tenant admin, but manager of Team A
+        user = {"id": "u1", "role": "member"}  # Not tenant admin, but has manage permission
         
         context_update = await plugin.enrich_user_context(user, db)
         
@@ -176,14 +183,21 @@ class TestHierarchicalTeamsPlugin:
         assert len(teams) == 3
 
     async def test_non_manager_no_child_access(self):
-        """Test that non-manager roles don't get child team access"""
+        """
+        [DATABASE-DRIVEN] User WITHOUT team_members:manage permission gets only direct teams.
+        
+        This applies to roles like:
+        - team_contributor (foundation)
+        - team_viewer (foundation)
+        - surveillance_analyst (bank - read-only)
+        """
         plugin = HierarchicalTeamsPlugin()
         await plugin.initialize(None, {})
         
         db = AsyncMock()
         
-        # User is a regular member (not a manager role)
-        plugin._get_direct_teams_with_roles = AsyncMock(return_value={"team_A": "team_member"})
+        # Mock: User does NOT have manage permission (False = no team_members:manage)
+        plugin._get_direct_teams_with_permissions = AsyncMock(return_value={"team_A": False})
         plugin._get_child_teams = AsyncMock(return_value=["team_B", "team_C"])
         
         user = {"id": "u1", "role": "member"}
@@ -198,17 +212,21 @@ class TestHierarchicalTeamsPlugin:
         assert len(teams) == 1
     
     async def test_tenant_admin_bypass(self):
-        """Test that tenant admin gets child access regardless of team role"""
+        """
+        [TENANT ADMIN] Tenant owner/admin gets child access regardless of team permissions.
+        
+        This is a system-level bypass that doesn't require any team role.
+        """
         plugin = HierarchicalTeamsPlugin()
         await plugin.initialize(None, {})
         
         db = AsyncMock()
         
-        # User is tenant owner/admin
-        plugin._get_direct_teams_with_roles = AsyncMock(return_value={"team_A": "team_member"})
+        # Mock: User is just a regular team member (no manage permission)
+        plugin._get_direct_teams_with_permissions = AsyncMock(return_value={"team_A": False})
         plugin._get_child_teams = AsyncMock(return_value=["team_B", "team_C"])
         
-        user = {"id": "u1", "role": "owner"}  # Tenant admin
+        user = {"id": "u1", "role": "owner"}  # Tenant admin bypasses permission check
         
         context_update = await plugin.enrich_user_context(user, db)
         
