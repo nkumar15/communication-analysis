@@ -19,19 +19,22 @@ Applies to: **All test code in `backend/tests/`**
 ### Directory Structure
 ```
 backend/tests/
-├── conftest.py          # Root fixtures (db, api_client, core helpers)
-├── e2e_api/             # API integration tests
-│   ├── b2b/             # B2B module tests
-│   │   ├── conftest.py  # B2B-specific fixtures
-│   │   ├── iam/         # Auth & RBAC tests
-│   │   ├── billing/     # Subscription tests
-│   │   └── ...
+├── conftest.py                   # ROOT: Core fixtures ONLY (db_session, api_client)
+├── b2b/
+│   ├── conftest.py               # B2B SHARED: b2b_test_setup, helpers, TenantAwareSession
+│   ├── api/
+│   │   ├── foundation/           # API tests for core B2B (auth, teams, users, billing)
+│   │   └── bank_surveillance/    # API tests for Bank use-case
+│   └── services/
+│       ├── foundation/           # Service tests for core B2B logic
+│       └── use_cases/
+│           └── bank_surveillance/ # Service tests for Bank logic
+├── e2e_api/                      # Legacy/B2C/Platform
 │   ├── b2c/
 │   └── platform/
-├── e2e_browser/         # Playwright browser tests
-├── domain/              # Domain logic tests (isolated business logic)
-├── units/               # Pure unit tests (no DB)
-└── load/                # Performance/stress tests
+├── e2e_browser/                  # Playwright browser tests
+├── units/                        # Pure unit tests (no DB)
+└── load/                         # Performance/stress tests
 ```
 
 ### Naming Conventions
@@ -147,10 +150,6 @@ headers = create_auth_headers(user, tenant)
 ### Rule: Use Domain-Specific Roles for Use Case Features
 **CRITICAL**: System roles (`owner`, `member`, `admin`, `viewer`) MUST NOT be used to test use case features (e.g., Bank Surveillance, Marketing Agency). These roles are reserved for testing core B2B SaaS platform features.
 
-For all domain/use-case specific features:
-- **Use Only Use Case Roles**: Use roles defined in the use case's `team_roles.yaml` (e.g., `surveillance_chief`, `desk_manager`).
-- **Authorization Setup**: If a test user needs permission to access a specific resource, assign them the appropriate team role during test setup instead of using a platform `owner` role.
-- **Permission Elevation**: If necessary for a specific test scenario, add the required permissions to the domain role in `team_roles.yaml` or via role-assignment in the test fixture.
 
 ### Example: Use Case Role Assignment
 ```python
