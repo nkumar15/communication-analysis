@@ -1,3 +1,6 @@
+---
+trigger: always_on
+---
 
 # Documentation Standards
 
@@ -39,7 +42,7 @@ The `docs/` root is the **EntryPoint** and **Index** for the project.
 - [System Overview](architecture/system_overview.md)
 - [Tech Stack](architecture/tech_stack.md)
 
-## 2. Feature Index
+## 2. Product Index
 ### B2B Domain
 - [Task Management (Projects/Tasks)](../../backend/modules/domains/b2b/task_management/README.md)
 - [Bank Surveillance](../../backend/modules/domains/b2b/bank_surveillance/README.md)

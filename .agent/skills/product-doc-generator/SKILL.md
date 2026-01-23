@@ -36,6 +36,8 @@ backend/modules/[path]/[feature]/
 │   ├── README.md           # Overview + links
 │   ├── personas.md         # User personas
 │   ├── navigation.md       # Navigation IA
+│   ├── features/           # Feature cards (implementation-ready)
+│   │   └── [feature].md
 │   ├── pages/              # Per-page specs
 │   │   └── [page].md
 │   ├── wireframes/         # Wireframe images
@@ -60,6 +62,7 @@ Use the template files in this skill's `templates/` folder:
 | README | `templates/docs/README.md` | Product overview |
 | Personas | `templates/docs/personas.md` | User personas |
 | Navigation | `templates/docs/navigation.md` | Navigation IA |
+| **Feature Card** | `templates/docs/features/_feature_template.md` | **Implementation-ready feature spec** |
 | Page Spec | `templates/docs/pages/_page_template.md` | Per-page specification |
 | Demo Script | `templates/docs/demos/_demo_template.md` | Per-persona demo |
 | API | `templates/docs/technical/api.md` | API reference |
@@ -90,7 +93,19 @@ Use the template files in this skill's `templates/` folder:
    - `pages/[page].md` → One per UI page
    - `demos/[persona].md` → One per persona
 
-## Step 3: Create Technical Docs
+## Step 3: Create Feature Cards
+
+**Feature cards** are implementation-ready specifications that link product and technical docs.
+
+1. Create `features/[feature-name].md` from template
+2. Fill in:
+   - Status, module, priority
+   - Implementation checklist (components marked `[NEW]`)
+   - Workflows (trigger → processing → output)
+   - Design decisions
+3. **Purpose**: When you say "Implement [feature]", Claude reads this card to understand what to build.
+
+## Step 4: Create Technical Docs
 
 1. Fill in `technical/`:
    - `api.md` → All endpoints from routers

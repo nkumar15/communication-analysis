@@ -30,6 +30,7 @@ For each `docs/` folder, verify required files exist:
 ```bash
 # List structure
 ls -la [feature]/docs/
+ls -la [feature]/docs/features/
 ls -la [feature]/docs/pages/
 ls -la [feature]/docs/technical/
 ls -la [feature]/docs/demos/
@@ -43,10 +44,10 @@ ls -la [feature]/docs/wireframes/
 | `docs/README.md` | ✅ Yes | Product overview |
 | `docs/personas.md` | ✅ Yes | User personas |
 | `docs/navigation.md` | ✅ Yes | Navigation IA |
+| `docs/features/` | ✅ Yes | **Feature cards (implementation-ready)** |
 | `docs/pages/` | ✅ Yes | Page specifications |
 | `docs/technical/api.md` | ✅ Yes | API reference |
 | `docs/technical/schema.md` | ✅ Yes | Database tables |
-| `docs/technical/architecture.md` | ✅ Yes | Data flow |
 | `docs/technical/architecture.md` | ✅ Yes | Data flow |
 | `docs/demos/` | ✅ Yes (Folder) | Content Optional |
 | `docs/wireframes/` | ✅ Yes (Folder) | Content Optional |
@@ -89,7 +90,17 @@ For each file, verify it follows the template structure:
 ### technical/architecture.md
 - [ ] Has data flow mermaid diagram?
 - [ ] Has key components table?
+- [ ] Has `[NEW]` annotations for pending implementation?
 - [ ] Has testing section?
+
+### features/*.md (MANDATORY)
+- [ ] **At least one feature card exists?**
+- [ ] Has status badge (Documented/In Progress/Complete)?
+- [ ] Has Quick Reference linking to technical docs?
+- [ ] Has Workflows section (trigger → processing → output)?
+- [ ] Has Implementation Checklist with priorities?
+- [ ] Has "How to Implement" prompts?
+- [ ] Has Design Decisions table?
 
 ## Step 4: Check Root Linkage
 
@@ -132,8 +143,16 @@ echo "=== Checking $feature ==="
 [ -f "$feature/docs/README.md" ] && echo "✅ README.md" || echo "❌ README.md"
 [ -f "$feature/docs/personas.md" ] && echo "✅ personas.md" || echo "❌ personas.md"
 [ -f "$feature/docs/navigation.md" ] && echo "✅ navigation.md" || echo "❌ navigation.md"
+[ -d "$feature/docs/features" ] && echo "✅ features/" || echo "❌ features/ (MANDATORY)"
 [ -d "$feature/docs/pages" ] && echo "✅ pages/" || echo "❌ pages/"
 [ -f "$feature/docs/technical/api.md" ] && echo "✅ technical/api.md" || echo "❌ technical/api.md"
 [ -f "$feature/docs/technical/schema.md" ] && echo "✅ technical/schema.md" || echo "❌ technical/schema.md"
 [ -f "$feature/docs/technical/architecture.md" ] && echo "✅ technical/architecture.md" || echo "❌ technical/architecture.md"
+
+# Check for at least one feature card
+if ls "$feature/docs/features/"*.md 1> /dev/null 2>&1; then
+    echo "✅ Feature card(s) exist"
+else
+    echo "❌ No feature cards found (MANDATORY)"
+fi
 ```

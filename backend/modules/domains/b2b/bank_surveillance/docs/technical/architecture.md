@@ -4,6 +4,9 @@
 
 The platform operates via two decoupled background workflows to transform raw communication data into actionable alerts.
 
+> [!IMPORTANT]
+> Workflows are **triggered via REST API** from the UI but **processed asynchronously by Celery workers**. The API returns immediately with a `job_id` for status polling.
+
 ### Workflow A: Ingest + Detect
 **Goal**: Normalize data and flag individual risky messages immediately.
 
@@ -37,11 +40,16 @@ flowchart TB
 | **RiskEvent Model** | `models/risk_event.py` | Tier 1: Individual match evidence |
 | **Incident Model** | `models/incident.py` | Tier 2: Aggregated signals per sender/day |
 | **Alert Model** | `models/alert.py` | Tier 3: Investigation work unit |
-| **Surv. Control Model**| `models/control.py` | Config for Typologies, Indicators, and Aggregation Policies |
+| **Surv. Control Model**| `models/surveillance_control.py` | Config for Typologies, Indicators, and Detection Methods |
 | **Ingestion Service** | `services/ingestion.py` | ETL Logic + Triggering Detection Workflow |
 | **Ingestion Worker** | `tasks/ingestion.py` | Celery task for Ingest + Detect workflow |
-| **Alert Worker** | `tasks/alerting.py` | Celery task for Group + Alert workflow |
+| **Alert Worker** | `tasks/alerting.py` | **[NEW]** Celery task for Group + Alert workflow |
+| **Detection Service** | `services/detection.py` | **[NEW]** Executes Risk Indicators (Keyword/Regex) against ES |
+| **Aggregation Service** | `services/aggregation.py` | **[NEW]** Pluggable logic to group RiskEvents into Incidents |
 | **Communication Model**| `models/communication.py` | Lightweight reference to ES message |
+| **RiskEvent Model** | `models/risk_event.py` | **[NEW]** Tier 1: Individual match evidence |
+| **Incident Model** | `models/incident.py` | **[NEW]** Tier 2: Aggregated signals per sender/day |
+| **Alert Model** | `models/alert.py` | Tier 3: Investigation work unit (updated) |
 | **Intent Agent** | `services/agents/intent.py` | **[DESIGN]** Infers willful misconduct intent |
 | **Policy Agent** | `services/agents/policy.py` | **[DESIGN]** Maps signals to regulatory clauses |
 | **Evasion Agent** | `services/agents/evasion.py`| **[DESIGN]** Detects surveillance circumvention |
