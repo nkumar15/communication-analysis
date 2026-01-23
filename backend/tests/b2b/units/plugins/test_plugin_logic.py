@@ -174,3 +174,271 @@ class TestHierarchicalTeamsPlugin:
         assert "team_B" in teams
         assert "team_C" in teams
         assert len(teams) == 3
+
+    async def test_non_manager_no_child_access(self):
+        """Test that non-manager roles don't get child team access"""
+        plugin = HierarchicalTeamsPlugin()
+        await plugin.initialize(None, {})
+        
+        db = AsyncMock()
+        
+        # User is a regular member (not a manager role)
+        plugin._get_direct_teams_with_roles = AsyncMock(return_value={"team_A": "team_member"})
+        plugin._get_child_teams = AsyncMock(return_value=["team_B", "team_C"])
+        
+        user = {"id": "u1", "role": "member"}
+        
+        context_update = await plugin.enrich_user_context(user, db)
+        
+        teams = context_update.get("accessible_teams", [])
+        # Should only have direct team, NOT children
+        assert "team_A" in teams
+        assert "team_B" not in teams
+        assert "team_C" not in teams
+        assert len(teams) == 1
+    
+    async def test_tenant_admin_bypass(self):
+        """Test that tenant admin gets child access regardless of team role"""
+        plugin = HierarchicalTeamsPlugin()
+        await plugin.initialize(None, {})
+        
+        db = AsyncMock()
+        
+        # User is tenant owner/admin
+        plugin._get_direct_teams_with_roles = AsyncMock(return_value={"team_A": "team_member"})
+        plugin._get_child_teams = AsyncMock(return_value=["team_B", "team_C"])
+        
+        user = {"id": "u1", "role": "owner"}  # Tenant admin
+        
+        context_update = await plugin.enrich_user_context(user, db)
+        
+        teams = context_update.get("accessible_teams", [])
+        # Admin should get all teams including children
+        assert "team_A" in teams
+        assert "team_B" in teams
+        assert "team_C" in teams
+
+
+class TestDataClassificationPluginExtended:
+    """Extended tests for DataClassificationPlugin edge cases"""
+    
+    async def test_default_level_applied_when_resource_has_no_sensitivity(self):
+        """Test that default sensitivity level is used when resource has none"""
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {"default_level": "INTERNAL"})
+        
+        # Resource with NO sensitivity attribute
+        resource = MockResource()  # No sensitivity
+        
+        # User: Internal Clearance (Level 1) - should match default INTERNAL
+        user_context = {"clearance_level": 1, "id": "u1"}
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={}
+        )
+        
+        # User with L1 clearance should pass for INTERNAL (L1) default
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is True
+    
+    async def test_public_resource_allows_all_clearance_levels(self):
+        """Test that PUBLIC resources allow even L0 clearance"""
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {"default_level": "INTERNAL"})
+        
+        # Resource: Public (Level 0)
+        resource = MockResource(sensitivity="PUBLIC")
+        
+        # User: Lowest possible clearance
+        user_context = {"clearance_level": 0, "id": "u1"}
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={}
+        )
+        
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is True
+    
+    async def test_top_secret_requires_highest_clearance(self):
+        """Test that TOP_SECRET requires L4 clearance"""
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {"default_level": "INTERNAL"})
+        
+        # Resource: Top Secret (Level 4)
+        resource = MockResource(sensitivity="TOP_SECRET")
+        
+        # User: Level 3 clearance - one below required
+        user_context = {"clearance_level": 3, "id": "u1"}
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={}
+        )
+        
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is False
+        
+        # Now with L4 clearance
+        user_context["clearance_level"] = 4
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is True
+    
+    async def test_core_result_false_not_overridden(self):
+        """Test that plugin doesn't grant access if core RBAC denied"""
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {"default_level": "INTERNAL"})
+        
+        # Resource: Public (should allow anyone)
+        resource = MockResource(sensitivity="PUBLIC")
+        
+        # User: High clearance
+        user_context = {"clearance_level": 4, "id": "u1"}
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={}
+        )
+        
+        # Core RBAC said NO - plugin should respect that
+        result = await plugin.after_permission_check(ctx, False, None)
+        assert result is False
+
+
+class TestGeographicBoundariesPluginExtended:
+    """Extended tests for GeographicBoundariesPlugin edge cases"""
+    
+    async def test_no_region_on_resource_allows_access(self):
+        """Test that resources without regions allow access"""
+        plugin = GeographicBoundariesPlugin()
+        await plugin.initialize(None, {"enforce_strict": True})
+        
+        # Resource: No data_region_id
+        resource = MockResource()
+        
+        # User: EU Scope
+        eu_uuid = "98765432-1234-5678-90ab-cdef12345678"
+        user_context = {"geographic_scopes": [eu_uuid], "id": "u1"}
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={}
+        )
+        
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is True
+    
+    async def test_multiple_scopes_allows_if_any_match(self):
+        """Test that user with multiple scopes passes if any match"""
+        plugin = GeographicBoundariesPlugin()
+        await plugin.initialize(None, {"enforce_strict": True})
+        
+        # Resource: US Region
+        us_uuid = "123e4567-e89b-12d3-a456-426614174000"
+        resource = MockResource(data_region_id=us_uuid)
+        
+        # User: Multiple scopes including US
+        eu_uuid = "98765432-1234-5678-90ab-cdef12345678"
+        user_context = {"geographic_scopes": [eu_uuid, us_uuid], "id": "u1"}
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={}
+        )
+        
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is True
+    
+    async def test_team_role_global_bypass(self):
+        """Test that team-level global role bypasses geographic restrictions"""
+        plugin = GeographicBoundariesPlugin()
+        await plugin.initialize(None, {"enforce_strict": True, "global_roles": ["compliance_officer"]})
+        
+        # Resource: US Region
+        us_uuid = "123e4567-e89b-12d3-a456-426614174000"
+        resource = MockResource(data_region_id=us_uuid)
+        
+        # User: No geographic scopes, but has team-level global role
+        user_context = {
+            "geographic_scopes": [], 
+            "id": "u1", 
+            "role": "member",  # Not tenant-level bypass
+            "team_roles": ["compliance_officer"]  # This is the bypass
+        }
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={}
+        )
+        
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is True
+    
+    async def test_bypass_via_extra_context(self):
+        """Test bypass via extra_context flag"""
+        plugin = GeographicBoundariesPlugin()
+        await plugin.initialize(None, {"enforce_strict": True})
+        
+        # Resource: US Region
+        us_uuid = "123e4567-e89b-12d3-a456-426614174000"
+        resource = MockResource(data_region_id=us_uuid)
+        
+        # User: No scopes at all
+        user_context = {"geographic_scopes": [], "id": "u1"}
+        
+        ctx = PermissionContext(
+            user_id=user_context["id"],
+            user=user_context,
+            resource_type="data",
+            resource_id="r1",
+            resource=resource,
+            action="read",
+            tenant_id="t1",
+            extra_context={"bypass_geographic_restrictions": True}
+        )
+        
+        result = await plugin.after_permission_check(ctx, True, None)
+        assert result is True
