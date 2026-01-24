@@ -97,7 +97,25 @@ class CommunicationRagService(BaseRagService):
              pass # ...
         return None
 
-    # ... get_content_by_id stays same ...
+    async def get_content_by_id(self, doc_id: str) -> Optional[str]:
+        """Fetch full text content of a document by ID."""
+        self._ensure_initialized()
+        
+        try:
+            if self._vector_store_provider == "elasticsearch":
+                # Access underlying ES client
+                client = self.vector_store.client
+                index_name = self.get_index_name()
+                
+                response = client.get(index=index_name, id=doc_id)
+                source = response.get("_source", {})
+                # LlamaIndex stores text in 'content' field by default
+                return source.get("content")
+                
+        except Exception as e:
+            # Return None if not found or error
+            return None
+        return None
 
     async def index_batch(self, documents: List[Dict[str, Any]], enable_semantic: bool = False) -> int:
         """
@@ -131,6 +149,32 @@ class CommunicationRagService(BaseRagService):
         )
         
         return len(docs)
+
+    async def delete_documents(self, doc_ids: List[str]) -> bool:
+        """
+        Delete documents by ID from the vector store.
+        Used for rollback/compensating transactions.
+        """
+        self._ensure_initialized()
+        try:
+             # LlamaIndex doesn't expose delete_nodes easily on VectorStoreIndex,
+             # but we can use the underlying vector store client.
+            if self._vector_store_provider == "elasticsearch":
+                 client = self.vector_store.client
+                 index_name = self.get_index_name()
+                 
+                 # Delete by API
+                 for doc_id in doc_ids:
+                     try:
+                         client.delete(index=index_name, id=doc_id)
+                     except Exception:
+                         # 404 is fine
+                         pass
+                 return True
+            return False
+        except Exception as e:
+            print(f"Failed to delete documents: {e}")
+            return False
 
 # Singleton instance
 communication_rag_service = CommunicationRagService()

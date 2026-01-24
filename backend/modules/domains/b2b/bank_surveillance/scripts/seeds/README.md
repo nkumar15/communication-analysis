@@ -275,16 +275,17 @@ The system uses a **Plugin Architecture** to enforce specific compliance rules a
 
 ## 11. Usage
 
+> **[NAVIGATE]** For complete demo setup and execution instructions, please refer to the **[Product Demo Guide](../../docs/demos/README.md)**.
+
+The commands below are for low-level reference only.
+
 ```bash
-# 1. Reset DB and seed RBAC with bank surveillance use case
+# 1. Reset DB and seed RBAC
 make reset-db
 make b2b-seed-roles USE_CASE=bank_surveillance
 
 # 2. Create demo tenant
 make b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo.json
-
-# 3. Log in as CSO
-# Email: cso@worldwidebank.com
 ```
 
 **Fixed Tenant ID:** `b5e1fa40-89f4-50c2-a3f4-4c122000beef`

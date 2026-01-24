@@ -80,14 +80,14 @@ class CommunicationIngestionService:
             print(f"Error parsing email: {e}")
             return None
 
-    async def ingest_message(self, email_data: EmailParsedData, tenant_id: uuid.UUID, source_ref: str = None) -> bool:
-        """Core logic to save a parsed message to DB and index it."""
+    async def ingest_message_with_status(self, email_data: EmailParsedData, tenant_id: uuid.UUID, source_ref: str = None) -> str:
+        """Core logic to save a parsed message to DB and index it. Returns: 'inserted', 'skipped', 'failed'"""
         try:
             # Check duplicates (Message-ID)
             stmt = select(Communication).where(Communication.message_id == email_data.message_id)
             result = await self.db.execute(stmt)
             if result.scalar_one_or_none():
-                return False # Skip duplicate
+                return "skipped" # Skip duplicate
 
             db_comm = Communication(
                 id=uuid.uuid4(),
@@ -95,8 +95,6 @@ class CommunicationIngestionService:
                 channel="email",
                 message_id=email_data.message_id,
                 sender=email_data.sender,
-                recipients=email_data.recipients,
-                subject=email_data.subject,
                 recipients=email_data.recipients,
                 subject=email_data.subject,
                 # content=NULL (Stored in ES only)
@@ -126,10 +124,15 @@ class CommunicationIngestionService:
             # RAG Indexing is handled by the caller (batch or individual) to avoid double-indexing
             # when running bulk ingestion.
             
-            return True
+            return "inserted"
         except Exception as e:
             print(f"Failed to ingest message {email_data.message_id}: {e}")
-            return False
+            return "failed"
+
+    async def ingest_message(self, email_data: EmailParsedData, tenant_id: uuid.UUID, source_ref: str = None) -> bool:
+        """Wrapper for backward compatibility. Returns True if inserted, False if skipped or failed."""
+        status = await self.ingest_message_with_status(email_data, tenant_id, source_ref)
+        return status == "inserted"
 
 
     async def ingest_file(self, file_path: str, tenant_id: uuid.UUID) -> bool:

@@ -8,7 +8,7 @@ class SurveillanceControlBase(BaseModel):
     risk_indicator: str
     regulatory_id: Optional[UUID] = None
     regulatory_reference_text: Optional[str] = None
-    detection_methods: List[str] = []
+    detection_methods: List[dict] = []
     status: str = "Active"
 
 class SurveillanceControlCreate(SurveillanceControlBase):
@@ -19,7 +19,7 @@ class SurveillanceControlUpdate(BaseModel):
     risk_indicator: Optional[str] = None
     regulatory_id: Optional[UUID] = None
     regulatory_reference_text: Optional[str] = None
-    detection_methods: Optional[List[str]] = None
+    detection_methods: Optional[List[dict]] = None
     status: Optional[str] = None
 
 from .regulatory import RegulatoryDocumentResponse

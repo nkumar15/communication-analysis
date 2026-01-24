@@ -148,8 +148,8 @@ async def _run_ingestion_async(
     tenant_id = uuid.UUID(tenant_id_str) if tenant_id_str else uuid.uuid5(uuid.NAMESPACE_DNS, "ingest-task")
     
     # CRITICAL: Set RLS context for tenant BEFORE any inserts
-    # Use platform admin context to bypass RLS for ingestion (system operation)
-    await rls_service.set_platform_admin_context(db)
+    # Use tenant context to satisfy RLS policy for insert (tenant_id match)
+    await rls_service.set_tenant_context(db, tenant_id)
     
     # Create log entry
     log_entry = IngestionLog(
@@ -161,19 +161,25 @@ async def _run_ingestion_async(
     )
     db.add(log_entry)
     await db.commit()
+    # Re-apply RLS context after commit (SET LOCAL is transaction-scoped)
+    await rls_service.set_tenant_context(db, tenant_id)
     
     try:
         service = CommunicationIngestionService(db) 
         count = 0
+        skipped = 0
         errors = 0
+        events_created = 0
+        indexed_in_transaction = []
         vector_batch = []
         vector_batch_size = 50
-        
+
         if os.path.isfile(file_path) and file_path.endswith(".csv"):
             # CSV mode
             with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    # ... (Parsing logic same as before) ...
                     try:
                         dt = parsedate_to_datetime(row.get('date', ''))
                     except:
@@ -189,16 +195,14 @@ async def _run_ingestion_async(
                         body=row.get('body', ''),
                         date=dt
                     )
-                    
+
                     # Insert into DB
-                    success = await service.ingest_message(email_data, tenant_id, source_ref="csv_row")
+                    result_code = await service.ingest_message_with_status(email_data, tenant_id, source_ref="csv_row")
                     
-                    if success:
+                    if result_code == "inserted":
                         count += 1
                         
-                        # Queue for vector indexing (ALWAYS index for Keyword Search/Storage)
-                        # The 'index_vectors' flag now controls SEMANTIC embeddings (Costly) vs Keyword (Cheap)
-                        
+                        # Queue for vector indexing
                         text_content = f"Subject: {email_data.subject}\n\n{email_data.body}"
                         metadata = {
                             "message_id": email_data.message_id,
@@ -207,7 +211,6 @@ async def _run_ingestion_async(
                             "date": str(email_data.date),
                             "tenant_id": str(tenant_id)
                         }
-                        # Use message_id as the ES Document ID to link with Postgres es_document_id
                         vector_batch.append({
                             "text": text_content, 
                             "metadata": metadata,
@@ -217,27 +220,70 @@ async def _run_ingestion_async(
                         # Batch index
                         if len(vector_batch) >= vector_batch_size:
                             await communication_rag_service.index_batch(vector_batch, enable_semantic=index_vectors)
+                            # Track indexed IDs for rollback
+                            indexed_in_transaction.extend([d['doc_id'] for d in vector_batch])
                             vector_batch = []
+                            
+                    elif result_code == "skipped":
+                        skipped += 1
                     else:
                         errors += 1
                     
                     # Batch commit every 100
-                    if count % 100 == 0:
-                        await db.commit()
-                        logger.info(f"  Processed {count} messages...")
+                    if (count + skipped + errors) % 100 == 0:
+                        try:
+                            # 1. READ-AFTER-WRITE Requirement:
+                            # We have ALREADY indexed documents into Elasticsearch (Lines 220).
+                            # This ensures they are immediately searchable.
+                            
+                            # 2. COMMIT:
+                            await db.commit()
+                            
+                            # 3. SUCCESS:
+                            # If commit succeeds, the data is permanent in both DB and ES.
+                            # We can clear our rollback tracking list.
+                            indexed_in_transaction = [] 
+                            
+                        except Exception:
+                            # 4. COMPENSATING TRANSACTION (Rollback):
+                            # The DB commit failed (e.g. RLS Violation, Constraint Error).
+                            # The DB transaction is automatically rolled back by Postgres.
+                            # BUT, Elasticsearch does not rollback automatically.
+                            # We must MANUALLY delete the "Ghost Records" we just indexed.
+                            logger.error("DB Commit failed. Rolling back Elasticsearch...")
+                            if indexed_in_transaction:
+                                await communication_rag_service.delete_documents(indexed_in_transaction)
+                            raise
+                        
+                        await rls_service.set_tenant_context(db, tenant_id)
+                        if count > 0 and count % 100 == 0:
+                            logger.info(f"  Processed {count} messages (Skipped: {skipped}, Errors: {errors})...")
             
-            # Final batch
-            await db.commit()
+            # Final vector batch (must index before final commit checks)
             if vector_batch:
                 await communication_rag_service.index_batch(vector_batch, enable_semantic=index_vectors)
+                indexed_in_transaction.extend([d['doc_id'] for d in vector_batch])
+
+            # Final commit
+            try:
+                await db.commit()
+                indexed_in_transaction = []
+            except Exception:
+                # Same Rollback Logic as above
+                logger.error("Final DB Commit failed. Rolling back Elasticsearch...")
+                if indexed_in_transaction:
+                    await communication_rag_service.delete_documents(indexed_in_transaction)
+                raise
+
+            await rls_service.set_tenant_context(db, tenant_id)
             
             # --- DETECTION PHASE ---
-            # Run detection on newly ingested messages
             logger.info("Starting detection phase...")
             from modules.domains.b2b.bank_surveillance.services.detection import DetectionService
             detection_service = DetectionService(db, tenant_id)
-            events_created = await detection_service.analyze_unprocessed(limit=count + 100)
+            events_created = await detection_service.analyze_unprocessed(limit=1000)
             await db.commit()
+            await rls_service.set_tenant_context(db, tenant_id)
             logger.info(f"Detection complete. Created {events_created} RiskEvents")
             
         else:
@@ -252,8 +298,8 @@ async def _run_ingestion_async(
         log_entry.completed_at = datetime.utcnow()
         await db.commit()
         
-        logger.info(f"✅ Ingestion Complete. Total: {count}, Errors: {errors}, RiskEvents: {events_created}")
-        return {"job_id": str(job_id), "status": "completed", "processed": count, "errors": errors, "risk_events": events_created}
+        logger.info(f"✅ Ingestion Complete. Processed: {count}, Skipped: {skipped}, Errors: {errors}, RiskEvents: {events_created}")
+        return {"job_id": str(job_id), "status": "completed", "processed": count, "skipped": skipped, "errors": errors, "risk_events": events_created}
         
     except Exception as e:
         await db.rollback()
