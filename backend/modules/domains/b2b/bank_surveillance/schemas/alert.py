@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, AliasChoices
 from modules.domains.b2b.bank_surveillance.models.alert import AlertStatus, AlertSeverity, RiskType
 
 class AlertBase(BaseModel):
-    risk_type: RiskType
+    risk_type: Optional[RiskType] = None
     severity: AlertSeverity
     status: AlertStatus = AlertStatus.OPEN
     description: Optional[str] = None
@@ -42,7 +42,7 @@ class AlertFilter(BaseModel):
 class AlertResponse(AlertBase):
     id: UUID
     tenant_id: UUID
-    communication_id: UUID
+    communication_id: Optional[UUID] = None
     assigned_to: Optional[UUID]
     detected_at: datetime
     created_at: datetime

@@ -102,6 +102,7 @@ class CommunicationIngestionService:
                 es_document_id=email_data.message_id # Link to ES Document
             )
             self.db.add(db_comm)
+            await self.db.flush() # Force constraint check
             
             # --- PLUGIN DETECTION: Set region and classification ---
             try:

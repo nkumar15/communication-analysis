@@ -28,6 +28,14 @@ async def get_message(
     comm = result.scalar_one_or_none()
     if not comm:
         raise HTTPException(status_code=404, detail="Message not found")
+        
+    # Phase 7: Storage Refactor - Content lives in ES
+    if not comm.content and comm.message_id:
+        # Ingestion uses 'message_id' as the ES Document ID
+        content = await communication_rag_service.get_content_by_id(str(comm.message_id))
+        if content:
+            comm.content = content
+            
     return comm
 
 @router.get("/search")

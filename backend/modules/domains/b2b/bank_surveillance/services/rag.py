@@ -107,10 +107,28 @@ class CommunicationRagService(BaseRagService):
                 client = self.vector_store.client
                 index_name = self.get_index_name()
                 
-                response = client.get(index=index_name, id=doc_id)
-                source = response.get("_source", {})
-                # LlamaIndex stores text in 'content' field by default
-                return source.get("content")
+                # LlamaIndex nodes have the original ID in metadata.message_id
+                # Direct client.get(id=...) fails because ES _id is a node UUID.
+                query = {
+                    "query": {
+                        "term": {
+                            "metadata.message_id.keyword": doc_id
+                        }
+                    }
+                }
+                
+                response = await client.search(index=index_name, body=query, size=1)
+                hits = response.get("hits", {}).get("hits", [])
+                
+                if hits:
+                    return hits[0]["_source"].get("content")
+                
+                # Try doc_id as fallback
+                query["query"]["term"] = {"metadata.doc_id.keyword": doc_id}
+                response = await client.search(index=index_name, body=query, size=1)
+                hits = response.get("hits", {}).get("hits", [])
+                if hits:
+                    return hits[0]["_source"].get("content")
                 
         except Exception as e:
             # Return None if not found or error
@@ -166,7 +184,7 @@ class CommunicationRagService(BaseRagService):
                  # Delete by API
                  for doc_id in doc_ids:
                      try:
-                         client.delete(index=index_name, id=doc_id)
+                         await client.delete(index=index_name, id=doc_id)
                      except Exception:
                          # 404 is fine
                          pass

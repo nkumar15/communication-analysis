@@ -25,6 +25,8 @@ class RiskType(str, Enum):
     OFF_CHANNEL = "off_channel"
     SENTIMENT_NEGATIVE = "sentiment_negative"
     KEYWORD_MATCH = "keyword_match"
+    FINANCIAL_FRAUD = "Financial Fraud"
+    MARKET_MANIPULATION = "Market-to-Market Manipulation"
 
 class Alert(Base, TimestampMixin):
     __tablename__ = "alerts"

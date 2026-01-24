@@ -57,7 +57,16 @@ app.add_middleware(
 )
 
 # Add structured logging middleware
+# Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
+
+# Middleware to strip /api/b2b prefix if accessing directly via port 8000
+@app.middleware("http")
+async def strip_prefix_middleware(request, call_next):
+    path = request.url.path
+    if path.startswith("/api/b2b/"):
+        request.scope["path"] = path.replace("/api/b2b", "", 1)
+    return await call_next(request)
 
 # Initialize Observability
 setup_observability(app, service_name="b2b-api", sqlalchemy_engine=engine)

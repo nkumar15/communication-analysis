@@ -183,10 +183,26 @@ class AggregationService:
             # Map incident severity to alert severity
             alert_severity = self._map_severity(incident.severity)
             
+            # Generate description
+            description = (
+                f"Detected {incident.event_count} risk events associated with {indicator_name}. "
+                f"Sender: {incident.sender}."
+            )
+
+
+            # Fetch one event to get communication_id (Legacy support for UI)
+            event_stmt = select(RiskEvent).where(RiskEvent.incident_id == incident.id).limit(1)
+            event_res = await self.db.execute(event_stmt)
+            event = event_res.scalar_one_or_none()
+            communication_id = event.communication_id if event else None
+
             alert = Alert(
                 tenant_id=self.tenant_id,
                 subject=subject,
+                description=description,
                 severity=alert_severity,
+                risk_type=control.risk_typology if control else None,
+                communication_id=communication_id,
                 status=AlertStatus.OPEN.value,
             )
             self.db.add(alert)

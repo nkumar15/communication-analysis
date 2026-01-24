@@ -38,9 +38,21 @@ const AlertsPage = () => {
         fetchAlerts();
     }, [statusFilter, severityFilter]);
 
-    const handleOpenDrawer = (alert) => {
+    const [communication, setCommunication] = useState(null);
+
+    const handleOpenDrawer = async (alert) => {
         setSelectedAlert(alert);
+        setCommunication(null); // Reset prev state
         setDrawerOpen(true);
+
+        if (alert.communication_id) {
+            try {
+                const comm = await b2bDomainClient.getMessage(alert.communication_id);
+                setCommunication(comm);
+            } catch (err) {
+                console.error("Failed to load communication context:", err);
+            }
+        }
     };
 
     const handleCloseDrawer = () => {
@@ -155,7 +167,7 @@ const AlertsPage = () => {
                                     <TableRow key={alert.id} hover>
                                         <TableCell>
                                             <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>
-                                                {alert.risk_type.replace('_', ' ')}
+                                                {(alert.risk_type || 'Unknown').replace('_', ' ')}
                                             </Typography>
                                         </TableCell>
                                         <TableCell>
@@ -212,6 +224,25 @@ const AlertsPage = () => {
                                             {JSON.stringify(selectedAlert.metadata, null, 2)}
                                         </pre>
                                     </Box>
+
+                                    {communication && (
+                                        <Box>
+                                            <Typography variant="subtitle2">Communication Context</Typography>
+                                            <Paper variant="outlined" sx={{ p: 1.5, mt: 0.5, bgcolor: '#FAFAFA' }}>
+                                                <Typography variant="caption" display="block">
+                                                    From: {communication.sender}
+                                                </Typography>
+                                                <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                                                    Date: {new Date(communication.timestamp).toLocaleString()}
+                                                </Typography>
+                                                <Box sx={{ maxHeight: 300, overflowY: 'auto', borderLeft: '3px solid #ccc', pl: 1 }}>
+                                                    <Typography variant="body2" sx={{ fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
+                                                        {communication.content}
+                                                    </Typography>
+                                                </Box>
+                                            </Paper>
+                                        </Box>
+                                    )}
 
                                     <Typography variant="h6" sx={{ mt: 2 }}>Actions</Typography>
                                     <Stack direction="row" spacing={1}>

@@ -152,7 +152,7 @@ const CaseListPage = () => {
                                 </div>
 
                                 <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#1F2937', margin: '0 0 12px 0' }}>
-                                    {caseItem.title}
+                                    {typeof caseItem.title === 'object' ? JSON.stringify(caseItem.title) : caseItem.title}
                                 </h3>
 
                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>

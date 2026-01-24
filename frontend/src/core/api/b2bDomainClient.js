@@ -4,14 +4,8 @@ import firebaseAuthService from '../firebase/authService';
 // In production, this might be routed via Nginx /api/b2b/domain
 let envUrl = process.env.REACT_APP_B2B_DOMAIN_API_URL || '';
 
-// Runtime Fix for Local Development:
-if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    // If env var is missing or points to internal docker name, fallback to localhost:8003
-    if (!envUrl || envUrl.includes('b2b-domain-api')) {
-        envUrl = 'http://localhost:8003';
-        console.warn('⚠️ b2bDomainClient: Using localhost:8003 for local development');
-    }
-}
+// Local Development: 
+// Rely on webpack proxy or REACT_APP_B2B_DOMAIN_API_URL being set correctly.
 
 const API_BASE_URL = envUrl;
 
@@ -54,6 +48,13 @@ class B2BDomainService {
         const headers = await this.getAuthHeaders();
         const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/communications?${queryParams}`, { headers });
         if (!response.ok) throw new Error(`Failed to fetch communications: ${response.status}`);
+        return response.json();
+    }
+
+    async getMessage(id) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/messages/${id}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch message: ${response.status}`);
         return response.json();
     }
 
