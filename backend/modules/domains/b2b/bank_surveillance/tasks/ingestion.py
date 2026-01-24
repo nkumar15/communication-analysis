@@ -35,8 +35,8 @@ def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, in
         tenant_id: Optional tenant UUID string. Defaults to script-generated UUID.
         index_vectors: Whether to index content into Elasticsearch for RAG.
     """
-    # FORCE DISABLE RAG/ES for now (User Request)
-    index_vectors = False
+    # index_vectors defaults to False (Keyword only). 
+    # If True, we enable Semantic Embeddings.
     
     job_id = uuid.uuid4()
     
@@ -91,8 +91,7 @@ def run_ingestion(file_path: str, date: str, tenant_id: str = None, index_vector
         from tasks.ingestion import run_ingestion
         run_ingestion("/data/20231027.csv", "20231027")
     """
-    # FORCE DISABLE RAG/ES for now
-    index_vectors = False
+    # index_vectors defaults to False (Keyword only)
     
     job_id = uuid.uuid4()
     return asyncio.run(_run_ingestion_async_standalone(job_id, file_path, date, tenant_id, index_vectors))
@@ -197,22 +196,28 @@ async def _run_ingestion_async(
                     if success:
                         count += 1
                         
-                        # Queue for vector indexing (SKIPPED if index_vectors=False)
-                        if index_vectors:
-                            text_content = f"Subject: {email_data.subject}\n\n{email_data.body}"
-                            metadata = {
-                                "message_id": email_data.message_id,
-                                "sender": email_data.sender[:200],
-                                "recipients": ",".join(email_data.recipients)[:500],
-                                "date": str(email_data.date),
-                                "tenant_id": str(tenant_id)
-                            }
-                            vector_batch.append({"text": text_content, "metadata": metadata})
-                            
-                            # Batch index
-                            if len(vector_batch) >= vector_batch_size:
-                                await communication_rag_service.index_batch(vector_batch)
-                                vector_batch = []
+                        # Queue for vector indexing (ALWAYS index for Keyword Search/Storage)
+                        # The 'index_vectors' flag now controls SEMANTIC embeddings (Costly) vs Keyword (Cheap)
+                        
+                        text_content = f"Subject: {email_data.subject}\n\n{email_data.body}"
+                        metadata = {
+                            "message_id": email_data.message_id,
+                            "sender": email_data.sender[:200],
+                            "recipients": ",".join(email_data.recipients)[:500],
+                            "date": str(email_data.date),
+                            "tenant_id": str(tenant_id)
+                        }
+                        # Use message_id as the ES Document ID to link with Postgres es_document_id
+                        vector_batch.append({
+                            "text": text_content, 
+                            "metadata": metadata,
+                            "doc_id": email_data.message_id
+                        })
+                        
+                        # Batch index
+                        if len(vector_batch) >= vector_batch_size:
+                            await communication_rag_service.index_batch(vector_batch, enable_semantic=index_vectors)
+                            vector_batch = []
                     else:
                         errors += 1
                     
@@ -224,11 +229,21 @@ async def _run_ingestion_async(
             # Final batch
             await db.commit()
             if vector_batch:
-                await communication_rag_service.index_batch(vector_batch)
-                
+                await communication_rag_service.index_batch(vector_batch, enable_semantic=index_vectors)
+            
+            # --- DETECTION PHASE ---
+            # Run detection on newly ingested messages
+            logger.info("Starting detection phase...")
+            from modules.domains.b2b.bank_surveillance.services.detection import DetectionService
+            detection_service = DetectionService(db, tenant_id)
+            events_created = await detection_service.analyze_unprocessed(limit=count + 100)
+            await db.commit()
+            logger.info(f"Detection complete. Created {events_created} RiskEvents")
+            
         else:
             # Directory mode (uses existing bulk_ingest which handles files)
             count = await service.bulk_ingest([file_path], base_tenant_id=tenant_id)
+            events_created = 0 # No detection for directory mode for now
         
         # Update log entry
         log_entry.status = "completed"
@@ -237,8 +252,8 @@ async def _run_ingestion_async(
         log_entry.completed_at = datetime.utcnow()
         await db.commit()
         
-        logger.info(f"✅ Ingestion Complete. Total: {count}, Errors: {errors}")
-        return {"job_id": str(job_id), "status": "completed", "processed": count, "errors": errors}
+        logger.info(f"✅ Ingestion Complete. Total: {count}, Errors: {errors}, RiskEvents: {events_created}")
+        return {"job_id": str(job_id), "status": "completed", "processed": count, "errors": errors, "risk_events": events_created}
         
     except Exception as e:
         await db.rollback()
@@ -267,7 +282,7 @@ if __name__ == "__main__":
     parser.add_argument("file_path", help="Path to CSV file or directory")
     parser.add_argument("--date", required=True, help="Date identifier (YYYYMMDD)")
     parser.add_argument("--tenant-id", help="Optional tenant UUID")
-    parser.add_argument("--skip-vectors", action="store_true", help="Skip Elasticsearch indexing")
+    parser.add_argument("--enable-vectors", action="store_true", help="Enable Semantic Embeddings (Slow/Costly)")
     
     args = parser.parse_args()
     
@@ -275,5 +290,5 @@ if __name__ == "__main__":
         args.file_path, 
         args.date, 
         args.tenant_id, 
-        index_vectors=not args.skip_vectors
+        index_vectors=args.enable_vectors
     )

@@ -7,6 +7,8 @@ from modules.domains.b2b.bank_surveillance.routers.ingestion import router as in
 from modules.domains.b2b.bank_surveillance.routers.alerts import router as alerts_router
 from modules.domains.b2b.bank_surveillance.routers.regulatory import router as regulatory_router
 from modules.domains.b2b.bank_surveillance.routers.controls import router as controls_router
+from modules.domains.b2b.bank_surveillance.routers.risk_events import router as risk_events_router
+from modules.domains.b2b.bank_surveillance.routers.incidents import router as incidents_router
 
 app = FastAPI(title="Bank Surveillance API")
 
@@ -19,3 +21,5 @@ app.include_router(ingestion_router)
 app.include_router(alerts_router)
 app.include_router(regulatory_router)
 app.include_router(controls_router)
+app.include_router(risk_events_router)
+app.include_router(incidents_router)

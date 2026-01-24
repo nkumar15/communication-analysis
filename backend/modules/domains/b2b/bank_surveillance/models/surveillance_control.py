@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import Column, String, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 from core.db.base import Base, TimestampMixin
 
@@ -17,8 +17,11 @@ class SurveillanceControl(Base, TimestampMixin):
     regulatory_id = Column(UUID(as_uuid=True), ForeignKey("bank_surveillance.regulatory_documents.id", ondelete="SET NULL"), nullable=True, index=True)
     regulatory_reference_text = Column(String(255))
     
-    detection_methods = Column(JSONB, default=list) # e.g. ["Keyword", "Semantic"]
+    detection_methods = Column(JSONB, default=list)  # e.g. [{"type": "keyword", "keywords": [...]}]
     status = Column(String(50), default="Active")
+    
+    # Plugin: Region scoping (NULL = applies to all regions)
+    applicable_regions = Column(ARRAY(UUID(as_uuid=True)), nullable=True)  # NULL = all regions
 
     # Relationships
     regulatory_document = relationship("RegulatoryDocument")

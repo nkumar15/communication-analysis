@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from uuid import UUID
+from pydantic import BaseModel
 
 from core.db.session import get_db
 from modules.b2b.rbac import require_permission
@@ -10,6 +11,44 @@ from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate, Ale
 from modules.domains.b2b.bank_surveillance.services.alert_service import alert_service
 
 router = APIRouter(prefix="/alerts", tags=["Bank Surveillance Alerts"])
+
+
+class GenerateAlertsRequest(BaseModel):
+    start_date: Optional[str] = None  # YYYY-MM-DD
+    end_date: Optional[str] = None    # YYYY-MM-DD
+
+
+class GenerateAlertsResponse(BaseModel):
+    status: str
+    message: str
+    job_id: Optional[str] = None
+
+
+@router.post("/generate", response_model=GenerateAlertsResponse, status_code=status.HTTP_202_ACCEPTED)
+async def generate_alerts(
+    request: GenerateAlertsRequest,
+    background_tasks: BackgroundTasks,
+    current_user: dict = require_permission("alerts", "write")
+):
+    """
+    Trigger Workflow B: Aggregate RiskEvents into Incidents and generate Alerts.
+    Processing happens asynchronously via Celery worker.
+    """
+    from modules.domains.b2b.bank_surveillance.tasks.alerting import generate_alerts as generate_alerts_task
+    import uuid
+    
+    tenant_id = str(current_user["tenant_id"])
+    job_id = str(uuid.uuid4())
+    
+    # Trigger Celery task
+    generate_alerts_task.delay(tenant_id, request.start_date, request.end_date)
+    
+    return GenerateAlertsResponse(
+        status="queued",
+        message="Alert generation task queued",
+        job_id=job_id
+    )
+
 
 @router.get("/", response_model=List[AlertResponse])
 async def list_alerts(

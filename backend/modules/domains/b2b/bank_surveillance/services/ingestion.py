@@ -97,51 +97,40 @@ class CommunicationIngestionService:
                 sender=email_data.sender,
                 recipients=email_data.recipients,
                 subject=email_data.subject,
-                content=email_data.body,
-                timestamp=email_data.date
-                # data_region_id and sensitivity_level_id would be set by PolicyAgent or Default
+                recipients=email_data.recipients,
+                subject=email_data.subject,
+                # content=NULL (Stored in ES only)
+                timestamp=email_data.date,
+                es_document_id=email_data.message_id # Link to ES Document
             )
             self.db.add(db_comm)
             
-            # --- RAG Indexing ---
-            metadata = {
-                "sender": email_data.sender,
-                "recipients": ",".join(email_data.recipients),
-                "subject": email_data.subject,
-                "date": str(email_data.date),
-                "message_id": email_data.message_id,
-                "original_filename": source_ref or "unknown",
-                "content_hash": email_data.message_id
-            }
-
+            # --- PLUGIN DETECTION: Set region and classification ---
             try:
-                # Using the renamed service (imported as 'communication_rag_service')
-                from modules.domains.b2b.bank_surveillance.services.rag import communication_rag_service
-                # Hack: ingest_document expects a file path usually, but we might verify if it handles text/metadata only
-                # For now, if we have a file path (source_ref), pass it. If it's a CSV row, we might not have a file.
-                # If RAG service requires a file, this might need adjustment.
-                # Assuming RAG service reads the file content from disk.
-                # If we are ingesting from CSV, we have the content in memory. 
-                # Let's Skip RAG for CSV flow IF RAG service strictly needs file path.
-                # OR we implement text-based ingestion in RAG service.
-                # For this refactor step, let's assume source_ref is valid or we skip RAG if invalid.
-                if source_ref and os.path.exists(source_ref):
-                    await communication_rag_service.ingest_document(
-                        db=self.db,
-                        tenant_id=tenant_id,
-                        file_path=source_ref,
-                        document_metadata=metadata
-                    )
-                else:
-                    # TODO: Support direct text ingestion in RAG service
-                    pass
-            except Exception as rag_err:
-                print(f"RAG Indexing warning for {source_ref}: {rag_err}")
-
+                from modules.domains.b2b.bank_surveillance.services.plugin_detection import PluginDetectionService
+                plugin_service = PluginDetectionService(self.db, tenant_id)
+                
+                # Detect and set region
+                region_id = await plugin_service.detect_region(db_comm)
+                if region_id:
+                    db_comm.data_region_id = region_id
+                
+                # Detect and set classification
+                level_id = await plugin_service.detect_classification(db_comm)
+                if level_id:
+                    db_comm.sensitivity_level_id = level_id
+            except Exception as plugin_err:
+                # Log but don't fail ingestion if plugin detection fails
+                print(f"Plugin detection warning: {plugin_err}")
+            
+            # RAG Indexing is handled by the caller (batch or individual) to avoid double-indexing
+            # when running bulk ingestion.
+            
             return True
         except Exception as e:
             print(f"Failed to ingest message {email_data.message_id}: {e}")
             return False
+
 
     async def ingest_file(self, file_path: str, tenant_id: uuid.UUID) -> bool:
         """Reads a file, parses it, saves to DB as Communication, and indexes specific to RAG."""
@@ -165,7 +154,26 @@ class CommunicationIngestionService:
                     username = parts[idx + 1]
                     derived_tenant_id = uuid.uuid5(uuid.NAMESPACE_DNS, username)
 
-            return await self.ingest_message(email_data, derived_tenant_id, source_ref=file_path)
+            success = await self.ingest_message(email_data, derived_tenant_id, source_ref=file_path)
+            
+            if success:
+                # Index to ES immediately for single files
+                try:
+                    from modules.domains.b2b.bank_surveillance.services.rag import communication_rag_service
+                    metadata = {
+                        "sender": email_data.sender,
+                        "recipients": ",".join(email_data.recipients),
+                        "subject": email_data.subject,
+                        "date": str(email_data.date),
+                        "message_id": email_data.message_id,
+                        "tenant_id": str(derived_tenant_id)
+                    }
+                    full_text = f"Subject: {email_data.subject}\n\n{email_data.body}"
+                    await communication_rag_service.index_text(full_text, metadata, doc_id=email_data.message_id)
+                except Exception as e:
+                    print(f"Failed to index file {file_path}: {e}")
+                    
+            return success
             
         except Exception as e:
             print(f"Failed to ingest file {file_path}: {e}")

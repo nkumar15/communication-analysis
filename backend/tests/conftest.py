@@ -129,11 +129,13 @@ app.add_middleware(
 )
 
 # Mount ALL primary apps with their correct prefixes
+# CRITICAL: Mount specific paths BEFORE generic paths to avoid shadowing!
+app.mount("/api/b2b/domain", b2b_domain_app)
+app.mount("/api/b2c/domain", b2c_domain_app)
 app.mount("/api/b2b", b2b_app)
 app.mount("/api/platform", platform_app)
 app.mount("/api/b2c", b2c_app)
-app.mount("/api/b2b/domain", b2b_domain_app)
-app.mount("/api/b2c/domain", b2c_domain_app)
+
 
 
 @app.get("/")

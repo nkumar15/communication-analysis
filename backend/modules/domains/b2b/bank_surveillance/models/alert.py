@@ -32,9 +32,10 @@ class Alert(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("b2b.tenants.id", ondelete="CASCADE"), nullable=False, index=True)
-    communication_id = Column(UUID(as_uuid=True), ForeignKey("bank_surveillance.communications.id"), nullable=False, index=True)
+    communication_id = Column(UUID(as_uuid=True), ForeignKey("bank_surveillance.communications.id"), nullable=True, index=True)  # Legacy, nullable for new workflow
     
-    risk_type = Column(String, nullable=False)
+    subject = Column(String(255), nullable=True)  # Auto-generated: "{Sender} - {Indicator} - {Date}"
+    risk_type = Column(String, nullable=True)  # Legacy field
     severity = Column(String, nullable=False)
     status = Column(String, default=AlertStatus.OPEN.value, nullable=False)
     
@@ -46,4 +47,5 @@ class Alert(Base, TimestampMixin):
     
     # Relationships
     communication = relationship("Communication", backref="alerts")
-    assignee = relationship("UserModel") 
+    assignee = relationship("UserModel")
+    incidents = relationship("Incident", back_populates="alert")

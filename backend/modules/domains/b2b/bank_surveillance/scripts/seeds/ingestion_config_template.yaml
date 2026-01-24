@@ -1,0 +1,32 @@
+# Ingestion Config Templates
+# Seeds the bank_surveillance.ingestion_config_templates table (global, shared across tenants)
+# Per-tenant configs are cloned from these templates during tenant onboarding
+
+ingestion_config_templates:
+  - name: "default"
+    description: "Default configuration for demo and bulk import scenarios"
+    is_default: true
+    region_strategy: "default"
+    sender_domain_map: {}
+    classification_strategy: "default"
+    channel_map:
+      bloomberg: "confidential"
+      symphony: "confidential"
+      email: "internal"
+      chat: "internal"
+    content_rules:
+      - pattern: "MNPI|material non-public"
+        level: "restricted"
+      - pattern: "earnings|quarterly results|guidance"
+        level: "confidential"
+      - pattern: "merger|acquisition|M&A"
+        level: "restricted"
+  
+  - name: "financial_institution"
+    description: "Production config for banks with sender-based region detection"
+    is_default: false
+    region_strategy: "sender_lookup"
+    sender_domain_map: {}  # Populated per-tenant after clone
+    classification_strategy: "content_rules"
+    channel_map: {}
+    content_rules: []  # Customized per-tenant

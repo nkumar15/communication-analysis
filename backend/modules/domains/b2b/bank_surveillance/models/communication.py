@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, ForeignKey, TIMESTAMP, func
+from sqlalchemy import Column, String, Text, ForeignKey, TIMESTAMP, func, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 from core.db.base import Base, TimestampMixin
@@ -16,11 +16,19 @@ class Communication(Base, TimestampMixin):
     channel = Column(String(50), nullable=False)
     sub_channel = Column(String(50), nullable=True)
     message_id = Column(String, unique=True, nullable=True) # Unique IF provided (e.g. Email ID)
-    sender = Column(String(200), nullable=False)
-    recipients = Column(ARRAY(String), nullable=False) # Postgres Array
+    sender = Column(String(200), nullable=False, index=True)
+    recipients = Column(ARRAY(String), nullable=False)  # Postgres Array
     subject = Column(String(200), nullable=True)
     content = Column(Text, nullable=True)
-    flagged_keywords = Column(JSONB, default=list)
+    
+    # Thread reconstruction
+    thread_id = Column(String, nullable=True, index=True)
+    
+    # ES reference (content stored in ES for full-text search)
+    es_document_id = Column(String, nullable=True, unique=True, index=True)
+    
+    # Processing state
+    analyzed = Column(Boolean, default=False, index=True)
     
     # Plugin Metadata
     data_region_id = Column(UUID(as_uuid=True), ForeignKey("b2b.geographic_regions.id"), nullable=True)
