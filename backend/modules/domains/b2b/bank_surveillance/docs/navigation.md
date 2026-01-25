@@ -13,7 +13,6 @@ The navigation follows a **task-based** mental model, grouping features by workf
 │                                  │                             ││
 │  ─── SURVEILLANCE ───            │     [MAIN CONTENT AREA]     ││
 │  ⚠️ Alerts                       │                             ││
-│  🔍 Investigations               │                             ││
 │  📁 Cases                        │                             ││
 │                                  │                             ││
 │  ─── DISCOVERY ───               │                             ││

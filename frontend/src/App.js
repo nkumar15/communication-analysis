@@ -10,6 +10,7 @@ import TeamDetailsPage from './modules/b2b/web/pages/TeamDetailsPage';
 import AuditLogsPage from './modules/b2b/web/pages/AuditLogsPage';
 import AccountSettingsPage from './modules/b2b/web/pages/AccountSettingsPage';
 import ProtectedRoute from './core/components/ProtectedRoute';
+import useAuth from './core/hooks/useAuth';
 import firebaseAuthService from './core/firebase/authService';
 import { auth } from './core/firebase/config';
 import RoleManagementPage from './modules/b2b/web/pages/RoleManagementPage';
@@ -168,12 +169,32 @@ function App() {
                 <Route path="/billing/subscription" element={<ProtectedRoute><SubscriptionSettingsPage /></ProtectedRoute>} />
                 <Route path="/billing/invoices" element={<ProtectedRoute><InvoicesListPage /></ProtectedRoute>} />
 
-                {/* Default redirect */}
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                {/* Default redirect using smart routing */}
+                <Route path="/" element={<RootRedirect />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Router>
     );
+}
+
+
+// Smart routing component to direct users to their primary domain
+function RootRedirect() {
+    const { canAccess, loading } = useAuth();
+    
+    if (loading) return (
+        <div className="loading-container">
+            <div className="spinner"></div>
+        </div>
+    );
+
+    // Strategic Redesign: Redirect Surveillance Users directly to Command Center
+    if (canAccess('surveillance')) {
+        return <Navigate to="/b2b/surveillance" replace />;
+    }
+
+    // Default for others: Personal Workspace
+    return <Navigate to="/dashboard" replace />;
 }
 
 export default App;

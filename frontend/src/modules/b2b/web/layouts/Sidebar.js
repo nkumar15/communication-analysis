@@ -17,17 +17,25 @@ const Sidebar = () => {
         localStorage.setItem('sidebar_collapsed', isCollapsed);
     }, [isCollapsed]);
 
-    // Core menu items (always shown)
-    const coreMenuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
+    useEffect(() => {
+        const appName = (user?.domain_type === "bank_surveillance" || canAccess("surveillance")) 
+            ? "Communication Surveillance" 
+            : "Enterprise SaaS App";
+        document.title = appName;
+    }, [user, canAccess]);
+
+    // Core menu items (Personal Workspace)
+    const personalMenuItems = [
+        { isHeader: true, label: 'Personal Workspace' },
+        { id: 'dashboard', label: 'My Workspace', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
     ];
 
 
     // Domain-specific menus
     const domainMenus = {
         bank_surveillance: [
-            { isHeader: true, label: 'Surveillance' },
-            { id: 'surv-dashboard', label: 'Overview', icon: '📊', path: '/b2b/surveillance', feature: 'surveillance' },
+            { isHeader: true, label: 'Surveillance Suite' },
+            { id: 'surv-dashboard', label: 'Command Center', icon: '🚀', path: '/b2b/surveillance', feature: 'surveillance' },
             { id: 'alerts', label: 'Risk Alerts', icon: '⚠️', path: '/b2b/surveillance/alerts', feature: 'surveillance' },
             { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
             { id: 'cases', label: 'Case Management', icon: '⚖️', path: '/b2b/surveillance/cases', feature: 'surveillance' },
@@ -92,13 +100,14 @@ const Sidebar = () => {
     }
 
     // Build complete menu
+    // STRATEGIC CHANGE: Domain items come FIRST to emphasize the Product.
+    // Personal/Foundational items move to the bottom.
     const allMenuItems = [
-        ...coreMenuItems,
         ...domainItems,
-        ...commonDomainItems,
-        ...organizationMenuItems
+        // ...commonDomainItems,
+        ...organizationMenuItems,
+        ...personalMenuItems
     ];
-
     // Filter menu items based on user permissions
     // Note: This simple filter leaves headers even if all their children are hidden.
     // Ideally we'd do a reduce or smarter filter, but this is acceptable for now.
@@ -162,9 +171,9 @@ const Sidebar = () => {
                     </div>
                     {!isCollapsed && (
                         <div>
-                            <div style={{ fontWeight: '700', fontSize: '16px' }}>B2B SaaS App</div>
+                            <div style={{ fontWeight: '700', fontSize: '16px' }}>{(userDomainType === 'bank_surveillance' || canAccess('surveillance')) ? 'Communication Surveillance' : 'B2B SaaS App'}</div>
                             <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
-                                {getTenantRoleLabel(user?.role)}
+                                {user?.tenant_name || 'Organization'}
                             </div>
                         </div>
                     )}
