@@ -89,6 +89,41 @@ flowchart TD
 | **Policy Agent** | Cross-references message with regulatory library | Mapping a chat to a specific MAS/SEC violation clause |
 | **Evasion Agent** | Detects attempts to hide communications | Flagging "let's take this to WhatsApp" or code words |
 
+## GenAI & RAG Architecture (Hybrid)
+
+To support **Guided Search** and **Entity Knowledge Graphs**, the platform employs a **Hybrid RAG** strategy using LlamaIndex.
+
+### Dual-Path Indexing Workflow
+We do not just embed text; we extract structure.
+
+```mermaid
+flowchart LR
+    Doc[Email Document] --> Split[Splitter]
+    Split --> PathA[Path A: Vector]
+    Split --> PathB[Path B: Graph]
+    
+    PathA --> Embed[Embedding Model]
+    Embed --> VectorDB[(Elasticsearch)]
+    
+    PathB --> LLM[LLM Extraction]
+    LLM -- "(Subject, Predicate, Object)" --> GraphStore[(SimpleGraphStore)]
+```
+
+### Retrieval Strategies
+
+#### 1. Guided Search (Query Expansion)
+Instead of searching directly, we use the LLM to "bridge the gap" between intent and keywords.
+1.  User Query: *"Hiding debt"*
+2.  **LLM Expansion**: *"Look for: LJM, Raptor, SPV, Off-balance sheet"*
+3.  **Vector Search**: Matches specific documents in Elasticsearch.
+
+#### 2. Entity Knowledge Graph
+To visualize the "Conspiracy Network":
+1.  User Query: *"Fastow"*
+2.  **Graph Retreival**: Fetch `Fastow` node and all edges (Depth 1 or 2).
+3.  **Visualization**: Render Force-Directed Graph.
+4.  **Insight**: Click edge -> LLM summarizes the relationship context.
+
 ## Dependencies
 
 - **AI/LLM**: `langchain`, `openai` (via Agents)

@@ -26,6 +26,7 @@ This platform transforms raw communication data into actionable compliance insig
 | [Page Specs](./pages/) | Per-page specifications |
 | [Wireframes](./wireframes/) | Visual designs |
 | [Demo Scripts](./demos/) | Per-persona demos |
+| [Features](./features/) | Feature deep-dives (GenAI, Graphs) |
 | [Technical](./technical/) | API, Schema, Architecture |
 
 ## Quick Links
