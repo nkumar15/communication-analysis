@@ -24,6 +24,13 @@ class CaseService:
             sensitivity_level_id=obj_in.sensitivity_level_id,
             target_closure_date=obj_in.target_closure_date
         )
+        
+        # Determine numeric ID seed (Source UUID or the case's own UUID)
+        seed_uuid = obj_in.source_uuid or db_obj.id
+        from modules.domains.b2b.bank_surveillance.utils.id_utils import generate_deterministic_numeric_id
+        numeric_suffix = generate_deterministic_numeric_id(seed_uuid)
+        db_obj.display_id = f"CAS-{numeric_suffix}"
+        
         db.add(db_obj)
         await db.flush() # Ensure we have the case ID for child relations
 

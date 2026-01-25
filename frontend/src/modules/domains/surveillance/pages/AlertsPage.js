@@ -256,29 +256,47 @@ const AlertsPage = () => {
                     <Table>
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 700 }}>Risk Type</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Alert Id</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Risk</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Severity</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Sender</TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Region</TableCell>
-                                <TableCell sx={{ fontWeight: 700 }}>Assignee</TableCell>
-                                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Detected At</TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Assignee</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} align="center"><CircularProgress /></TableCell>
+                                    <TableCell colSpan={10} align="center"><CircularProgress /></TableCell>
                                 </TableRow>
                             ) : alerts.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} align="center">No alerts found</TableCell>
+                                    <TableCell colSpan={10} align="center">No alerts found</TableCell>
                                 </TableRow>
                             ) : (
                                 alerts.map((alert) => (
                                     <TableRow key={alert.id} hover>
-                                        <TableCell sx={{ fontWeight: 500 }}>
+                                        <TableCell sx={{ fontWeight: 600, color: '#1a73e8' }}>
+                                            {alert.display_id || alert.id.substring(0, 8)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={alert.metadata?.ai_analysis?.risk_level || "pending"}
+                                                size="small"
+                                                variant="outlined"
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    fontSize: '0.65rem',
+                                                    color: alert.metadata?.ai_analysis?.risk_level === 'high' ? '#d32f2f' : '#757575',
+                                                    borderColor: alert.metadata?.ai_analysis?.risk_level === 'high' ? '#ffcdd2' : '#e0e0e0'
+                                                }}
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
                                             {(alert.risk_type || 'Unknown').replace('_', ' ').toUpperCase()}
                                         </TableCell>
                                         <TableCell>
@@ -289,7 +307,16 @@ const AlertsPage = () => {
                                                 sx={{ fontSize: '0.7rem' }}
                                             />
                                         </TableCell>
-                                        <TableCell>{alert.region || "Default"}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.85rem' }}>
+                                            {alert.communication?.sender || "System"}
+                                        </TableCell>
+                                        <TableCell sx={{ fontSize: '0.85rem' }}>{alert.region || "Default"}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+                                            {new Date(alert.detected_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                        </TableCell>
+                                        <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.85rem' }}>
+                                            {alert.description}
+                                        </TableCell>
                                         <TableCell>
                                             <TextField
                                                 select
@@ -297,33 +324,18 @@ const AlertsPage = () => {
                                                 variant="standard"
                                                 value={alert.assigned_to || ""}
                                                 onChange={(e) => handleAssign(alert.id, e.target.value)}
-                                                sx={{ minWidth: 120, fontSize: '0.875rem' }}
+                                                sx={{ minWidth: 100, fontSize: '0.8rem' }}
                                                 InputProps={{ disableUnderline: true }}
                                             >
                                                 <MenuItem value=""><em>Unassigned</em></MenuItem>
                                                 {users.map(u => (
-                                                    <MenuItem key={u.id} value={u.id}>{u.name || u.email}</MenuItem>
+                                                    <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.8rem' }}>{u.name || u.email}</MenuItem>
                                                 ))}
                                             </TextField>
                                         </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={alert.status}
-                                                size="small"
-                                                variant="outlined"
-                                                color={getStatusColor(alert.status)}
-                                                sx={{ fontSize: '0.7rem' }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
-                                            {new Date(alert.detected_at).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell sx={{ maxWidth: 300, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {alert.description}
-                                        </TableCell>
                                         <TableCell align="right">
                                             <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                                <Tooltip title={alert.status === 'open' ? "Investigate" : "View Details"}>
+                                                <Tooltip title={alert.status === 'open' ? "Review & Verify" : "View Details"}>
                                                     <IconButton
                                                         size="small"
                                                         onClick={() => alert.status === 'open' ? handleStatusUpdate(alert.id, 'investigating', true) : navigate(`/b2b/surveillance/alerts/${alert.id}`)}

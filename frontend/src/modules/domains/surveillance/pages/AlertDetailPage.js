@@ -10,8 +10,9 @@ import {
 } from "@mui/material";
 import {
     Warning, Speed, DoneAll, ArrowBack, Person, History,
-    Language, Event, Tag, Info
+    Language, Event, Tag, Info, ExpandMore
 } from "@mui/icons-material";
+import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
 
 const AlertDetailPage = () => {
     const { alertId } = useParams();
@@ -21,6 +22,7 @@ const AlertDetailPage = () => {
     const [users, setUsers] = useState([]);
     const [aiReport, setAiReport] = useState(null);
     const [investigatingAI, setInvestigatingAI] = useState(false);
+    const [expandedMessages, setExpandedMessages] = useState({});
 
     useEffect(() => {
         const loadData = async () => {
@@ -35,6 +37,13 @@ const AlertDetailPage = () => {
 
                 if (fullAlert.metadata?.ai_analysis) {
                     setAiReport(fullAlert.metadata.ai_analysis);
+                }
+                if (fullAlert.conversation_thread) {
+                    const expanded = {};
+                    fullAlert.conversation_thread.forEach((msg, idx) => {
+                        if (msg.is_trigger) expanded[idx] = true;
+                    });
+                    setExpandedMessages(expanded);
                 }
             } catch (err) {
                 console.error("Failed to load alert details:", err);
@@ -113,6 +122,13 @@ const AlertDetailPage = () => {
         );
     };
 
+    const handleToggleMessage = (idx) => {
+        setExpandedMessages(prev => ({
+            ...prev,
+            [idx]: !prev[idx]
+        }));
+    };
+
     if (loading) {
         return (
             <AdminLayout>
@@ -160,11 +176,22 @@ const AlertDetailPage = () => {
                                         ALERTS QUEUE
                                     </Link>
                                     <Typography color="text.primary" sx={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                                        INVESTIGATION: {alert.id.substring(0, 8)}
+                                        INVESTIGATION: {alert.display_id || alert.id.substring(0, 8)}
                                     </Typography>
                                 </Breadcrumbs>
-                                <Typography variant="h5" sx={{ fontWeight: 900, color: '#1a202c' }}>
+                                <Typography variant="h5" sx={{ fontWeight: 900, color: '#1a202c', display: 'flex', alignItems: 'center', gap: 2 }}>
                                     {alert.subject || "Flagged Communication"}
+                                    {alert.metadata?.ai_analysis?.risk_level && (
+                                        <Chip
+                                            label={`${alert.metadata.ai_analysis.risk_level.toUpperCase()} RISK`}
+                                            size="small"
+                                            sx={{
+                                                fontWeight: 900, bgcolor: alert.metadata.ai_analysis.risk_level === 'high' ? '#fee2e2' : '#fef3c7',
+                                                color: alert.metadata.ai_analysis.risk_level === 'high' ? '#dc2626' : '#d97706',
+                                                border: '1px solid', borderColor: 'currentColor'
+                                            }}
+                                        />
+                                    )}
                                 </Typography>
                             </Stack>
 
@@ -194,189 +221,22 @@ const AlertDetailPage = () => {
                     </Stack>
                 </Paper>
 
-                <Container maxWidth="xl" sx={{ mt: 4 }}>
+                <Container maxWidth="xl" sx={{ mt: 14 }}>
                     <Stack direction="row" spacing={4} alignItems="flex-start">
 
-                        {/* LEFT COLUMN: Deep Investigation */}
-                        <Box sx={{ flex: 3 }}>
-
-                            {/* AI Insights Card */}
-                            <Paper sx={{ mb: 4, borderRadius: 3, overflow: 'hidden', border: '1px solid #e0e6ed' }}>
-                                <Box sx={{ p: 2, bgcolor: '#f8fafc', borderBottom: '1px solid #e0e6ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Stack direction="row" alignItems="center" spacing={1}>
-                                        <Speed color="primary" />
-                                        <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Multi-Agent AI Briefing</Typography>
-                                    </Stack>
-                                    {!aiReport && !investigatingAI && (
-                                        <Button
-                                            size="small" variant="contained" color="primary"
-                                            onClick={handleGenerateBriefing}
-                                            sx={{ borderRadius: 2, fontWeight: 700 }}
-                                        >
-                                            🚀 Run Analysis
-                                        </Button>
-                                    )}
-                                </Box>
-                                <Box sx={{ p: 3 }}>
-                                    {investigatingAI ? (
-                                        <Box sx={{ textAlign: 'center', py: 4 }}>
-                                            <CircularProgress size={40} sx={{ mb: 2 }} />
-                                            <Typography variant="body2" color="textSecondary">
-                                                Orchestrating specialized agents (Intent, Policy, Evasion)...
-                                            </Typography>
-                                        </Box>
-                                    ) : aiReport ? (
-                                        <Stack spacing={3}>
-                                            <Paper elevation={0} sx={{ p: 2.5, bgcolor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 2 }}>
-                                                <Stack direction="row" spacing={3} alignItems="flex-start">
-                                                    <Box sx={{
-                                                        px: 2, py: 1, borderRadius: 1.5, fontWeight: 900,
-                                                        bgcolor: aiReport.risk_level === 'high' ? '#ef4444' : aiReport.risk_level === 'medium' ? '#f59e0b' : '#10b981',
-                                                        color: '#fff', textAlign: 'center', minWidth: 100
-                                                    }}>
-                                                        <Typography variant="h6" sx={{ lineHeight: 1, fontWeight: 900 }}>{aiReport.risk_level.toUpperCase()}</Typography>
-                                                        <Typography variant="caption" sx={{ fontWeight: 700 }}>RISK LEVEL</Typography>
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="body1" sx={{ fontWeight: 700, color: '#0c4a6e', mb: 1 }}>{aiReport.summary}</Typography>
-                                                        <Divider sx={{ mb: 1, borderColor: '#bae6fd' }} />
-                                                        <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 600 }}>
-                                                            Generated at {new Date(aiReport.timestamp).toLocaleString()}
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-
-                                            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 }}>
-                                                {/* Agent Detail Cards */}
-                                                {[
-                                                    {
-                                                        icon: "🧠", title: "INTENT",
-                                                        value: aiReport.intent_verdict?.classification,
-                                                        desc: aiReport.intent_verdict?.reasoning,
-                                                        color: '#4f46e5'
-                                                    },
-                                                    {
-                                                        icon: "📜", title: "POLICY",
-                                                        value: aiReport.policy_verdict?.violation_citation || "Compliant",
-                                                        desc: aiReport.policy_verdict?.reasoning,
-                                                        color: aiReport.policy_verdict?.is_compliant ? '#16a34a' : '#dc2626'
-                                                    },
-                                                    {
-                                                        icon: "🕵️", title: "EVASION",
-                                                        value: aiReport.evasion_verdict?.evasion_type || "None",
-                                                        desc: aiReport.evasion_verdict?.evidence,
-                                                        color: aiReport.evasion_verdict?.is_evasion ? '#dc2626' : '#16a34a'
-                                                    }
-                                                ].map((agent, i) => (
-                                                    <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: 2, border: `1px solid ${agent.color}20`, bgcolor: `${agent.color}05` }}>
-                                                        <Typography variant="caption" sx={{ fontWeight: 900, color: agent.color, display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                                                            {agent.icon} {agent.title}
-                                                        </Typography>
-                                                        <Typography variant="body2" sx={{ fontWeight: 800, mb: 1, color: '#1f2937' }}>{agent.value}</Typography>
-                                                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.4 }}>
-                                                            {agent.desc}
-                                                        </Typography>
-                                                    </Paper>
-                                                ))}
-                                            </Box>
-                                        </Stack>
-                                    ) : (
-                                        <Box sx={{ textAlign: 'center', py: 2 }}>
-                                            <Typography variant="body2" color="textSecondary">
-                                                No AI investigation has been performed for this alert yet.
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                </Box>
-                            </Paper>
-
-                            {/* Thread Section */}
-                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 800, color: '#334155' }}>Conversation Context</Typography>
-                            <Box sx={{ borderLeft: '3px solid #e2e8f0', ml: 1, pl: 4 }}>
-                                {(alert.conversation_thread || []).map((msg, idx) => (
-                                    <Box key={idx} sx={{ mb: 5, position: 'relative' }}>
-                                        {/* Thread connector dot */}
-                                        <Box sx={{
-                                            position: 'absolute', left: -43, top: 12, width: 18, height: 18,
-                                            borderRadius: '50%', bgcolor: msg.is_trigger ? '#ef4444' : '#cbd5e1',
-                                            border: '4px solid white', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                        }} />
-
-                                        {msg.is_trigger && (
-                                            <Stack direction="row" spacing={1} sx={{ mb: 1.5, p: 1, bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 2, width: 'fit-content' }}>
-                                                <Warning sx={{ fontSize: 18, color: '#ef4444' }} />
-                                                <Typography variant="caption" sx={{ fontWeight: 900, color: '#991b1b', textTransform: 'uppercase' }}>
-                                                    TRigger Match: {msg.risk_indicators.join(", ")}
-                                                </Typography>
-                                            </Stack>
-                                        )}
-
-                                        <Paper elevation={0} sx={{
-                                            p: 3, borderRadius: 3,
-                                            bgcolor: msg.is_trigger ? '#fff' : '#f8fafc',
-                                            border: msg.is_trigger ? '2px solid #ef4444' : '1px solid #e2e8f0',
-                                            boxShadow: msg.is_trigger ? '0 10px 25px -5px rgba(239, 68, 68, 0.1)' : 'none'
-                                        }}>
-                                            <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
-                                                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e293b' }}>{msg.sender}</Typography>
-                                                <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b' }}>
-                                                    {new Date(msg.timestamp).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' })}
-                                                </Typography>
-                                            </Stack>
-                                            <Typography variant="body1" sx={{
-                                                whiteSpace: 'pre-wrap', color: '#334155', lineHeight: 1.7,
-                                                fontSize: '1.05rem', fontStyle: msg.is_trigger ? 'normal' : 'italic'
-                                            }}>
-                                                {highlightText(msg.content, msg.matched_keywords)}
-                                            </Typography>
-                                        </Paper>
-                                    </Box>
-                                ))}
-                            </Box>
-                        </Box>
-
-                        {/* RIGHT SIDEBAR: Meta & Intelligence */}
-                        <Box sx={{ flex: 1, position: 'sticky', top: 150 }}>
+                        {/* LEFT COLUMN: Metadata & Intelligence (Narrower) */}
+                        <Box sx={{ flex: 1, position: 'sticky', top: 160 }}>
                             <Stack spacing={3}>
-
-                                {/* Status & Assignment */}
+                                {/* Key Details Card */}
                                 <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e6ed' }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', display: 'block', mb: 2 }}>CASE CONTROLS</Typography>
-
-                                    <Stack spacing={2.5}>
-                                        <Box>
-                                            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>ASSIGNED ANALYST</Typography>
-                                            <TextField
-                                                select fullWidth size="small"
-                                                value={alert.assigned_to || ""}
-                                                onChange={(e) => handleAssign(e.target.value)}
-                                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                                            >
-                                                <MenuItem value=""><em>Unassigned</em></MenuItem>
-                                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.name || u.email}</MenuItem>)}
-                                            </TextField>
-                                        </Box>
-                                        <Box>
-                                            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>INVESTIGATION STATUS</Typography>
-                                            <Chip
-                                                label={alert.status.toUpperCase()}
-                                                color={alert.status === 'open' ? "error" : alert.status === 'investigating' ? "warning" : "success"}
-                                                sx={{ fontWeight: 900, borderRadius: 1.5, width: '100%' }}
-                                            />
-                                        </Box>
-                                    </Stack>
-                                </Paper>
-
-                                {/* Alert Metadata */}
-                                <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e6ed' }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', display: 'block', mb: 2 }}>METADATA</Typography>
+                                    <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', display: 'block', mb: 2 }}>KEY DETAILS</Typography>
                                     <Stack spacing={2}>
                                         {[
-                                            { icon: <Tag fontSize="inherit" />, label: "Risk Typology", value: alert.risk_type || "Standard" },
+                                            { icon: <Info fontSize="inherit" />, label: "Alert ID", value: alert.display_id || alert.id.substring(0, 8) },
+                                            { icon: <Person fontSize="inherit" />, label: "Sender", value: alert.communication?.sender || "System" },
                                             { icon: <Language fontSize="inherit" />, label: "Region", value: alert.region || "Global" },
-                                            { icon: <Event fontSize="inherit" />, label: "Detected At", value: new Date(alert.detected_at).toLocaleDateString() },
-                                            { icon: <Info fontSize="inherit" />, label: "Alert ID", value: alert.id.substring(0, 8) }
+                                            { icon: <Tag fontSize="inherit" />, label: "Risk Typology", value: alert.risk_type || "Standard" },
+                                            { icon: <Event fontSize="inherit" />, label: "Detected At", value: new Date(alert.detected_at).toLocaleDateString() }
                                         ].map((item, idx) => (
                                             <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                 <Box sx={{ bgcolor: '#eff6ff', p: 0.7, borderRadius: 1, color: '#3b82f6', display: 'flex' }}>
@@ -391,18 +251,165 @@ const AlertDetailPage = () => {
                                     </Stack>
                                 </Paper>
 
-                                {/* Keywords/Indicators */}
-                                <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e6ed' }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', display: 'block', mb: 2 }}>MATCH EVIDENCE</Typography>
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                        {(alert.metadata?.matched_keywords || ["MTM", "Markup", "Off-channel"]).map((kw, i) => (
-                                            <Chip key={i} label={kw} size="small" sx={{ fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }} />
-                                        ))}
+                                {/* AI Briefing Card */}
+                                <Paper sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #e0e6ed' }}>
+                                    <Box sx={{ p: 2, bgcolor: '#f8fafc', borderBottom: '1px solid #e0e6ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Speed color="primary" sx={{ fontSize: 20 }} />
+                                            <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary' }}>AI BRIEFING</Typography>
+                                        </Stack>
+                                        {!aiReport && !investigatingAI && (
+                                            <Button
+                                                size="small" variant="contained" color="primary"
+                                                onClick={handleGenerateBriefing}
+                                                sx={{ borderRadius: 1.5, fontWeight: 700, px: 1.5, fontSize: '0.65rem' }}
+                                            >
+                                                🚀 Screening
+                                            </Button>
+                                        )}
                                     </Box>
+                                    <Box sx={{ p: 2 }}>
+                                        {investigatingAI ? (
+                                            <Box sx={{ textAlign: 'center', py: 2 }}>
+                                                <CircularProgress size={24} sx={{ mb: 1 }} />
+                                                <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                                                    Analyzing...
+                                                </Typography>
+                                            </Box>
+                                        ) : aiReport ? (
+                                            <Stack spacing={2}>
+                                                <Box sx={{
+                                                    p: 1.5, bgcolor: aiReport.risk_level === 'high' ? '#fef2f2' : '#f0f9ff',
+                                                    border: '1px solid', borderColor: aiReport.risk_level === 'high' ? '#fee2e2' : '#bae6fd',
+                                                    borderRadius: 2
+                                                }}>
+                                                    <Typography variant="h6" sx={{
+                                                        fontWeight: 900, mb: 0.5,
+                                                        color: aiReport.risk_level === 'high' ? '#dc2626' : '#0284c7'
+                                                    }}>
+                                                        {aiReport.risk_level.toUpperCase()} RISK
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500, lineHeight: 1.4, fontSize: '0.8rem' }}>
+                                                        {aiReport.summary}
+                                                    </Typography>
+                                                </Box>
+                                                <Stack spacing={1}>
+                                                    {[
+                                                        { title: "INTENT", value: aiReport.intent_verdict?.classification, color: '#4f46e5' },
+                                                        { title: "POLICY", value: aiReport.policy_verdict?.violation_citation || "Compliant", color: aiReport.policy_verdict?.is_compliant ? '#16a34a' : '#dc2626' },
+                                                        { title: "EVASION", value: aiReport.evasion_verdict?.evasion_type || "None", color: aiReport.evasion_verdict?.is_evasion ? '#dc2626' : '#16a34a' }
+                                                    ].map((agent, i) => (
+                                                        <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>{agent.title}</Typography>
+                                                            <Typography variant="caption" sx={{ fontWeight: 900, color: agent.color }}>{agent.value}</Typography>
+                                                        </Box>
+                                                    ))}
+                                                </Stack>
+                                            </Stack>
+                                        ) : (
+                                            <Box sx={{ textAlign: 'center', py: 2 }}>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    Action Required: Run AI Screening
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                    </Box>
+                                </Paper>
+
+                                {/* Other Controls Case Controls */}
+                                <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e6ed' }}>
+                                    <Stack spacing={2.5}>
+                                        <Box>
+                                            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 700, mb: 1, display: 'block' }}>ASSIGNED ANALYST</Typography>
+                                            <Paper elevation={0} sx={{
+                                                p: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2,
+                                                display: 'flex', alignItems: 'center', gap: 1.5
+                                            }}>
+                                                <Person sx={{ color: '#64748b', fontSize: 20 }} />
+                                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                    {alert.assignee_name || "Unassigned"}
+                                                </Typography>
+                                            </Paper>
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 700, mb: 1, display: 'block' }}>INVESTIGATION STATUS</Typography>
+                                            <Chip
+                                                label={alert.status.toUpperCase()}
+                                                color={alert.status === 'open' ? "error" : alert.status === 'investigating' ? "warning" : "success"}
+                                                sx={{ fontWeight: 900, borderRadius: 1.5, width: '100%' }}
+                                            />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', display: 'block', mb: 1.5 }}>MATCH EVIDENCE</Typography>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                                {(alert.metadata?.matched_keywords || ["MTM", "Markup", "Off-channel"]).map((kw, i) => (
+                                                    <Chip key={i} label={kw} size="small" sx={{ fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }} />
+                                                ))}
+                                            </Box>
+                                        </Box>
+                                    </Stack>
                                 </Paper>
                             </Stack>
                         </Box>
 
+                        {/* RIGHT COLUMN: Conversation Thread (Wider) */}
+                        <Box sx={{ flex: 3, pt: 0 }}>
+                            <Box sx={{ borderLeft: '3px solid #e2e8f0', ml: 1, pl: 4 }}>
+                                {(alert.conversation_thread || []).map((msg, idx) => (
+                                    <Box key={idx} sx={{ mb: 2, position: 'relative' }}>
+                                        {/* Thread connector dot */}
+                                        <Box sx={{
+                                            position: 'absolute', left: -43, top: 20, width: 14, height: 14,
+                                            borderRadius: '50%', bgcolor: msg.is_trigger ? '#ef4444' : '#cbd5e1',
+                                            border: '3px solid white', zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                        }} />
+
+                                        <Accordion
+                                            expanded={!!expandedMessages[idx]}
+                                            onChange={() => handleToggleMessage(idx)}
+                                            elevation={0}
+                                            sx={{
+                                                borderRadius: '12px !important',
+                                                border: msg.is_trigger ? '2px solid #ef4444' : '1px solid #e2e8f0',
+                                                bgcolor: msg.is_trigger ? '#fff' : '#f8fafc',
+                                                '&:before': { display: 'none' },
+                                                overflow: 'hidden'
+                                            }}
+                                        >
+                                            <AccordionSummary expandIcon={<ExpandMore />}>
+                                                <Stack direction="row" justifyContent="space-between" sx={{ width: '100%', pr: 2 }}>
+                                                    <Stack direction="row" spacing={1.5} alignItems="center">
+                                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b' }}>{msg.sender}</Typography>
+                                                        {msg.is_trigger && (
+                                                            <Chip label="TRIGGER" size="small" color="error" sx={{ height: 20, fontSize: '0.6rem', fontWeight: 900 }} />
+                                                        )}
+                                                    </Stack>
+                                                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b' }}>
+                                                        {new Date(msg.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </Typography>
+                                                </Stack>
+                                            </AccordionSummary>
+                                            <AccordionDetails sx={{ pt: 0, pb: 3, px: 3 }}>
+                                                {msg.is_trigger && (
+                                                    <Stack direction="row" spacing={1} sx={{ mb: 2, p: 1, bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 1.5, width: 'fit-content' }}>
+                                                        <Warning sx={{ fontSize: 16, color: '#ef4444' }} />
+                                                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#991b1b', textTransform: 'uppercase' }}>
+                                                            {msg.risk_indicators.join(", ")}
+                                                        </Typography>
+                                                    </Stack>
+                                                )}
+                                                <Typography variant="body1" sx={{
+                                                    whiteSpace: 'pre-wrap', color: '#334155', lineHeight: 1.6,
+                                                    fontSize: '0.95rem', fontStyle: msg.is_trigger ? 'normal' : 'italic'
+                                                }}>
+                                                    {highlightText(msg.content, msg.matched_keywords)}
+                                                </Typography>
+                                            </AccordionDetails>
+                                        </Accordion>
+                                    </Box>
+                                ))}
+                            </Box>
+                        </Box>
                     </Stack>
                 </Container>
             </Box>

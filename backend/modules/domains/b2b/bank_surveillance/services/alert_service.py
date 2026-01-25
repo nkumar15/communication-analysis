@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 from typing import List, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ class AlertService:
     async def create_alert(self, db: AsyncSession, alert_in: AlertCreate) -> Alert:
         """Create a new alert"""
         db_alert = Alert(
+            id=uuid4(), # Generate ID first to derive deterministic display_id
             tenant_id=alert_in.tenant_id,
             communication_id=alert_in.communication_id,
             risk_type=alert_in.risk_type.value,
@@ -26,6 +27,12 @@ class AlertService:
             metadata_=alert_in.metadata_,
             detected_at=alert_in.detected_at or datetime.utcnow()
         )
+        
+        # 1. Derive deterministic numeric ID from UUID
+        from modules.domains.b2b.bank_surveillance.utils.id_utils import generate_deterministic_numeric_id
+        numeric_suffix = generate_deterministic_numeric_id(db_alert.id)
+        db_alert.display_id = f"ALT-{numeric_suffix}"
+        
         db.add(db_alert)
         await db.flush()
         await db.refresh(db_alert)
@@ -292,6 +299,7 @@ class AlertService:
             priority=alert.severity, # Map critical/high/medium directly
             status="open",
             assigned_to_user_id=alert.assigned_to,
+            source_uuid=alert.id, # Pass alert UUID to ensure numeric ID consistency
             initial_evidence=[
                 CaseEvidenceCreate(
                     evidence_type="alert",

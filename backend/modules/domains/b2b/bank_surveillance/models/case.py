@@ -17,6 +17,7 @@ class Case(Base, TimestampMixin):
     assigned_to_user_id = Column(UUID(as_uuid=True), ForeignKey("b2b.users.id", ondelete="SET NULL"), nullable=True)
     
     title = Column(String(200), nullable=False)
+    display_id = Column(String(20), unique=True, index=True) # CAS-1845192
     description = Column(Text, nullable=True)
     priority = Column(String(20), default="medium")
     status = Column(String(50), default="open") # open, in_review, escalated, closed

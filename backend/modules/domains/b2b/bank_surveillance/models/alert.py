@@ -38,6 +38,7 @@ class Alert(Base, TimestampMixin):
     communication_id = Column(UUID(as_uuid=True), ForeignKey("bank_surveillance.communications.id"), nullable=True, index=True)  # Legacy, nullable for new workflow
     
     subject = Column(String(255), nullable=True)  # Auto-generated: "{Sender} - {Indicator} - {Date}"
+    display_id = Column(String(20), unique=True, index=True) # ALT-1001
     risk_type = Column(String, nullable=True)  # Legacy field
     severity = Column(String, nullable=False)
     status = Column(String, default=AlertStatus.OPEN.value, nullable=False)

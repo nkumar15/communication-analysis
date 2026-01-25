@@ -58,6 +58,7 @@ class ThreadMessage(BaseModel):
 
 class AlertResponse(AlertBase):
     id: UUID
+    display_id: Optional[str] = None
     tenant_id: UUID
     communication_id: Optional[UUID] = None
     assigned_to: Optional[UUID] = None

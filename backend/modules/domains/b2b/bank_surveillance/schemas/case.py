@@ -53,6 +53,7 @@ class CaseCreate(CaseBase):
     sensitivity_level_id: Optional[uuid.UUID] = None
     initial_note: Optional[str] = None
     initial_evidence: Optional[List[CaseEvidenceCreate]] = None
+    source_uuid: Optional[uuid.UUID] = None # For deriving deterministic numeric ID
 
 class CaseUpdate(BaseModel):
     """Payload to update case metadata, status, or close it."""
@@ -68,6 +69,7 @@ class CaseUpdate(BaseModel):
 class CaseListResponse(CaseBase):
     """Simplified case object for list views."""
     id: uuid.UUID
+    display_id: str
     tenant_id: uuid.UUID
     assigned_to_user_id: Optional[uuid.UUID] = None
     created_at: datetime
