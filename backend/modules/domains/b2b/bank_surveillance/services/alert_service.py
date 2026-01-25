@@ -87,23 +87,24 @@ class AlertService:
                 res = await db.execute(events_stmt)
                 events = res.scalars().all()
                 
-                # Group indicators and keywords by communication_id
+                # Group indicators and keywords by communication_id (using string keys for robust UUID matching)
                 comms_risk_info = {}
                 comms_matched_keywords = {}
                 for e in events:
-                    if e.communication_id not in comms_risk_info:
-                        comms_risk_info[e.communication_id] = []
-                        comms_matched_keywords[e.communication_id] = []
+                    cid_str = str(e.communication_id)
+                    if cid_str not in comms_risk_info:
+                        comms_risk_info[cid_str] = []
+                        comms_matched_keywords[cid_str] = []
                         
                     indicator = e.control.risk_indicator if e.control else "High Risk"
-                    if indicator not in comms_risk_info[e.communication_id]:
-                        comms_risk_info[e.communication_id].append(indicator)
+                    if indicator not in comms_risk_info[cid_str]:
+                        comms_risk_info[cid_str].append(indicator)
                     
                     # Add matched keywords if any
                     if e.matched_keywords:
                         for kw in e.matched_keywords:
-                            if kw not in comms_matched_keywords[e.communication_id]:
-                                comms_matched_keywords[e.communication_id].append(kw)
+                            if kw not in comms_matched_keywords[cid_str]:
+                                comms_matched_keywords[cid_str].append(kw)
 
                 # 4. Map to ThreadMessage schema
                 # We fetch content from ES if Postgres is null
@@ -116,15 +117,16 @@ class AlertService:
                     if not content and c.message_id:
                         content = await communication_rag_service.get_content_by_id(str(c.message_id))
                     
+                    cid_str = str(c.id)
                     alert.conversation_thread.append(ThreadMessage(
                         id=c.id,
                         sender=c.sender,
                         subject=c.subject,
                         content=content,
                         timestamp=c.timestamp,
-                        is_trigger=c.id in comms_risk_info,
-                        risk_indicators=comms_risk_info.get(c.id, []),
-                        matched_keywords=comms_matched_keywords.get(c.id, [])
+                        is_trigger=cid_str in comms_risk_info,
+                        risk_indicators=comms_risk_info.get(cid_str, []),
+                        matched_keywords=comms_matched_keywords.get(cid_str, [])
                     ))
                     
         # Set assignee name

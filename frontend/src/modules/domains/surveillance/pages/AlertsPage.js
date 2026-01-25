@@ -72,7 +72,7 @@ const AlertsPage = () => {
         setSelectedAlert(null);
     };
 
-    const handleStatusUpdate = async (alertId, newStatus) => {
+    const handleStatusUpdate = async (alertId, newStatus, autoOpen = false) => {
         try {
             if (newStatus === 'escalated') {
                 await b2bDomainClient.escalateAlert(alertId);
@@ -82,9 +82,22 @@ const AlertsPage = () => {
                 await b2bDomainClient.updateAlert(alertId, { status: newStatus });
             }
             fetchAlerts(); // Refresh list
-            if (selectedAlert?.id === alertId) handleCloseDrawer();
+
+            if (autoOpen) {
+                const updated = alerts.find(a => a.id === alertId);
+                if (updated) handleOpenDrawer(updated);
+            }
+
+            if (selectedAlert?.id === alertId && newStatus !== 'investigating') handleCloseDrawer();
         } catch (error) {
             console.error("Update failed:", error);
+        }
+    };
+
+    const pickNextAlert = () => {
+        const next = alerts.find(a => a.status === 'open' && !a.assigned_to);
+        if (next) {
+            handleStatusUpdate(next.id, 'investigating', true);
         }
     };
 
@@ -119,21 +132,30 @@ const AlertsPage = () => {
     const highlightText = (text, keywords) => {
         if (!keywords || keywords.length === 0 || !text) return text;
 
-        const escapedKeywords = keywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        // Extract string keywords if they are objects
+        const kwStrings = keywords.map(kw =>
+            typeof kw === 'object' ? (kw.keyword || kw.text || JSON.stringify(kw)) : kw
+        ).filter(kw => typeof kw === 'string' && kw.length > 0);
+
+        if (kwStrings.length === 0) return text;
+
+        const escapedKeywords = kwStrings.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
         const regex = new RegExp(`(${escapedKeywords.join('|')})`, 'gi');
         const parts = text.split(regex);
 
         return parts.map((part, i) =>
-            regex.test(part) ? (
+            kwStrings.some(kw => part.toLowerCase() === kw.toLowerCase()) ? (
                 <Box
                     key={i}
                     component="span"
                     sx={{
-                        bgcolor: '#ffeb3b',
+                        bgcolor: '#fff176', // Brighter yellow
                         px: 0.5,
+                        mx: 0.1,
                         borderRadius: 0.5,
-                        fontWeight: 600,
-                        color: '#000'
+                        fontWeight: 800,
+                        color: '#000',
+                        borderBottom: '2px solid #fbc02d'
                     }}
                 >
                     {part}
@@ -145,9 +167,32 @@ const AlertsPage = () => {
     return (
         <AdminLayout>
             <Box sx={{ p: 4, bgcolor: '#f8f9fa', minHeight: '100vh' }}>
-                <Typography variant="h4" sx={{ mb: 4, fontWeight: 700, color: '#1a1a1a' }}>
-                    Surveillance Alerts
-                </Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+                    <Box>
+                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a1a1a', mb: 0.5 }}>Surveillance Alerts</Typography>
+                        <Typography variant="body2" color="textSecondary">Manage regulatory risk detections and investigations</Typography>
+                    </Box>
+                    <Stack direction="row" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="warning"
+                            startIcon={<Speed />}
+                            onClick={pickNextAlert}
+                            disabled={loading || !alerts.some(a => a.status === 'open')}
+                            sx={{ fontWeight: 700, px: 3 }}
+                        >
+                            Pick Next Alert
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            startIcon={<HistoryEdu />}
+                            onClick={fetchAlerts}
+                            disabled={loading}
+                        >
+                            Refresh Queue
+                        </Button>
+                    </Stack>
+                </Stack>
 
                 {/* Stats Section */}
                 {stats && (
@@ -180,6 +225,7 @@ const AlertsPage = () => {
                         <MenuItem value="">All Types</MenuItem>
                         <MenuItem value="Financial Fraud">Financial Fraud</MenuItem>
                         <MenuItem value="Market-to-Market Manipulation">Market Manipulation</MenuItem>
+                        <MenuItem value="Evasion & Secrecy">Evasion & Secrecy</MenuItem>
                     </TextField>
                     <TextField
                         select
@@ -298,31 +344,36 @@ const AlertsPage = () => {
                                         </TableCell>
                                         <TableCell align="right">
                                             <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                                {alert.status === 'open' && (
-                                                    <Tooltip title="Start Investigation">
-                                                        <IconButton size="small" onClick={() => handleStatusUpdate(alert.id, 'investigating')}>
-                                                            <Speed fontSize="small" color="warning" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                )}
-                                                {alert.status !== 'closed' && (
-                                                    <Tooltip title="Close Alert">
-                                                        <IconButton size="small" onClick={() => handleStatusUpdate(alert.id, 'closed')}>
-                                                            <DoneAll fontSize="small" color="success" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                )}
-                                                {['open', 'investigating'].includes(alert.status) && (
-                                                    <Tooltip title="Escalate to Case">
-                                                        <IconButton size="small" onClick={() => handleStatusUpdate(alert.id, 'escalated')}>
-                                                            <HistoryEdu fontSize="small" color="secondary" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                )}
-                                                <Tooltip title="View Details">
-                                                    <IconButton size="small" onClick={() => handleOpenDrawer(alert)}>
-                                                        <Visibility fontSize="small" color="primary" />
+                                                <Tooltip title={alert.status === 'open' ? "Investigate" : "View Details"}>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => alert.status === 'open' ? handleStatusUpdate(alert.id, 'investigating', true) : handleOpenDrawer(alert)}
+                                                        color="primary"
+                                                    >
+                                                        <Visibility fontSize="small" />
                                                     </IconButton>
+                                                </Tooltip>
+                                                <Tooltip title="Escalate to Case">
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleStatusUpdate(alert.id, 'escalated')}
+                                                            disabled={!['open', 'investigating'].includes(alert.status)}
+                                                        >
+                                                            <HistoryEdu fontSize="small" color={['open', 'investigating'].includes(alert.status) ? "secondary" : "disabled"} />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                                <Tooltip title="Close Alert">
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleStatusUpdate(alert.id, 'closed')}
+                                                            disabled={alert.status === 'closed'}
+                                                        >
+                                                            <DoneAll fontSize="small" color={alert.status !== 'closed' ? "success" : "disabled"} />
+                                                        </IconButton>
+                                                    </span>
                                                 </Tooltip>
                                             </Stack>
                                         </TableCell>
@@ -360,47 +411,27 @@ const AlertsPage = () => {
                                 </Box>
 
                                 {/* Action Bar */}
-                                <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: '#f0f4f8', border: '1px solid #d1d9e6' }}>
-                                    <Stack direction="row" spacing={2} alignItems="center">
-                                        <TextField
-                                            select
-                                            size="small"
-                                            label="Assign To"
-                                            value={selectedAlert.assigned_to || ""}
-                                            onChange={(e) => handleAssign(selectedAlert.id, e.target.value)}
-                                            sx={{ minWidth: 200, bgcolor: 'white' }}
-                                        >
-                                            <MenuItem value=""><em>Unassigned</em></MenuItem>
-                                            {users.map(u => (
-                                                <MenuItem key={u.id} value={u.id}>{u.name || u.email}</MenuItem>
-                                            ))}
-                                        </TextField>
-
-                                        <Box sx={{ flexGrow: 1 }} />
-
+                                <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: '#f8fbfc', border: '1px solid #d1d9e6', borderRadius: 2 }}>
+                                    <Stack direction="row" spacing={4} justifyContent="center" alignItems="center">
                                         <Button
-                                            variant="contained"
+                                            variant="outlined"
                                             color="error"
                                             startIcon={<Warning />}
                                             onClick={() => handleStatusUpdate(selectedAlert.id, 'escalated')}
                                             disabled={selectedAlert.status === 'escalated' || selectedAlert.status === 'closed'}
+                                            sx={{ fontWeight: 800, minWidth: 160, borderRadius: 2, py: 1 }}
                                         >
-                                            Escalate
-                                        </Button>
-                                        <Button
-                                            variant="contained"
-                                            color="success"
-                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'closed')}
-                                            disabled={selectedAlert.status === 'closed'}
-                                        >
-                                            Close
+                                            ESCALATE
                                         </Button>
                                         <Button
                                             variant="outlined"
-                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'investigating')}
-                                            disabled={selectedAlert.status === 'investigating' || selectedAlert.status === 'closed'}
+                                            color="success"
+                                            startIcon={<DoneAll />}
+                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'closed')}
+                                            disabled={selectedAlert.status === 'closed'}
+                                            sx={{ fontWeight: 800, minWidth: 160, borderRadius: 2, py: 1 }}
                                         >
-                                            Investigate
+                                            CLOSE ALERT
                                         </Button>
                                     </Stack>
                                 </Paper>
@@ -469,9 +500,10 @@ const AlertsPage = () => {
                                                 elevation={0}
                                                 sx={{
                                                     p: 2,
-                                                    bgcolor: msg.is_trigger ? '#fff' : '#fcfcfc',
+                                                    bgcolor: msg.is_trigger ? '#fff5f5' : '#fcfcfc',
                                                     border: msg.is_trigger ? '2px solid #ffcdd2' : '1px solid #eee',
-                                                    borderRadius: 2
+                                                    borderRadius: 2,
+                                                    boxShadow: msg.is_trigger ? '0 2px 8px rgba(244, 67, 54, 0.1)' : 'none'
                                                 }}
                                             >
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

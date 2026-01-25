@@ -197,7 +197,7 @@ team_roles:
       - resource: rag_search
         actions: [read, query]
       - resource: alerts
-        actions: [read, acknowledge, escalate, flag]
+        actions: [read, acknowledge, escalate, flag, update]
       - resource: cases
         actions: [read, write]
       - resource: investigations

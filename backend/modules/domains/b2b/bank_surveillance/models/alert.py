@@ -27,6 +27,7 @@ class RiskType(str, Enum):
     KEYWORD_MATCH = "keyword_match"
     FINANCIAL_FRAUD = "Financial Fraud"
     MARKET_MANIPULATION = "Market-to-Market Manipulation"
+    EVASION_AND_SECRECY = "Evasion & Secrecy"
 
 class Alert(Base, TimestampMixin):
     __tablename__ = "alerts"

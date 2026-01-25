@@ -12,6 +12,25 @@ from modules.domains.b2b.bank_surveillance.services.alert_service import alert_s
 
 router = APIRouter(prefix="/alerts", tags=["Bank Surveillance Alerts"])
 
+async def require_alert_update(
+    current_user: dict = require_permission("alerts", "read"),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """Dependency to allow either 'update' or 'acknowledge' permission."""
+    from modules.b2b.rbac.permission_checker import has_permission_with_plugins
+    user_id = current_user["id"]
+    
+    # Check for update OR acknowledge
+    can_update = await has_permission_with_plugins(user_id, "alerts", "update", db, role_id=current_user.get("role_id"))
+    can_acknowledge = await has_permission_with_plugins(user_id, "alerts", "acknowledge", db, role_id=current_user.get("role_id"))
+    
+    if not (can_update or can_acknowledge):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: alerts:update or alerts:acknowledge required"
+        )
+    return current_user
+
 
 class GenerateAlertsRequest(BaseModel):
     start_date: Optional[str] = None  # YYYY-MM-DD
@@ -124,7 +143,7 @@ async def update_alert(
     alert_in: AlertUpdate,
     alert_id: UUID = Path(...),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = require_permission("alerts", "update")
+    current_user: dict = Depends(require_alert_update)
 ):
     """Update alert status, assignment, or details."""
     tenant_id = current_user["tenant_id"]
@@ -139,7 +158,7 @@ async def update_alert(
 async def escalate_alert(
     alert_id: UUID = Path(...),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = require_permission("alerts", "update")
+    current_user: dict = Depends(require_alert_update)
 ):
     """Quickly escalate an alert."""
     tenant_id = current_user["tenant_id"]
@@ -154,7 +173,7 @@ async def escalate_alert(
 async def close_alert(
     alert_id: UUID = Path(...),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = require_permission("alerts", "update")
+    current_user: dict = Depends(require_alert_update)
 ):
     """Close an alert."""
     tenant_id = current_user["tenant_id"]
