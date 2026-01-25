@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from core.db.session import get_db
 from modules.b2b.rbac import require_permission
 from modules.domains.b2b.bank_surveillance.models.alert import AlertStatus, AlertSeverity, RiskType
-from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate, AlertUpdate, AlertFilter, AlertResponse
+from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate, AlertUpdate, AlertFilter, AlertResponse, AlertStats
 from modules.domains.b2b.bank_surveillance.services.alert_service import alert_service
 
 router = APIRouter(prefix="/alerts", tags=["Bank Surveillance Alerts"])
@@ -50,6 +50,16 @@ async def generate_alerts(
     )
 
 
+@router.get("/stats", response_model=AlertStats)
+async def get_alert_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "read")
+):
+    """Get summary statistics for the Alerts Dashboard."""
+    tenant_id = current_user["tenant_id"]
+    return await alert_service.get_alert_stats(db, tenant_id)
+
+
 @router.get("/", response_model=List[AlertResponse])
 async def list_alerts(
     status: Optional[AlertStatus] = None,
@@ -57,6 +67,7 @@ async def list_alerts(
     risk_type: Optional[RiskType] = None,
     assigned_to: Optional[UUID] = None,
     communication_id: Optional[UUID] = None,
+    region: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
@@ -70,7 +81,8 @@ async def list_alerts(
         severity=severity,
         risk_type=risk_type,
         assigned_to=assigned_to,
-        communication_id=communication_id
+        communication_id=communication_id,
+        region=region
     )
     
     alerts, total = await alert_service.list_alerts(db, tenant_id, filters, limit, offset)

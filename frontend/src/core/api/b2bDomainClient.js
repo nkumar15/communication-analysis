@@ -125,25 +125,30 @@ class B2BDomainService {
         return this.post(`/api/b2b/domain/bank_surveillance/ingestion/retry/${jobId}`, {});
     }
 
-    // Alerts
-    async getAlerts(params) {
-        // params: { status, severity, risk_type, assigned_to, limit, offset }
-        const queryParams = new URLSearchParams(params).toString();
+    async _get(path, params = {}) {
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/alerts/?${queryParams}`, { headers });
-        if (!response.ok) throw new Error(`Failed to fetch alerts: ${response.status}`);
+        const query = new URLSearchParams(params).toString();
+        const url = `${API_BASE_URL}/api/b2b/domain/bank_surveillance${path}${query ? '?' + query : ''}`;
+        console.log('🌐 [b2bDomainClient] GET:', url);
+        const response = await fetch(url, { headers });
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
         return response.json();
+    }
+
+    // Alerts
+    async getAlerts(params = {}) {
+        return this._get('/alerts/', params);
+    }
+
+    async getAlertStats() {
+        return this._get('/alerts/stats');
     }
 
     async getAlert(id) {
-        const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/alerts/${id}`, { headers });
-        if (!response.ok) throw new Error(`Failed to fetch alert: ${response.status}`);
-        return response.json();
+        return this._get(`/alerts/${id}`);
     }
 
     async updateAlert(id, data) {
-        // data: { status, assigned_to, description, etc }
         const headers = await this.getAuthHeaders();
         const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/alerts/${id}`, {
             method: 'PATCH',
@@ -164,18 +169,11 @@ class B2BDomainService {
 
     // Case Management
     async getCases(params = {}) {
-        const queryParams = new URLSearchParams(params).toString();
-        const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/cases/?${queryParams}`, { headers });
-        if (!response.ok) throw new Error(`Failed to fetch cases: ${response.status}`);
-        return response.json();
+        return this._get('/cases/', params);
     }
 
     async getCase(id) {
-        const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/cases/${id}`, { headers });
-        if (!response.ok) throw new Error(`Failed to fetch case: ${response.status}`);
-        return response.json();
+        return this._get(`/cases/${id}`);
     }
 
     async createCase(data) {

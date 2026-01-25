@@ -5,8 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, desc, func
 from sqlalchemy.orm import selectinload
 
-from modules.domains.b2b.bank_surveillance.models.alert import Alert, AlertStatus
-from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate, AlertUpdate, AlertFilter
+from modules.domains.b2b.bank_surveillance.models.alert import Alert, AlertStatus, AlertSeverity
+from modules.domains.b2b.bank_surveillance.models.communication import Communication
+from modules.domains.b2b.bank_surveillance.models.risk_event import RiskEvent
+from modules.domains.b2b.bank_surveillance.models.surveillance_control import SurveillanceControl
+from modules.b2b.models.geographic_region import GeographicRegion
+from modules.domains.b2b.bank_surveillance.schemas.alert import AlertCreate, AlertUpdate, AlertFilter, AlertStats, ThreadMessage
 
 class AlertService:
     async def create_alert(self, db: AsyncSession, alert_in: AlertCreate) -> Alert:
@@ -28,13 +32,140 @@ class AlertService:
         return db_alert
 
     async def get_alert(self, db: AsyncSession, alert_id: UUID, tenant_id: UUID) -> Optional[Alert]:
-        """Get alert by ID and tenant"""
+        """Get alert by ID and tenant with full conversation thread context."""
         stmt = select(Alert).where(
             Alert.id == alert_id,
             Alert.tenant_id == tenant_id
+        ).options(
+            selectinload(Alert.communication).selectinload(Communication.region)
         )
         result = await db.execute(stmt)
-        return result.scalar_one_or_none()
+        alert = result.scalar_one_or_none()
+        
+        if not alert:
+            return None
+            
+        # Set region name if available
+        if alert.communication and alert.communication.region:
+            alert.region = alert.communication.region.name
+            
+        # --- Thread Reconstruction ---
+        # 1. Fetch the primary communication
+        if alert.communication_id:
+            comm_stmt = select(Communication).where(Communication.id == alert.communication_id)
+            res = await db.execute(comm_stmt)
+            primary_comm = res.scalar_one_or_none()
+            
+            if primary_comm:
+                # 2. Fetch all related communications (same thread OR same sender/day)
+                thread_stmt = select(Communication).where(Communication.tenant_id == tenant_id)
+                
+                if primary_comm.thread_id:
+                    thread_stmt = thread_stmt.where(Communication.thread_id == primary_comm.thread_id)
+                else:
+                    # Fallback: All communications for this sender on the same day
+                    start_of_day = primary_comm.timestamp.replace(hour=0, minute=0, second=0, microsecond=0)
+                    from datetime import timedelta
+                    end_of_day = start_of_day + timedelta(days=1)
+                    thread_stmt = thread_stmt.where(
+                        Communication.sender == primary_comm.sender,
+                        Communication.timestamp >= start_of_day,
+                        Communication.timestamp < end_of_day
+                    )
+                
+                thread_stmt = thread_stmt.order_by(Communication.timestamp.asc())
+                res = await db.execute(thread_stmt)
+                thread_comms = res.scalars().all()
+                
+                # 3. Fetch RiskEvents for these communications to mark "triggers"
+                comm_ids = [c.id for c in thread_comms]
+                events_stmt = select(RiskEvent).where(
+                    RiskEvent.communication_id.in_(comm_ids)
+                ).options(selectinload(RiskEvent.control))
+                
+                res = await db.execute(events_stmt)
+                events = res.scalars().all()
+                
+                # Group indicators and keywords by communication_id
+                comms_risk_info = {}
+                comms_matched_keywords = {}
+                for e in events:
+                    if e.communication_id not in comms_risk_info:
+                        comms_risk_info[e.communication_id] = []
+                        comms_matched_keywords[e.communication_id] = []
+                        
+                    indicator = e.control.risk_indicator if e.control else "High Risk"
+                    if indicator not in comms_risk_info[e.communication_id]:
+                        comms_risk_info[e.communication_id].append(indicator)
+                    
+                    # Add matched keywords if any
+                    if e.matched_keywords:
+                        for kw in e.matched_keywords:
+                            if kw not in comms_matched_keywords[e.communication_id]:
+                                comms_matched_keywords[e.communication_id].append(kw)
+
+                # 4. Map to ThreadMessage schema
+                # We fetch content from ES if Postgres is null
+                from modules.domains.b2b.bank_surveillance.services.rag import communication_rag_service
+                
+                alert.conversation_thread = []
+                for c in thread_comms:
+                    # Fallback to ES if content is null
+                    content = c.content
+                    if not content and c.message_id:
+                        content = await communication_rag_service.get_content_by_id(str(c.message_id))
+                    
+                    alert.conversation_thread.append(ThreadMessage(
+                        id=c.id,
+                        sender=c.sender,
+                        subject=c.subject,
+                        content=content,
+                        timestamp=c.timestamp,
+                        is_trigger=c.id in comms_risk_info,
+                        risk_indicators=comms_risk_info.get(c.id, []),
+                        matched_keywords=comms_matched_keywords.get(c.id, [])
+                    ))
+                    
+        return alert
+
+    async def get_alert_stats(self, db: AsyncSession, tenant_id: UUID) -> AlertStats:
+        """Get summary statistics for the Alerts Dashboard."""
+        
+        # 1. Total Alerts
+        total_stmt = select(func.count(Alert.id)).where(Alert.tenant_id == tenant_id)
+        total_res = await db.execute(total_stmt)
+        total = total_res.scalar() or 0
+        
+        # 2. High/Critical Risk Count
+        high_risk_stmt = select(func.count(Alert.id)).where(
+            Alert.tenant_id == tenant_id,
+            Alert.severity.in_([AlertSeverity.HIGH.value, AlertSeverity.CRITICAL.value])
+        )
+        high_res = await db.execute(high_risk_stmt)
+        high_count = high_res.scalar() or 0
+        
+        # 3. Open Count
+        open_stmt = select(func.count(Alert.id)).where(
+            Alert.tenant_id == tenant_id,
+            Alert.status == AlertStatus.OPEN.value
+        )
+        open_res = await db.execute(open_stmt)
+        open_count = open_res.scalar() or 0
+        
+        # 4. Unassigned Count
+        unassigned_stmt = select(func.count(Alert.id)).where(
+            Alert.tenant_id == tenant_id,
+            Alert.assigned_to.is_(None)
+        )
+        unassigned_res = await db.execute(unassigned_stmt)
+        unassigned_count = unassigned_res.scalar() or 0
+        
+        return AlertStats(
+            total_alerts=total,
+            high_risk_count=high_count,
+            open_count=open_count,
+            unassigned_count=unassigned_count
+        )
 
     async def list_alerts(
         self, 
@@ -47,6 +178,11 @@ class AlertService:
         """List alerts with filtering"""
         query = select(Alert).where(Alert.tenant_id == tenant_id)
         
+        # Join Communication and Region for listing
+        query = query.outerjoin(Communication, Alert.communication_id == Communication.id)
+        query = query.outerjoin(GeographicRegion, Communication.data_region_id == GeographicRegion.id)
+        query = query.options(selectinload(Alert.communication).selectinload(Communication.region))
+        
         # Apply filters
         if filters.status:
             query = query.where(Alert.status == filters.status.value)
@@ -58,6 +194,8 @@ class AlertService:
             query = query.where(Alert.assigned_to == filters.assigned_to)
         if filters.communication_id:
             query = query.where(Alert.communication_id == filters.communication_id)
+        if filters.region:
+            query = query.where(GeographicRegion.name == filters.region)
             
         # Get total count (before pagination)
         # Note: Optimization - simpler count query can be separate if performance needed
@@ -77,6 +215,13 @@ class AlertService:
         result = await db.execute(query)
         alerts = result.scalars().all()
         
+        # Populate region name for Pydantic
+        for alert in alerts:
+            if alert.communication and alert.communication.region:
+                alert.region = alert.communication.region.name
+            else:
+                alert.region = "Default"
+
         return list(alerts), total
 
     async def update_alert(

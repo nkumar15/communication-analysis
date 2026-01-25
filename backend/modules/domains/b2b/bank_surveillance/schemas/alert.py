@@ -38,6 +38,23 @@ class AlertFilter(BaseModel):
     risk_type: Optional[RiskType] = None
     assigned_to: Optional[UUID] = None
     communication_id: Optional[UUID] = None
+    region: Optional[str] = None
+
+class AlertStats(BaseModel):
+    total_alerts: int
+    high_risk_count: int
+    open_count: int
+    unassigned_count: int
+
+class ThreadMessage(BaseModel):
+    id: UUID
+    sender: str
+    subject: Optional[str] = None
+    content: Optional[str] = None
+    timestamp: datetime
+    is_trigger: bool = False
+    risk_indicators: List[str] = []
+    matched_keywords: List[str] = []
 
 class AlertResponse(AlertBase):
     id: UUID
@@ -48,7 +65,8 @@ class AlertResponse(AlertBase):
     created_at: datetime
     updated_at: datetime
     
-    # Optional nested details (could be expanded)
-    # communication_summary: Optional[Dict] = None 
+    # Context
+    region: Optional[str] = None
+    conversation_thread: List[ThreadMessage] = []
 
     model_config = ConfigDict(from_attributes=True)
