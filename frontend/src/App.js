@@ -21,6 +21,7 @@ import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
 import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
 import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
 import AlertsPage from './modules/domains/surveillance/pages/AlertsPage';
+import AlertDetailPage from './modules/domains/surveillance/pages/AlertDetailPage';
 import CommunicationsPage from './modules/domains/surveillance/pages/CommunicationsPage';
 import CaseListPage from './modules/domains/surveillance/pages/CaseListPage';
 import CaseDetailPage from './modules/domains/surveillance/pages/CaseDetailPage';
@@ -156,6 +157,7 @@ function App() {
                 {/* Surveillance routes */}
                 <Route path="/b2b/surveillance" element={<ProtectedRoute><SurveillanceDashboardPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
+                <Route path="/b2b/surveillance/alerts/:alertId" element={<ProtectedRoute><AlertDetailPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/communications" element={<ProtectedRoute><CommunicationsPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/cases" element={<ProtectedRoute><CaseListPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/ingestion" element={<ProtectedRoute><IngestionPage /></ProtectedRoute>} />

@@ -1,18 +1,81 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.session import get_db
 from modules.b2b.rbac import require_permission
 
 from modules.domains.b2b.bank_surveillance.services.orchestrator import orchestrator_service
+from modules.domains.b2b.bank_surveillance.services.alert_service import alert_service
 from modules.domains.b2b.bank_surveillance.schemas.analysis import (
     AnalysisRequest,
-    AnalysisResponse
+    AnalysisResponse,
+    AlertInvestigationRequest
 )
 
 router = APIRouter(prefix="", tags=["Surveillance Analysis Engine"])
 
+@router.post("/alerts/{alert_id}/investigate", response_model=AnalysisResponse)
+async def investigate_alert(
+    alert_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("investigations", "read")
+):
+    """
+    Triggers a multi-agent AI investigation for a specific Alert.
+    Fetches the underlying communication and coordinates agents.
+    """
+    tenant_id = current_user['tenant_id']
+    
+    # 1. Fetch Alert to get context
+    alert = await alert_service.get_alert(db, alert_id, tenant_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+        
+    if not alert.communication:
+        raise HTTPException(status_code=400, detail="Alert has no linked communication for analysis")
+
+    # 2. Run Multi-Agent Orchestrator
+    report = await orchestrator_service.investigate_email(
+        email_text=alert.communication.content or "",
+        email_metadata={
+            "sender": alert.communication.sender,
+            "subject": alert.communication.subject,
+            "date": alert.communication.timestamp.isoformat() if alert.communication.timestamp else None,
+            "alert_id": str(alert_id)
+        },
+        tenant_id=tenant_id,
+        db=db
+    )
+
+    # 3. Persist Report to Alert Metadata for Caching
+    analysis_data = {
+        "timestamp": report.timestamp.isoformat(),
+        "risk_level": report.risk_level,
+        "requires_action": report.requires_action,
+        "summary": report.summary,
+        "intent_verdict": report.intent_verdict,
+        "policy_verdict": report.policy_verdict,
+        "evasion_verdict": report.evasion_verdict,
+        "graph_context": report.graph_context,
+        "timeline": report.timeline,
+        "evidence_pack": report.evidence_pack
+    }
+    
+    # Ensure metadata exists and update it
+    current_metadata = alert.metadata_ or {}
+    current_metadata["ai_analysis"] = analysis_data
+    alert.metadata_ = current_metadata
+    
+    db.add(alert)
+    await db.commit()
+    
+    return AnalysisResponse(
+        tenant_id=report.tenant_id,
+        **analysis_data
+    )
+
 @router.post("/analyze", response_model=AnalysisResponse)
-async def analyze_communication(
+async def analyze_communication_raw(
     request: AnalysisRequest, 
     db: AsyncSession = Depends(get_db),
     current_user: dict = require_permission("investigations", "read")

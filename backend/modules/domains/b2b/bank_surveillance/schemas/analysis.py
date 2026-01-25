@@ -7,6 +7,10 @@ class AnalysisRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata (sender, recipient, subject, etc.)")
     tenant_id: Optional[uuid.UUID] = Field(default=None, description="Optional tenant ID for multi-tenancy")
 
+class AlertInvestigationRequest(BaseModel):
+    """Request and AI investigation for a specific Alert"""
+    alert_id: uuid.UUID
+
 class AnalysisResponse(BaseModel):
     """Analysis report returned to the client"""
     timestamp: str

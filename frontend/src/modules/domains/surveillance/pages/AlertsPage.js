@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../../b2b/web/layouts/AdminLayout";
 import b2bDomainClient from "../../../../core/api/b2bDomainClient";
 import {
     Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Chip, Button, IconButton, Drawer, TextField, MenuItem, Stack, CircularProgress, Tooltip
+    Chip, Button, IconButton, TextField, MenuItem, Stack, CircularProgress, Tooltip
 } from "@mui/material";
 import {
     FilterList, Visibility, Warning, CheckCircle, AssignmentInd,
@@ -13,11 +13,10 @@ import {
 import b2bClient from "../../../../core/api/b2bClient";
 
 const AlertsPage = () => {
+    const navigate = useNavigate();
     const [alerts, setAlerts] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [selectedAlert, setSelectedAlert] = useState(null);
-    const [drawerOpen, setDrawerOpen] = useState(false);
     const [users, setUsers] = useState([]);
 
     // Filters
@@ -55,24 +54,7 @@ const AlertsPage = () => {
         fetchAlerts();
     }, [statusFilter, severityFilter, riskTypeFilter, regionFilter]);
 
-    const handleOpenDrawer = async (alert) => {
-        setDrawerOpen(true);
-        try {
-            // Fetch detailed alert which now includes conversation_thread
-            const fullAlert = await b2bDomainClient.getAlert(alert.id);
-            setSelectedAlert(fullAlert);
-        } catch (err) {
-            console.error("Failed to load alert details:", err);
-            setSelectedAlert(alert); // Fallback to basic info
-        }
-    };
-
-    const handleCloseDrawer = () => {
-        setDrawerOpen(false);
-        setSelectedAlert(null);
-    };
-
-    const handleStatusUpdate = async (alertId, newStatus, autoOpen = false) => {
+    const handleStatusUpdate = async (alertId, newStatus, autoNavigate = false) => {
         try {
             if (newStatus === 'escalated') {
                 await b2bDomainClient.escalateAlert(alertId);
@@ -83,12 +65,9 @@ const AlertsPage = () => {
             }
             fetchAlerts(); // Refresh list
 
-            if (autoOpen) {
-                const updated = alerts.find(a => a.id === alertId);
-                if (updated) handleOpenDrawer(updated);
+            if (autoNavigate) {
+                navigate(`/b2b/surveillance/alerts/${alertId}`);
             }
-
-            if (selectedAlert?.id === alertId && newStatus !== 'investigating') handleCloseDrawer();
         } catch (error) {
             console.error("Update failed:", error);
         }
@@ -347,7 +326,7 @@ const AlertsPage = () => {
                                                 <Tooltip title={alert.status === 'open' ? "Investigate" : "View Details"}>
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => alert.status === 'open' ? handleStatusUpdate(alert.id, 'investigating', true) : handleOpenDrawer(alert)}
+                                                        onClick={() => alert.status === 'open' ? handleStatusUpdate(alert.id, 'investigating', true) : navigate(`/b2b/surveillance/alerts/${alert.id}`)}
                                                         color="primary"
                                                     >
                                                         <Visibility fontSize="small" />
@@ -384,157 +363,7 @@ const AlertsPage = () => {
                     </Table>
                 </TableContainer>
 
-                {/* Details Drawer */}
-                <Drawer
-                    anchor="right"
-                    open={drawerOpen}
-                    onClose={handleCloseDrawer}
-                    PaperProps={{ sx: { width: 600, bgcolor: '#fdfdfd' } }}
-                >
-                    <Box sx={{ p: 4 }}>
-                        {selectedAlert && (
-                            <>
-                                <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Box>
-                                        <Typography variant="overline" color="textSecondary" sx={{ letterSpacing: 1.2 }}>
-                                            {(selectedAlert.risk_type || 'Unknown').replace('_', ' ')}
-                                        </Typography>
-                                        <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                                            {selectedAlert.subject || "Flagged Communication"}
-                                        </Typography>
-                                    </Box>
-                                    <Chip
-                                        label={selectedAlert.severity}
-                                        color={getSeverityColor(selectedAlert.severity)}
-                                        sx={{ fontWeight: 'bold' }}
-                                    />
-                                </Box>
-
-                                {/* Action Bar */}
-                                <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: '#f8fbfc', border: '1px solid #d1d9e6', borderRadius: 2 }}>
-                                    <Stack direction="row" spacing={4} justifyContent="center" alignItems="center">
-                                        <Button
-                                            variant="outlined"
-                                            color="error"
-                                            startIcon={<Warning />}
-                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'escalated')}
-                                            disabled={selectedAlert.status === 'escalated' || selectedAlert.status === 'closed'}
-                                            sx={{ fontWeight: 800, minWidth: 160, borderRadius: 2, py: 1 }}
-                                        >
-                                            ESCALATE
-                                        </Button>
-                                        <Button
-                                            variant="outlined"
-                                            color="success"
-                                            startIcon={<DoneAll />}
-                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'closed')}
-                                            disabled={selectedAlert.status === 'closed'}
-                                            sx={{ fontWeight: 800, minWidth: 160, borderRadius: 2, py: 1 }}
-                                        >
-                                            CLOSE ALERT
-                                        </Button>
-                                    </Stack>
-                                </Paper>
-
-                                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    Conversation Thread
-                                    <Typography variant="caption" sx={{ bgcolor: '#eee', px: 1, borderRadius: 1 }}>
-                                        {selectedAlert.conversation_thread?.length || 0} messages
-                                    </Typography>
-                                </Typography>
-
-                                <Box sx={{ borderLeft: '2px solid #e0e0e0', ml: 1, pl: 3 }}>
-                                    {(selectedAlert.conversation_thread || []).map((msg, idx) => (
-                                        <Box key={idx} sx={{ mb: 4, position: 'relative' }}>
-                                            {/* Thread Dot */}
-                                            <Box sx={{
-                                                position: 'absolute',
-                                                left: -33,
-                                                top: 10,
-                                                width: 14,
-                                                height: 14,
-                                                borderRadius: '50%',
-                                                bgcolor: msg.is_trigger ? '#f44336' : '#bdbdbd',
-                                                border: '3px solid white',
-                                                zIndex: 1
-                                            }} />
-
-                                            {/* Risk Indicator Header */}
-                                            {msg.is_trigger && (
-                                                <Box sx={{
-                                                    mb: 1,
-                                                    p: 1,
-                                                    bgcolor: '#fff5f5',
-                                                    border: '1px solid #ffcdd2',
-                                                    borderRadius: 1,
-                                                    display: 'flex',
-                                                    gap: 1,
-                                                    alignItems: 'center'
-                                                }}>
-                                                    <Warning sx={{ fontSize: 16, color: '#f44336' }} />
-                                                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#c62828', textTransform: 'uppercase' }}>
-                                                        Risk Indicator: {msg.risk_indicators.join(", ")}
-                                                    </Typography>
-                                                    {msg.matched_keywords?.length > 0 && (
-                                                        <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
-                                                            {msg.matched_keywords.map((kw, kidx) => (
-                                                                <Chip
-                                                                    key={kidx}
-                                                                    label={typeof kw === 'object' ? (kw.type || JSON.stringify(kw)) : kw}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        height: 18,
-                                                                        fontSize: '0.65rem',
-                                                                        bgcolor: '#ffebee',
-                                                                        color: '#d32f2f',
-                                                                        border: '1px solid #ffcdd2'
-                                                                    }}
-                                                                />
-                                                            ))}
-                                                        </Box>
-                                                    )}
-                                                </Box>
-                                            )}
-
-                                            <Paper
-                                                elevation={0}
-                                                sx={{
-                                                    p: 2,
-                                                    bgcolor: msg.is_trigger ? '#fff5f5' : '#fcfcfc',
-                                                    border: msg.is_trigger ? '2px solid #ffcdd2' : '1px solid #eee',
-                                                    borderRadius: 2,
-                                                    boxShadow: msg.is_trigger ? '0 2px 8px rgba(244, 67, 54, 0.1)' : 'none'
-                                                }}
-                                            >
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{msg.sender}</Typography>
-                                                    <Typography variant="caption" color="textSecondary">
-                                                        {new Date(msg.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                                    </Typography>
-                                                </Box>
-                                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#444' }}>
-                                                    {highlightText(msg.content, msg.matched_keywords)}
-                                                </Typography>
-                                            </Paper>
-                                        </Box>
-                                    ))}
-                                </Box>
-
-                                {/* AI Reasoning HIDDEN per user request */}
-                                {false && (
-                                    <Box sx={{ mt: 6, opacity: 0.5 }}>
-                                        <Typography variant="overline">AI Trust & Reasoning</Typography>
-                                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5', border: '1px dashed #ccc' }}>
-                                            <Typography variant="body2" color="textSecondary">
-                                                AI Chain-of-Thought reasoning will appear here in the next phase.
-                                            </Typography>
-                                        </Paper>
-                                    </Box>
-                                )}
-                            </>
-                        )}
-                    </Box>
-                </Drawer>
+                {/* Details Drawer removed as it is now a dedicated page */}
             </Box>
         </AdminLayout>
     );

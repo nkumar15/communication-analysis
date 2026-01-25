@@ -64,6 +64,10 @@ class B2BDomainService {
         return this.post('/api/b2b/domain/bank_surveillance/analyze', data);
     }
 
+    async investigateAlert(id) {
+        return this.post(`/api/b2b/domain/bank_surveillance/alerts/${id}/investigate`, {});
+    }
+
     // Legacy alias
     async investigateCommunication(data) {
         return this.analyzeCommunication(data);
