@@ -4,9 +4,13 @@ import AdminLayout from "../../../b2b/web/layouts/AdminLayout";
 import b2bDomainClient from "../../../../core/api/b2bDomainClient";
 import {
     Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Chip, Button, IconButton, Drawer, TextField, MenuItem, Stack, CircularProgress
+    Chip, Button, IconButton, Drawer, TextField, MenuItem, Stack, CircularProgress, Tooltip
 } from "@mui/material";
-import { FilterList, Visibility, Warning, CheckCircle } from "@mui/icons-material";
+import {
+    FilterList, Visibility, Warning, CheckCircle, AssignmentInd,
+    Close as CloseIcon, Speed, DoneAll, HistoryEdu
+} from "@mui/icons-material";
+import b2bClient from "../../../../core/api/b2bClient";
 
 const AlertsPage = () => {
     const [alerts, setAlerts] = useState([]);
@@ -14,6 +18,7 @@ const AlertsPage = () => {
     const [loading, setLoading] = useState(true);
     const [selectedAlert, setSelectedAlert] = useState(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [users, setUsers] = useState([]);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState("");
@@ -30,13 +35,15 @@ const AlertsPage = () => {
             if (riskTypeFilter) filters.risk_type = riskTypeFilter;
             if (regionFilter) filters.region = regionFilter;
 
-            const [alertsData, statsData] = await Promise.all([
+            const [alertsData, statsData, usersData] = await Promise.all([
                 b2bDomainClient.getAlerts(filters),
-                b2bDomainClient.getAlertStats()
+                b2bDomainClient.getAlertStats(),
+                b2bClient.listUsers()
             ]);
 
             setAlerts(alertsData);
             setStats(statsData);
+            setUsers(usersData);
         } catch (error) {
             console.error("Failed to fetch alerts:", error);
         } finally {
@@ -65,20 +72,28 @@ const AlertsPage = () => {
         setSelectedAlert(null);
     };
 
-    const handleStatusUpdate = async (newStatus) => {
-        if (!selectedAlert) return;
+    const handleStatusUpdate = async (alertId, newStatus) => {
         try {
             if (newStatus === 'escalated') {
-                await b2bDomainClient.escalateAlert(selectedAlert.id);
+                await b2bDomainClient.escalateAlert(alertId);
             } else if (newStatus === 'closed') {
-                await b2bDomainClient.closeAlert(selectedAlert.id);
+                await b2bDomainClient.closeAlert(alertId);
             } else {
-                await b2bDomainClient.updateAlert(selectedAlert.id, { status: newStatus });
+                await b2bDomainClient.updateAlert(alertId, { status: newStatus });
             }
             fetchAlerts(); // Refresh list
-            handleCloseDrawer();
+            if (selectedAlert?.id === alertId) handleCloseDrawer();
         } catch (error) {
             console.error("Update failed:", error);
+        }
+    };
+
+    const handleAssign = async (alertId, userId) => {
+        try {
+            await b2bDomainClient.updateAlert(alertId, { assigned_to: userId });
+            fetchAlerts();
+        } catch (error) {
+            console.error("Assignment failed:", error);
         }
     };
 
@@ -216,47 +231,100 @@ const AlertsPage = () => {
                     <Table>
                         <TableHead>
                             <TableRow>
-                                <TableCell>Risk Type</TableCell>
-                                <TableCell>Severity</TableCell>
-                                <TableCell>Region</TableCell>
-                                <TableCell>Status</TableCell>
-                                <TableCell>Detected At</TableCell>
-                                <TableCell>Description</TableCell>
-                                <TableCell align="right">Actions</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Risk Type</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Severity</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Region</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Assignee</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Detected At</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} align="center"><CircularProgress /></TableCell>
+                                    <TableCell colSpan={8} align="center"><CircularProgress /></TableCell>
                                 </TableRow>
                             ) : alerts.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} align="center">No alerts found</TableCell>
+                                    <TableCell colSpan={8} align="center">No alerts found</TableCell>
                                 </TableRow>
                             ) : (
                                 alerts.map((alert) => (
                                     <TableRow key={alert.id} hover>
-                                        <TableCell>
-                                            <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>
-                                                {(alert.risk_type || 'Unknown').replace('_', ' ')}
-                                            </Typography>
+                                        <TableCell sx={{ fontWeight: 500 }}>
+                                            {(alert.risk_type || 'Unknown').replace('_', ' ').toUpperCase()}
                                         </TableCell>
                                         <TableCell>
-                                            <Chip label={alert.severity} color={getSeverityColor(alert.severity)} size="small" />
+                                            <Chip
+                                                label={alert.severity}
+                                                size="small"
+                                                color={getSeverityColor(alert.severity)}
+                                                sx={{ fontSize: '0.7rem' }}
+                                            />
+                                        </TableCell>
+                                        <TableCell>{alert.region || "Default"}</TableCell>
+                                        <TableCell>
+                                            <TextField
+                                                select
+                                                size="small"
+                                                variant="standard"
+                                                value={alert.assigned_to || ""}
+                                                onChange={(e) => handleAssign(alert.id, e.target.value)}
+                                                sx={{ minWidth: 120, fontSize: '0.875rem' }}
+                                                InputProps={{ disableUnderline: true }}
+                                            >
+                                                <MenuItem value=""><em>Unassigned</em></MenuItem>
+                                                {users.map(u => (
+                                                    <MenuItem key={u.id} value={u.id}>{u.name || u.email}</MenuItem>
+                                                ))}
+                                            </TextField>
                                         </TableCell>
                                         <TableCell>
-                                            <Typography variant="body2">{alert.region || 'Default'}</Typography>
+                                            <Chip
+                                                label={alert.status}
+                                                size="small"
+                                                variant="outlined"
+                                                color={getStatusColor(alert.status)}
+                                                sx={{ fontSize: '0.7rem' }}
+                                            />
                                         </TableCell>
-                                        <TableCell>
-                                            <Chip label={alert.status} color={getStatusColor(alert.status)} variant="outlined" size="small" />
+                                        <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+                                            {new Date(alert.detected_at).toLocaleString()}
                                         </TableCell>
-                                        <TableCell>{new Date(alert.detected_at).toLocaleString()}</TableCell>
-                                        <TableCell>{alert.description}</TableCell>
+                                        <TableCell sx={{ maxWidth: 300, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {alert.description}
+                                        </TableCell>
                                         <TableCell align="right">
-                                            <IconButton onClick={() => handleOpenDrawer(alert)} color="primary">
-                                                <Visibility />
-                                            </IconButton>
+                                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                                {alert.status === 'open' && (
+                                                    <Tooltip title="Start Investigation">
+                                                        <IconButton size="small" onClick={() => handleStatusUpdate(alert.id, 'investigating')}>
+                                                            <Speed fontSize="small" color="warning" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                                {alert.status !== 'closed' && (
+                                                    <Tooltip title="Close Alert">
+                                                        <IconButton size="small" onClick={() => handleStatusUpdate(alert.id, 'closed')}>
+                                                            <DoneAll fontSize="small" color="success" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                                {['open', 'investigating'].includes(alert.status) && (
+                                                    <Tooltip title="Escalate to Case">
+                                                        <IconButton size="small" onClick={() => handleStatusUpdate(alert.id, 'escalated')}>
+                                                            <HistoryEdu fontSize="small" color="secondary" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                                <Tooltip title="View Details">
+                                                    <IconButton size="small" onClick={() => handleOpenDrawer(alert)}>
+                                                        <Visibility fontSize="small" color="primary" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </Stack>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -293,31 +361,44 @@ const AlertsPage = () => {
 
                                 {/* Action Bar */}
                                 <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: '#f0f4f8', border: '1px solid #d1d9e6' }}>
-                                    <Stack direction="row" spacing={2}>
+                                    <Stack direction="row" spacing={2} alignItems="center">
+                                        <TextField
+                                            select
+                                            size="small"
+                                            label="Assign To"
+                                            value={selectedAlert.assigned_to || ""}
+                                            onChange={(e) => handleAssign(selectedAlert.id, e.target.value)}
+                                            sx={{ minWidth: 200, bgcolor: 'white' }}
+                                        >
+                                            <MenuItem value=""><em>Unassigned</em></MenuItem>
+                                            {users.map(u => (
+                                                <MenuItem key={u.id} value={u.id}>{u.name || u.email}</MenuItem>
+                                            ))}
+                                        </TextField>
+
+                                        <Box sx={{ flexGrow: 1 }} />
+
                                         <Button
                                             variant="contained"
                                             color="error"
                                             startIcon={<Warning />}
-                                            onClick={() => handleStatusUpdate('escalated')}
+                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'escalated')}
                                             disabled={selectedAlert.status === 'escalated' || selectedAlert.status === 'closed'}
-                                            fullWidth
                                         >
                                             Escalate
                                         </Button>
                                         <Button
                                             variant="contained"
                                             color="success"
-                                            onClick={() => handleStatusUpdate('closed')}
+                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'closed')}
                                             disabled={selectedAlert.status === 'closed'}
-                                            fullWidth
                                         >
-                                            Close Alert
+                                            Close
                                         </Button>
                                         <Button
                                             variant="outlined"
-                                            onClick={() => handleStatusUpdate('investigating')}
+                                            onClick={() => handleStatusUpdate(selectedAlert.id, 'investigating')}
                                             disabled={selectedAlert.status === 'investigating' || selectedAlert.status === 'closed'}
-                                            fullWidth
                                         >
                                             Investigate
                                         </Button>
@@ -368,7 +449,7 @@ const AlertsPage = () => {
                                                             {msg.matched_keywords.map((kw, kidx) => (
                                                                 <Chip
                                                                     key={kidx}
-                                                                    label={kw}
+                                                                    label={typeof kw === 'object' ? (kw.type || JSON.stringify(kw)) : kw}
                                                                     size="small"
                                                                     sx={{
                                                                         height: 18,

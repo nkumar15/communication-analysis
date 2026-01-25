@@ -8,14 +8,24 @@ from modules.b2b.middleware import get_current_active_user
 from modules.b2b.rbac import require_permission
 from modules.domains.b2b.bank_surveillance.services.case_service import case_service
 from modules.domains.b2b.bank_surveillance.schemas.case import (
-    CaseCreate, CaseUpdate, CaseResponse, 
+    CaseCreate, CaseUpdate, CaseResponse, CaseListResponse,
     CaseNoteCreate, CaseNoteResponse,
-    CaseEvidenceCreate, CaseEvidenceResponse
+    CaseEvidenceCreate, CaseEvidenceResponse,
+    CaseStats
 )
 
 router = APIRouter(prefix="/cases", tags=["Surveillance Case Management"])
 
-@router.post("/", response_model=CaseResponse, status_code=status.HTTP_201_CREATED)
+@router.get("/stats", response_model=CaseStats)
+async def get_case_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("cases", "read")
+):
+    """Get summary statistics for cases."""
+    return await case_service.get_case_stats(db, tenant_id=current_user['tenant_id'])
+
+
+@router.post("/", response_model=CaseListResponse, status_code=status.HTTP_201_CREATED)
 async def create_case(
     obj_in: CaseCreate,
     db: AsyncSession = Depends(get_db),
@@ -24,7 +34,8 @@ async def create_case(
     """Create a new compliance case."""
     return await case_service.create_case(db, obj_in, tenant_id=current_user['tenant_id'])
 
-@router.get("/", response_model=List[CaseResponse])
+
+@router.get("/", response_model=List[CaseListResponse])
 async def list_cases(
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
@@ -45,7 +56,7 @@ async def get_case(
         raise HTTPException(status_code=404, detail="Case not found")
     return db_obj
 
-@router.patch("/{case_id}", response_model=CaseResponse)
+@router.patch("/{case_id}", response_model=CaseListResponse)
 async def update_case(
     case_id: uuid.UUID,
     obj_in: CaseUpdate,

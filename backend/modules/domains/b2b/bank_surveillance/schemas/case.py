@@ -13,6 +13,7 @@ class CaseNoteCreate(CaseNoteBase):
 class CaseNoteResponse(CaseNoteBase):
     id: uuid.UUID
     case_id: uuid.UUID
+    author_name: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -31,6 +32,12 @@ class CaseEvidenceResponse(CaseEvidenceBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class CaseStats(BaseModel):
+    open_count: int
+    in_review_count: int
+    escalated_count: int
+    total_count: int
 
 class CaseBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -58,18 +65,21 @@ class CaseUpdate(BaseModel):
     decision_rationale: Optional[str] = None
     closed_at: Optional[datetime] = None
 
-class CaseResponse(CaseBase):
-    """Full case object with metadata and audit timestamps."""
+class CaseListResponse(CaseBase):
+    """Simplified case object for list views."""
     id: uuid.UUID
     tenant_id: uuid.UUID
     assigned_to_user_id: Optional[uuid.UUID] = None
-    decision_rationale: Optional[str] = None
-    closed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CaseResponse(CaseListResponse):
+    """Full case object with metadata and audit timestamps."""
+    decision_rationale: Optional[str] = None
+    closed_at: Optional[datetime] = None
     
     # Optional nested data for detail view
     notes: Optional[List[CaseNoteResponse]] = None
     evidence: Optional[List[CaseEvidenceResponse]] = None
-
-    model_config = ConfigDict(from_attributes=True)

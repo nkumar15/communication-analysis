@@ -2,36 +2,52 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../../b2b/web/layouts/AdminLayout';
 import b2bDomainClient from '../../../../core/api/b2bDomainClient';
+import {
+    Box, Typography, Paper, Grid, Card, CardContent,
+    Stack, Chip, Button, CircularProgress, Alert,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    IconButton, TextField, MenuItem
+} from '@mui/material';
+import {
+    FolderOpen, RateReview, ReportProblem, Visibility,
+    FilterList, Search, Assignment
+} from '@mui/icons-material';
 
 const STATUS_COLORS = {
-    'open': '#4F46E5',
-    'in_review': '#F59E0B',
-    'escalated': '#EF4444',
-    'closed': '#10B981',
+    'open': '#3f51b5',
+    'in_review': '#ff9800',
+    'escalated': '#f44336',
+    'closed': '#4caf50',
 };
 
 const PRIORITY_COLORS = {
-    'low': '#6B7280',
-    'medium': '#3B82F6',
-    'high': '#F59E0B',
-    'critical': '#EF4444',
+    'low': '#9e9e9e',
+    'medium': '#2196f3',
+    'high': '#ff9800',
+    'critical': '#f44336',
 };
 
 const CaseListPage = () => {
     const navigate = useNavigate();
     const [cases, setCases] = useState([]);
+    const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('');
 
     useEffect(() => {
-        fetchCases();
-    }, []);
+        fetchData();
+    }, [statusFilter]);
 
-    const fetchCases = async () => {
+    const fetchData = async () => {
         try {
             setLoading(true);
-            const data = await b2bDomainClient.getCases();
-            setCases(data);
+            const [casesData, statsData] = await Promise.all([
+                b2bDomainClient.getCases({ status: statusFilter }),
+                b2bDomainClient.getCaseStats()
+            ]);
+            setCases(casesData);
+            setStats(statsData);
             setError(null);
         } catch (err) {
             console.error('Failed to fetch cases:', err);
@@ -41,170 +57,176 @@ const CaseListPage = () => {
         }
     };
 
-    const getStatusBadge = (status) => (
-        <span style={{
-            padding: '4px 10px',
-            borderRadius: '12px',
-            fontSize: '12px',
-            fontWeight: '500',
-            backgroundColor: `${STATUS_COLORS[status] || '#9CA3AF'}20`,
-            color: STATUS_COLORS[status] || '#9CA3AF',
-            textTransform: 'capitalize'
-        }}>
-            {status.replace('_', ' ')}
-        </span>
+    const getStatusChip = (status) => (
+        <Chip
+            label={status.replace('_', ' ').toUpperCase()}
+            size="small"
+            sx={{
+                bgcolor: `${STATUS_COLORS[status] || '#9e9e9e'}15`,
+                color: STATUS_COLORS[status] || '#9e9e9e',
+                fontWeight: 700,
+                fontSize: '0.65rem'
+            }}
+        />
     );
 
-    const getPriorityBadge = (priority) => (
-        <span style={{
-            padding: '2px 8px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: '600',
-            backgroundColor: `${PRIORITY_COLORS[priority] || '#9CA3AF'}15`,
-            color: PRIORITY_COLORS[priority] || '#9CA3AF',
-            textTransform: 'uppercase'
-        }}>
-            {priority}
-        </span>
+    const getPriorityChip = (priority) => (
+        <Chip
+            label={priority.toUpperCase()}
+            size="small"
+            variant="outlined"
+            sx={{
+                color: PRIORITY_COLORS[priority] || '#9e9e9e',
+                borderColor: PRIORITY_COLORS[priority] || '#9e9e9e',
+                fontWeight: 700,
+                fontSize: '0.6rem',
+                height: 20
+            }}
+        />
     );
 
     return (
         <AdminLayout>
-            <div style={{ padding: '24px' }}>
-                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1F2937', margin: 0 }}>
+            <Box sx={{ p: 4, bgcolor: '#f8f9fa', minHeight: '100vh' }}>
+                <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <Box>
+                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a1a1a', mb: 1 }}>
                             Case Management
-                        </h1>
-                        <p style={{ color: '#6B7280', marginTop: '4px' }}>
-                            Track and resolve compliance cases with full audit trails
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => navigate('/b2b/surveillance/alerts')} // Redirect to alerts as cases usually start there
-                        style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#4F46E5',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontWeight: '500',
-                        }}
+                        </Typography>
+                        <Typography variant="body1" color="textSecondary">
+                            Manage compliance investigations and lifecycle.
+                        </Typography>
+                    </Box>
+                    <Button
+                        variant="contained"
+                        startIcon={<Assignment />}
+                        onClick={() => navigate('/b2b/surveillance/alerts')}
+                        sx={{ px: 3, py: 1, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                     >
-                        + New Case (from Alert)
-                    </button>
-                </div>
+                        Escalate New Case
+                    </Button>
+                </Box>
 
-                {loading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
-                        <div className="spinner"></div>
-                    </div>
-                ) : error ? (
-                    <div style={{ padding: '24px', backgroundColor: '#FEF2F2', color: '#B91C1C', borderRadius: '8px' }}>
-                        {error}
-                    </div>
-                ) : cases.length === 0 ? (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: '48px',
-                        backgroundColor: 'white',
-                        borderRadius: '12px',
-                        border: '1px dashed #D1D5DB'
-                    }}>
-                        <p style={{ color: '#6B7280' }}>No active cases found. High-risk alerts can be escalated into cases.</p>
-                    </div>
-                ) : (
-                    /* Case Cards */
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                        gap: '16px'
-                    }}>
-                        {cases.map((caseItem) => (
-                            <div
-                                key={caseItem.id}
-                                onClick={() => navigate(`/b2b/surveillance/cases/${caseItem.id}`)}
-                                style={{
-                                    backgroundColor: 'white',
-                                    borderRadius: '12px',
-                                    padding: '20px',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                    border: '1px solid #E5E7EB',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-                                    e.currentTarget.style.borderColor = '#4F46E5';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                                    e.currentTarget.style.borderColor = '#E5E7EB';
-                                }}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                    <span style={{ fontSize: '12px', color: '#6B7280', fontFamily: 'monospace' }}>
-                                        #{caseItem.id.substring(0, 8)}
-                                    </span>
-                                    {getPriorityBadge(caseItem.priority)}
-                                </div>
-
-                                <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#1F2937', margin: '0 0 12px 0' }}>
-                                    {typeof caseItem.title === 'object' ? JSON.stringify(caseItem.title) : caseItem.title}
-                                </h3>
-
-                                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                                    {getStatusBadge(caseItem.status)}
-                                    <span style={{
-                                        padding: '4px 10px',
-                                        borderRadius: '12px',
-                                        fontSize: '12px',
-                                        backgroundColor: '#F3F4F6',
-                                        color: '#374151'
-                                    }}>
-                                        🗓️ {new Date(caseItem.created_at).toLocaleDateString()}
-                                    </span>
-                                </div>
-
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    paddingTop: '12px',
-                                    borderTop: '1px solid #E5E7EB'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{
-                                            width: '28px',
-                                            height: '28px',
-                                            borderRadius: '50%',
-                                            backgroundColor: '#E5E7EB',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '12px'
-                                        }}>
-                                            👤
-                                        </div>
-                                        <span style={{ fontSize: '14px', color: '#374151' }}>
-                                            {caseItem.assigned_to_user_id ? 'Assigned' : 'Unassigned'}
-                                        </span>
-                                    </div>
-                                    {caseItem.target_closure_date && (
-                                        <span style={{ fontSize: '12px', color: '#EF4444' }}>
-                                            SLA: {new Date(caseItem.target_closure_date).toLocaleDateString()}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+                {/* Stats Cards */}
+                {stats && (
+                    <Grid container spacing={3} sx={{ mb: 4 }}>
+                        {[
+                            { label: 'Active Cases', value: stats.open_count, color: '#3f51b5', icon: <FolderOpen /> },
+                            { label: 'Pending Review', value: stats.in_review_count, color: '#ff9800', icon: <RateReview /> },
+                            { label: 'Escalated', value: stats.escalated_count, color: '#f44336', icon: <ReportProblem /> },
+                            { label: 'Total Investigations', value: stats.total_count, color: '#757575', icon: <Search /> }
+                        ].map((s, idx) => (
+                            <Grid item xs={12} sm={6} md={3} key={idx}>
+                                <Paper sx={{ p: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                        <Box>
+                                            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                {s.label}
+                                            </Typography>
+                                            <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.5, color: s.color }}>
+                                                {s.value}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ p: 1.5, bgcolor: `${s.color}10`, color: s.color, borderRadius: 2 }}>
+                                            {s.icon}
+                                        </Box>
+                                    </Stack>
+                                </Paper>
+                            </Grid>
                         ))}
-                    </div>
+                    </Grid>
                 )}
-            </div>
+
+                {/* Filters & Table */}
+                <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+                    <Box sx={{ p: 2.5, borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <FilterList color="action" />
+                        <TextField
+                            select
+                            size="small"
+                            label="Filter by Status"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            sx={{ width: 200 }}
+                        >
+                            <MenuItem value="">All Statuses</MenuItem>
+                            <MenuItem value="open">Open</MenuItem>
+                            <MenuItem value="in_review">In Review</MenuItem>
+                            <MenuItem value="escalated">Escalated</MenuItem>
+                            <MenuItem value="closed">Closed</MenuItem>
+                        </TextField>
+                    </Box>
+
+                    {loading ? (
+                        <Box sx={{ p: 8, textAlign: 'center' }}><CircularProgress /></Box>
+                    ) : error ? (
+                        <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
+                    ) : (
+                        <TableContainer>
+                            <Table sx={{ minWidth: 800 }}>
+                                <TableHead sx={{ bgcolor: '#fafafa' }}>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 700, color: '#666' }}>Case ID</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: '#666' }}>Subject</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: '#666' }}>Status</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: '#666' }}>Priority</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: '#666' }}>SLA Target</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, color: '#666' }}>Actions</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {cases.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                                                No cases found.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        cases.map((c) => (
+                                            <TableRow key={c.id} hover onClick={() => navigate(`/b2b/surveillance/cases/${c.id}`)} sx={{ cursor: 'pointer' }}>
+                                                <TableCell sx={{ fontFamily: 'monospace', color: '#666', fontSize: '0.85rem' }}>
+                                                    CASE-{c.id.substring(0, 8).toUpperCase()}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
+                                                        {typeof c.title === 'object' ? (c.title.type || JSON.stringify(c.title)) : c.title}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="textSecondary">
+                                                        Opened {new Date(c.created_at).toLocaleDateString()}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell>{getStatusChip(c.status)}</TableCell>
+                                                <TableCell>{getPriorityChip(c.priority)}</TableCell>
+                                                <TableCell>
+                                                    {c.target_closure_date ? (
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: new Date(c.target_closure_date) < new Date() ? 'error.main' : 'text.primary' }}>
+                                                            <AccessTime sx={{ fontSize: 16 }} />
+                                                            <Typography variant="body2">{new Date(c.target_closure_date).toLocaleDateString()}</Typography>
+                                                        </Box>
+                                                    ) : '-'}
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <IconButton color="primary" size="small">
+                                                        <Visibility fontSize="small" />
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+                </Paper>
+            </Box>
         </AdminLayout>
     );
 };
+
+const AccessTime = ({ sx }) => (
+    <Box component="span" sx={{ ...sx, display: 'inline-flex' }}>
+        <svg fill="currentColor" width="1em" height="1em" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" /></svg>
+    </Box>
+);
 
 export default CaseListPage;

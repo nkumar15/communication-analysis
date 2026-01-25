@@ -124,23 +124,15 @@ class ApiService {
     }
 
 
+    async updateRolePermissions(roleId, permissions) {
+        return this.put(`/api/b2b/roles/${roleId}/permissions`, { permissions });
+    }
+
     /**
-     * Update user role
+     * List all users in the tenant
      */
-    async updateUserRole(userId, role) {
-        const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/users/${userId}/role`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify({ role }),
-        });
-
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`Failed to update role: ${response.status} - ${error}`);
-        }
-
-        return response.json();
+    async listUsers() {
+        return this.get('/api/b2b/users/list');
     }
 
     /**

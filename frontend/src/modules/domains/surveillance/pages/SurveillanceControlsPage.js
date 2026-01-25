@@ -97,8 +97,8 @@ const SurveillanceControlsPage = () => {
                                         </TableCell>
                                         <TableCell>
                                             <Stack direction="row" spacing={0.5}>
-                                                {ctrl.detection_methods?.map(m => (
-                                                    <Chip key={m} label={m} size="small" sx={{ fontSize: '0.7rem' }} />
+                                                {ctrl.detection_methods?.map((m, idx) => (
+                                                    <Chip key={idx} label={m.type || 'unknown'} size="small" sx={{ fontSize: '0.7rem' }} />
                                                 ))}
                                             </Stack>
                                         </TableCell>

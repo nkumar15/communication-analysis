@@ -5,7 +5,8 @@ import uuid
 from datetime import datetime
 
 from modules.domains.b2b.bank_surveillance.models.case import Case, CaseNote, CaseEvidence
-from modules.domains.b2b.bank_surveillance.schemas.case import CaseCreate, CaseUpdate, CaseNoteCreate, CaseEvidenceCreate
+from modules.domains.b2b.bank_surveillance.schemas.case import CaseCreate, CaseUpdate, CaseNoteCreate, CaseEvidenceCreate, CaseStats
+from sqlalchemy.orm import selectinload
 
 class CaseService:
     async def create_case(self, db: AsyncSession, obj_in: CaseCreate, tenant_id: uuid.UUID) -> Case:
@@ -49,14 +50,47 @@ class CaseService:
         return db_obj
 
     async def get_case(self, db: AsyncSession, case_id: uuid.UUID) -> Optional[Case]:
-        """Fetch a single case by ID with its relations."""
-        from sqlalchemy.orm import selectinload
+        """Fetch a single case by ID with its relations enriched."""
         result = await db.execute(
             select(Case)
             .where(Case.id == case_id)
-            .options(selectinload(Case.notes), selectinload(Case.evidence))
+            .options(
+                selectinload(Case.notes).selectinload(CaseNote.author),
+                selectinload(Case.evidence)
+            )
         )
-        return result.scalars().first()
+        db_obj = result.scalars().first()
+        if db_obj:
+            # Populate author names for notes
+            for note in db_obj.notes:
+                if note.author:
+                    note.author_name = note.author.full_name or note.author.email
+                else:
+                    note.author_name = "System"
+        return db_obj
+
+    async def get_case_stats(self, db: AsyncSession, tenant_id: uuid.UUID) -> CaseStats:
+        """Get summary statistics for cases."""
+        from sqlalchemy import func
+        
+        counts = {}
+        for status in ["open", "in_review", "escalated"]:
+            res = await db.execute(
+                select(func.count(Case.id)).where(Case.tenant_id == tenant_id, Case.status == status)
+            )
+            counts[status] = res.scalar() or 0
+            
+        total_res = await db.execute(
+            select(func.count(Case.id)).where(Case.tenant_id == tenant_id)
+        )
+        total = total_res.scalar() or 0
+        
+        return CaseStats(
+            open_count=counts["open"],
+            in_review_count=counts["in_review"],
+            escalated_count=counts["escalated"],
+            total_count=total
+        )
 
     async def list_cases(self, db: AsyncSession, tenant_id: uuid.UUID, status: Optional[str] = None) -> List[Case]:
         """List all cases for a tenant, optionally filtered by status."""

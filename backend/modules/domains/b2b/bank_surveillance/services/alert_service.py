@@ -37,7 +37,8 @@ class AlertService:
             Alert.id == alert_id,
             Alert.tenant_id == tenant_id
         ).options(
-            selectinload(Alert.communication).selectinload(Communication.region)
+            selectinload(Alert.communication).selectinload(Communication.region),
+            selectinload(Alert.assignee)
         )
         result = await db.execute(stmt)
         alert = result.scalar_one_or_none()
@@ -126,6 +127,10 @@ class AlertService:
                         matched_keywords=comms_matched_keywords.get(c.id, [])
                     ))
                     
+        # Set assignee name
+        if alert.assignee:
+            alert.assignee_name = alert.assignee.name or alert.assignee.email
+            
         return alert
 
     async def get_alert_stats(self, db: AsyncSession, tenant_id: UUID) -> AlertStats:
@@ -181,7 +186,10 @@ class AlertService:
         # Join Communication and Region for listing
         query = query.outerjoin(Communication, Alert.communication_id == Communication.id)
         query = query.outerjoin(GeographicRegion, Communication.data_region_id == GeographicRegion.id)
-        query = query.options(selectinload(Alert.communication).selectinload(Communication.region))
+        query = query.options(
+            selectinload(Alert.communication).selectinload(Communication.region),
+            selectinload(Alert.assignee)
+        )
         
         # Apply filters
         if filters.status:
@@ -215,12 +223,18 @@ class AlertService:
         result = await db.execute(query)
         alerts = result.scalars().all()
         
-        # Populate region name for Pydantic
         for alert in alerts:
+            # Set region name if available
             if alert.communication and alert.communication.region:
                 alert.region = alert.communication.region.name
             else:
                 alert.region = "Default"
+                
+            # Set assignee name
+            if alert.assignee:
+                alert.assignee_name = alert.assignee.name or alert.assignee.email
+            else:
+                alert.assignee_name = "Unassigned"
 
         return list(alerts), total
 

@@ -172,6 +172,10 @@ class B2BDomainService {
         return this._get('/cases/', params);
     }
 
+    async getCaseStats() {
+        return this._get('/cases/stats');
+    }
+
     async getCase(id) {
         return this._get(`/cases/${id}`);
     }

@@ -60,7 +60,8 @@ class AlertResponse(AlertBase):
     id: UUID
     tenant_id: UUID
     communication_id: Optional[UUID] = None
-    assigned_to: Optional[UUID]
+    assigned_to: Optional[UUID] = None
+    assignee_name: Optional[str] = None
     detected_at: datetime
     created_at: datetime
     updated_at: datetime
