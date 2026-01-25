@@ -12,7 +12,8 @@ import {
     Warning, Speed, DoneAll, ArrowBack, Person, History,
     Language, Event, Tag, Info, ExpandMore
 } from "@mui/icons-material";
-import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import { Accordion, AccordionSummary, AccordionDetails, Tabs, Tab } from "@mui/material";
+import NetworkGraph from "../components/NetworkGraph";
 
 const AlertDetailPage = () => {
     const { alertId } = useParams();
@@ -23,6 +24,7 @@ const AlertDetailPage = () => {
     const [aiReport, setAiReport] = useState(null);
     const [investigatingAI, setInvestigatingAI] = useState(false);
     const [expandedMessages, setExpandedMessages] = useState({});
+    const [tabValue, setTabValue] = useState(0);
 
     useEffect(() => {
         const loadData = async () => {
@@ -352,65 +354,80 @@ const AlertDetailPage = () => {
                             </Stack>
                         </Box>
 
-                        {/* RIGHT COLUMN: Conversation Thread (Wider) */}
+                        {/* RIGHT COLUMN: Conversation Thread & Graph (Wider) */}
                         <Box sx={{ flex: 3, pt: 0 }}>
-                            <Box sx={{ borderLeft: '3px solid #e2e8f0', ml: 1, pl: 4 }}>
-                                {(alert.conversation_thread || []).map((msg, idx) => (
-                                    <Box key={idx} sx={{ mb: 2, position: 'relative' }}>
-                                        {/* Thread connector dot */}
-                                        <Box sx={{
-                                            position: 'absolute', left: -43, top: 20, width: 14, height: 14,
-                                            borderRadius: '50%', bgcolor: msg.is_trigger ? '#ef4444' : '#cbd5e1',
-                                            border: '3px solid white', zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                                        }} />
+                            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                                <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} aria-label="investigation tabs">
+                                    <Tab label="Conversation Context" sx={{ fontWeight: 800 }} />
+                                    <Tab label="Network Intelligence" sx={{ fontWeight: 800 }} />
+                                </Tabs>
+                            </Box>
 
-                                        <Accordion
-                                            expanded={!!expandedMessages[idx]}
-                                            onChange={() => handleToggleMessage(idx)}
-                                            elevation={0}
-                                            sx={{
-                                                borderRadius: '12px !important',
-                                                border: msg.is_trigger ? '2px solid #ef4444' : '1px solid #e2e8f0',
-                                                bgcolor: msg.is_trigger ? '#fff' : '#f8fafc',
-                                                '&:before': { display: 'none' },
-                                                overflow: 'hidden'
-                                            }}
-                                        >
-                                            <AccordionSummary expandIcon={<ExpandMore />}>
-                                                <Stack direction="row" justifyContent="space-between" sx={{ width: '100%', pr: 2 }}>
-                                                    <Stack direction="row" spacing={1.5} alignItems="center">
-                                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b' }}>{msg.sender}</Typography>
-                                                        {msg.is_trigger && (
-                                                            <Chip label="TRIGGER" size="small" color="error" sx={{ height: 20, fontSize: '0.6rem', fontWeight: 900 }} />
-                                                        )}
-                                                    </Stack>
-                                                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b' }}>
-                                                        {new Date(msg.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </Typography>
-                                                </Stack>
-                                            </AccordionSummary>
-                                            <AccordionDetails sx={{ pt: 0, pb: 3, px: 3 }}>
-                                                {msg.is_trigger && (
-                                                    <Stack direction="row" spacing={1} sx={{ mb: 2, p: 1, bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 1.5, width: 'fit-content' }}>
-                                                        <Warning sx={{ fontSize: 16, color: '#ef4444' }} />
-                                                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#991b1b', textTransform: 'uppercase' }}>
-                                                            {msg.risk_indicators.join(", ")}
+                            {tabValue === 0 && (
+                                <Box sx={{ borderLeft: '3px solid #e2e8f0', ml: 1, pl: 4 }}>
+                                    {(alert.conversation_thread || []).map((msg, idx) => (
+                                        <Box key={idx} sx={{ mb: 2, position: 'relative' }}>
+                                            {/* Thread connector dot */}
+                                            <Box sx={{
+                                                position: 'absolute', left: -43, top: 20, width: 14, height: 14,
+                                                borderRadius: '50%', bgcolor: msg.is_trigger ? '#ef4444' : '#cbd5e1',
+                                                border: '3px solid white', zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                            }} />
+
+                                            <Accordion
+                                                expanded={!!expandedMessages[idx]}
+                                                onChange={() => handleToggleMessage(idx)}
+                                                elevation={0}
+                                                sx={{
+                                                    borderRadius: '12px !important',
+                                                    border: msg.is_trigger ? '2px solid #ef4444' : '1px solid #e2e8f0',
+                                                    bgcolor: msg.is_trigger ? '#fff' : '#f8fafc',
+                                                    '&:before': { display: 'none' },
+                                                    overflow: 'hidden'
+                                                }}
+                                            >
+                                                <AccordionSummary expandIcon={<ExpandMore />}>
+                                                    <Stack direction="row" justifyContent="space-between" sx={{ width: '100%', pr: 2 }}>
+                                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b' }}>{msg.sender}</Typography>
+                                                            {msg.is_trigger && (
+                                                                <Chip label="TRIGGER" size="small" color="error" sx={{ height: 20, fontSize: '0.6rem', fontWeight: 900 }} />
+                                                            )}
+                                                        </Stack>
+                                                        <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b' }}>
+                                                            {new Date(msg.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </Typography>
                                                     </Stack>
-                                                )}
-                                                <Typography variant="body1" sx={{
-                                                    whiteSpace: 'pre-wrap', color: '#334155', lineHeight: 1.6,
-                                                    fontSize: '0.95rem', fontStyle: msg.is_trigger ? 'normal' : 'italic'
-                                                }}>
-                                                    {highlightText(msg.content, msg.matched_keywords)}
-                                                </Typography>
-                                            </AccordionDetails>
-                                        </Accordion>
-                                    </Box>
-                                ))}
-                            </Box>
+                                                </AccordionSummary>
+                                                <AccordionDetails sx={{ pt: 0, pb: 3, px: 3 }}>
+                                                    {msg.is_trigger && (
+                                                        <Stack direction="row" spacing={1} sx={{ mb: 2, p: 1, bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 1.5, width: 'fit-content' }}>
+                                                            <Warning sx={{ fontSize: 16, color: '#ef4444' }} />
+                                                            <Typography variant="caption" sx={{ fontWeight: 800, color: '#991b1b', textTransform: 'uppercase' }}>
+                                                                {msg.risk_indicators.join(", ")}
+                                                            </Typography>
+                                                        </Stack>
+                                                    )}
+                                                    <Typography variant="body1" sx={{
+                                                        whiteSpace: 'pre-wrap', color: '#334155', lineHeight: 1.6,
+                                                        fontSize: '0.95rem', fontStyle: msg.is_trigger ? 'normal' : 'italic'
+                                                    }}>
+                                                        {highlightText(msg.content, msg.matched_keywords)}
+                                                    </Typography>
+                                                </AccordionDetails>
+                                            </Accordion>
+                                        </Box>
+                                    ))}
+                                </Box>
+                            )}
+
+                            {tabValue === 1 && (
+                                <Box>
+                                    <NetworkGraph email={alert.communication?.sender} height={600} />
+                                </Box>
+                            )}
                         </Box>
-                    </Stack>
+                        泛                    </Stack>
                 </Container>
             </Box>
         </AdminLayout>

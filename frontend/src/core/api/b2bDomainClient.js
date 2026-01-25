@@ -105,6 +105,13 @@ class B2BDomainService {
         return response.json();
     }
 
+    async getEgoNetwork(email) {
+        const headers = await this.getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}/api/b2b/domain/bank_surveillance/graph/ego/${encodeURIComponent(email)}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch ego network: ${response.status}`);
+        return response.json();
+    }
+
     // Ingestion
     async getIngestionStats() {
         const headers = await this.getAuthHeaders();
