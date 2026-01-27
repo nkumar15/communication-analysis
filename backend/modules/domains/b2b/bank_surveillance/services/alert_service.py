@@ -181,6 +181,51 @@ class AlertService:
             unassigned_count=unassigned_count
         )
 
+    async def get_regional_risk_stats(self, db: AsyncSession, tenant_id: UUID) -> List[dict]:
+        """Get risk statistics grouped by region."""
+        # Simple aggregation for now: group by region name and count open alerts
+        from sqlalchemy import case as sql_case
+        
+        stmt = (
+            select(
+                GeographicRegion.name,
+                GeographicRegion.code,
+                func.count(Alert.id).label("count"),
+                func.max(
+                    sql_case(
+                        (Alert.severity == AlertSeverity.CRITICAL.value, 4),
+                        (Alert.severity == AlertSeverity.HIGH.value, 3),
+                        (Alert.severity == AlertSeverity.MEDIUM.value, 2),
+                        else_=1
+                    )
+                ).label("max_severity")
+            )
+            .select_from(Alert)
+            .join(Communication, Alert.communication_id == Communication.id)
+            .join(GeographicRegion, Communication.data_region_id == GeographicRegion.id)
+            .where(Alert.tenant_id == tenant_id, Alert.status == AlertStatus.OPEN.value)
+            .group_by(GeographicRegion.name, GeographicRegion.code)
+        )
+        
+        result = await db.execute(stmt)
+        rows = result.all()
+        
+        stats = []
+        severity_map = {4: "High", 3: "Mod", 2: "Low", 1: "Std"} # Simplified for UI
+        color_map = {4: "error", 3: "warning", 2: "info", 1: "success"}
+
+        for row in rows:
+            stats.append({
+                "code": row.code or row.name[:3].upper(),
+                "label": row.name,
+                "risk": severity_map.get(row.max_severity, "Std"),
+                "color": color_map.get(row.max_severity, "success"),
+                "count": row.count
+            })
+            
+        return stats
+
+
     async def list_alerts(
         self, 
         db: AsyncSession, 

@@ -155,6 +155,10 @@ class B2BDomainService {
         return this._get('/alerts/stats');
     }
 
+    async getRegionalStats() {
+        return this._get('/alerts/regional-stats');
+    }
+
     async getAlert(id) {
         return this._get(`/alerts/${id}`);
     }

@@ -79,6 +79,16 @@ async def get_alert_stats(
     return await alert_service.get_alert_stats(db, tenant_id)
 
 
+@router.get("/regional-stats", response_model=List[dict])
+async def get_regional_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = require_permission("alerts", "read")
+):
+    """Get regional risk statistics for the Command Center."""
+    tenant_id = current_user["tenant_id"]
+    return await alert_service.get_regional_risk_stats(db, tenant_id)
+
+
 @router.get("/", response_model=List[AlertResponse])
 async def list_alerts(
     status: Optional[AlertStatus] = None,

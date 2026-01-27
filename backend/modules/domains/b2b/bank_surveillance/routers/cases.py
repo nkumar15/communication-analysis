@@ -38,11 +38,13 @@ async def create_case(
 @router.get("/", response_model=List[CaseListResponse])
 async def list_cases(
     status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
     db: AsyncSession = Depends(get_db),
     current_user: dict = require_permission("cases", "read")
 ):
     """List all cases for the current tenant."""
-    return await case_service.list_cases(db, tenant_id=current_user['tenant_id'], status=status)
+    return await case_service.list_cases(db, tenant_id=current_user['tenant_id'], status=status, limit=limit, offset=offset)
 
 @router.get("/{case_id}", response_model=CaseResponse)
 async def get_case(

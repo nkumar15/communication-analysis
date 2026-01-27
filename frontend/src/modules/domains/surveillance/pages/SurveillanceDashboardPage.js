@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, Grid, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, IconButton, Paper, Avatar, Tooltip } from '@mui/material';
+import { Box, Typography, Grid, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, IconButton, Paper, Avatar, Tooltip, CircularProgress } from '@mui/material';
 import {
     NotificationsActive,
     Gavel,
@@ -11,64 +11,90 @@ import {
     Shield
 } from '@mui/icons-material';
 import AdminLayout from '../../../b2b/web/layouts/AdminLayout';
+import b2bDomainClient from '../../../../core/api/b2bDomainClient';
 
 const SurveillanceDashboardPage = () => {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState([]);
+    const [regions, setRegions] = useState([]);
+    const [priorityAlerts, setPriorityAlerts] = useState([]);
+    const [myCases, setMyCases] = useState([]);
 
-    // Mock Data
-    const stats = [
-        {
-            title: 'Pending Alerts',
-            subtitle: 'Critical',
-            value: 5,
-            trend: '+2 today',
-            icon: <NotificationsActive fontSize="small" />,
-            color: 'error.main',
-            bgcolor: 'error.light',
-            path: '/b2b/surveillance/alerts'
-        },
-        {
-            title: 'Investigations',
-            subtitle: 'Active',
-            value: 12,
-            trend: '3 closing',
-            icon: <Gavel fontSize="small" />,
-            color: 'warning.main',
-            bgcolor: 'warning.light',
-            path: '/b2b/surveillance/cases'
-        },
-        {
-            title: 'Ingestion Lag',
-            subtitle: 'System',
-            value: '40ms',
-            trend: 'Healthy',
-            icon: <Storage fontSize="small" />,
-            color: 'success.main',
-            bgcolor: 'success.light',
-            path: '/b2b/surveillance/ingestion'
-        },
-    ];
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [alertStats, caseStats, regStats, alerts, cases, ingestion] = await Promise.all([
+                b2bDomainClient.getAlertStats(),
+                b2bDomainClient.getCaseStats(),
+                b2bDomainClient.getRegionalStats(),
+                b2bDomainClient.getAlerts({ status: 'open', limit: 6 }),
+                b2bDomainClient.getCases({ status: 'open', limit: 5 }),
+                b2bDomainClient.getIngestionStats()
+            ]);
 
-    const regions = [
-        { code: 'SIN', label: 'Singapore', risk: 'Low', color: 'success' },
-        { code: 'EUR', label: 'Europe', risk: 'Mod', color: 'warning' },
-        { code: 'USA', label: 'N. America', risk: 'Std', color: 'info' },
-    ];
+            // Map Alert/Case stats to KPI cards
+            setStats([
+                {
+                    title: 'Pending Alerts',
+                    subtitle: 'Critical',
+                    value: alertStats.high_risk_count || 0,
+                    trend: `+${alertStats.open_count} total open`,
+                    icon: <NotificationsActive fontSize="small" />,
+                    color: 'error.main',
+                    bgcolor: 'error.light',
+                    path: '/b2b/surveillance/alerts'
+                },
+                {
+                    title: 'Investigations',
+                    subtitle: 'Active',
+                    value: caseStats.open_count || 0,
+                    trend: `${caseStats.in_review_count} in review`,
+                    icon: <Gavel fontSize="small" />,
+                    color: 'warning.main',
+                    bgcolor: 'warning.light',
+                    path: '/b2b/surveillance/cases'
+                },
+                {
+                    title: 'Ingestion Lag',
+                    subtitle: 'System',
+                    value: ingestion.lag_ms ? `${ingestion.lag_ms}ms` : 'Healthy',
+                    trend: ingestion.status || 'Stable',
+                    icon: <Storage fontSize="small" />,
+                    color: 'success.main',
+                    bgcolor: 'success.light',
+                    path: '/b2b/surveillance/ingestion'
+                },
+            ]);
 
-    const priorityAlerts = [
-        { id: 1, type: 'Insider Trading', channel: 'Voice', entity: 'Trader A. Smith', score: 98, time: '10m' },
-        { id: 2, type: 'Off-Channel Comm', channel: 'WhatsApp', entity: 'Desk: Equities', score: 85, time: '45m' },
-        { id: 3, type: 'Collusion', channel: 'Chat', entity: 'T. Stark -> Rogers', score: 72, time: '2h' },
-        { id: 4, type: 'Keyword: "Dump it"', channel: 'Email', entity: 'HedgeFund X', score: 65, time: '4h' },
-        { id: 5, type: 'Unusual Pattern', channel: 'Market Data', entity: 'Algo Bot 7', score: 60, time: '5h' },
-        { id: 6, type: 'Spoofing', channel: 'Order Log', entity: 'Trader B. Wayne', score: 58, time: '6h' },
-    ];
+            setRegions(regStats.length > 0 ? regStats : [
+                { code: 'USA', label: 'Worldwide HQ', risk: 'Stable', color: 'success' }
+            ]);
 
-    const myCases = [
-        { id: 'CASE-89', title: 'Suspicious pre-earnings activity', status: 'Review', due: 'Today' },
-        { id: 'CASE-92', title: 'Spoofing pattern Desk B', status: 'Evidence', due: 'Tomorrow' },
-        { id: 'CASE-110', title: 'Large volume off-hours', status: 'New', due: '3 Days' },
-    ];
+            setPriorityAlerts(alerts || []);
+            setMyCases(cases || []);
+
+        } catch (error) {
+            console.error("Dashboard fetch failed:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return (
+            <AdminLayout title="Command Center">
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+                    <CircularProgress />
+                    <Typography sx={{ ml: 2 }}>Loading Command Center...</Typography>
+                </Box>
+            </AdminLayout>
+        );
+    }
 
     return (
         <AdminLayout title="Command Center" subtitle="Strategic Intelligence & Multi-Channel Compliance Monitoring">
@@ -155,7 +181,6 @@ const SurveillanceDashboardPage = () => {
                 </Grid>
 
                 {/* 2. MAIN CONTENT (Flex Grow) */}
-                {/* 2. MAIN CONTENT (Flex Grow) - Using pure Flexbox for reliability */}
                 <Box sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', gap: 2 }}>
 
                     {/* Priority Inbox - 66% width */}
@@ -184,30 +209,46 @@ const SurveillanceDashboardPage = () => {
                                             <TableRow key={row.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                                 <TableCell>
                                                     <Box>
-                                                        <Typography variant="body2" fontWeight="600">{row.type}</Typography>
-                                                        <Typography variant="caption" color="text.secondary">{row.channel} • {row.time} ago</Typography>
+                                                        <Typography variant="body2" fontWeight="600">{(row.risk_type || 'Unknown').replace('_', ' ').toUpperCase()}</Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {row.region || "Global"} • {new Date(row.communication?.timestamp || row.detected_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </Typography>
                                                     </Box>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Typography variant="body2">{row.entity}</Typography>
+                                                    <Typography variant="body2">{row.communication?.sender || "System"}</Typography>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Chip
-                                                        label={row.score}
+                                                        label={row.severity?.toUpperCase() || "MID"}
                                                         size="small"
                                                         sx={{
                                                             height: 24,
                                                             fontWeight: 800,
-                                                            bgcolor: row.score > 90 ? '#fee2e2' : '#ffedd5',
-                                                            color: row.score > 90 ? '#ef4444' : '#f97316'
+                                                            bgcolor: ['high', 'critical'].includes(row.severity) ? '#fee2e2' : '#ffedd5',
+                                                            color: ['high', 'critical'].includes(row.severity) ? '#ef4444' : '#f97316'
                                                         }}
                                                     />
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    <Button size="small" variant="text" sx={{ minWidth: 0, px: 2, fontWeight: 600 }}>Investigate</Button>
+                                                    <Button
+                                                        size="small"
+                                                        variant="text"
+                                                        sx={{ minWidth: 0, px: 2, fontWeight: 600 }}
+                                                        onClick={() => navigate(`/b2b/surveillance/alerts/${row.id}`)}
+                                                    >
+                                                        Investigate
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
+                                        {priorityAlerts.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                                                    <Typography color="text.secondary">No active alerts requiring attention.</Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
@@ -229,27 +270,33 @@ const SurveillanceDashboardPage = () => {
                                         cursor: 'pointer',
                                         transition: 'bgcolor 0.2s',
                                         '&:hover': { bgcolor: '#f9fafb' }
-                                    }} onClick={() => navigate('/b2b/surveillance/cases')}>
+                                    }} onClick={() => navigate(`/b2b/surveillance/cases/${item.id}`)}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                             <Chip
-                                                label={item.status}
+                                                label={item.status || "NEW"}
                                                 size="small"
                                                 sx={{
                                                     height: 20,
                                                     fontSize: '0.65rem',
                                                     fontWeight: 700,
                                                     textTransform: 'uppercase',
-                                                    bgcolor: 'primary.light',
-                                                    color: 'primary.main',
-                                                    bgcolor: 'rgba(79, 70, 229, 0.1)'
+                                                    bgcolor: 'rgba(79, 70, 229, 0.1)',
+                                                    color: 'primary.main'
                                                 }}
                                             />
-                                            <Typography variant="caption" color="error.main" fontWeight="700">Due: {item.due}</Typography>
+                                            <Typography variant="caption" color={item.priority === 'high' ? "error.main" : "text.secondary"} fontWeight="700">
+                                                {item.priority?.toUpperCase()}
+                                            </Typography>
                                         </Box>
                                         <Typography variant="body2" fontWeight="600" sx={{ mb: 0.5 }}>{item.title}</Typography>
-                                        <Typography variant="caption" color="text.secondary" fontFamily="monospace">ID: {item.id}</Typography>
+                                        <Typography variant="caption" color="text.secondary" fontFamily="monospace">ID: {item.display_id || item.id.substring(0, 8)}</Typography>
                                     </Box>
                                 ))}
+                                {myCases.length === 0 && (
+                                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                                        <Typography color="text.secondary">No open cases assigned.</Typography>
+                                    </Box>
+                                )}
                             </Box>
                             <Box sx={{ p: 2, borderTop: '1px solid #f0f0f0' }}>
                                 <Button fullWidth variant="outlined" size="small" onClick={() => navigate('/b2b/surveillance/cases')}>

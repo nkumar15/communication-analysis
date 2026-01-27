@@ -99,14 +99,24 @@ class CaseService:
             total_count=total
         )
 
-    async def list_cases(self, db: AsyncSession, tenant_id: uuid.UUID, status: Optional[str] = None) -> List[Case]:
-        """List all cases for a tenant, optionally filtered by status."""
+    async def list_cases(
+        self, 
+        db: AsyncSession, 
+        tenant_id: uuid.UUID, 
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Case]:
+        """List all cases for a tenant, optionally filtered by status with pagination."""
         query = select(Case).where(Case.tenant_id == tenant_id)
         if status:
             query = query.where(Case.status == status)
         query = query.order_by(Case.created_at.desc())
+        
+        query = query.limit(limit).offset(offset)
+        
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def update_case(self, db: AsyncSession, case_id: uuid.UUID, obj_in: CaseUpdate) -> Optional[Case]:
         """Update case metadata and handle status transitions (e.g., closing)."""
