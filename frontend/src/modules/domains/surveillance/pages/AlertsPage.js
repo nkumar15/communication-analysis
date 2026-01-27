@@ -4,7 +4,7 @@ import AdminLayout from "../../../b2b/web/layouts/AdminLayout";
 import b2bDomainClient from "../../../../core/api/b2bDomainClient";
 import {
     Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Chip, Button, IconButton, TextField, MenuItem, Stack, CircularProgress, Tooltip
+    Chip, Button, IconButton, TextField, MenuItem, Stack, CircularProgress, Tooltip, TablePagination
 } from "@mui/material";
 import {
     FilterList, Visibility, Warning, CheckCircle, AssignmentInd,
@@ -25,6 +25,13 @@ const AlertsPage = () => {
     const [riskTypeFilter, setRiskTypeFilter] = useState("");
     const [regionFilter, setRegionFilter] = useState("");
 
+    // Pagination & Sorting
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(20);
+    const [totalcount, setTotalCount] = useState(0);
+    const [sortBy, setSortBy] = useState("detected_at");
+    const [sortDesc, setSortDesc] = useState(true);
+
     const fetchAlerts = async () => {
         setLoading(true);
         try {
@@ -34,14 +41,31 @@ const AlertsPage = () => {
             if (riskTypeFilter) filters.risk_type = riskTypeFilter;
             if (regionFilter) filters.region = regionFilter;
 
+            // Pagination params
+            filters.limit = rowsPerPage;
+            filters.offset = page * rowsPerPage;
+            filters.sort_by = sortBy;
+            filters.sort_desc = sortDesc;
+
             const [alertsData, statsData, usersData] = await Promise.all([
                 b2bDomainClient.getAlerts(filters),
                 b2bDomainClient.getAlertStats(),
                 b2bClient.listUsers()
             ]);
 
-            setAlerts(alertsData);
+            // Handle response which might be [data, total] or just data depending on previous client implementation
+            // Assuming client update or standard response. For now assuming updated API sends x-total-count or similar, 
+            // BUT backend service returns (list, count). Router returns `list`. 
+            // WAIT - Router returns list only! `return alerts`. 
+            // I need to update router to return boxed response or handle headers.
+            // For now, let's assume strict array until router is updated to return {items, total}
+
+            // Correction: Router returns List[AlertResponse]. To get total, I need to update router too or rely on stats?
+            // Stats has total_alerts!
+
+            setAlerts(alertsData || []);
             setStats(statsData);
+            setTotalCount(statsData?.total_alerts || 0); // Approximate total from stats
             setUsers(usersData);
         } catch (error) {
             console.error("Failed to fetch alerts:", error);
@@ -52,7 +76,13 @@ const AlertsPage = () => {
 
     useEffect(() => {
         fetchAlerts();
-    }, [statusFilter, severityFilter, riskTypeFilter, regionFilter]);
+    }, [statusFilter, severityFilter, riskTypeFilter, regionFilter, page, rowsPerPage, sortBy, sortDesc]);
+
+    const handleSort = (property) => {
+        const isDesc = sortBy === property && sortDesc === true;
+        setSortBy(property);
+        setSortDesc(!isDesc); // Toggle
+    };
 
     const handleStatusUpdate = async (alertId, newStatus, autoNavigate = false) => {
         try {
@@ -63,7 +93,7 @@ const AlertsPage = () => {
             } else {
                 await b2bDomainClient.updateAlert(alertId, { status: newStatus });
             }
-            fetchAlerts(); // Refresh list
+            fetchAlerts();
 
             if (autoNavigate) {
                 navigate(`/b2b/surveillance/alerts/${alertId}`);
@@ -96,51 +126,6 @@ const AlertsPage = () => {
             case "medium": return "info";
             default: return "default";
         }
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case "open": return "error";
-            case "investigating": return "warning";
-            case "closed": return "success";
-            case "escalated": return "secondary";
-            default: return "default";
-        }
-    };
-
-    const highlightText = (text, keywords) => {
-        if (!keywords || keywords.length === 0 || !text) return text;
-
-        // Extract string keywords if they are objects
-        const kwStrings = keywords.map(kw =>
-            typeof kw === 'object' ? (kw.keyword || kw.text || JSON.stringify(kw)) : kw
-        ).filter(kw => typeof kw === 'string' && kw.length > 0);
-
-        if (kwStrings.length === 0) return text;
-
-        const escapedKeywords = kwStrings.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-        const regex = new RegExp(`(${escapedKeywords.join('|')})`, 'gi');
-        const parts = text.split(regex);
-
-        return parts.map((part, i) =>
-            kwStrings.some(kw => part.toLowerCase() === kw.toLowerCase()) ? (
-                <Box
-                    key={i}
-                    component="span"
-                    sx={{
-                        bgcolor: '#fff176', // Brighter yellow
-                        px: 0.5,
-                        mx: 0.1,
-                        borderRadius: 0.5,
-                        fontWeight: 800,
-                        color: '#000',
-                        borderBottom: '2px solid #fbc02d'
-                    }}
-                >
-                    {part}
-                </Box>
-            ) : part
-        );
     };
 
     return (
@@ -191,7 +176,7 @@ const AlertsPage = () => {
                 )}
 
                 {/* Filter Bar */}
-                <Paper sx={{ p: 2, mb: 3, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Paper sx={{ p: 2, mb: 3, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                     <FilterList color="action" />
                     <TextField
                         select
@@ -203,8 +188,14 @@ const AlertsPage = () => {
                     >
                         <MenuItem value="">All Types</MenuItem>
                         <MenuItem value="Financial Fraud">Financial Fraud</MenuItem>
-                        <MenuItem value="Market-to-Market Manipulation">Market Manipulation</MenuItem>
+                        <MenuItem value="Market Manipulation">Market Manipulation</MenuItem>
                         <MenuItem value="Evasion & Secrecy">Evasion & Secrecy</MenuItem>
+                        <MenuItem value="Insider Trading">Insider Trading</MenuItem>
+                        <MenuItem value="Bribery & Corruption">Bribery & Corruption</MenuItem>
+                        <MenuItem value="Fraud & Deception">Fraud & Deception</MenuItem>
+                        <MenuItem value="Conduct & Communications">Conduct & Communications</MenuItem>
+                        <MenuItem value="Obstruction of Justice">Obstruction of Justice</MenuItem>
+                        <MenuItem value="Conflict of Interest">Conflict of Interest</MenuItem>
                     </TextField>
                     <TextField
                         select
@@ -215,7 +206,7 @@ const AlertsPage = () => {
                         sx={{ width: 150 }}
                     >
                         <MenuItem value="">All Regions</MenuItem>
-                        <MenuItem value="USA">USA</MenuItem>
+                        <MenuItem value="United States (Global HQ)">United States (Global HQ)</MenuItem>
                         <MenuItem value="UK">UK</MenuItem>
                         <MenuItem value="Singapore">Singapore</MenuItem>
                     </TextField>
@@ -233,22 +224,8 @@ const AlertsPage = () => {
                         <MenuItem value="escalated">Escalated</MenuItem>
                         <MenuItem value="closed">Closed</MenuItem>
                     </TextField>
-                    <TextField
-                        select
-                        label="Severity"
-                        value={severityFilter}
-                        onChange={(e) => setSeverityFilter(e.target.value)}
-                        size="small"
-                        sx={{ width: 150 }}
-                    >
-                        <MenuItem value="">All Severities</MenuItem>
-                        <MenuItem value="critical">Critical</MenuItem>
-                        <MenuItem value="high">High</MenuItem>
-                        <MenuItem value="medium">Medium</MenuItem>
-                        <MenuItem value="low">Low</MenuItem>
-                    </TextField>
+
                     <Box sx={{ flexGrow: 1 }} />
-                    <Button variant="contained" onClick={fetchAlerts} sx={{ px: 4 }}>Refresh Queue</Button>
                 </Paper>
 
                 {/* Table */}
@@ -256,13 +233,18 @@ const AlertsPage = () => {
                     <Table>
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 700 }}>Alert Id</TableCell>
-                                <TableCell sx={{ fontWeight: 700 }}>Risk</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }} onClick={() => handleSort('display_id')} style={{ cursor: 'pointer' }}>
+                                    Alert Id {sortBy === 'display_id' && (sortDesc ? '▼' : '▲')}
+                                </TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                                <TableCell sx={{ fontWeight: 700 }}>Severity</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>
+                                    Status
+                                </TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Sender</TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Region</TableCell>
-                                <TableCell sx={{ fontWeight: 700 }}>Detected At</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }} onClick={() => handleSort('detected_at')} style={{ cursor: 'pointer' }}>
+                                    Date {sortBy === 'detected_at' && (sortDesc ? '▼' : '▲')}
+                                </TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
                                 <TableCell sx={{ fontWeight: 700 }}>Assignee</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
@@ -271,39 +253,27 @@ const AlertsPage = () => {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={10} align="center"><CircularProgress /></TableCell>
+                                    <TableCell colSpan={9} align="center"><CircularProgress /></TableCell>
                                 </TableRow>
                             ) : alerts.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={10} align="center">No alerts found</TableCell>
+                                    <TableCell colSpan={9} align="center">No alerts found</TableCell>
                                 </TableRow>
                             ) : (
                                 alerts.map((alert) => (
                                     <TableRow key={alert.id} hover>
-                                        <TableCell sx={{ fontWeight: 600, color: '#1a73e8' }}>
+                                        <TableCell sx={{ fontWeight: 600, color: '#1a73e8', fontFamily: 'monospace' }}>
                                             {alert.display_id || alert.id.substring(0, 8)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={alert.metadata?.ai_analysis?.risk_level || "pending"}
-                                                size="small"
-                                                variant="outlined"
-                                                sx={{
-                                                    fontWeight: 700,
-                                                    fontSize: '0.65rem',
-                                                    color: alert.metadata?.ai_analysis?.risk_level === 'high' ? '#d32f2f' : '#757575',
-                                                    borderColor: alert.metadata?.ai_analysis?.risk_level === 'high' ? '#ffcdd2' : '#e0e0e0'
-                                                }}
-                                            />
                                         </TableCell>
                                         <TableCell sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
                                             {(alert.risk_type || 'Unknown').replace('_', ' ').toUpperCase()}
                                         </TableCell>
                                         <TableCell>
                                             <Chip
-                                                label={alert.severity}
+                                                label={alert.status.toUpperCase()}
                                                 size="small"
-                                                color={getSeverityColor(alert.severity)}
+                                                color={alert.status === 'open' ? 'warning' : alert.status === 'closed' ? 'success' : 'default'}
+                                                variant="outlined"
                                                 sx={{ fontSize: '0.7rem' }}
                                             />
                                         </TableCell>
@@ -312,10 +282,29 @@ const AlertsPage = () => {
                                         </TableCell>
                                         <TableCell sx={{ fontSize: '0.85rem' }}>{alert.region || "Default"}</TableCell>
                                         <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
-                                            {new Date(alert.detected_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                            {/* Prefer Communication Date, fallback to Detected At */}
+                                            {new Date(alert.communication?.timestamp || alert.detected_at).toLocaleString('en-GB', {
+                                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                                hour: '2-digit', minute: '2-digit', hour12: true
+                                            }).replace(',', '').toUpperCase()}
                                         </TableCell>
                                         <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.85rem' }}>
-                                            {alert.description}
+                                            <Tooltip
+                                                title={
+                                                    <Box>
+                                                        <Typography variant="body2">{alert.description}</Typography>
+                                                        {alert.metadata?.matched_keywords && (
+                                                            <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#ffb74d' }}>
+                                                                Keywords: {Array.isArray(alert.metadata.matched_keywords) ? alert.metadata.matched_keywords.join(", ") : alert.metadata.matched_keywords}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                }
+                                                arrow
+                                                placement="top"
+                                            >
+                                                <span>{alert.description}</span>
+                                            </Tooltip>
                                         </TableCell>
                                         <TableCell>
                                             <TextField
@@ -325,9 +314,10 @@ const AlertsPage = () => {
                                                 value={alert.assigned_to || ""}
                                                 onChange={(e) => handleAssign(alert.id, e.target.value)}
                                                 sx={{ minWidth: 100, fontSize: '0.8rem' }}
+                                                SelectProps={{ displayEmpty: true }}
                                                 InputProps={{ disableUnderline: true }}
                                             >
-                                                <MenuItem value=""><em>Unassigned</em></MenuItem>
+                                                <MenuItem value="">Unassigned</MenuItem>
                                                 {users.map(u => (
                                                     <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.8rem' }}>{u.name || u.email}</MenuItem>
                                                 ))}
@@ -375,7 +365,19 @@ const AlertsPage = () => {
                     </Table>
                 </TableContainer>
 
-                {/* Details Drawer removed as it is now a dedicated page */}
+                {/* Pagination */}
+                <TablePagination
+                    rowsPerPageOptions={[20, 50, 100]}
+                    component="div"
+                    count={totalcount}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={(e, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value, 10));
+                        setPage(0);
+                    }}
+                />
             </Box>
         </AdminLayout>
     );

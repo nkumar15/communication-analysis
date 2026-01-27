@@ -1,28 +1,94 @@
 regulatory_documents:
-  - title: "MAS Guidelines on Risk Management"
+  # --- MARKET MANIPULATION ---
+  - title: "US: CEA Section 4c(a) - Prohibited Transactions"
+    framework: "CFTC"
+    region: "USA"
+    year: 1936
+    version: "Amended"
+    text_content: |
+      It shall be unlawful for any person to offer to enter into, or to enter into, any transaction that is of the character of, or is commonly known to the trade as, a 'wash sale', 'cross trade', or 'accommodation trade', or is a fictitious sale. The transaction must involve a change in ownership and entail real market risk.
+    storage_path: "regulatory/cea_4c_a.pdf"
+
+  - title: "SG: SFA Section 197 - False Trading and Market Rigging"
     framework: "MAS"
     region: "Singapore"
-    year: 2023
-    version: "v1.2"
-    storage_path: "regulatory/mas_risk_mgmt_2023.pdf"
-  
-  - title: "SEC Rule 10b-5: Employment of Manipulative and Deceptive Devices"
+    year: 2001
+    version: "Rev 2024"
+    text_content: |
+      (1) No person shall create, or do anything that is intended or likely to create, a false or misleading appearance of active trading in any securities or futures contract on a market, or a false or misleading appearance with respect to the market for, or the price of, such securities or futures contracts.
+      (2) Prohibited conduct includes wash trading (trades with no change in beneficial ownership) and matched orders (offsetting buy/sell orders entered by the same or conspiring parties).
+    storage_path: "regulatory/sfa_197.pdf"
+
+  - title: "US: SEA Rule 10b-5 - Employment of Manipulative and Deceptive Devices"
     framework: "SEC"
     region: "USA"
     year: 1942
     version: "Codified"
+    text_content: |
+      It shall be unlawful for any person, directly or indirectly, by the use of any means or instrumentality of interstate commerce...
+      (a) To employ any device, scheme, or artifice to defraud,
+      (b) To make any untrue statement of a material fact or to omit to state a material fact necessary in order to make the statements made... not misleading, or
+      (c) To engage in any act, practice, or course of business which operates or would operate as a fraud or deceit upon any person.
+      Applicable to Insider Trading (MNPI), Marking the Close, and Accounting Fraud.
     storage_path: "regulatory/sec_rule_10b5.pdf"
 
-  - title: "FCA Market Abuse Regulation (MAR)"
-    framework: "FCA"
-    region: "UK"
-    year: 2016
-    version: "v3.0"
-    storage_path: "regulatory/fca_mar_2016.pdf"
+  - title: "SG: SFA Section 218 - Prohibited Conduct by Person in Possession of Inside Information"
+    framework: "MAS"
+    region: "Singapore"
+    year: 2001
+    version: "Rev 2024"
+    text_content: |
+      (1) A person who is in possession of information that is not generally available but, if the information were generally available, a reasonable person would expect it to have a material effect on the price or value of securities... must not subscribe for, purchase, or sell, or enter into an agreement to subscribe for, purchase, or sell, any such securities.
+      (2) This prohibition applies to connected persons (insiders) and anyone who receives such Material Non-Public Information (MNPI).
+    storage_path: "regulatory/sfa_218.pdf"
 
-  - title: "FERC Anti-Manipulation Rule"
-    framework: "FERC"
+  # --- CONDUCT & BRIBERY ---
+  - title: "US: FCPA - Anti-Bribery Provisions"
+    framework: "DOJ"
     region: "USA"
-    year: 2006
-    version: "Final"
-    storage_path: "regulatory/ferc_anti_manipulation.pdf"
+    year: 1977
+    version: "Amended"
+    text_content: |
+      The Foreign Corrupt Practices Act (FCPA) breaks down into two parts: the anti-bribery provisions and the accounting provisions.
+      Anti-Bribery: Unlawful to make a payment, offer, or promise of anything of value to a foreign official for the purpose of influencing any act or decision of such official in his official capacity to assist in obtaining or retaining business.
+      Keywords: Kickbacks, Bribes, Facilitation Payments.
+    storage_path: "regulatory/fcpa.pdf"
+
+  - title: "SG: Prevention of Corruption Act (PCA)"
+    framework: "CPIB"
+    region: "Singapore"
+    year: 1960
+    version: "Rev 1993"
+    text_content: |
+      Section 5: Any person who shall by himself or by or in conjunction with any other person corruptly solicit or receive, or agree to receive for himself, or for any other person, any gratification as an inducement to or reward for... doing or forbearing to do anything in respect of any matter or transaction whatsoever, actual or proposed... shall be guilty of an offence.
+    storage_path: "regulatory/sg_pca.pdf"
+
+  - title: "US: FINRA Rule 3220 - Influencing or Rewarding Employees of Others"
+    framework: "FINRA"
+    region: "USA"
+    year: 2010
+    version: "Current"
+    text_content: |
+      No member or person associated with a member shall, directly or indirectly, give or permit to be given anything of value, including gratuities, in excess of one hundred dollars ($100) per individual per year to any person... where such payment or gratuity is in relation to the business of the employer of the recipient.
+      Lavish entertainment and excessive gifting are prohibited.
+    storage_path: "regulatory/finra_3220.pdf"
+
+  - title: "US: SOX Act Section 802 - Criminal Penalties for Altering Documents"
+    framework: "SEC"
+    region: "USA"
+    year: 2002
+    version: "Enacted"
+    text_content: |
+      Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies, or makes a false entry in any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation or proper administration of any matter within the jurisdiction of any department or agency of the United States... shall be fined or imprisoned.
+      Relevant to: Evidence Destruction, Shredding, Obstruction of Justice.
+    storage_path: "regulatory/sox_802.pdf"
+
+  - title: "US: SEC Rule 17a-4 - Records to be Preserved"
+    framework: "SEC"
+    region: "USA"
+    year: 1948
+    version: "Amended"
+    text_content: |
+      Broker-dealers must preserve all communications received and sent... including inter-office memoranda and communications which relate to its business as such.
+      Use of off-channel communications (WhatsApp, WeChat, Personal Email) for business purposes without capture/archiving is a violation of this recordkeeping rule.
+    storage_path: "regulatory/sec_17a4.pdf"

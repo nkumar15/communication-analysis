@@ -18,38 +18,6 @@ Deploy the full "Bank Surveillance" environment (Tenant, RBAC, Users, and Risk C
 make b2b-demo-bank
 ```
 
-### 3. Data Ingestion (Enron Corpus)
-Ingest real email data into the demo tenant using the `b2b-domain-worker` container.
-*Tool: `ingest_enron_csv.py`*
-
-**For Executive Demo (Risk Spikes):**
-```bash
-# Ingest "Shredding/Obstruction" dataset (High Confidence Alert)
-docker compose run --rm b2b-domain-worker python /app/modules/domains/b2b/bank_surveillance/scripts/seeds/ingest_enron_csv.py \
-  /data/dumps/20020118.csv \
-  --tenant-id b5e1fa40-89f4-50c2-a3f4-4c122000beef
-```
-
-**For Analyst Demo (Financial Leakage):**
-```bash
-# Ingest "Mark-to-Market" dataset (Pattern Detection)
-docker compose run --rm b2b-domain-worker python /app/modules/domains/b2b/bank_surveillance/scripts/seeds/ingest_enron_csv.py \
-  /data/dumps/20010924.csv \
-  --tenant-id b5e1fa40-89f4-50c2-a3f4-4c122000beef
-```
-
-### 4. Incident Generation (Second Workflow)
-Aggregate the raw Risk Events into actionable Incidents (Cases).
-*Tool: `generate_incidents.py`*
-
-```bash
-docker compose run --rm b2b-domain-worker python /app/modules/domains/b2b/bank_surveillance/scripts/seeds/generate_incidents.py \
-  --tenant-id b5e1fa40-89f4-50c2-a3f4-4c122000beef
-```
-
-
----
-
 ## Demo 1: Executive Demo (5 minutes)
 
 **Target Persona:** Sarah Chen (Head of Compliance)  

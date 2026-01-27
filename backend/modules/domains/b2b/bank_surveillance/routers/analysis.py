@@ -27,12 +27,30 @@ async def investigate_alert(
     tenant_id = current_user['tenant_id']
     
     # 1. Fetch Alert to get context
+    # 1. Fetch Alert to get context
     alert = await alert_service.get_alert(db, alert_id, tenant_id)
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
         
     if not alert.communication:
         raise HTTPException(status_code=400, detail="Alert has no linked communication for analysis")
+
+    # 1.5 Fetch Regulatory Context from Triggered Controls
+    from sqlalchemy import select
+    from modules.domains.b2b.bank_surveillance.models.surveillance_control import SurveillanceControl
+    from modules.domains.b2b.bank_surveillance.models.incident import Incident
+
+    # Find the controls that triggered this alert via incidents
+    stmt = select(SurveillanceControl).join(Incident, Incident.control_id == SurveillanceControl.id).where(Incident.alert_id == alert_id)
+    controls_res = await db.execute(stmt)
+    controls = controls_res.scalars().all()
+
+    risk_indicators = [c.risk_indicator for c in controls if c.risk_indicator]
+    regulations = [c.regulatory_reference_text for c in controls if c.regulatory_reference_text]
+
+    # Deduplicate
+    risk_indicators = list(set(risk_indicators))
+    regulatory_context = "; ".join(list(set(regulations)))
 
     # 2. Run Multi-Agent Orchestrator
     report = await orchestrator_service.investigate_email(
@@ -41,7 +59,9 @@ async def investigate_alert(
             "sender": alert.communication.sender,
             "subject": alert.communication.subject,
             "date": alert.communication.timestamp.isoformat() if alert.communication.timestamp else None,
-            "alert_id": str(alert_id)
+            "alert_id": str(alert_id),
+            "risk_indicators": risk_indicators,
+            "regulatory_context": regulatory_context
         },
         tenant_id=tenant_id,
         db=db

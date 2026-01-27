@@ -29,7 +29,10 @@ ALWAYS use the tool to check for violations if the communication discusses:
 - Potential insider trading or market manipulation
 - Moving business discussions to personal or unmonitored channels
 
-Analyze the content, query the regulations if needed, and provide a final verdict."""
+Analyze the content, query the regulations if needed, and provide a final verdict.
+CRITICAL: In your reasoning, you MUST include VERBATIM QUOTES from the relevant regulation text that apply to this violation. 
+If the search tool does not return the exact text after 2 attempts, STOP SEARCHING. 
+Rely on your internal knowledge to provide the verdict and explicitly state that the citation is based on general knowledge due to missing reference text."""
         
         # New simplified API in LangChain 1.2.0
         self.agent = create_agent(
@@ -39,21 +42,38 @@ Analyze the content, query the regulations if needed, and provide a final verdic
             response_format=ComplianceVerdict
         )
 
-    async def analyze_email(self, email_text: str, tenant_id: UUID = None) -> dict:
+    async def analyze_email(self, email_text: str, tenant_id: UUID = None, likely_risks: list[str] = None, regulatory_context: str = None) -> dict:
         """
         Analyzes an email for compliance violations.
         
         Args:
             email_text: The email content to analyze
             tenant_id: Optional tenant ID for filtering tenant-specific regulations
+            likely_risks: Optional list of risk indicators detected by other systems (e.g. "Wash Trading")
+            regulatory_context: Specific regulation citation to check against (e.g. "SEC Rule 10b-5")
         """
         # Use provided tenant_id or fall back to instance tenant_id
         effective_tenant_id = tenant_id or self.tenant_id
         
+        prompt_content = email_text
+        if likely_risks:
+            risks_str = ", ".join(likely_risks)
+            prompt_content = (
+                f"CONTEXT: The monitoring system has flagged this communication for potential: {risks_str}.\n"
+            )
+            
+            if regulatory_context:
+                prompt_content += f"RELEVANT REGULATION: {regulatory_context}\n"
+                prompt_content += f"Please verify if this constitutes a violation of {regulatory_context} or other regulations related to {risks_str}.\n\n"
+            else:
+                prompt_content += f"Please verify if this constitutes a violation of regulations related to {risks_str}.\n\n"
+            
+            prompt_content += f"EMAIL CONTENT:\n{email_text}"
+        
         try:
             # Pass tenant_id via config to make it available to tools
-            config = {"configurable": {"tenant_id": effective_tenant_id}} if effective_tenant_id else {}
-            result = await self.agent.ainvoke({"messages": [("user", email_text)]}, config=config)
+            config = {"configurable": {"tenant_id": effective_tenant_id}, "recursion_limit": 15} if effective_tenant_id else {"recursion_limit": 15}
+            result = await self.agent.ainvoke({"messages": [("user", prompt_content)]}, config=config)
             
             # LangChain 1.2.0 returns a dict with 'structured_response' key
             if isinstance(result, dict) and "structured_response" in result:

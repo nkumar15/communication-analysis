@@ -60,5 +60,33 @@ class PolicyRagService(BaseRagService):
             "results": results
         }
 
+    async def index_text(self, text: str, metadata: Dict[str, Any], doc_id: str = None) -> bool:
+        """
+        Index a single text document (regulation clause).
+        Uses the configured embedding model (Semantic Search).
+        """
+        from llama_index.core import Document, StorageContext
+        
+        self._ensure_initialized()
+        
+        try:
+            doc = Document(text=text, metadata=metadata, doc_id=doc_id)
+            parser = self.get_parser()
+            nodes = parser.get_nodes_from_documents([doc])
+            
+            # Use the initialized embedding model (Real Semantic Search for Regulations)
+            embed_model = self.embed_model
+            
+            VectorStoreIndex(
+                nodes,
+                storage_context=StorageContext.from_defaults(vector_store=self.vector_store),
+                embed_model=embed_model, 
+                show_progress=False
+            )
+            return True
+        except Exception as e:
+            print(f"Policy indexing failed: {e}")
+            return False
+
 # Singleton
 policy_rag_service = PolicyRagService()

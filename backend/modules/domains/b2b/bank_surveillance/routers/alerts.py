@@ -89,6 +89,8 @@ async def list_alerts(
     region: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    sort_by: Optional[str] = None,
+    sort_desc: bool = True,
     db: AsyncSession = Depends(get_db),
     current_user: dict = require_permission("alerts", "read")
 ):
@@ -104,7 +106,7 @@ async def list_alerts(
         region=region
     )
     
-    alerts, total = await alert_service.list_alerts(db, tenant_id, filters, limit, offset)
+    alerts, total = await alert_service.list_alerts(db, tenant_id, filters, limit, offset, sort_by, sort_desc)
     return alerts
 
 @router.post("/", response_model=AlertResponse, status_code=status.HTTP_201_CREATED)

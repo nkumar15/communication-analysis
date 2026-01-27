@@ -15,6 +15,7 @@ from modules.b2b.models.tenant import TenantModel
 from modules.b2b.models.geographic_region import GeographicRegion
 from modules.b2b.models.sensitivity_level import SensitivityLevel
 from modules.domains.b2b.bank_surveillance.services.regulatory_service import regulatory_service
+from modules.domains.b2b.bank_surveillance.services.policy import policy_rag_service
 from modules.domains.b2b.bank_surveillance.services.control_service import control_service
 from modules.domains.b2b.bank_surveillance.schemas.regulatory import RegulatoryDocumentCreate
 from modules.domains.b2b.bank_surveillance.schemas.control import SurveillanceControlCreate
@@ -166,6 +167,19 @@ async def seed_meta(db: AsyncSession, tenant_id: uuid.UUID):
         )
         db_doc = await regulatory_service.create_document(db, doc_in)
         doc_map[doc["title"]] = db_doc.id
+
+        # --- RAG Indexing ---
+        if doc.get("text_content"):
+            print(f"   Indexing content for: {doc['title']}")
+            await policy_rag_service.index_text(
+                text=doc["text_content"],
+                metadata={
+                    "filename": doc["title"],
+                    "framework": doc.get("framework"),
+                    "tenant_id": str(tenant_id)
+                },
+                doc_id=str(db_doc.id)
+            )
 
     # 2. Load Surveillance Controls
     ctrl_path = os.path.join(os.path.dirname(__file__), "surveillance_controls.yaml")

@@ -56,11 +56,20 @@ class ThreadMessage(BaseModel):
     risk_indicators: List[str] = []
     matched_keywords: List[str] = []
 
+class CommunicationSummary(BaseModel):
+    id: UUID
+    sender: str
+    subject: Optional[str] = None
+    timestamp: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
 class AlertResponse(AlertBase):
     id: UUID
     display_id: Optional[str] = None
     tenant_id: UUID
     communication_id: Optional[UUID] = None
+    communication: Optional[CommunicationSummary] = None
     assigned_to: Optional[UUID] = None
     assignee_name: Optional[str] = None
     detected_at: datetime

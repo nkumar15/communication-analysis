@@ -190,20 +190,54 @@ class AggregationService:
             )
 
 
-            # Fetch one event to get communication_id (Legacy support for UI)
-            event_stmt = select(RiskEvent).where(RiskEvent.incident_id == incident.id).limit(1)
+            # Fetch all events to get communication_id and aggregate keywords
+            event_stmt = select(RiskEvent).where(RiskEvent.incident_id == incident.id)
             event_res = await self.db.execute(event_stmt)
-            event = event_res.scalar_one_or_none()
-            communication_id = event.communication_id if event else None
+            events = event_res.scalars().all()
+            
+            communication_id = events[0].communication_id if events else None
+            
+            # Aggregate keywords from all events
+            all_keywords = set()
+            for e in events:
+                if e.matched_keywords:
+                    # JSONB list
+                    for kw in e.matched_keywords:
+                        all_keywords.add(kw)
+            
+            sorted_keywords = sorted(list(all_keywords))
+            keywords_str = ", ".join(sorted_keywords)
+
+            # Generate display_id (Deterministic)
+            from modules.domains.b2b.bank_surveillance.utils.id_utils import generate_deterministic_numeric_id
+            # We don't have the Alert ID yet (it's generated on insert usually, but here we instantiate it).
+            # Alert model uses uuid4 as default. We should let it generate or generate one here.
+            # AlertService generates it explicitly. Let's do the same.
+            alert_id = uuid.uuid4()
+            numeric_suffix = generate_deterministic_numeric_id(alert_id)
+            display_id = f"ALT-{numeric_suffix}"
+
+            # Enhanced Description
+            description = (
+                f"Detected {incident.event_count} risk events associated with {indicator_name}. "
+                f"Sender: {incident.sender}."
+            )
+            if keywords_str:
+                description += f" Matched Keywords: {keywords_str}"
 
             alert = Alert(
+                id=alert_id,
                 tenant_id=self.tenant_id,
                 subject=subject,
+                display_id=display_id,
                 description=description,
                 severity=alert_severity,
                 risk_type=control.risk_typology if control else None,
                 communication_id=communication_id,
                 status=AlertStatus.OPEN.value,
+                metadata_={
+                    "matched_keywords": sorted_keywords
+                }
             )
             self.db.add(alert)
             await self.db.flush()  # Get the alert ID

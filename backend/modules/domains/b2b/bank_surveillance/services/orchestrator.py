@@ -86,7 +86,10 @@ class OrchestratorService:
         )
         
         # Step 2: Conditional Deep Analysis
-        if classification in ["fraud/collusion", "evasion attempt"]:
+        # Trigger if Intent classifies as suspicious OR if we already have explicit risk flags
+        has_risk_flags = bool(email_metadata.get("risk_indicators"))
+        
+        if classification in ["fraud/collusion", "evasion attempt"] or has_risk_flags:
             # Run Policy and Evasion checks in parallel
             import asyncio
             # Run Policy and Evasion checks in parallel
@@ -94,7 +97,19 @@ class OrchestratorService:
             policy_agent = PolicyAgent(tenant_id=effective_tenant_id)
             evasion_agent = EvasionAgent(tenant_id=effective_tenant_id)
             
-            policy_task = policy_agent.analyze_email(email_text, tenant_id=effective_tenant_id)
+            # Extract potential risks from metadata (if provided by Ingestion/Alerts)
+            likely_risks = email_metadata.get("risk_indicators", [])
+            regulatory_context = email_metadata.get("regulatory_context")
+
+            if isinstance(likely_risks, str):
+                likely_risks = [likely_risks]
+            
+            policy_task = policy_agent.analyze_email(
+                email_text, 
+                tenant_id=effective_tenant_id,
+                likely_risks=likely_risks,
+                regulatory_context=regulatory_context
+            )
             evasion_task = evasion_agent.analyze_email(email_text, tenant_id=effective_tenant_id)
             
             policy_result, evasion_result = await asyncio.gather(policy_task, evasion_task)
@@ -109,19 +124,20 @@ class OrchestratorService:
             if is_policy_violation and is_evasion:
                 report.risk_level = "high"
                 report.requires_action = True
-                report.summary = f"CRITICAL: Communication classified as '{classification}' with policy violation ({policy_result.get('violation_citation')}) AND evasion attempt ({evasion_result.get('evasion_type')})."
-            elif is_policy_violation or is_evasion:
+                report.summary = f"{policy_result.get('reasoning')}\n\nAdditionally, potential evasion detected: {evasion_result.get('reasoning')}"
+            elif is_policy_violation:
                 report.risk_level = "high"
                 report.requires_action = True
-                if is_policy_violation:
-                    report.summary = f"HIGH RISK: Policy violation detected - {policy_result.get('violation_citation')}. Classified as '{classification}'."
-                else:
-                    report.summary = f"HIGH RISK: Evasion attempt detected - {evasion_result.get('evasion_type')}. Classified as '{classification}'."
+                report.summary = policy_result.get('reasoning') or f"Policy violation detected: {policy_result.get('violation_citation')}"
+            elif is_evasion:
+                report.risk_level = "high"
+                report.requires_action = True
+                report.summary = evasion_result.get('reasoning') or f"Evasion attempt detected: {evasion_result.get('evasion_type')}"
             else:
                 # Classified as suspicious but no violations found
                 report.risk_level = "medium"
                 report.requires_action = False
-                report.summary = f"MEDIUM RISK: Classified as '{classification}' but no specific violations detected. Recommend manual review."
+                report.summary = f"Classified as '{classification}' but no specific policy violations detected. {intent_result.get('reasoning', 'Recommend manual review.')}"
                 
             # --- Graph Context Integration ---
             if sender:

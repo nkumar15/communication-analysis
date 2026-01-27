@@ -187,7 +187,9 @@ class AlertService:
         tenant_id: UUID, 
         filters: AlertFilter,
         limit: int = 50, 
-        offset: int = 0
+        offset: int = 0,
+        sort_by: Optional[str] = None,
+        sort_desc: bool = True
     ) -> Tuple[List[Alert], int]:
         """List alerts with filtering"""
         query = select(Alert).where(Alert.tenant_id == tenant_id)
@@ -214,18 +216,28 @@ class AlertService:
         if filters.region:
             query = query.where(GeographicRegion.name == filters.region)
             
+        if filters.region:
+            query = query.where(GeographicRegion.name == filters.region)
+            
         # Get total count (before pagination)
-        # Note: Optimization - simpler count query can be separate if performance needed
         count_stmt = select(func.count()).select_from(query.subquery())
         total_result = await db.execute(count_stmt)
         total = total_result.scalar() or 0
         
         # Pagination & Sorting
-        # Default sort: Severity (Critical first), then Detected At (Newest first)
-        # Check if severity sort works with strings (Critical > High > Medium > Low)? 
-        # Actually alphabetical is Critical < High. Enum order isn't preserved in DB string.
-        # For MVP, just sort by detected_at desc.
-        query = query.order_by(Alert.detected_at.desc())
+        if sort_by:
+            # Handle sorting
+            sort_column = getattr(Alert, sort_by, Alert.detected_at)
+            
+            # Special case for severity (Enum) - simplistic for now
+            
+            if sort_desc:
+                query = query.order_by(desc(sort_column))
+            else:
+                query = query.order_by(sort_column)
+        else:
+            # Default
+            query = query.order_by(Alert.detected_at.desc())
         
         query = query.limit(limit).offset(offset)
         

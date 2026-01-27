@@ -37,7 +37,7 @@ const AlertDetailPage = () => {
                 setAlert(fullAlert);
                 setUsers(usersData);
 
-                if (fullAlert.metadata?.ai_analysis) {
+                if (fullAlert.metadata?.ai_analysis && (fullAlert.metadata.ai_analysis.risk_level || fullAlert.metadata.ai_analysis.summary)) {
                     setAiReport(fullAlert.metadata.ai_analysis);
                 }
                 if (fullAlert.conversation_thread) {
@@ -185,7 +185,7 @@ const AlertDetailPage = () => {
                                     {alert.subject || "Flagged Communication"}
                                     {alert.metadata?.ai_analysis?.risk_level && (
                                         <Chip
-                                            label={`${alert.metadata.ai_analysis.risk_level.toUpperCase()} RISK`}
+                                            label={`${(alert.metadata.ai_analysis.risk_level || 'unknown').toUpperCase()} RISK`}
                                             size="small"
                                             sx={{
                                                 fontWeight: 900, bgcolor: alert.metadata.ai_analysis.risk_level === 'high' ? '#fee2e2' : '#fef3c7',
@@ -289,7 +289,7 @@ const AlertDetailPage = () => {
                                                         fontWeight: 900, mb: 0.5,
                                                         color: aiReport.risk_level === 'high' ? '#dc2626' : '#0284c7'
                                                     }}>
-                                                        {aiReport.risk_level.toUpperCase()} RISK
+                                                        {(aiReport.risk_level || "UNKNOWN").toUpperCase()} RISK
                                                     </Typography>
                                                     <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500, lineHeight: 1.4, fontSize: '0.8rem' }}>
                                                         {aiReport.summary}

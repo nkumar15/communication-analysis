@@ -1,32 +1,208 @@
 surveillance_controls:
-  - risk_typology: "Obstruction of Justice"
-    risk_indicator: "Evidence Destruction"
-    regulatory_reference: "18 U.S. Code § 1519"
-    detection_methods: 
-      - type: "keyword"
-        keywords: ["shred", "shredding", "destroy documents", "delete emails", "wipe the drive"]
-    status: "Active"
-
-  - risk_typology: "Financial Fraud"
-    risk_indicator: "Mark-to-Market Manipulation"
-    regulatory_reference: "SEC Rule 10b-5"
-    detection_methods: 
-      - type: "keyword"
-        keywords: ["mark to market", "mark-to-market", "MTM", "valuation gap", "aggressive accounting"]
-    status: "Active"
-
-  - risk_typology: "Conflict of Interest"
-    risk_indicator: "Off-Balance Sheet Vehicles"
-    regulatory_reference: "FASB Interpretation No. 46"
-    detection_methods: 
-      - type: "keyword"
-        keywords: ["LJM", "Raptor", "Chewco", "JEDI", "Condor", "Whitewing"]
-    status: "Active"
-
-  - risk_typology: "Evasion & Secrecy"
-    risk_indicator: "Secrecy Language"
-    regulatory_reference: "FINRA Rule 3110"
-    detection_methods: 
-      - type: "keyword"
-        keywords: ["don't put this in writing", "delete this", "offline", "personal email"]
-    status: "Active"
+- risk_typology: Obstruction of Justice
+  risk_indicator: Evidence Destruction
+  regulatory_reference: "18 U.S. Code \xA7 1519"
+  detection_methods:
+  - type: keyword
+    keywords:
+    - shred
+    - shredding
+    - destroy documents
+    - delete emails
+    - wipe the drive
+  status: Active
+- risk_typology: Financial Fraud
+  risk_indicator: Mark-to-Market Manipulation
+  regulatory_reference: SEC Rule 10b-5
+  detection_methods:
+  - type: keyword
+    keywords:
+    - mark to market
+    - mark-to-market
+    - MTM
+    - valuation gap
+    - aggressive accounting
+  status: Active
+- risk_typology: Conflict of Interest
+  risk_indicator: Off-Balance Sheet Vehicles
+  regulatory_reference: FASB Interpretation No. 46
+  detection_methods:
+  - type: keyword
+    keywords:
+    - LJM
+    - Raptor
+    - Chewco
+    - JEDI
+    - Condor
+    - Whitewing
+    - LJM2
+  status: Active
+- risk_typology: Evasion & Secrecy
+  risk_indicator: Secrecy Language
+  regulatory_reference: FINRA Rule 3110
+  detection_methods:
+  - type: keyword
+    keywords:
+    - don't put this in writing
+    - delete this
+    - offline
+    - personal email
+  status: Active
+- risk_typology: Market Manipulation
+  risk_indicator: Wash Trading
+  regulatory_reference: 'US: CEA Sec 4c(a) / SG: SFA Sec 197'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - wash trade
+    - no change in ownership
+    - offsetting
+    - same price same time
+    - churn the volume
+  status: Active
+- risk_typology: Market Manipulation
+  risk_indicator: Spoofing / Layering
+  regulatory_reference: 'US: Dodd-Frank Sec 747 / SG: SFA Sec 197'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - spoof
+    - layering
+    - cancel orders
+    - fake depth
+    - trick the market
+  status: Active
+- risk_typology: Market Manipulation
+  risk_indicator: Marking the Close
+  regulatory_reference: 'US: SEA Rule 10b-5 / SG: SFA Sec 197'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - mark the close
+    - push price up
+    - high close
+    - painting the tape
+  status: Active
+- risk_typology: Market Manipulation
+  risk_indicator: Cornering / Squeeze
+  regulatory_reference: 'US: Rule 10b-5 / SG: SFA Sec 197'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - corner the market
+    - squeeze
+    - control supply
+    - hoard
+    - short squeeze
+  status: Active
+- risk_typology: Insider Trading
+  risk_indicator: Material Non-Public Information (MNPI)
+  regulatory_reference: 'US: SEA Rule 10b-5 / SG: SFA Sec 218'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - confidential info
+    - non-public
+    - earnings leak
+    - merger news
+    - acquisition target
+    - inside info
+    - tip off
+  status: Active
+- risk_typology: Insider Trading
+  risk_indicator: Front Running
+  regulatory_reference: 'US: FINRA Rule 5270 / SG: SFA Sec 205 (Priority)'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - front run
+    - ahead of client
+    - big block coming
+    - personal account trade
+  status: Active
+- risk_typology: Bribery & Corruption
+  risk_indicator: Kickbacks & Improper Payments
+  regulatory_reference: 'US: FCPA / SG: PCA'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - kickback
+    - bribe
+    - under the table
+    - consulting fee
+    - facilitation payment
+    - gift to official
+  status: Active
+- risk_typology: Bribery & Corruption
+  risk_indicator: Excessive Gifting / Entertainment
+  regulatory_reference: 'US: FINRA Rule 3220 / SG: MAS Guidelines'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - luxury gift
+    - expensive dinner
+    - tickets to finals
+    - golf trip
+    - lavish
+  status: Active
+- risk_typology: Fraud & Deception
+  risk_indicator: Accounting Fraud
+  regulatory_reference: 'US: SOX Act / SG: Companies Act'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - cookie jar
+    - cook the books
+    - hide losses
+    - inflate revenue
+    - off-balance sheet
+    - special purpose entity
+  status: Active
+- risk_typology: Fraud & Deception
+  risk_indicator: Misrepresentation
+  regulatory_reference: 'US: SEA Rule 10b-5 / SG: SFA Sec 199'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - lie to client
+    - fake report
+    - falsify
+    - mislead investors
+    - guaranteed return
+  status: Active
+- risk_typology: Conduct & Communications
+  risk_indicator: Off-Channel Communication
+  regulatory_reference: 'US: SEC Rule 17a-4 / SG: MAS Notice'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - whatsapp
+    - wechat
+    - personal email
+    - personal phone
+    - delete current message
+    - no trail
+  status: Active
+- risk_typology: Conduct & Communications
+  risk_indicator: Collusion
+  regulatory_reference: 'US: Sherman Act / SG: Competition Act'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - agree price
+    - fix rate
+    - rig the bid
+    - don't compete
+    - share profits
+  status: Active
+- risk_typology: Conduct & Communications
+  risk_indicator: Unauthorized Trading
+  regulatory_reference: 'US: FINRA Rule 2010 / SG: MAS Guidelines'
+  detection_methods:
+  - type: keyword
+    keywords:
+    - rogue trade
+    - exceed limit
+    - hide trade
+    - unauthorized position
+  status: Active

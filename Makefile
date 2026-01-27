@@ -117,7 +117,7 @@ b2b-verify-seed: ## Verify B2B Seed Data
 b2b-seed-meta: ## Seed domain-specific metadata (generic - calls domain's seed_meta.py)
 ifdef USE_CASE
 	@echo "$(BLUE)=== $(USE_CASE) - Meta Seeding ===$(NC)"
-	@docker-compose exec -T b2b-api python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_meta.py
+	@docker-compose exec -T b2b-domain-api python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_meta.py
 endif
 
 seed-all: ## Run all seed scripts (requires API services running)

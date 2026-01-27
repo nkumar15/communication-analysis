@@ -18,8 +18,8 @@ const Sidebar = () => {
     }, [isCollapsed]);
 
     useEffect(() => {
-        const appName = (user?.domain_type === "bank_surveillance" || canAccess("surveillance")) 
-            ? "Communication Surveillance" 
+        const appName = (user?.domain_type === "bank_surveillance" || canAccess("surveillance"))
+            ? "Communication Surveillance"
             : "Enterprise SaaS App";
         document.title = appName;
     }, [user, canAccess]);
@@ -36,12 +36,12 @@ const Sidebar = () => {
         bank_surveillance: [
             { isHeader: true, label: 'Surveillance Suite' },
             { id: 'surv-dashboard', label: 'Command Center', icon: '🚀', path: '/b2b/surveillance', feature: 'surveillance' },
-            { id: 'alerts', label: 'Risk Alerts', icon: '⚠️', path: '/b2b/surveillance/alerts', feature: 'surveillance' },
-            { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
+            { id: 'alerts', label: 'Alerts', icon: '⚠️', path: '/b2b/surveillance/alerts', feature: 'surveillance' },
+            // { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
             { id: 'cases', label: 'Case Management', icon: '⚖️', path: '/b2b/surveillance/cases', feature: 'surveillance' },
             { id: 'regulatory-library', label: 'Regulatory Library', icon: '📜', path: '/b2b/surveillance/regulatory', feature: 'surveillance' },
             { id: 'surveillance-controls', label: 'Surveillance Controls', icon: '🛡️', path: '/b2b/surveillance/controls', feature: 'surveillance' },
-            { id: 'knowledge-base', label: 'Knowledge Base', icon: '📚', path: '/b2b/surveillance/knowledge-base', feature: 'surveillance' },
+            { id: 'knowledge-base', label: 'Search & Discover', icon: '📚', path: '/b2b/surveillance/knowledge-base', feature: 'surveillance' },
             { id: 'ingestion', label: 'Data Ingestion', icon: '📥', path: '/b2b/surveillance/ingestion', feature: 'surveillance' },
         ],
         marketing_agency: [

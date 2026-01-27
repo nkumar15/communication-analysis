@@ -290,3 +290,43 @@ make b2b-invite f=scripts/b2b/use_cases/bank_surveillance/bank_surveillance_demo
 
 **Fixed Tenant ID:** `b5e1fa40-89f4-50c2-a3f4-4c122000beef`
  
+
+
+ ### 12. Data Ingestion (Enron Corpus)
+Ingest real email data into the demo tenant using the `b2b-domain-worker` container.
+*Tool: `ingest_enron_csv.py`*
+
+**For Executive Demo (Risk Spikes):**
+```bash
+# Ingest "Fraud & Insider Trading" dataset (High Confidence Alert)
+# Contains: Accounting Fraud, Cornering/Squeeze, MNPI
+docker compose run --rm b2b-domain-worker python /app/modules/domains/b2b/bank_surveillance/scripts/seeds/ingest_enron_csv.py \
+  /data/dumps/20011126.csv \
+  --tenant-id b5e1fa40-89f4-50c2-a3f4-4c122000beef
+```
+
+**For Analyst Demo (Financial Leakage):**
+```bash
+# Ingest "Market Manipulation" dataset (Pattern Detection)
+# Contains: Wash Trading, Spoofing/Layering
+docker compose run --rm b2b-domain-worker python /app/modules/domains/b2b/bank_surveillance/scripts/seeds/ingest_enron_csv.py \
+  /data/dumps/20010924.csv \
+  --tenant-id b5e1fa40-89f4-50c2-a3f4-4c122000beef
+```
+
+**For Auditor Demo (Entity Fraud):**
+```bash
+# Ingest "Special Purpose Entities" dataset (Complex Structures)
+# Contains: Off-Balance Sheet, Special Purpose Entity (LJM, Raptor, Chewco)
+docker compose run --rm b2b-domain-worker python /app/modules/domains/b2b/bank_surveillance/scripts/seeds/ingest_enron_csv.py \
+  /data/dumps/20011022.csv \
+  --tenant-id b5e1fa40-89f4-50c2-a3f4-4c122000beef
+```
+
+### 4. Incident Generation (Second Workflow)
+Aggregate the raw Risk Events into actionable Incidents (Cases).
+*Tool: `generate_incidents.py`*
+
+```bash
+docker compose run --rm b2b-domain-worker python /app/modules/domains/b2b/bank_surveillance/scripts/seeds/generate_incidents.py \
+  --tenant-id b5e1fa40-89f4-50c2-a3f4-4c122000beef
