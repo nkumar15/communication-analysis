@@ -245,7 +245,8 @@ class AlertService:
         limit: int = 50, 
         offset: int = 0,
         sort_by: Optional[str] = None,
-        sort_desc: bool = True
+        sort_desc: bool = True,
+        access_scopes: Optional[List[UUID]] = None
     ) -> Tuple[List[Alert], int]:
         """List alerts with filtering"""
         query = select(Alert).where(Alert.tenant_id == tenant_id)
@@ -253,6 +254,11 @@ class AlertService:
         # Join Communication and Region for listing
         query = query.outerjoin(Communication, Alert.communication_id == Communication.id)
         query = query.outerjoin(GeographicRegion, Communication.data_region_id == GeographicRegion.id)
+        
+        # Apply geographic scopes if provided
+        if access_scopes:
+            query = query.where(Communication.data_region_id.in_(access_scopes))
+        
         query = query.options(
             selectinload(Alert.communication).selectinload(Communication.region),
             selectinload(Alert.assignee)

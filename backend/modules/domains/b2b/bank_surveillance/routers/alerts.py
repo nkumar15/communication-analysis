@@ -106,6 +106,7 @@ async def list_alerts(
 ):
     """List risk alerts with filtering."""
     tenant_id = current_user["tenant_id"]
+    geographic_scopes = current_user.get("geographic_scopes", [])
     
     filters = AlertFilter(
         status=status,
@@ -116,7 +117,10 @@ async def list_alerts(
         region=region
     )
     
-    alerts, total = await alert_service.list_alerts(db, tenant_id, filters, limit, offset, sort_by, sort_desc)
+    alerts, total = await alert_service.list_alerts(
+        db, tenant_id, filters, limit, offset, sort_by, sort_desc, 
+        access_scopes=geographic_scopes
+    )
     return alerts
 
 @router.post("/", response_model=AlertResponse, status_code=status.HTTP_201_CREATED)

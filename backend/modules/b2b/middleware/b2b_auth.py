@@ -98,6 +98,7 @@ async def get_current_active_user(
         "role_id": user_row.role_id,
         "role": role_slug,
         "role_display_name": role_display_name,
+        "geographic_scopes": user_row.geographic_scopes or [],
         "enabled_plugins": tenant.features.get('plugins', []) if tenant.features else []
     }
 
