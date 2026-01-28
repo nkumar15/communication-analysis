@@ -182,14 +182,20 @@ class AlertService:
         )
 
     async def get_regional_risk_stats(self, db: AsyncSession, tenant_id: UUID) -> List[dict]:
-        """Get risk statistics grouped by region."""
-        # Simple aggregation for now: group by region name and count open alerts
+        """Get risk statistics grouped by region, including regions with no alerts."""
         from sqlalchemy import case as sql_case
+        from sqlalchemy import func
         
-        stmt = (
+        # 1. Fetch all regions first
+        regions_stmt = select(GeographicRegion).order_by(GeographicRegion.id)
+        regions_res = await db.execute(regions_stmt)
+        all_regions = regions_res.scalars().all()
+        
+        # 2. Fetch alert counts and max severity grouped by region
+        # We join through Communication to get the region ID
+        stats_stmt = (
             select(
-                GeographicRegion.name,
-                GeographicRegion.code,
+                Communication.data_region_id,
                 func.count(Alert.id).label("count"),
                 func.max(
                     sql_case(
@@ -202,28 +208,33 @@ class AlertService:
             )
             .select_from(Alert)
             .join(Communication, Alert.communication_id == Communication.id)
-            .join(GeographicRegion, Communication.data_region_id == GeographicRegion.id)
             .where(Alert.tenant_id == tenant_id, Alert.status == AlertStatus.OPEN.value)
-            .group_by(GeographicRegion.name, GeographicRegion.code)
+            .group_by(Communication.data_region_id)
         )
         
-        result = await db.execute(stmt)
-        rows = result.all()
+        stats_res = await db.execute(stats_stmt)
+        stats_map = {row.data_region_id: row for row in stats_res.all()}
         
-        stats = []
-        severity_map = {4: "High", 3: "Mod", 2: "Low", 1: "Std"} # Simplified for UI
+        # 3. Build final response
+        final_stats = []
+        severity_map = {4: "High", 3: "Mod", 2: "Low", 1: "Std"} 
         color_map = {4: "error", 3: "warning", 2: "info", 1: "success"}
 
-        for row in rows:
-            stats.append({
-                "code": row.code or row.name[:3].upper(),
-                "label": row.name,
-                "risk": severity_map.get(row.max_severity, "Std"),
-                "color": color_map.get(row.max_severity, "success"),
-                "count": row.count
+        # We show all regions for a full global risk view
+        for region in all_regions:
+            row = stats_map.get(region.id)
+            max_severity = row.max_severity if row else 1
+            count = row.count if row else 0
+            
+            final_stats.append({
+                "code": region.code,
+                "label": region.name,
+                "risk": severity_map.get(max_severity, "Std"),
+                "color": color_map.get(max_severity, "success"),
+                "count": count
             })
             
-        return stats
+        return final_stats
 
 
     async def list_alerts(

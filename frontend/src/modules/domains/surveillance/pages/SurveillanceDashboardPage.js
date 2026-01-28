@@ -100,85 +100,94 @@ const SurveillanceDashboardPage = () => {
         <AdminLayout title="Command Center" subtitle="Strategic Intelligence & Multi-Channel Compliance Monitoring">
             <Box sx={{ p: 2, height: 'calc(100vh - 84px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f3f4f6' }}>
 
-                {/* 1. TOP SUMMARY ROW (Aligned Baseline) */}
-                <Grid container spacing={2} sx={{ mb: 2, flexShrink: 0, width: '100%' }}>
+                {/* 1. TOP SUMMARY ROW (Strict 50/50 split, using full 100% width) */}
+                <Box sx={{ display: 'flex', gap: 2, mb: 2, flexShrink: 0, width: '100%', minHeight: '120px' }}>
 
-                    {/* Regional Risk Posture */}
-                    <Grid item xs={12} md={3} lg={3} xl={3}>
-                        <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Shield color="primary" fontSize="small" />
-                                    <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ fontSize: '0.75rem' }}>GLOBAL RISK</Typography>
-                                </Box>
-                                <Chip label="Stable" color="success" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }} />
+                    {/* Left 50%: Global Risk Monitor */}
+                    <Paper sx={{ p: 2, flex: '0 0 calc(50% - 8px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Shield color="primary" fontSize="small" />
+                                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ fontSize: '0.75rem' }}>GLOBAL RISK MONITOR</Typography>
                             </Box>
+                        </Box>
 
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                {regions.map((region) => (
-                                    <Tooltip title={`${region.label}: ${region.risk}`} key={region.code}>
-                                        <Box sx={{
-                                            flex: 1,
-                                            p: 1,
-                                            borderRadius: 2,
-                                            border: 1,
-                                            borderColor: `${region.color}.main`,
-                                            bgcolor: (theme) => `rgba(${region.color === 'success' ? '46, 125, 50' : region.color === 'warning' ? '237, 108, 2' : '2, 136, 209'}, 0.08)`,
-                                            textAlign: 'center',
-                                            position: 'relative',
-                                            overflow: 'hidden'
-                                        }}>
-                                            <Box sx={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', bgcolor: `${region.color}.main` }} />
-                                            <Box sx={{ position: 'relative', zIndex: 1, pl: 0.5 }}>
-                                                <Typography variant="caption" fontWeight="700" color="text.secondary" display="block" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>{region.code}</Typography>
-                                                <Typography variant="body2" fontWeight="800" sx={{ color: `${region.color}.main`, lineHeight: 1.2 }}>{region.risk}</Typography>
-                                            </Box>
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'nowrap', width: '100%', justifyContent: 'space-between', px: 1 }}>
+                            {regions.map((region) => (
+                                <Tooltip title={`${region.label}: ${region.risk}`} key={region.code}>
+                                    <Box sx={{
+                                        flex: 1, // Let them expand to fill space
+                                        maxWidth: 100, // But not too much
+                                        height: 64, // Fixed height for squareness
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: 2,
+                                        border: 1,
+                                        borderColor: `${region.color}.main`,
+                                        bgcolor: (theme) => `rgba(${region.color === 'success' ? '46, 125, 50' : region.color === 'warning' ? '237, 108, 2' : '2, 136, 209'}, 0.08)`,
+                                        textAlign: 'center',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        transition: 'transform 0.2s',
+                                        '&:hover': { transform: 'scale(1.05)', boxShadow: 1 }
+                                    }}>
+                                        <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 4, bgcolor: `${region.color}.main` }} />
+                                        <Box sx={{ position: 'relative', zIndex: 1 }}>
+                                            <Typography variant="caption" fontWeight="700" color="text.secondary" display="block" sx={{ opacity: 0.8, fontSize: '0.7rem', mb: 0.5 }}>{region.code}</Typography>
+                                            <Typography variant="body2" fontWeight="800" sx={{ color: `${region.color}.main`, lineHeight: 1, fontSize: '0.8rem' }}>{region.risk}</Typography>
                                         </Box>
-                                    </Tooltip>
-                                ))}
-                            </Box>
-                        </Paper>
-                    </Grid>
+                                    </Box>
+                                </Tooltip>
+                            ))}
+                        </Box>
+                    </Paper>
 
-                    {/* KPI Cards */}
-                    {stats.map((stat, index) => (
-                        <Grid item xs={12} md={3} lg={3} xl={3} key={index} sx={{ flexGrow: 1 }}>
+                    {/* Right 50%: KPI Cards (Shared split) */}
+                    <Box sx={{ flex: '1 1 50%', display: 'flex', gap: 2, minWidth: 0 }}>
+                        {stats.map((stat, index) => (
                             <Paper
+                                key={index}
                                 sx={{
                                     p: 2,
-                                    height: '100%',
+                                    flex: 1,
                                     cursor: 'pointer',
                                     position: 'relative',
                                     transition: 'transform 0.2s',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    minWidth: 0,
                                     '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
                                 }}
                                 onClick={() => navigate(stat.path)}
                             >
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.65rem' }}>
                                             {stat.subtitle}
                                         </Typography>
-                                        <Typography variant="body2" fontWeight="700" sx={{ lineHeight: 1.2 }}>
+                                        <Typography variant="body2" fontWeight="700" sx={{ lineHeight: 1.1, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {stat.title}
                                         </Typography>
                                     </Box>
-                                    <Avatar sx={{ width: 32, height: 32, bgcolor: stat.bgcolor, color: stat.color }}>
+                                    <Avatar sx={{ width: 28, height: 28, bgcolor: stat.bgcolor, color: stat.color }}>
                                         {stat.icon}
                                     </Avatar>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-                                    <Typography variant="h4" fontWeight="800" color="text.primary">
+                                    <Typography variant="h5" fontWeight="800" color="text.primary">
                                         {stat.value}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
-                                        <TrendingUp sx={{ fontSize: 14, mr: 0.5 }} /> {stat.trend}
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', fontSize: '0.65rem' }}>
+                                        <TrendingUp sx={{ fontSize: 12, mr: 0.2 }} /> {stat.trend}
                                     </Typography>
                                 </Box>
                             </Paper>
-                        </Grid>
-                    ))}
-                </Grid>
+                        ))}
+                    </Box>
+                </Box>
 
                 {/* 2. MAIN CONTENT (Flex Grow) */}
                 <Box sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', gap: 2 }}>
