@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+import re
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
@@ -38,6 +39,8 @@ async def get_message(
             
     return comm
 
+import asyncio
+
 @router.get("/search")
 async def search_communications(
     q: str = Query(..., description="Search query"),
@@ -45,10 +48,46 @@ async def search_communications(
     db: AsyncSession = Depends(get_db),
     current_user: dict = require_permission("rag_search", "read")
 ):
-    """Search communications using RAG (Hybrid/Vector)."""
+    """Search communications using Hybrid Search (Keyword + Vector)."""
     tenant_id = current_user["tenant_id"]
-    results = await communication_rag_service.search(query=q, tenant_id=tenant_id, limit=limit)
-    return results
+    
+    # Perform Keyword and Vector search in parallel
+    kw_task = communication_rag_service.keyword_search(query=q, tenant_id=tenant_id, limit=limit)
+    vec_task = communication_rag_service.search(query=q, tenant_id=tenant_id, limit=limit)
+    
+    kw_res, vec_res = await asyncio.gather(kw_task, vec_task)
+    
+    # Merge and Deduplicate (Priority: Keyword matches first)
+    final_results = []
+    seen_keys = set()
+    
+    import hashlib
+    def get_dedupe_key(res):
+        m_id = res["metadata"].get("message_id")
+        if m_id:
+            return f"mid:{m_id}"
+        # Fallback to content hash if message_id is missing
+        content_hash = hashlib.md5(res["text"].encode()).hexdigest()
+        return f"hash:{content_hash}"
+
+    for r in kw_res.get("results", []):
+        key = get_dedupe_key(r)
+        if key not in seen_keys:
+            final_results.append(r)
+            seen_keys.add(key)
+            
+    for r in vec_res.get("results", []):
+        key = get_dedupe_key(r)
+        if key not in seen_keys:
+            final_results.append(r)
+            seen_keys.add(key)
+            
+    return {
+        "query": q,
+        "results": final_results[:limit],
+        "count": len(final_results[:limit]),
+        "engine": "hybrid-search"
+    }
 
 @router.get("/communications", response_model=List[CommunicationResponse])
 async def list_communications(

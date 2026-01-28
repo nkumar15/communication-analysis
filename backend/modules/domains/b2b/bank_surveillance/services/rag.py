@@ -1,3 +1,4 @@
+import re
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core import VectorStoreIndex
 from typing import Dict, Any, List, Optional
@@ -18,34 +19,136 @@ class CommunicationRagService(BaseRagService):
         """Basic RAG Search using Vector Store."""
         self._ensure_initialized()
         
-        # 1. Create Retriever from Index
-        index = VectorStoreIndex.from_vector_store(self.vector_store, embed_model=self.embed_model)
-        
-        # TODO: Add metadata filters for tenant_id (Basic RAG usually implies simple retrieval first)
-        # filters = MetadataFilters(filters=[MetadataFilter(key="tenant_id", value=str(tenant_id))])
-        
-        retriever = index.as_retriever(similarity_top_k=limit)
-        
-        # 2. Retrieve
-        nodes = await retriever.aretrieve(query)
-        
-        # 3. Format
-        return self._format_results(query, nodes)
+        try:
+            # 1. Create Retriever from Index
+            index = VectorStoreIndex.from_vector_store(self.vector_store, embed_model=self.embed_model)
+            retriever = index.as_retriever(similarity_top_k=limit)
+            
+            # 2. Retrieve
+            nodes = await retriever.aretrieve(query)
+            
+            # 3. Format
+            formatted_results = []
+            for n in nodes:
+                content = n.node.get_content()
+                metadata = n.node.metadata
+                metadata = self._enrich_metadata_for_display(content, metadata)
+                
+                formatted_results.append({
+                    "text": content,
+                    "score": n.score,
+                    "metadata": metadata
+                })
+                
+            return self._format_results(query, formatted_results)
+        except Exception as e:
+            logger.error(f"Vector search failed: {e}")
+            return self._format_results(query, [])
 
-    def _format_results(self, query: str, nodes: List) -> Dict[str, Any]:
-        results = []
-        for n in nodes:
-            results.append({
-                "text": n.node.get_content(),
-                "score": n.score,
-                "metadata": n.node.metadata
-            })
+    def _enrich_metadata_for_display(self, content: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensures subject and other fields are populated for UI."""
+        if not content:
+            return metadata
+            
+        trimmed_content = content.strip()
+        # Case insensitive check for "Subject: " in the first few lines
+        if not metadata.get("subject") or metadata.get("subject") == "(No Subject)":
+            lines = trimmed_content.split("\n")
+            # Enron emails often have Subject line in the first 10 lines
+            for line in lines[:10]:
+                clean_line = line.strip()
+                # Handle "Subject: ..." or "Subject:   ..."
+                if clean_line.lower().startswith("subject:"):
+                    metadata["subject"] = clean_line[8:].strip()
+                    break
+                # Some Enron emails use "Subject:	..." (tabbed)
+                if clean_line.lower().startswith("subject"):
+                    parts = re.split(r'[:\s\t]+', clean_line, maxsplit=1)
+                    if len(parts) > 1 and parts[0].lower() == "subject":
+                        metadata["subject"] = parts[1].strip()
+                        break
         
+        # Fallback values for UI
+        metadata["subject"] = metadata.get("subject") or "(No Subject)"
+        metadata["sender"] = metadata.get("sender") or "Unknown"
+        metadata["recipients"] = metadata.get("recipients") or "Unknown"
+        
+        return metadata
+
+    def _format_results(self, query: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         return {
             "query": query,
             "results": results,
-            "count": len(results)
+            "count": len(results),
+            "engine": "hybrid-search"
         }
+
+    async def keyword_search(self, query: str, tenant_id: UUID, limit: int = 5) -> Dict[str, Any]:
+        """Elasticsearch BM25 keyword search (No Embeddings, Cost Saving Demo)."""
+        self._ensure_initialized()
+        
+        if self._vector_store_provider != "elasticsearch":
+            # Fallback for other providers if needed, though we primarily use ES
+            return self._format_results(query, [])
+
+        try:
+            client = self.vector_store.client
+            index_name = self.get_index_name()
+            
+            # Use simple_query_string for more robust term matching in demo highlights
+            es_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "simple_query_string": {
+                                    "query": query,
+                                    "fields": ["content^5", "metadata.subject^3", "metadata.sender^2"],
+                                    "default_operator": "or",
+                                    "analyze_wildcard": True
+                                }
+                            }
+                        ],
+                        "filter": [
+                            {"term": {"metadata.tenant_id.keyword": str(tenant_id)}}
+                        ]
+                    }
+                },
+                "highlight": {
+                    "fields": {
+                        "content": {"number_of_fragments": 3},
+                        "metadata.subject": {}
+                    },
+                    "pre_tags": ["<mark>"],
+                    "post_tags": ["</mark>"]
+                },
+                "size": limit
+            }
+            
+            response = await client.search(index=index_name, body=es_query)
+            hits = response.get("hits", {}).get("hits", [])
+            
+            results = []
+            for hit in hits:
+                source = hit["_source"]
+                content = source.get("content", "")
+                metadata = source.get("metadata", {})
+                metadata = self._enrich_metadata_for_display(content, metadata)
+                
+                # Capture highlights
+                highlights = hit.get("highlight", {})
+                
+                results.append({
+                    "text": content,
+                    "score": hit["_score"],
+                    "metadata": metadata,
+                    "highlights": highlights
+                })
+                
+            return self._format_results(query, results)
+        except Exception as e:
+            logger.error(f"Keyword search failed: {e}")
+            return self._format_results(query, [])
 
     def _get_embedding_model(self, enable_semantic: bool):
         """

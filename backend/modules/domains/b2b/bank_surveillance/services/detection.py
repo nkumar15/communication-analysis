@@ -52,6 +52,20 @@ class DetectionService:
         Returns:
             List of RiskEvent records created
         """
+        # --- Noise Reduction: Excluded Senders ---
+        EXCLUDED_SENDERS = {
+            "403095.167547968.1@news.forbesdigital.com",
+            "398026.167547968.1@news.forbesdigital.com",
+            "no.address@enron.com",
+            "newsletter@winecommune.com"
+        }
+        
+        if communication.sender in EXCLUDED_SENDERS:
+            logger.info(f"Skipping risk detection for excluded sender: {communication.sender}")
+            communication.analyzed = True
+            return []
+        # -----------------------------------------
+
         if controls is None:
             controls = await self.get_active_controls()
         

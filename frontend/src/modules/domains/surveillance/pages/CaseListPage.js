@@ -86,17 +86,9 @@ const CaseListPage = () => {
     );
 
     return (
-        <AdminLayout>
+        <AdminLayout title="Case Management" subtitle="Manage compliance investigations and lifecycle.">
             <Box sx={{ p: 4, bgcolor: '#f8f9fa', minHeight: '100vh' }}>
-                <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                    <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a1a1a', mb: 1 }}>
-                            Case Management
-                        </Typography>
-                        <Typography variant="body1" color="textSecondary">
-                            Manage compliance investigations and lifecycle.
-                        </Typography>
-                    </Box>
+                <Box sx={{ mb: 4, display: 'flex', justifyContent: 'flex-end' }}>
                     <Button
                         variant="contained"
                         startIcon={<Assignment />}
@@ -109,7 +101,7 @@ const CaseListPage = () => {
 
                 {/* Stats Cards */}
                 {stats && (
-                    <Grid container spacing={3} sx={{ mb: 4 }}>
+                    <Grid container spacing={3} sx={{ mb: 4, width: '100%', ml: 0 }}>
                         {[
                             { label: 'Active Cases', value: stats.open_count, color: '#3f51b5', icon: <FolderOpen /> },
                             { label: 'Pending Review', value: stats.in_review_count, color: '#ff9800', icon: <RateReview /> },

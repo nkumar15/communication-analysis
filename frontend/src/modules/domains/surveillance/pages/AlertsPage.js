@@ -106,7 +106,7 @@ const AlertsPage = () => {
     const pickNextAlert = () => {
         const next = alerts.find(a => a.status === 'open' && !a.assigned_to);
         if (next) {
-            handleStatusUpdate(next.id, 'investigating', true);
+            navigate(`/b2b/surveillance/alerts/${next.id}`);
         }
     };
 
@@ -325,10 +325,10 @@ const AlertsPage = () => {
                                         </TableCell>
                                         <TableCell align="right">
                                             <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                                <Tooltip title={alert.status === 'open' ? "Review & Verify" : "View Details"}>
+                                                <Tooltip title="View Details">
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => alert.status === 'open' ? handleStatusUpdate(alert.id, 'investigating', true) : navigate(`/b2b/surveillance/alerts/${alert.id}`)}
+                                                        onClick={() => navigate(`/b2b/surveillance/alerts/${alert.id}`)}
                                                         color="primary"
                                                     >
                                                         <Visibility fontSize="small" />
@@ -339,9 +339,9 @@ const AlertsPage = () => {
                                                         <IconButton
                                                             size="small"
                                                             onClick={() => handleStatusUpdate(alert.id, 'escalated')}
-                                                            disabled={!['open', 'investigating'].includes(alert.status)}
+                                                            disabled={!['open', 'investigating'].includes(alert.status) || !alert.assigned_to}
                                                         >
-                                                            <HistoryEdu fontSize="small" color={['open', 'investigating'].includes(alert.status) ? "secondary" : "disabled"} />
+                                                            <HistoryEdu fontSize="small" color={(['open', 'investigating'].includes(alert.status) && alert.assigned_to) ? "secondary" : "disabled"} />
                                                         </IconButton>
                                                     </span>
                                                 </Tooltip>
@@ -350,9 +350,9 @@ const AlertsPage = () => {
                                                         <IconButton
                                                             size="small"
                                                             onClick={() => handleStatusUpdate(alert.id, 'closed')}
-                                                            disabled={alert.status === 'closed'}
+                                                            disabled={alert.status === 'closed' || !alert.assigned_to}
                                                         >
-                                                            <DoneAll fontSize="small" color={alert.status !== 'closed' ? "success" : "disabled"} />
+                                                            <DoneAll fontSize="small" color={(alert.status !== 'closed' && alert.assigned_to) ? "success" : "disabled"} />
                                                         </IconButton>
                                                     </span>
                                                 </Tooltip>

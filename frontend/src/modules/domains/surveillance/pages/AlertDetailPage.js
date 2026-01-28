@@ -203,7 +203,7 @@ const AlertDetailPage = () => {
                                     color="error"
                                     startIcon={<Warning />}
                                     onClick={() => handleStatusUpdate('escalated')}
-                                    disabled={['escalated', 'closed'].includes(alert.status)}
+                                    disabled={['escalated', 'closed'].includes(alert.status) || !alert.assigned_to}
                                     sx={{ borderRadius: 2, fontWeight: 700, px: 3, border: '2px solid' }}
                                 >
                                     Escalate
@@ -213,7 +213,7 @@ const AlertDetailPage = () => {
                                     color="success"
                                     startIcon={<DoneAll />}
                                     onClick={() => handleStatusUpdate('closed')}
-                                    disabled={alert.status === 'closed'}
+                                    disabled={alert.status === 'closed' || !alert.assigned_to}
                                     sx={{ borderRadius: 2, fontWeight: 700, px: 3, boxShadow: 'none' }}
                                 >
                                     Close Alert
@@ -279,31 +279,86 @@ const AlertDetailPage = () => {
                                                 </Typography>
                                             </Box>
                                         ) : aiReport ? (
-                                            <Stack spacing={2}>
+                                            <Stack spacing={2.5}>
                                                 <Box sx={{
-                                                    p: 1.5, bgcolor: aiReport.risk_level === 'high' ? '#fef2f2' : '#f0f9ff',
-                                                    border: '1px solid', borderColor: aiReport.risk_level === 'high' ? '#fee2e2' : '#bae6fd',
+                                                    p: 2.5,
+                                                    bgcolor: aiReport.risk_level === 'high' ? '#fff5f5' : '#f0f9ff',
+                                                    border: '1px solid',
+                                                    borderColor: aiReport.risk_level === 'high' ? '#feb2b2' : '#bee3f8',
                                                     borderRadius: 2
                                                 }}>
-                                                    <Typography variant="h6" sx={{
-                                                        fontWeight: 900, mb: 0.5,
-                                                        color: aiReport.risk_level === 'high' ? '#dc2626' : '#0284c7'
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                                        <Box sx={{
+                                                            width: 12, height: 12, borderRadius: '50%',
+                                                            bgcolor: aiReport.risk_level === 'high' ? '#e53e3e' : '#3182ce',
+                                                            boxShadow: (theme) => `0 0 0 2px ${aiReport.risk_level === 'high' ? '#fff5f5' : '#f0f9ff'}, 0 0 0 4px ${aiReport.risk_level === 'high' ? '#feb2b2' : '#bee3f8'}`
+                                                        }} />
+                                                        <Typography variant="h6" sx={{
+                                                            fontSize: '1rem',
+                                                            fontWeight: 900,
+                                                            color: aiReport.risk_level === 'high' ? '#c53030' : '#2c5282',
+                                                            letterSpacing: 0.5
+                                                        }}>
+                                                            {(aiReport.risk_level || "UNKNOWN").toUpperCase()} RISK DETECTED
+                                                        </Typography>
+                                                    </Box>
+                                                    <Typography variant="body2" sx={{
+                                                        color: '#2d3748',
+                                                        fontWeight: 500,
+                                                        lineHeight: 1.6,
+                                                        fontSize: '0.875rem'
                                                     }}>
-                                                        {(aiReport.risk_level || "UNKNOWN").toUpperCase()} RISK
-                                                    </Typography>
-                                                    <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500, lineHeight: 1.4, fontSize: '0.8rem' }}>
                                                         {aiReport.summary}
                                                     </Typography>
                                                 </Box>
-                                                <Stack spacing={1}>
+
+                                                <Divider sx={{ borderStyle: 'dashed' }} />
+
+                                                <Stack spacing={1.5}>
+                                                    <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', letterSpacing: 1 }}>
+                                                        AGENT DIAGNOSTICS
+                                                    </Typography>
                                                     {[
-                                                        { title: "INTENT", value: aiReport.intent_verdict?.classification, color: '#4f46e5' },
-                                                        { title: "POLICY", value: aiReport.policy_verdict?.violation_citation || "Compliant", color: aiReport.policy_verdict?.is_compliant ? '#16a34a' : '#dc2626' },
-                                                        { title: "EVASION", value: aiReport.evasion_verdict?.evasion_type || "None", color: aiReport.evasion_verdict?.is_evasion ? '#dc2626' : '#16a34a' }
+                                                        {
+                                                            title: "INTENT",
+                                                            value: aiReport.intent_verdict?.classification || "Unknown",
+                                                            status: aiReport.intent_verdict?.classification?.toLowerCase() === 'malicious' ? 'error' : 'info'
+                                                        },
+                                                        {
+                                                            title: "POLICY",
+                                                            value: aiReport.policy_verdict?.violation_citation || "Compliant",
+                                                            status: aiReport.policy_verdict?.is_compliant ? 'success' : 'error'
+                                                        },
+                                                        {
+                                                            title: "EVASION",
+                                                            value: aiReport.evasion_verdict?.evasion_type || "None Detected",
+                                                            status: aiReport.evasion_verdict?.is_evasion ? 'error' : 'success'
+                                                        }
                                                     ].map((agent, i) => (
-                                                        <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>{agent.title}</Typography>
-                                                            <Typography variant="caption" sx={{ fontWeight: 900, color: agent.color }}>{agent.value}</Typography>
+                                                        <Box key={i} sx={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            p: 1.25,
+                                                            bgcolor: '#f8fafc',
+                                                            borderRadius: 1.5,
+                                                            border: '1px solid #edf2f7'
+                                                        }}>
+                                                            <Typography variant="caption" sx={{ fontWeight: 800, color: '#4a5568' }}>{agent.title}</Typography>
+                                                            <Typography
+                                                                variant="caption"
+                                                                sx={{
+                                                                    fontWeight: 900,
+                                                                    px: 1,
+                                                                    py: 0.25,
+                                                                    borderRadius: 1,
+                                                                    bgcolor: agent.status === 'success' ? '#def7ec' : agent.status === 'error' ? '#fde2e1' : '#e1effe',
+                                                                    color: agent.status === 'success' ? '#03543f' : agent.status === 'error' ? '#9b1c1c' : '#1e429f',
+                                                                    fontSize: '0.65rem'
+                                                                }}
+                                                            >
+                                                                {agent.value.toUpperCase()}
+                                                            </Typography>
                                                         </Box>
                                                     ))}
                                                 </Stack>

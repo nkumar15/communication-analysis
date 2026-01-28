@@ -200,7 +200,7 @@ const SurveillanceDashboardPage = () => {
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>Risk Event</TableCell>
                                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>Entity</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>Score</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>Severity</TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 600, color: 'text.secondary' }}>Action</TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -237,7 +237,7 @@ const SurveillanceDashboardPage = () => {
                                                         sx={{ minWidth: 0, px: 2, fontWeight: 600 }}
                                                         onClick={() => navigate(`/b2b/surveillance/alerts/${row.id}`)}
                                                     >
-                                                        Investigate
+                                                        View Details
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
