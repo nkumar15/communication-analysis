@@ -12,10 +12,10 @@ geographic_boundaries:
   # Template data (cloned to b2b.geographic_regions per tenant)
   default_regions:
     - code: US
-      name: United States (Global HQ)
+      name: United States
       regulatory_jurisdiction: SEC/Fed
     - code: SG
-      name: Singapore (APAC Hub)
+      name: Singapore
       regulatory_jurisdiction: MAS
     - code: UK
       name: United Kingdom

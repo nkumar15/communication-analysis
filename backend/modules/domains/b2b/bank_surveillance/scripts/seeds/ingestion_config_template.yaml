@@ -26,7 +26,12 @@ ingestion_config_templates:
     description: "Production config for banks with sender-based region detection"
     is_default: false
     region_strategy: "sender_lookup"
-    sender_domain_map: {}  # Populated per-tenant after clone
+    sender_domain_map: 
+      "@uk.worldwidebank.com": "United Kingdom"
+      "@sg.worldwidebank.com": "Singapore"
+      "@us.worldwidebank.com": "United States"
+      "@jp.worldwidebank.com": "Japan"
+      "@au.worldwidebank.com": "Australia"
     classification_strategy: "content_rules"
     channel_map: {}
     content_rules: []  # Customized per-tenant

@@ -80,7 +80,7 @@ class CommunicationIngestionService:
             print(f"Error parsing email: {e}")
             return None
 
-    async def ingest_message_with_status(self, email_data: EmailParsedData, tenant_id: uuid.UUID, source_ref: str = None) -> str:
+    async def ingest_message_with_status(self, email_data: EmailParsedData, tenant_id: uuid.UUID, source_ref: str = None, forced_region_id: uuid.UUID = None) -> str:
         """Core logic to save a parsed message to DB and index it. Returns: 'inserted', 'skipped', 'failed'"""
         try:
             # Check duplicates (Message-ID)
@@ -110,9 +110,12 @@ class CommunicationIngestionService:
                 plugin_service = PluginDetectionService(self.db, tenant_id)
                 
                 # Detect and set region
-                region_id = await plugin_service.detect_region(db_comm)
-                if region_id:
-                    db_comm.data_region_id = region_id
+                if forced_region_id:
+                    db_comm.data_region_id = forced_region_id
+                else:
+                    region_id = await plugin_service.detect_region(db_comm)
+                    if region_id:
+                        db_comm.data_region_id = region_id
                 
                 # Detect and set classification
                 level_id = await plugin_service.detect_classification(db_comm)
@@ -130,9 +133,9 @@ class CommunicationIngestionService:
             print(f"Failed to ingest message {email_data.message_id}: {e}")
             return "failed"
 
-    async def ingest_message(self, email_data: EmailParsedData, tenant_id: uuid.UUID, source_ref: str = None) -> bool:
+    async def ingest_message(self, email_data: EmailParsedData, tenant_id: uuid.UUID, source_ref: str = None, forced_region_id: uuid.UUID = None) -> bool:
         """Wrapper for backward compatibility. Returns True if inserted, False if skipped or failed."""
-        status = await self.ingest_message_with_status(email_data, tenant_id, source_ref)
+        status = await self.ingest_message_with_status(email_data, tenant_id, source_ref, forced_region_id)
         return status == "inserted"
 
 

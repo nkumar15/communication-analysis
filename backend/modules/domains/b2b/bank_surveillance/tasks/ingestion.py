@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, name="bank_surveillance.ingest_daily_dump", queue="b2b-domain", max_retries=2)
-def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, index_vectors: bool = False):
+def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, index_vectors: bool = False, region_code: str = "SG"):
     """
     Celery Task: Ingests a daily dump file (CSV) into the communications table.
     Runs in separate thread with fresh engine for isolation (avoids event loop conflicts).
@@ -34,6 +34,7 @@ def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, in
         date: YYYYMMDD date identifier for this dump.
         tenant_id: Optional tenant UUID string. Defaults to script-generated UUID.
         index_vectors: Whether to index content into Elasticsearch for RAG.
+        region_code: Default region code to map data to (default: "SG").
     """
     # index_vectors defaults to False (Keyword only). 
     # If True, we enable Semantic Embeddings.
@@ -64,7 +65,7 @@ def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, in
             try:
                 async with DedicatedSessionLocal() as db:
                     return await _run_ingestion_async(
-                        job_id, file_path, date, tenant_id, index_vectors, db
+                        job_id, file_path, date, tenant_id, index_vectors, region_code, db
                     )
             finally:
                 await engine.dispose()
@@ -83,7 +84,7 @@ def ingest_daily_dump(self, file_path: str, date: str, tenant_id: str = None, in
         raise self.retry(exc=exc)
 
 
-def run_ingestion(file_path: str, date: str, tenant_id: str = None, index_vectors: bool = False):
+def run_ingestion(file_path: str, date: str, tenant_id: str = None, index_vectors: bool = False, region_code: str = "SG"):
     """
     Synchronous wrapper for CLI/script usage.
     
@@ -94,7 +95,7 @@ def run_ingestion(file_path: str, date: str, tenant_id: str = None, index_vector
     # index_vectors defaults to False (Keyword only)
     
     job_id = uuid.uuid4()
-    return asyncio.run(_run_ingestion_async_standalone(job_id, file_path, date, tenant_id, index_vectors))
+    return asyncio.run(_run_ingestion_async_standalone(job_id, file_path, date, tenant_id, index_vectors, region_code))
 
 
 async def _run_ingestion_async_standalone(
@@ -102,7 +103,8 @@ async def _run_ingestion_async_standalone(
     file_path: str, 
     date: str, 
     tenant_id_str: str = None,
-    index_vectors: bool = False
+    index_vectors: bool = False,
+    region_code: str = "SG"
 ) -> dict:
     """Standalone async runner for CLI usage - creates its own session."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -119,7 +121,7 @@ async def _run_ingestion_async_standalone(
     
     try:
         async with DedicatedSessionLocal() as db:
-            return await _run_ingestion_async(job_id, file_path, date, tenant_id_str, index_vectors, db)
+            return await _run_ingestion_async(job_id, file_path, date, tenant_id_str, index_vectors, region_code, db)
     finally:
         await engine.dispose()
 
@@ -130,6 +132,7 @@ async def _run_ingestion_async(
     date: str, 
     tenant_id_str: str = None,
     index_vectors: bool = False,
+    region_code: str = "SG",
     db = None
 ) -> dict:
     """
@@ -144,12 +147,26 @@ async def _run_ingestion_async(
     from modules.domains.b2b.bank_surveillance.services.ingestion import CommunicationIngestionService, EmailParsedData
     from modules.domains.b2b.bank_surveillance.services.rag import communication_rag_service
     from modules.domains.b2b.bank_surveillance.models.ingestion_log import IngestionLog
+    from modules.b2b.models.geographic_region import GeographicRegion
+    from sqlalchemy import select
     
     tenant_id = uuid.UUID(tenant_id_str) if tenant_id_str else uuid.uuid5(uuid.NAMESPACE_DNS, "ingest-task")
     
-    # CRITICAL: Set RLS context for tenant BEFORE any inserts
-    # Use tenant context to satisfy RLS policy for insert (tenant_id match)
+    # CRITICAL: Set RLS context for tenant BEFORE any inserts or lookups
+    # Use tenant context to satisfy RLS policy for insert (tenant_id match) and region lookup
     await rls_service.set_tenant_context(db, tenant_id)
+
+    # Resolve region code to UUID
+    forced_region_id = None
+    if region_code:
+        region_res = await db.execute(select(GeographicRegion.id).where(
+            GeographicRegion.code == region_code,
+            GeographicRegion.tenant_id == tenant_id
+        ))
+        forced_region_id = region_res.scalar_one_or_none()
+        if not forced_region_id and region_code == "SG":
+             # Fallback: maybe specific tenant logic or just allow None if not found (though user wants force SG)
+             logger.warning(f"Region code {region_code} not found for tenant {tenant_id}")
     
     # Create log entry
     log_entry = IngestionLog(
@@ -197,7 +214,7 @@ async def _run_ingestion_async(
                     )
 
                     # Insert into DB
-                    result_code = await service.ingest_message_with_status(email_data, tenant_id, source_ref="csv_row")
+                    result_code = await service.ingest_message_with_status(email_data, tenant_id, source_ref="csv_row", forced_region_id=forced_region_id)
                     
                     if result_code == "inserted":
                         count += 1
@@ -336,5 +353,6 @@ if __name__ == "__main__":
         args.file_path, 
         args.date, 
         args.tenant_id, 
-        index_vectors=args.enable_vectors
+        index_vectors=args.enable_vectors,
+        region_code="SG" 
     )

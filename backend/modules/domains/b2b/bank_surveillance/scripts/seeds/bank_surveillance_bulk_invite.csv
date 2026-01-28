@@ -1,6 +1,8 @@
 email,team_name,team_role,name
 cso@worldwidebank.com,Global Surveillance,surveillance_chief,Siti Aisyah (CSO)
-director.apac.surv@worldwidebank.com,APAC Surveillance,regional_director,Wei Meng (Regional Director)
+director.apac@worldwidebank.com,APAC Surveillance,regional_director,Wei Meng (Regional Director)
 head.sg@worldwidebank.com,SG Desk,surveillance_country_lead,Priya Sharma (Country Head)
 analyst.sg@worldwidebank.com,SG Desk,surveillance_analyst,Sarah Tan (Analyst)
 guest.auditor@worldwidebank.com,SG Desk,guest_analyst,Nurul Huda (External Auditor)
+head.my@worldwidebank.com,MY Desk,surveillance_country_lead,Ahmad Bin Razak (Country Head)
+analyst.my@worldwidebank.com,MY Desk,surveillance_analyst,Fatima Binti Yasin (Analyst)

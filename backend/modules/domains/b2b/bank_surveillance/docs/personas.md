@@ -2,7 +2,7 @@
 
 ## Overview
 
-Six core personas represent the primary users and stakeholders of the Bank Surveillance platform, representing a diverse Singapore-based financial organization.
+Nine core personas represent the primary users and stakeholders of the Bank Surveillance platform, representing a diverse Singapore-based financial organization.
 
 ---
 
@@ -146,24 +146,64 @@ Six core personas represent the primary users and stakeholders of the Bank Surve
 
 ---
 
+## Persona 8: Ahmad Bin Razak – Country Head (Malaysia)
+
+**Email:** `head.my@worldwidebank.com`
+
+### Profile
+| Attribute | Value |
+|-----------|-------|
+| **Title** | Head of Surveillance, Malaysia |
+| **Demographic** | Malay |
+| **Experience** | 10 years in local market surveillance |
+| **Daily Focus** | Managing MY Desk, local regulatory liaison (BNM) |
+| **Tech Comfort** | High (operational leader) |
+
+### Goals
+- Manage performance of the Malaysia analyst team
+- Handle sensitive investigations involving local VIP clients
+- Ensure establishing audit trails for all MY-based alerts
+
+---
+
+## Persona 9: Fatima Binti Yasin – Surveillance Analyst (Malaysia)
+
+**Email:** `analyst.my@worldwidebank.com`
+
+### Profile
+| Attribute | Value |
+|-----------|-------|
+| **Title** | Surveillance Analyst, Malaysia Desk |
+| **Demographic** | Malay |
+| **Experience** | 3 years in trade surveillance |
+| **Daily Focus** | Alert triage, investigation, clearing queues |
+| **Tech Comfort** | Power user, keyboard shortcuts |
+
+### Goals
+- Efficiently process daily alert queue (False Positive reduction)
+- Build watertight investigation evidence using AI assistance
+- Meet daily closure targets set by Country Head
+
+---
+
 ## Persona Comparison Matrix
 
-| Attribute | Siti (CSO) | Wei Meng (Regional) | Priya (Head) | Sarah (Analyst) | Rajesh (Root) | Farhan (Ops) | Nurul (Auditor) |
-|-----------|------------|---------------------|--------------|-----------------|---------------|--------------|-----------------|
-| **Scope** | Global | Regional | Country (SG) | Ticket/Case | System | Platform | Snapshot |
-| **Frequency** | Weekly | Daily | Daily | Continuous | Monthly | Incident | Project-based |
-| **Permissions** | Reports | Manage/Read | Manage/Write | Write/Triage | Owner | Admin | Read-Only |
+| Attribute | Siti (CSO) | Wei Meng (Regional) | Priya (Head) | Sarah (Analyst) | Rajesh (Root) | Farhan (Ops) | Nurul (Auditor) | Ahmad (Head MY) | Fatima (Analyst MY) |
+|-----------|------------|---------------------|--------------|-----------------|---------------|--------------|-----------------|-----------------|---------------------|
+| **Scope** | Global | Regional | Country (SG) | Ticket/Case | System | Platform | Snapshot | Country (MY) | Ticket/Case |
+| **Frequency** | Weekly | Daily | Daily | Continuous | Monthly | Incident | Project-based | Daily | Continuous |
+| **Permissions** | Reports | Manage/Read | Manage/Write | Write/Triage | Owner | Admin | Read-Only | Manage/Write | Write/Triage |
 
 ---
 
 ## Persona-Based Feature Prioritization
 
-| Feature | Siti | Priya | Sarah | Nurul |
-|---------|------|-------|-------|-------|
-| Dashboard widgets | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐ |
-| Alert bulk actions | ⭐ | ⭐⭐ | ⭐⭐⭐ | ❌ |
-| Investigation workspace | ⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| AI explainability | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
-| Policy builder | ⭐ | ⭐⭐⭐ | ⭐ | ❌ |
-| Audit exports | ⭐⭐⭐ | ⭐ | ⭐ | ⭐⭐⭐ |
-| Region selector | ⭐⭐⭐ | ⭐ | ⭐ | ⭐ |
+| Feature | Siti | Priya | Sarah | Nurul | Ahmad | Fatima |
+|---------|------|-------|-------|-------|-------|--------|
+| Dashboard widgets | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐ | ⭐⭐ | ⭐ |
+| Alert bulk actions | ⭐ | ⭐⭐ | ⭐⭐⭐ | ❌ | ⭐⭐ | ⭐⭐⭐ |
+| Investigation workspace | ⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| AI explainability | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
+| Policy builder | ⭐ | ⭐⭐⭐ | ⭐ | ❌ | ⭐⭐⭐ | ⭐ |
+| Audit exports | ⭐⭐⭐ | ⭐ | ⭐ | ⭐⭐⭐ | ⭐ | ⭐ |
+| Region selector | ⭐⭐⭐ | ⭐ | ⭐ | ⭐ | ⭐ | ⭐ |
