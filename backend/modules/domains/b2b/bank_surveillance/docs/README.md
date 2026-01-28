@@ -32,7 +32,7 @@ This platform transforms raw communication data into actionable compliance insig
 ## Quick Links
 
 ### Product Docs
-- [Personas](./personas.md) - Sarah (Exec), Marcus (Analyst), Priya (Risk)
+- [Personas](./personas.md) - Priya (Exec), Ravi (Analyst), Priya (Risk)
 - [Navigation IA](./navigation.md)
 
 ### Pages

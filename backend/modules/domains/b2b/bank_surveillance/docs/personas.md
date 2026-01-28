@@ -2,180 +2,168 @@
 
 ## Overview
 
-Three core personas represent the primary users of the Bank Surveillance platform. Each has distinct needs, workflows, and success metrics.
+Six core personas represent the primary users and stakeholders of the Bank Surveillance platform, representing a diverse Singapore-based financial organization.
 
 ---
 
-## Persona 1: Sarah Chen – Head of Compliance
+## Persona 1: Siti Aisyah – Chief Surveillance Officer (Global)
+
+**Email:** `cso@worldwidebank.com`
 
 ### Profile
 | Attribute | Value |
 |-----------|-------|
-| **Title** | Head of Compliance, APAC Region |
-| **Experience** | 18 years in financial compliance |
-| **Daily Focus** | Strategic oversight, regulatory relationships |
+| **Title** | Chief Surveillance Officer (Global) |
+| **Demographic** | Malay |
+| **Experience** | 20 years in global financial compliance |
+| **Daily Focus** | Strategic oversight, board reporting, global risk posture |
 | **Tech Comfort** | Executive-level (dashboard consumer) |
 
 ### Goals
-- Prove surveillance program effectiveness to regulators
-- Reduce regulatory risk and avoid enforcement actions
+- Prove surveillance program effectiveness to global regulators (MAS, HKMA, FED)
+- Reduce regulatory risk and avoid enforcement actions across all regions
 - Demonstrate ROI of compliance technology investments
-- Maintain pre-audit readiness at all times
-
-### Pain Points Addressed
-| Pain Point | How Platform Solves It |
-|------------|------------------------|
-| Spreadsheet-based case tracking | Case Management with full lifecycle |
-| Ad-hoc reporting to regulators | Audit & Reports with exportable evidence |
-| Blind spots in communication patterns | Dashboard with risk themes |
-| Lack of AI explainability | Alert Detail with documented reasoning |
-
-### Key Pages
-1. **Dashboard** – Morning risk overview
-2. **Audit & Reports** – Regulator evidence generation
-3. **Cases** – High-priority case monitoring
-4. **Policies** – Policy effectiveness review
-
-### Success Metrics
-- Mean time to case closure < 5 days
-- Zero regulator findings on surveillance gaps
-- 100% audit trail completeness
-
-### Typical Workflow
-```
-Morning Check-in (Dashboard)
-    ↓
-Review High-Priority Cases (Cases)
-    ↓
-Prepare Weekly Board Report (Audit & Reports)
-    ↓
-Quarterly Policy Review (Policies)
-```
 
 ---
 
-## Persona 2: Marcus Johnson – Surveillance Analyst
+## Persona 2: Wei Meng – Regional Director (APAC)
+
+**Email:** `director.apac.surv@worldwidebank.com`
 
 ### Profile
 | Attribute | Value |
 |-----------|-------|
-| **Title** | Senior Surveillance Analyst |
-| **Experience** | 5 years in trade surveillance |
-| **Daily Focus** | Alert triage, investigation, case building |
+| **Title** | Regional Director, APAC Surveillance |
+| **Demographic** | Chinese |
+| **Experience** | 15 years in regional compliance |
+| **Daily Focus** | Regional risk management, cross-border investigations |
+| **Tech Comfort** | Managerial (report and trend analyst) |
+
+### Goals
+- Ensure local APAC regulations are met
+- harmonizing surveillance standards across Singapore, Hong Kong, and Tokyo
+- Escalate high-risk regional patterns to Global CSO
+
+---
+
+## Persona 3: Priya Sharma – Country Head (Singapore)
+
+**Email:** `head.sg@worldwidebank.com`
+
+### Profile
+| Attribute | Value |
+|-----------|-------|
+| **Title** | Head of Surveillance, Singapore |
+| **Demographic** | Indian |
+| **Experience** | 12 years in local market surveillance |
+| **Daily Focus** | Managing SG Desk, local regulatory liaison (MAS) |
+| **Tech Comfort** | High (operational leader) |
+
+### Goals
+- Manage performance of the Singapore analyst team
+- Handle sensitive investigations involving local VIP clients
+- Ensure establishing audit trails for all SG-based alerts
+
+---
+
+## Persona 4: Sarah Tan – Surveillance Analyst (Singapore)
+
+**Email:** `analyst.sg@worldwidebank.com`
+
+### Profile
+| Attribute | Value |
+|-----------|-------|
+| **Title** | Surveillance Analyst, Singapore Desk |
+| **Demographic** | Singaporean Chinese |
+| **Experience** | 4 years in trade surveillance |
+| **Daily Focus** | Alert triage, investigation, clearing queues |
 | **Tech Comfort** | Power user, keyboard shortcuts |
 
 ### Goals
-- Efficiently process daily alert queue
-- Build watertight investigation evidence
-- Minimize false positive fatigue
-- Leverage AI to accelerate investigations
-
-### Pain Points Addressed
-| Pain Point | How Platform Solves It |
-|------------|------------------------|
-| Manual email review across systems | Investigation Workspace unified view |
-| Missing context on alerts | AI-generated conversation summaries |
-| Repetitive documentation tasks | Auto-generated investigation notes |
-| No similar case reference | Historical pattern matching |
-
-### Key Pages
-1. **Alerts** – Daily queue management
-2. **Investigation Workspace** – Deep dive analysis
-3. **Search & RAG** – Ad-hoc research
-4. **Cases** – Evidence documentation
-
-### Success Metrics
-- Alerts reviewed per day > 50
-- False positive rate < 30%
-- Average investigation time < 45 minutes
-- Case quality score > 4.5/5
-
-### Typical Workflow
-```
-Morning: Review assigned alerts (Alerts)
-    ↓
-Investigate high-confidence alerts (Alert Detail → Investigation)
-    ↓
-Research patterns using RAG (Search & RAG)
-    ↓
-Document findings and escalate (Cases)
-    ↓
-End of day: Bulk close low-risk items (Alerts)
-```
+- Efficiently process daily alert queue (False Positive reduction)
+- Build watertight investigation evidence using AI assistance
+- Meet daily closure targets set by Country Head
 
 ---
 
-## Persona 3: Dr. Priya Sharma – Risk Officer
+## Persona 5: Rajesh Kumar – IT Root User (Global)
+
+**Email:** `owner@worldwidebank.com`
 
 ### Profile
 | Attribute | Value |
 |-----------|-------|
-| **Title** | Head of Market Conduct Risk |
-| **Experience** | 12 years in risk management, PhD in Financial Economics |
-| **Daily Focus** | Risk pattern detection, policy calibration |
-| **Tech Comfort** | Analytical, data-driven |
+| **Title** | VP, Systems Architecture (System Owner) |
+| **Demographic** | Indian |
+| **Experience** | 18 years in secure infrastructure |
+| **Daily Focus** | System governance, tenant isolation, security architecture |
+| **Tech Comfort** | Deep technical expertise |
 
 ### Goals
-- Detect emerging risk patterns before they materialize
-- Calibrate surveillance policies to reduce noise
-- Ensure consistent risk appetite across regions
-- Build predictive risk models
+- Initial system configuration and tenant isolation validation
+- Defining global security and data residency policies
+- Acting as the ultimate authority for system-wide changes
 
-### Pain Points Addressed
-| Pain Point | How Platform Solves It |
-|------------|------------------------|
-| Static, unconfigurable rules | Policy & Risk Typology Builder |
-| Regional policy inconsistency | Region-specific policy activation |
-| No visibility into model behavior | Policy impact preview |
-| Delayed risk signal detection | Dashboard emerging themes |
+---
 
-### Key Pages
-1. **Policies** – Rule configuration and tuning
-2. **Dashboard** – Emerging risk patterns
-3. **Teams & Access** – Regional access review
-4. **Search & RAG** – Pattern exploration
+## Persona 6: Farhan Ali – IT Operations (Global)
 
-### Success Metrics
-- Policy false positive rate < 25%
-- Emerging risk detection lead time > 7 days
-- Regional policy consistency score > 90%
-- Zero missed true positives
+**Email:** `it.ops@worldwidebank.com`
 
-### Typical Workflow
-```
-Weekly: Review emerging risk themes (Dashboard)
-    ↓
-Analyze alert patterns (Policies → Impact Preview)
-    ↓
-Tune policy thresholds (Policies)
-    ↓
-Monthly: Cross-region policy alignment (Teams & Access)
-    ↓
-Quarterly: Backtest policies on historical data (Policies)
-```
+### Profile
+| Attribute | Value |
+|-----------|-------|
+| **Title** | IT Operations Manager |
+| **Demographic** | Malay |
+| **Experience** | 8 years in enterprise IT & systems integration |
+| **Daily Focus** | User onboarding, data ingestion monitoring, system uptime |
+| **Tech Comfort** | Technical expert, API-focused |
+
+### Goals
+- Ensure seamless user onboarding and identity federation
+- Monitor health of data ingestion pipelines (Email, Voice, Chat)
+- Troubleshooting integration issues with upstream bank systems
+
+---
+
+## Persona 7: Nurul Huda – External Auditor
+
+**Email:** `guest.auditor@worldwidebank.com`
+
+### Profile
+| Attribute | Value |
+|-----------|-------|
+| **Title** | Senior Associate, Big 4 Audit Firm |
+| **Demographic** | Malay |
+| **Experience** | 8 years in financial services audit |
+| **Daily Focus** | Data integrity verification, control testing, independence |
+| **Tech Comfort** | Moderate (read-only consumer) |
+
+### Goals
+- Unbiased verification of compliance controls
+- Accessing read-only snapshots of investigation history
+- Validating that "who did what and when" is accurately recorded
 
 ---
 
 ## Persona Comparison Matrix
 
-| Attribute | Sarah (Executive) | Marcus (Analyst) | Priya (Risk) |
-|-----------|-------------------|------------------|--------------|
-| **Page Depth** | Surface (dashboards) | Deep (workspaces) | Medium (config) |
-| **Frequency** | Daily check-in | All-day | Weekly deep-dive |
-| **Primary Action** | Review & approve | Investigate & document | Configure & analyze |
-| **Success Measure** | Regulator readiness | Case throughput | Risk accuracy |
-| **AI Usage** | Consume summaries | Interactive analysis | Policy tuning |
+| Attribute | Siti (CSO) | Wei Meng (Regional) | Priya (Head) | Sarah (Analyst) | Rajesh (Root) | Farhan (Ops) | Nurul (Auditor) |
+|-----------|------------|---------------------|--------------|-----------------|---------------|--------------|-----------------|
+| **Scope** | Global | Regional | Country (SG) | Ticket/Case | System | Platform | Snapshot |
+| **Frequency** | Weekly | Daily | Daily | Continuous | Monthly | Incident | Project-based |
+| **Permissions** | Reports | Manage/Read | Manage/Write | Write/Triage | Owner | Admin | Read-Only |
 
 ---
 
 ## Persona-Based Feature Prioritization
 
-| Feature | Sarah | Marcus | Priya |
-|---------|-------|--------|-------|
-| Dashboard widgets | ⭐⭐⭐ | ⭐ | ⭐⭐ |
-| Alert bulk actions | ⭐ | ⭐⭐⭐ | ⭐ |
-| Investigation workspace | ⭐ | ⭐⭐⭐ | ⭐⭐ |
-| AI explainability | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| Policy builder | ⭐ | ⭐ | ⭐⭐⭐ |
-| Audit exports | ⭐⭐⭐ | ⭐ | ⭐ |
-| Region selector | ⭐⭐⭐ | ⭐ | ⭐⭐⭐ |
+| Feature | Siti | Priya | Sarah | Nurul |
+|---------|------|-------|-------|-------|
+| Dashboard widgets | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐ |
+| Alert bulk actions | ⭐ | ⭐⭐ | ⭐⭐⭐ | ❌ |
+| Investigation workspace | ⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
+| AI explainability | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| Policy builder | ⭐ | ⭐⭐⭐ | ⭐ | ❌ |
+| Audit exports | ⭐⭐⭐ | ⭐ | ⭐ | ⭐⭐⭐ |
+| Region selector | ⭐⭐⭐ | ⭐ | ⭐ | ⭐ |

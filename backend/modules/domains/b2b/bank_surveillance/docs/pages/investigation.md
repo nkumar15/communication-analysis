@@ -5,7 +5,7 @@
 | Attribute | Details |
 |-----------|---------|
 | **Goal** | Showcase depth beyond simple RAG – this is the platform differentiator |
-| **Target Persona** | Marcus Johnson (Surveillance Analyst) |
+| **Target Persona** | Ravi Kumar (Surveillance Analyst) |
 | **Permission** | `surveillance:read` |
 
 ## Three-Panel Layout

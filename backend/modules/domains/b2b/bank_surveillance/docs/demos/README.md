@@ -18,11 +18,51 @@ Deploy the full "Bank Surveillance" environment (Tenant, RBAC, Users, and Risk C
 make b2b-demo-bank
 ```
 
-## Demo 1: Executive Demo (5 minutes)
+## Demo 1: Global Strategic Oversight (Executive)
 
-**Target Persona:** Sarah Chen (Head of Compliance)  
+**Target Persona:** Priya Sharma (Chief Surveillance Officer - Global)  
 **Goal:** Prove platform is enterprise-ready, not a prototype  
-**Key Message:** "This is how you'll present to regulators"
+**Key Message:** "Global visibility into risk across all jurisdictions"
+
+---
+
+## Demo 2: Regional Compliance Management
+
+**Target Persona:** Siti Aisyah (Head of Compliance - APAC)  
+**Goal:** Demonstrate regional control and performance monitoring  
+**Key Message:** "Manage local compliance with global standards"
+
+---
+
+## Demo 3: Operations & Triage (Analyst)
+
+**Target Persona:** Ravi Kumar (Surveillance Analyst - APAC)  
+**Goal:** Show the daily workflow and AI assistance  
+**Key Message:** "AI-augmented efficiency for high-volume triage"
+
+---
+
+## Demo 4: Systems Operations & Setup
+
+**Target Persona:** Farhan Ali (IT Operations Manager)  
+**Goal:** Demonstrate user onboarding and data ingestion  
+**Key Message:** "Seamless integration and scalable operations"
+
+---
+
+## Demo 5: Platform Governance (Root)
+
+**Target Persona:** Wei Meng (Systems Architect - Root/Owner)  
+**Goal:** Initial system setup and security configuration  
+**Key Message:** "Secure, multi-tenant foundation for the enterprise"
+
+---
+
+## Demo 6: Independent Verification
+
+**Target Persona:** Nurul Huda (External Auditor)  
+**Goal:** Prove transparency and data integrity  
+**Key Message:** "Unbiased, read-only access for total transparency"
 
 ### Narrative Script
 
@@ -76,7 +116,7 @@ make b2b-demo-bank
 
 ## Demo 2: Analyst Demo (10 minutes)
 
-**Target Persona:** Marcus Johnson (Surveillance Analyst)  
+**Target Persona:** Ravi Kumar (Surveillance Analyst)  
 **Goal:** Show the daily workflow and AI assistance  
 **Key Message:** "This is how you'll work, not how you'll learn another tool"
 
@@ -170,9 +210,9 @@ make b2b-demo-bank
 
 ---
 
-## Demo 3: Configuration Demo (5 minutes)
+## Demo 7: Configuration & Policy (Risk Officer)
 
-**Target Persona:** Dr. Priya Sharma (Risk Officer)  
+**Target Persona:** Dr. Priya Sharma (Global Risk Officer)  
 **Goal:** Demonstrate platform configurability  
 **Key Message:** "You control the rules, not us"
 

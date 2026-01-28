@@ -97,13 +97,13 @@ The `bank_surveillance_bulk_invite.csv` provisions **11 Users** ensuring 100% ro
 ### A. Leadership (Global Scope)
 | User | Email | **Team Role** | Scope | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Susan Martinez** | `cso@...` | `surveillance_chief` | **Global Surveillance** | Global Oversight |
-| **APAC Director** | `director.apac.surv@...` | `regional_director` | **APAC Surveillance** | Regional Oversight |
+| **Priya Sharma** | `cso@...` | `surveillance_chief` | **Global Surveillance** | Global Oversight |
+| **Siti Aisyah** | `director.apac.surv@...` | `regional_director` | **APAC Surveillance** | Regional Oversight |
 
 ### B. Desk Operations (Restricted Scope)
 | User | Email | Team Role | Scope |
 | :--- | :--- | :--- | :--- |
-| **SG Head** | `head.sg.surv@...` | `surveillance_country_lead` | **SG Desk** |
+| **Ravi Kumar** | `head.sg.surv@...` | `surveillance_country_lead` | **SG Desk** |
 | **SG Analyst** | `analyst.sg.wealth@...` | `surveillance_analyst` | **SG Desk** |
 | **MY Head** | `head.my.surv@...` | `surveillance_country_lead` | **MY Desk** |
 | **MY Analyst** | `analyst.my.wealth@...` | `surveillance_analyst` | **MY Desk** |
@@ -121,9 +121,9 @@ The `bank_surveillance_bulk_invite.csv` provisions **11 Users** ensuring 100% ro
 ### D. Auxiliary & Support Staff
 | User | Email | Team Role | Scope |
 | :--- | :--- | :--- | :--- |
-| **SurvOps** | `surv.ops.apac@...` | `surveillance_ops` | **SG Desk** |
+| **Farhan Ali** | `surv.ops.apac@...` | `surveillance_ops` | **SG Desk** |
 | **MAS Liaison** | `liaison.sg.mas@...` | `compliance_officer` | **SG Desk** |
-| **Ext. Auditor** | `guest.auditor@...` | `guest_analyst` | **SG Desk** |
+| **Nurul Huda** | `guest.auditor@...` | `guest_analyst` | **SG Desk** |
 
 ---
 
@@ -194,7 +194,7 @@ The loader expects the following columns:
 | Column | Description | Mandatory? |
 | :--- | :--- | :--- |
 | `email` | User's email address (Must match tenant domain). | **Yes** |
-| `name` | Full name (e.g., "Susan Martinez"). | No |
+| `name` | Full name (e.g., "Priya Sharma"). | No |
 | `team_name`| Name of the team to join.<br>**Strict Check:** Team **MUST exist** in the system. | **Yes** |
 | `team_role`| **Team Role** (Context Role). Defines "What you do".<br>Values: `surveillance_country_lead`, `surveillance_analyst`, etc.<br>Default: `team_contributor` | **Yes** |
 

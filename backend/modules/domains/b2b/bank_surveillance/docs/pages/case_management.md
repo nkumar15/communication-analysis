@@ -5,7 +5,7 @@
 | Attribute | Details |
 |-----------|---------|
 | **Goal** | Replace spreadsheets with enterprise-grade case lifecycle management |
-| **Target Persona** | Sarah Chen (Compliance Executive), Marcus Johnson (Analyst) |
+| **Target Persona** | Priya Sharma (Compliance Executive), Ravi Kumar (Analyst) |
 | **Permission** | `surveillance:read`, `surveillance:write` |
 
 ## Case Lifecycle

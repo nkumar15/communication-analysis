@@ -5,7 +5,7 @@
 | Attribute | Details |
 |-----------|---------|
 | **Goal** | Immediately demonstrate this is a real SaaS platform, not a dataset viewer |
-| **Target Persona** | Sarah Chen (Compliance Executive) |
+| **Target Persona** | Priya Sharma (Compliance Executive) |
 | **Permission** | `surveillance:read` |
 
 ## Features/Widgets

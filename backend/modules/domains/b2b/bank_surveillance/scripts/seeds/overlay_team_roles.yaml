@@ -65,35 +65,38 @@ team_roles:
       - resource: controls
         actions: [read, write, update, delete]
 
-  - name: head_compliance
-    display_name: Head of Compliance
-    clearance_level: 4
-    bypass_geographic_restrictions: true
-    description: >
-      User Story: "As an External Auditor, I want read-only access to Chain of Custody logs."
-    allowed_org_tiers: [GLOBAL]
-    is_system: false
-    permissions:
-      # READ-ONLY OVERSIGHT
-      - resource: communications
-        actions: [read]
-      - resource: alerts
-        actions: [read]
-      - resource: cases
-        actions: [read]
-      - resource: investigations
-        actions: [read]
-      # COMPLIANCE (Primary Focus)
-      - resource: audit_logs
-        actions: [read, export]
-      - resource: surveillance_reports
-        actions: [read, submit, export]
-      - resource: retention_policies
-        actions: [read, configure]
-      - resource: analytics
-        actions: [read, export]
-      - resource: dashboard
-        actions: [read]
+  # =========================================================================
+  # REGIONAL ROLES
+  # =========================================================================
+#   - name: head_compliance
+#     display_name: Head of Compliance
+#     clearance_level: 4
+#     bypass_geographic_restrictions: true
+#     description: >
+#       User Story: "As an External Auditor, I want read-only access to Chain of Custody logs."
+#     allowed_org_tiers: [GLOBAL]
+#     is_system: false
+#     permissions:
+#       # READ-ONLY OVERSIGHT
+#       - resource: communications
+#         actions: [read]
+#       - resource: alerts
+#         actions: [read]
+#       - resource: cases
+#         actions: [read]
+#       - resource: investigations
+#         actions: [read]
+#       # COMPLIANCE (Primary Focus)
+#       - resource: audit_logs
+#         actions: [read, export]
+#       - resource: surveillance_reports
+#         actions: [read, submit, export]
+#       - resource: retention_policies
+#         actions: [read, configure]
+#       - resource: analytics
+#         actions: [read, export]
+#       - resource: dashboard
+#         actions: [read]
 
   # =========================================================================
   # REGIONAL ROLES
@@ -145,8 +148,8 @@ team_roles:
   # =========================================================================
   # COUNTRY/BRANCH ROLES
   # =========================================================================
-  - name: surveillance_manager
-    display_name: Surveillance Manager
+  - name: surveillance_country_lead
+    display_name: Surveillance Country Lead
     clearance_level: 2
     description: >
       User Story: "As a Surveillance Manager, I want to see case closure velocity 
@@ -214,221 +217,221 @@ team_roles:
       - resource: team_members
         actions: [read]
 
-  - name: junior_analyst
-    display_name: Junior Analyst
-    clearance_level: 1  # Low - sees REDACTED content
-    description: >
-      User Story: "As a Junior Analyst, I should see [REDACTED] content 
-      when viewing Top Secret alerts."
-    allowed_org_tiers: [BRANCH]
-    is_system: false
-    permissions:
-      # LIMITED SURVEILLANCE
-      - resource: communications
-        actions: [read, search]
-      - resource: rag_search
-        actions: [read, query]
-      - resource: alerts
-        actions: [read, acknowledge]
-      - resource: cases
-        actions: [read]
-      - resource: investigations
-        actions: [read]
-      # REDACTED ACCESS
-      - resource: sensitive_content
-        actions: []  # No access - system auto-redacts
-      # READ-ONLY
-      - resource: dashboard
-        actions: [read]
-      - resource: team_members
-        actions: [read]
+#   - name: junior_analyst
+#     display_name: Junior Analyst
+#     clearance_level: 1  # Low - sees REDACTED content
+#     description: >
+#       User Story: "As a Junior Analyst, I should see [REDACTED] content 
+#       when viewing Top Secret alerts."
+#     allowed_org_tiers: [BRANCH]
+#     is_system: false
+#     permissions:
+#       # LIMITED SURVEILLANCE
+#       - resource: communications
+#         actions: [read, search]
+#       - resource: rag_search
+#         actions: [read, query]
+#       - resource: alerts
+#         actions: [read, acknowledge]
+#       - resource: cases
+#         actions: [read]
+#       - resource: investigations
+#         actions: [read]
+#       # REDACTED ACCESS
+#       - resource: sensitive_content
+#         actions: []  # No access - system auto-redacts
+#       # READ-ONLY
+#       - resource: dashboard
+#         actions: [read]
+#       - resource: team_members
+#         actions: [read]
 
   # =========================================================================
   # 4-EYES WORKFLOW ROLES (Maker/Checker)
   # =========================================================================
-  - name: operations_maker
-    display_name: Operations Maker
-    clearance_level: 2
-    description: >
-      User Story: "As an Ops Maker, I want to prepare a high-risk case for review 
-      so that a Checker can approve it (4-Eyes Principle)."
-    allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY]
-    is_system: false
-    permissions:
-      # CAN CREATE, CANNOT APPROVE
-      - resource: communications
-        actions: [read, search, flag]
-      - resource: rag_search
-        actions: [read, query]
-      - resource: alerts
-        actions: [read, acknowledge]
-      - resource: cases
-        actions: [read, write]  # No 'close'
-      - resource: investigations
-        actions: [read, write, investigate]  # No 'approve'
-      - resource: graph
-        actions: [read]
-      - resource: team_members
-        actions: [read]
+#   - name: operations_maker
+#     display_name: Operations Maker
+#     clearance_level: 2
+#     description: >
+#       User Story: "As an Ops Maker, I want to prepare a high-risk case for review 
+#       so that a Checker can approve it (4-Eyes Principle)."
+#     allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY]
+#     is_system: false
+#     permissions:
+#       # CAN CREATE, CANNOT APPROVE
+#       - resource: communications
+#         actions: [read, search, flag]
+#       - resource: rag_search
+#         actions: [read, query]
+#       - resource: alerts
+#         actions: [read, acknowledge]
+#       - resource: cases
+#         actions: [read, write]  # No 'close'
+#       - resource: investigations
+#         actions: [read, write, investigate]  # No 'approve'
+#       - resource: graph
+#         actions: [read]
+#       - resource: team_members
+#         actions: [read]
 
-  - name: operations_checker
-    display_name: Operations Checker
-    clearance_level: 2
-    description: >
-      User Story: Checker role in 4-Eyes Principle - approves/closes cases.
-    allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY]
-    is_system: false
-    permissions:
-      # CAN APPROVE, LIMITED CREATE
-      - resource: communications
-        actions: [read]
-      - resource: alerts
-        actions: [read]
-      - resource: cases
-        actions: [read, approve, close]
-      - resource: investigations
-        actions: [read, approve, close]
-      - resource: surveillance_reports
-        actions: [read]
-      - resource: team_members
-        actions: [read]
+#   - name: operations_checker
+#     display_name: Operations Checker
+#     clearance_level: 2
+#     description: >
+#       User Story: Checker role in 4-Eyes Principle - approves/closes cases.
+#     allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY]
+#     is_system: false
+#     permissions:
+#       # CAN APPROVE, LIMITED CREATE
+#       - resource: communications
+#         actions: [read]
+#       - resource: alerts
+#         actions: [read]
+#       - resource: cases
+#         actions: [read, approve, close]
+#       - resource: investigations
+#         actions: [read, approve, close]
+#       - resource: surveillance_reports
+#         actions: [read]
+#       - resource: team_members
+#         actions: [read]
 
   # =========================================================================
   # COMPLIANCE ROLES
   # =========================================================================
-  - name: compliance_officer
-    display_name: Local Compliance Officer (LCO)
-    clearance_level: 2
-    description: >
-      User Story: "As a Compliance Officer, I want decision rationale required 
-      at closure to maintain audit quality."
-    allowed_org_tiers: [COUNTRY, BRANCH]
-    is_system: false
-    permissions:
-      # READ-ONLY with export
-      - resource: communications
-        actions: [read]
-      - resource: alerts
-        actions: [read]
-      - resource: cases
-        actions: [read]
-      - resource: investigations
-        actions: [read]
-      - resource: surveillance_reports
-        actions: [read, export]
-      - resource: audit_logs
-        actions: [read]
-      - resource: analytics
-        actions: [read]
-      - resource: dashboard
-        actions: [read]
-      - resource: team_members
-        actions: [read]
+#   - name: compliance_officer
+#     display_name: Local Compliance Officer (LCO)
+#     clearance_level: 2
+#     description: >
+#       User Story: "As a Compliance Officer, I want decision rationale required 
+#       at closure to maintain audit quality."
+#     allowed_org_tiers: [COUNTRY, BRANCH]
+#     is_system: false
+#     permissions:
+#       # READ-ONLY with export
+#       - resource: communications
+#         actions: [read]
+#       - resource: alerts
+#         actions: [read]
+#       - resource: cases
+#         actions: [read]
+#       - resource: investigations
+#         actions: [read]
+#       - resource: surveillance_reports
+#         actions: [read, export]
+#       - resource: audit_logs
+#         actions: [read]
+#       - resource: analytics
+#         actions: [read]
+#       - resource: dashboard
+#         actions: [read]
+#       - resource: team_members
+#         actions: [read]
 
-  - name: risk_officer
-    display_name: Risk Officer
-    clearance_level: 3
-    description: >
-      User Story: "As a Risk Officer, I want to configure different retention 
-      policies for US vs EU regions."
-    allowed_org_tiers: [GLOBAL, REGIONAL]
-    is_system: false
-    permissions:
-      - resource: communications
-        actions: [read]
-      - resource: alerts
-        actions: [read]
-      - resource: cases
-        actions: [read]
-      - resource: rag_search
-        actions: [read, query]
-      - resource: analytics
-        actions: [read, export]
-      - resource: surveillance_reports
-        actions: [read, export]
-      # CONFIGURATION
-      - resource: retention_policies
-        actions: [read, configure]
-      - resource: regions
-        actions: [read]
-      - resource: dashboard
-        actions: [read]
+#   - name: risk_officer
+#     display_name: Risk Officer
+#     clearance_level: 3
+#     description: >
+#       User Story: "As a Risk Officer, I want to configure different retention 
+#       policies for US vs EU regions."
+#     allowed_org_tiers: [GLOBAL, REGIONAL]
+#     is_system: false
+#     permissions:
+#       - resource: communications
+#         actions: [read]
+#       - resource: alerts
+#         actions: [read]
+#       - resource: cases
+#         actions: [read]
+#       - resource: rag_search
+#         actions: [read, query]
+#       - resource: analytics
+#         actions: [read, export]
+#       - resource: surveillance_reports
+#         actions: [read, export]
+#       # CONFIGURATION
+#       - resource: retention_policies
+#         actions: [read, configure]
+#       - resource: regions
+#         actions: [read]
+#       - resource: dashboard
+#         actions: [read]
 
   # =========================================================================
   # OPERATIONS / IT ROLES
   # =========================================================================
-  - name: surveillance_ops
-    display_name: Surveillance Ops (SurvOps)
-    clearance_level: 2
-    description: >
-      User Story: "As a Compliance Ops Officer, I want the system to automatically 
-      ingest daily email dumps."
-    allowed_org_tiers: [GLOBAL, REGIONAL]
-    is_system: false
-    permissions:
-      # INGESTION (Primary Responsibility)
-      - resource: ingestion
-        actions: [read, trigger, retry]
-      - resource: analytics
-        actions: [read, export]
-      # AI MODEL MANAGEMENT
-      - resource: model_config
-        actions: [read, train, configure]
-      # READ-ONLY SURVEILLANCE
-      - resource: communications
-        actions: [read]
-      - resource: audit_logs
-        actions: [read]
-      - resource: dashboard
-        actions: [read]
-      # TEAM MANAGEMENT
-      - resource: team_members
-        actions: [read, write]
-      - resource: team_settings
-        actions: [read, write]
+#   - name: surveillance_ops
+#     display_name: Surveillance Ops (SurvOps)
+#     clearance_level: 2
+#     description: >
+#       User Story: "As a Compliance Ops Officer, I want the system to automatically 
+#       ingest daily email dumps."
+#     allowed_org_tiers: [GLOBAL, REGIONAL]
+#     is_system: false
+#     permissions:
+#       # INGESTION (Primary Responsibility)
+#       - resource: ingestion
+#         actions: [read, trigger, retry]
+#       - resource: analytics
+#         actions: [read, export]
+#       # AI MODEL MANAGEMENT
+#       - resource: model_config
+#         actions: [read, train, configure]
+#       # READ-ONLY SURVEILLANCE
+#       - resource: communications
+#         actions: [read]
+#       - resource: audit_logs
+#         actions: [read]
+#       - resource: dashboard
+#         actions: [read]
+#       # TEAM MANAGEMENT
+#       - resource: team_members
+#         actions: [read, write]
+#       - resource: team_settings
+#         actions: [read, write]
 
-  - name: it_admin
-    display_name: IT Administrator
-    clearance_level: 2
-    description: >
-      User Story: "As an IT Admin, I want to assign users to specific Regions 
-      so that they physically cannot access foreign data."
-    allowed_org_tiers: [GLOBAL]
-    is_system: false
-    permissions:
-      # REGION MANAGEMENT
-      - resource: regions
-        actions: [read, assign, configure]
-      # INGESTION
-      - resource: ingestion
-        actions: [read, trigger, retry]
-      # AUDIT
-      - resource: audit_logs
-        actions: [read, export]
-      # PLATFORM
-      - resource: users
-        actions: [read, write]
-      - resource: teams
-        actions: [read, write]
-      - resource: team_members
-        actions: [read, write]
-      - resource: team_settings
-        actions: [read, write]
-      - resource: dashboard
-        actions: [read]
-      - resource: analytics
-        actions: [read]
+#   - name: it_admin
+#     display_name: IT Administrator
+#     clearance_level: 2
+#     description: >
+#       User Story: "As an IT Admin, I want to assign users to specific Regions 
+#       so that they physically cannot access foreign data."
+#     allowed_org_tiers: [GLOBAL]
+#     is_system: false
+#     permissions:
+#       # REGION MANAGEMENT
+#       - resource: regions
+#         actions: [read, assign, configure]
+#       # INGESTION
+#       - resource: ingestion
+#         actions: [read, trigger, retry]
+#       # AUDIT
+#       - resource: audit_logs
+#         actions: [read, export]
+#       # PLATFORM
+#       - resource: users
+#         actions: [read, write]
+#       - resource: teams
+#         actions: [read, write]
+#       - resource: team_members
+#         actions: [read, write]
+#       - resource: team_settings
+#         actions: [read, write]
+#       - resource: dashboard
+#         actions: [read]
+#       - resource: analytics
+#         actions: [read]
 
   # =========================================================================
   # EXTERNAL / GUEST ROLES
   # =========================================================================
-  - name: external_auditor
-    display_name: External Auditor
+  - name: guest_analyst
+    display_name: External Auditor (Guest)
     clearance_level: 1
     description: >
       User Story: "As an External Auditor, I want read-only access to 
       Chain of Custody logs without seeing raw message content."
-    allowed_org_tiers: [GLOBAL, REGIONAL]
+    allowed_org_tiers: [GLOBAL, REGIONAL, COUNTRY]
     is_system: false
     permissions:
       # AUDIT ONLY - No raw content
@@ -445,24 +448,24 @@ team_roles:
       # - sensitive_content
       # - rag_search
 
-  - name: legal_counsel
-    display_name: Legal Counsel
-    clearance_level: 3
-    description: >
-      User Story: "As Legal Counsel, I want evidence attachments preserved 
-      so that we have complete case records."
-    allowed_org_tiers: [GLOBAL, REGIONAL]
-    is_system: false
-    permissions:
-      - resource: cases
-        actions: [read, export]
-      - resource: investigations
-        actions: [read, export]
-      - resource: surveillance_reports
-        actions: [read, export]
-      - resource: audit_logs
-        actions: [read, export]
-      - resource: communications
-        actions: [read]  # For evidence review
-      - resource: dashboard
-        actions: [read]
+#   - name: legal_counsel
+#     display_name: Legal Counsel
+#     clearance_level: 3
+#     description: >
+#       User Story: "As Legal Counsel, I want evidence attachments preserved 
+#       so that we have complete case records."
+#     allowed_org_tiers: [GLOBAL, REGIONAL]
+#     is_system: false
+#     permissions:
+#       - resource: cases
+#         actions: [read, export]
+#       - resource: investigations
+#         actions: [read, export]
+#       - resource: surveillance_reports
+#         actions: [read, export]
+#       - resource: audit_logs
+#         actions: [read, export]
+#       - resource: communications
+#         actions: [read]  # For evidence review
+#       - resource: dashboard
+#         actions: [read]

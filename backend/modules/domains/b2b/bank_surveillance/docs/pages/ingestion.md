@@ -5,7 +5,7 @@
 | Attribute | Details |
 |-----------|---------|
 | **Goal** | Efficiently ingest communication dumps and execute the multi-step risk detection pipeline |
-| **Target Persona** | David Zheng (IT Admin), Dr. Priya Sharma (Risk Officer) |
+| **Target Persona** | Farhan Ali (IT Admin), Dr. Priya Sharma (Risk Officer) |
 | **Permission** | `surveillance:admin` |
 
 ## The Multi-Step Pipeline
