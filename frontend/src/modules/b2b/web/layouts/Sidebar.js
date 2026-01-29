@@ -13,16 +13,10 @@ const Sidebar = () => {
     });
 
 
+    // Hardcoded for Communication Surveillance as per requirement
     useEffect(() => {
-        localStorage.setItem('sidebar_collapsed', isCollapsed);
-    }, [isCollapsed]);
-
-    useEffect(() => {
-        const appName = (user?.domain_type === "bank_surveillance" || canAccess("surveillance"))
-            ? "Communication Surveillance"
-            : "Enterprise SaaS App";
-        document.title = appName;
-    }, [user, canAccess]);
+        document.title = "Communication Surveillance";
+    }, []);
 
     // Core menu items (Personal Workspace)
     const personalMenuItems = [
@@ -167,7 +161,7 @@ const Sidebar = () => {
                     </div>
                     {!isCollapsed && (
                         <div>
-                            <div style={{ fontWeight: '700', fontSize: '16px' }}>{(userDomainType === 'bank_surveillance' || canAccess('surveillance')) ? 'Communication Surveillance' : 'B2B SaaS App'}</div>
+                            <div style={{ fontWeight: '700', fontSize: '16px' }}>Communication Surveillance</div>
                             <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
                                 {user?.tenant_name || 'Organization'}
                             </div>
