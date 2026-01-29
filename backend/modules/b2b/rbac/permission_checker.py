@@ -80,53 +80,64 @@ async def has_permission_with_plugins(
     from modules.b2b.models.team_member import TeamMember
     from modules.b2b.models.team_role_definition import TeamRoleDefinition
     
-    # 1. Fetch User and Tenant Context
-    # Optimization: Use selectinload if we need relationships
-    user_stmt = select(UserModel).where(UserModel.id == user_id)
-    user_result = await db.execute(user_stmt)
-    user = user_result.scalar_one_or_none()
+    # 1. OPTIMIZATION: Check if user context is already enriched (e.g., by Middleware)
+    # This avoids redundant DB lookups and plugin re-execution.
+    enriched_user = None
+    enabled_plugins = []
     
-    if not user:
-        return False
-
-    tenant_stmt = select(TenantModel).where(TenantModel.id == user.tenant_id)
-    tenant_result = await db.execute(tenant_stmt)
-    tenant = tenant_result.scalar_one_or_none()
+    if extra_context and extra_context.get("user") and "geographic_scopes" in extra_context["user"]:
+        enriched_user = extra_context["user"]
+        enabled_plugins = enriched_user.get("enabled_plugins", [])
     
-    if not tenant:
-        return False
-
-    # Extract enabled plugins from subscription-driven tenant.features
-    enabled_plugins = tenant.features.get('plugins', []) if tenant.features else []
-
-    # Get Tenant Role Name
-    role_name = None
-    if user.role_id:
-        role_stmt = select(Role.name).where(Role.id == user.role_id)
-        role_name_result = await db.execute(role_stmt)
-        role_name = role_name_result.scalar()
-
-    # Get all Team Roles
-    team_roles_stmt = (
-        select(TeamRoleDefinition.name)
-        .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
-        .where(TeamMember.user_id == user_id)
-    )
-    team_roles_result = await db.execute(team_roles_stmt)
-    team_role_names = [name for name in team_roles_result.scalars()]
-
-    user_dict = {
-        "id": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "role_id": str(user.role_id) if user.role_id else None,
-        "role": role_name,
-        "team_roles": team_role_names,
-        "enabled_plugins": enabled_plugins
-    }
+    # 2. Fallback: Fetch and Enrich if not provided (e.g. background tasks)
+    if not enriched_user:
+        # Fetch User and Tenant Context
+        user_stmt = select(UserModel).where(UserModel.id == user_id)
+        user_result = await db.execute(user_stmt)
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            return False
     
-    # 2. Enrich User Context with Plugins
-    enriched_user = await plugin_registry.enrich_user(user_dict, db, enabled_plugin_names=enabled_plugins)
+        tenant_stmt = select(TenantModel).where(TenantModel.id == user.tenant_id)
+        tenant_result = await db.execute(tenant_stmt)
+        tenant = tenant_result.scalar_one_or_none()
+        
+        if not tenant:
+            return False
     
+        # Extract enabled plugins from subscription-driven tenant.features
+        enabled_plugins = tenant.features.get('plugins', []) if tenant.features else []
+    
+        # Get Tenant Role Name
+        role_name = None
+        if user.role_id:
+            role_stmt = select(Role.name).where(Role.id == user.role_id)
+            role_name_result = await db.execute(role_stmt)
+            role_name = role_name_result.scalar()
+    
+        # Get all Team Roles
+        team_roles_stmt = (
+            select(TeamRoleDefinition.name)
+            .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
+            .where(TeamMember.user_id == user_id)
+        )
+        team_roles_result = await db.execute(team_roles_stmt)
+        team_role_names = [name for name in team_roles_result.scalars()]
+    
+        user_dict = {
+            "id": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "role_id": str(user.role_id) if user.role_id else None,
+            "role": role_name,
+            "team_roles": team_role_names,
+            "enabled_plugins": enabled_plugins
+        }
+        
+        # Enrich User Context with Plugins
+        enriched_user = await plugin_registry.enrich_user(user_dict, db, enabled_plugin_names=enabled_plugins)
+    
+    # 3. Create Permission Context
     context = PermissionContext(
         user_id=str(user_id),
         user=enriched_user,
@@ -134,7 +145,7 @@ async def has_permission_with_plugins(
         resource_id=extra_context.get("resource_id") if extra_context else None,
         resource=extra_context.get("resource") if extra_context else None,
         action=action,
-        tenant_id=str(user.tenant_id),
+        tenant_id=str(enriched_user['tenant_id']),
         extra_context=extra_context
     )
     

@@ -22,7 +22,9 @@ async def get_case_stats(
     current_user: dict = require_permission("cases", "read")
 ):
     """Get summary statistics for cases."""
-    return await case_service.get_case_stats(db, tenant_id=current_user['tenant_id'])
+    tenant_id = current_user['tenant_id']
+    scopes = current_user.get("geographic_scopes")
+    return await case_service.get_case_stats(db, tenant_id=tenant_id, access_scopes=scopes)
 
 
 @router.post("/", response_model=CaseListResponse, status_code=status.HTTP_201_CREATED)
@@ -44,7 +46,9 @@ async def list_cases(
     current_user: dict = require_permission("cases", "read")
 ):
     """List all cases for the current tenant."""
-    return await case_service.list_cases(db, tenant_id=current_user['tenant_id'], status=status, limit=limit, offset=offset)
+    tenant_id = current_user['tenant_id']
+    scopes = current_user.get("geographic_scopes")
+    return await case_service.list_cases(db, tenant_id=tenant_id, status=status, limit=limit, offset=offset, access_scopes=scopes)
 
 @router.get("/{case_id}", response_model=CaseResponse)
 async def get_case(
@@ -53,7 +57,8 @@ async def get_case(
     current_user: dict = require_permission("cases", "read")
 ):
     """Fetch details for a specific case."""
-    db_obj = await case_service.get_case(db, case_id)
+    tenant_id = current_user["tenant_id"]
+    db_obj = await case_service.get_case(db, case_id, tenant_id)
     if not db_obj:
         raise HTTPException(status_code=404, detail="Case not found")
     return db_obj
@@ -66,6 +71,8 @@ async def update_case(
     current_user: dict = require_permission("cases", "update")
 ):
     """Update case status, assignment, or metadata."""
+    tenant_id = current_user["tenant_id"]
+    
     # Validation: Closure requires rationale
     if obj_in.status == "closed" and not obj_in.decision_rationale:
         raise HTTPException(
@@ -73,7 +80,7 @@ async def update_case(
             detail="Decision rationale is mandatory when closing a case."
         )
         
-    db_obj = await case_service.update_case(db, case_id, obj_in)
+    db_obj = await case_service.update_case(db, case_id, tenant_id, obj_in)
     if not db_obj:
         raise HTTPException(status_code=404, detail="Case not found")
     return db_obj

@@ -24,7 +24,8 @@ async def list_controls(
 ):
     """List all surveillance controls for the current tenant."""
     tenant_id = current_user["tenant_id"]
-    return await control_service.list_controls(db, tenant_id, risk_typology, limit, offset)
+    scopes = current_user.get("geographic_scopes")
+    return await control_service.list_controls(db, tenant_id, risk_typology, limit, offset, access_scopes=scopes)
 
 @router.post("/", response_model=SurveillanceControlResponse, status_code=status.HTTP_201_CREATED)
 async def create_control(
@@ -49,7 +50,8 @@ async def get_control(
 ):
     """Get a specific surveillance control by ID."""
     tenant_id = current_user["tenant_id"]
-    control = await control_service.get_control(db, control_id, tenant_id)
+    scopes = current_user.get("geographic_scopes")
+    control = await control_service.get_control(db, control_id, tenant_id, access_scopes=scopes)
     if not control:
         raise HTTPException(status_code=404, detail="Control not found")
     return control
@@ -63,7 +65,8 @@ async def update_control(
 ):
     """Update an existing surveillance control."""
     tenant_id = current_user["tenant_id"]
-    control = await control_service.update_control(db, control_id, tenant_id, control_in)
+    scopes = current_user.get("geographic_scopes")
+    control = await control_service.update_control(db, control_id, tenant_id, control_in, access_scopes=scopes)
     if not control:
         raise HTTPException(status_code=404, detail="Control not found")
     await db.commit()
@@ -77,7 +80,8 @@ async def delete_control(
 ):
     """Delete a surveillance control."""
     tenant_id = current_user["tenant_id"]
-    success = await control_service.delete_control(db, control_id, tenant_id)
+    scopes = current_user.get("geographic_scopes")
+    success = await control_service.delete_control(db, control_id, tenant_id, access_scopes=scopes)
     if not success:
         raise HTTPException(status_code=404, detail="Control not found")
     await db.commit()

@@ -21,14 +21,21 @@ async def get_message(
 ):
     """Get a specific message by ID."""
     tenant_id = current_user["tenant_id"]
-    result = await db.execute(
+    scopes = current_user.get("geographic_scopes")
+    
+    stmt = (
         select(Communication)
         .where(Communication.id == message_id)
         .where(Communication.tenant_id == tenant_id)
     )
+    
+    if scopes:
+        stmt = stmt.where(Communication.data_region_id.in_(scopes))
+        
+    result = await db.execute(stmt)
     comm = result.scalar_one_or_none()
     if not comm:
-        raise HTTPException(status_code=404, detail="Message not found")
+        raise HTTPException(status_code=404, detail="Message not found or access denied")
         
     # Phase 7: Storage Refactor - Content lives in ES
     if not comm.content and comm.message_id:
@@ -50,10 +57,11 @@ async def search_communications(
 ):
     """Search communications using Hybrid Search (Keyword + Vector)."""
     tenant_id = current_user["tenant_id"]
+    scopes = current_user.get("geographic_scopes")
     
     # Perform Keyword and Vector search in parallel
-    kw_task = communication_rag_service.keyword_search(query=q, tenant_id=tenant_id, limit=limit)
-    vec_task = communication_rag_service.search(query=q, tenant_id=tenant_id, limit=limit)
+    kw_task = communication_rag_service.keyword_search(query=q, tenant_id=tenant_id, limit=limit, access_scopes=scopes)
+    vec_task = communication_rag_service.search(query=q, tenant_id=tenant_id, limit=limit, access_scopes=scopes)
     
     kw_res, vec_res = await asyncio.gather(kw_task, vec_task)
     
@@ -98,11 +106,18 @@ async def list_communications(
 ):
     """List recent communications."""
     tenant_id = current_user["tenant_id"]
+    scopes = current_user.get("geographic_scopes")
     
     stmt = (
         select(Communication)
         .where(Communication.tenant_id == tenant_id)
-        .order_by(Communication.timestamp.desc())
+    )
+    
+    if scopes:
+        stmt = stmt.where(Communication.data_region_id.in_(scopes))
+        
+    stmt = (
+        stmt.order_by(Communication.timestamp.desc())
         .limit(limit)
         .offset(offset)
     )

@@ -4,6 +4,7 @@ from sqlalchemy import select, and_
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import logging
+import uuid
 
 from modules.domains.b2b.bank_surveillance.models.communication import Communication
 
@@ -18,7 +19,8 @@ class GraphService:
                          db: AsyncSession, 
                          tenant_id: Any,
                          start_date: Optional[datetime] = None, 
-                         end_date: Optional[datetime] = None) -> nx.DiGraph:
+                         end_date: Optional[datetime] = None,
+                         access_scopes: Optional[List[uuid.UUID]] = None) -> nx.DiGraph:
         """
         Builds a directed graph from communications.
         Nodes: Senders/Recipients
@@ -31,6 +33,9 @@ class GraphService:
         query = select(Communication.sender, Communication.recipients, Communication.timestamp).where(
             Communication.tenant_id == tenant_id
         )
+        
+        if access_scopes:
+            query = query.where(Communication.data_region_id.in_(access_scopes))
         
         if start_date:
             query = query.where(Communication.timestamp >= start_date)

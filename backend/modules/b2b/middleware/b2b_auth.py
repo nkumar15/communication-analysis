@@ -90,17 +90,40 @@ async def get_current_active_user(
             role_slug = role_obj.name
             role_display_name = role_obj.display_name
 
-    return {
-        "id": user_row.id,
+    # Create base user context
+    # converting UUIDs to strings to match Permission Checker expectations
+    user_context = {
+        "id": str(user_row.id),
         "email": user_row.email,
         "firebase_uid": user_row.firebase_uid,
-        "tenant_id": user_row.tenant_id,
-        "role_id": user_row.role_id,
+        "tenant_id": str(user_row.tenant_id),
+        "role_id": str(user_row.role_id) if user_row.role_id else None,
         "role": role_slug,
         "role_display_name": role_display_name,
-        "geographic_scopes": user_row.geographic_scopes or [],
+        "geographic_scopes": [str(g) for g in (user_row.geographic_scopes or [])],
         "enabled_plugins": tenant.features.get('plugins', []) if tenant.features else []
     }
+
+    # 4. Enrich User Context via Plugins (Fix for Geographic Scope Leak)
+    # This ensures team-based scopes provided by GeographicBoundariesPlugin are merged
+    # into the user context before any route handler or permission check runs.
+    try:
+        from core.rbac.plugin_registry import plugin_registry
+        enabled_plugins = user_context["enabled_plugins"]
+        
+        # Enrich the user dict (e.g., adds geographic_scopes from team membership)
+        enriched_user = await plugin_registry.enrich_user(
+            user_context, 
+            db, 
+            enabled_plugin_names=enabled_plugins
+        )
+        return enriched_user
+        
+    except Exception as e:
+        # Fallback to base context if enrichment fails, but log error
+        import logging
+        logging.getLogger(__name__).error(f"Plugin enrichment failed for user {user_row.id}: {e}")
+        return user_context
 
 
 

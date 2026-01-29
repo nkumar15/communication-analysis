@@ -15,14 +15,26 @@ class CommunicationRagService(BaseRagService):
         # Use simple sentence splitter for chunks
         return SentenceSplitter(chunk_size=512, chunk_overlap=50)
 
-    async def search(self, query: str, tenant_id: UUID, limit: int = 5, **kwargs) -> Dict[str, Any]:
+    async def search(self, query: str, tenant_id: UUID, limit: int = 5, access_scopes: Optional[List[UUID]] = None, **kwargs) -> Dict[str, Any]:
         """Basic RAG Search using Vector Store."""
         self._ensure_initialized()
         
         try:
-            # 1. Create Retriever from Index
+            # 1. Setup Filters and Retriever
+            from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter, MetadataFilter
+            filters_list = [ExactMatchFilter(key="tenant_id", value=str(tenant_id))]
+            if access_scopes:
+                # Add regional filters for vector search
+                scope_terms = [str(s) for s in access_scopes]
+                filters_list.append(
+                    MetadataFilter(key="data_region_id", value=scope_terms, operator="in")
+                )
+
+            filters = MetadataFilters(filters=filters_list)
+            
+            # For ES specifically, we can use the 'filters' arg in as_retriever if using LlamaIndex ES store
             index = VectorStoreIndex.from_vector_store(self.vector_store, embed_model=self.embed_model)
-            retriever = index.as_retriever(similarity_top_k=limit)
+            retriever = index.as_retriever(similarity_top_k=limit, filters=filters)
             
             # 2. Retrieve
             nodes = await retriever.aretrieve(query)
@@ -83,7 +95,7 @@ class CommunicationRagService(BaseRagService):
             "engine": "hybrid-search"
         }
 
-    async def keyword_search(self, query: str, tenant_id: UUID, limit: int = 5) -> Dict[str, Any]:
+    async def keyword_search(self, query: str, tenant_id: UUID, limit: int = 5, access_scopes: Optional[List[UUID]] = None) -> Dict[str, Any]:
         """Elasticsearch BM25 keyword search (No Embeddings, Cost Saving Demo)."""
         self._ensure_initialized()
         
@@ -124,6 +136,13 @@ class CommunicationRagService(BaseRagService):
                 },
                 "size": limit
             }
+            
+            if access_scopes:
+                # Add regional filters to keyword search
+                scope_terms = [str(s) for s in access_scopes]
+                es_query["query"]["bool"]["filter"].append(
+                    {"terms": {"metadata.data_region_id.keyword": scope_terms}}
+                )
             
             response = await client.search(index=index_name, body=es_query)
             hits = response.get("hits", {}).get("hits", [])

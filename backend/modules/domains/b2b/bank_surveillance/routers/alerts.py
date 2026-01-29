@@ -76,7 +76,8 @@ async def get_alert_stats(
 ):
     """Get summary statistics for the Alerts Dashboard."""
     tenant_id = current_user["tenant_id"]
-    return await alert_service.get_alert_stats(db, tenant_id)
+    scopes = current_user.get("geographic_scopes")
+    return await alert_service.get_alert_stats(db, tenant_id, access_scopes=scopes)
 
 
 @router.get("/regional-stats", response_model=List[dict])
@@ -86,7 +87,8 @@ async def get_regional_stats(
 ):
     """Get regional risk statistics for the Command Center."""
     tenant_id = current_user["tenant_id"]
-    return await alert_service.get_regional_risk_stats(db, tenant_id)
+    scopes = current_user.get("geographic_scopes")
+    return await alert_service.get_regional_risk_stats(db, tenant_id, access_scopes=scopes)
 
 
 @router.get("/", response_model=List[AlertResponse])

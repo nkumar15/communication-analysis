@@ -1,7 +1,4 @@
-import os
-import yaml
 import logging
-from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import Registry
@@ -16,10 +13,12 @@ logger = logging.getLogger(__name__)
 
 async def initialize_plugins(db: AsyncSession):
     """
-    Load plugins based on RBAC_PLUGINS env var and plugins.yaml config.
+    Register and initialize all RBAC plugins.
+    
+    Plugin configuration is loaded from the seeded `PluginTemplate` table
+    in the database by each plugin's `initialize()` method.
     """
     # 1. Register All Available Plugins
-    # We register all known plugins so they can be activated per-tenant via DB
     available_plugins = {
         "hierarchical_teams": HierarchicalTeamsPlugin(),
         "geographic_boundaries": GeographicBoundariesPlugin(),
@@ -29,32 +28,7 @@ async def initialize_plugins(db: AsyncSession):
     for name, plugin in available_plugins.items():
         plugin_registry.register(plugin)
 
-    # 2. Load Configuration
-    config = {}
-    try:
-        # Check potential paths for config (Docker vs Local)
-        # 1. Docker: /app/scripts/... -> scripts/...
-        # 2. Local: backend/scripts/...
-        paths_to_check = [
-            "scripts/b2b/use_cases/bank_surveillance/plugins.yaml",
-            "backend/scripts/b2b/use_cases/bank_surveillance/plugins.yaml"
-        ]
-        
-        config_path = None
-        for p in paths_to_check:
-            if os.path.exists(p):
-                config_path = p
-                break
-        
-        if config_path:
-             logger.info(f"Loading plugin config from {config_path}")
-             with open(config_path, 'r') as f:
-                 config = yaml.safe_load(f)
-        else:
-            logger.warning("Plugin config not found in standard locations, using defaults")
-            
-    except Exception as e:
-        logger.error(f"Failed to load plugin config: {e}")
+    # 2. Initialize All Plugins (each plugin loads its own config from DB)
+    await plugin_registry.initialize_all(db, config={})
+    logger.info("All RBAC plugins initialized from database configuration.")
 
-    # 3. Initialize Registry
-    await plugin_registry.initialize_all(db, config)

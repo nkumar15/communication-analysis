@@ -53,9 +53,16 @@ async def list_incidents(
 ):
     """List incidents with optional filtering."""
     tenant_id = current_user["tenant_id"]
+    scopes = current_user.get("geographic_scopes")
     
     stmt = select(Incident).where(Incident.tenant_id == tenant_id)
     
+    # Apply geographic isolation
+    if scopes:
+        # data_region_ids is an ARRAY(UUID). We use overlap operator && or ANY
+        from sqlalchemy import func
+        stmt = stmt.where(Incident.data_region_ids.overlap(scopes))
+        
     if alert_id:
         stmt = stmt.where(Incident.alert_id == alert_id)
     if control_id:
@@ -85,11 +92,17 @@ async def get_incident(
 ):
     """Get incident details with linked risk events."""
     tenant_id = current_user["tenant_id"]
+    scopes = current_user.get("geographic_scopes")
     
     stmt = select(Incident).where(
         Incident.id == incident_id,
         Incident.tenant_id == tenant_id
-    ).options(selectinload(Incident.events))
+    )
+    
+    if scopes:
+        stmt = stmt.where(Incident.data_region_ids.overlap(scopes))
+        
+    stmt = stmt.options(selectinload(Incident.events))
     
     result = await db.execute(stmt)
     incident = result.scalar_one_or_none()

@@ -23,7 +23,8 @@ async def list_documents(
 ):
     """List all regulatory documents for the current tenant."""
     tenant_id = current_user["tenant_id"]
-    return await regulatory_service.list_documents(db, tenant_id, limit, offset)
+    scopes = current_user.get("geographic_scopes")
+    return await regulatory_service.list_documents(db, tenant_id, limit, offset, access_scopes=scopes)
 
 @router.post("/", response_model=RegulatoryDocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_document(
@@ -48,7 +49,8 @@ async def get_document(
 ):
     """Get a specific regulatory document by ID."""
     tenant_id = current_user["tenant_id"]
-    doc = await regulatory_service.get_document(db, doc_id, tenant_id)
+    scopes = current_user.get("geographic_scopes")
+    doc = await regulatory_service.get_document(db, doc_id, tenant_id, access_scopes=scopes)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
@@ -62,7 +64,8 @@ async def update_document(
 ):
     """Update an existing regulatory document."""
     tenant_id = current_user["tenant_id"]
-    doc = await regulatory_service.update_document(db, doc_id, tenant_id, doc_in)
+    scopes = current_user.get("geographic_scopes")
+    doc = await regulatory_service.update_document(db, doc_id, tenant_id, doc_in, access_scopes=scopes)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     await db.commit()
@@ -76,7 +79,8 @@ async def delete_document(
 ):
     """Delete a regulatory document."""
     tenant_id = current_user["tenant_id"]
-    success = await regulatory_service.delete_document(db, doc_id, tenant_id)
+    scopes = current_user.get("geographic_scopes")
+    success = await regulatory_service.delete_document(db, doc_id, tenant_id, access_scopes=scopes)
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
     await db.commit()

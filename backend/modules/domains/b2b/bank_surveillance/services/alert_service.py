@@ -142,35 +142,42 @@ class AlertService:
             
         return alert
 
-    async def get_alert_stats(self, db: AsyncSession, tenant_id: UUID) -> AlertStats:
+    async def get_alert_stats(self, db: AsyncSession, tenant_id: UUID, access_scopes: Optional[List[UUID]] = None) -> AlertStats:
         """Get summary statistics for the Alerts Dashboard."""
         
+        def apply_scopes(stmt):
+            if access_scopes:
+                return stmt.join(Communication, Alert.communication_id == Communication.id).where(
+                    Communication.data_region_id.in_(access_scopes)
+                )
+            return stmt
+
         # 1. Total Alerts
-        total_stmt = select(func.count(Alert.id)).where(Alert.tenant_id == tenant_id)
+        total_stmt = apply_scopes(select(func.count(Alert.id)).where(Alert.tenant_id == tenant_id))
         total_res = await db.execute(total_stmt)
         total = total_res.scalar() or 0
         
         # 2. High/Critical Risk Count
-        high_risk_stmt = select(func.count(Alert.id)).where(
+        high_risk_stmt = apply_scopes(select(func.count(Alert.id)).where(
             Alert.tenant_id == tenant_id,
             Alert.severity.in_([AlertSeverity.HIGH.value, AlertSeverity.CRITICAL.value])
-        )
+        ))
         high_res = await db.execute(high_risk_stmt)
         high_count = high_res.scalar() or 0
         
         # 3. Open Count
-        open_stmt = select(func.count(Alert.id)).where(
+        open_stmt = apply_scopes(select(func.count(Alert.id)).where(
             Alert.tenant_id == tenant_id,
             Alert.status == AlertStatus.OPEN.value
-        )
+        ))
         open_res = await db.execute(open_stmt)
         open_count = open_res.scalar() or 0
         
         # 4. Unassigned Count
-        unassigned_stmt = select(func.count(Alert.id)).where(
+        unassigned_stmt = apply_scopes(select(func.count(Alert.id)).where(
             Alert.tenant_id == tenant_id,
             Alert.assigned_to.is_(None)
-        )
+        ))
         unassigned_res = await db.execute(unassigned_stmt)
         unassigned_count = unassigned_res.scalar() or 0
         
@@ -181,13 +188,17 @@ class AlertService:
             unassigned_count=unassigned_count
         )
 
-    async def get_regional_risk_stats(self, db: AsyncSession, tenant_id: UUID) -> List[dict]:
+    async def get_regional_risk_stats(self, db: AsyncSession, tenant_id: UUID, access_scopes: Optional[List[UUID]] = None) -> List[dict]:
         """Get risk statistics grouped by region, including regions with no alerts."""
         from sqlalchemy import case as sql_case
         from sqlalchemy import func
         
-        # 1. Fetch all regions first
-        regions_stmt = select(GeographicRegion).order_by(GeographicRegion.id)
+        # 1. Fetch all regions first (filtered by access_scopes if provided)
+        regions_stmt = select(GeographicRegion)
+        if access_scopes:
+            regions_stmt = regions_stmt.where(GeographicRegion.id.in_(access_scopes))
+        regions_stmt = regions_stmt.order_by(GeographicRegion.id)
+        
         regions_res = await db.execute(regions_stmt)
         all_regions = regions_res.scalars().all()
         
@@ -209,8 +220,12 @@ class AlertService:
             .select_from(Alert)
             .join(Communication, Alert.communication_id == Communication.id)
             .where(Alert.tenant_id == tenant_id, Alert.status == AlertStatus.OPEN.value)
-            .group_by(Communication.data_region_id)
         )
+        
+        if access_scopes:
+            stats_stmt = stats_stmt.where(Communication.data_region_id.in_(access_scopes))
+            
+        stats_stmt = stats_stmt.group_by(Communication.data_region_id)
         
         stats_res = await db.execute(stats_stmt)
         stats_map = {row.data_region_id: row for row in stats_res.all()}

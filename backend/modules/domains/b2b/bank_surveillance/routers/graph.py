@@ -15,7 +15,8 @@ async def build_graph(
 ):
     """Triggers construction of the communication graph from DB."""
     tenant_id = current_user["tenant_id"]
-    G = await graph_service.build_graph(db, tenant_id=tenant_id)
+    scopes = current_user.get("geographic_scopes")
+    G = await graph_service.build_graph(db, tenant_id=tenant_id, access_scopes=scopes)
     return {
         "nodes": G.number_of_nodes(),
         "edges": G.number_of_edges(),
@@ -30,8 +31,9 @@ async def get_graph_summary(
 ):
     """Returns basic stats about the current graph."""
     tenant_id = current_user["tenant_id"]
+    scopes = current_user.get("geographic_scopes")
     if graph_service.graph.number_of_nodes() == 0:
-        await graph_service.build_graph(db, tenant_id)
+        await graph_service.build_graph(db, tenant_id, access_scopes=scopes)
     
     return {
         "nodes": graph_service.graph.number_of_nodes(),
@@ -48,8 +50,9 @@ async def get_cliques(
 ):
     """Returns a list of suspicious cliques."""
     tenant_id = current_user["tenant_id"]
+    scopes = current_user.get("geographic_scopes")
     if graph_service.graph.number_of_nodes() == 0:
-        await graph_service.build_graph(db, tenant_id)
+        await graph_service.build_graph(db, tenant_id, access_scopes=scopes)
     return graph_service.detect_cliques(min_size=min_size)
 
 @router.get("/ego/{email}")

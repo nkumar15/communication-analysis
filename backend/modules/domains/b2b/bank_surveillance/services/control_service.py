@@ -23,16 +23,28 @@ class ControlService:
         # Return fully loaded object
         return await self.get_control(db, db_control.id, db_control.tenant_id)
 
-    async def get_control(self, db: AsyncSession, control_id: UUID, tenant_id: UUID) -> Optional[SurveillanceControl]:
-        """Get surveillance control by ID and tenant"""
+    async def get_control(self, db: AsyncSession, control_id: UUID, tenant_id: UUID, access_scopes: Optional[List[UUID]] = None) -> Optional[SurveillanceControl]:
+        """Get surveillance control by ID and tenant, optionally verifying regional access."""
         stmt = select(SurveillanceControl).options(
             selectinload(SurveillanceControl.regulatory_document)
         ).where(
             SurveillanceControl.id == control_id,
             SurveillanceControl.tenant_id == tenant_id
         )
+        
         result = await db.execute(stmt)
-        return result.scalar_one_or_none()
+        record = result.scalar_one_or_none()
+        
+        if record and access_scopes:
+            # Verify that the record is either global or overlaps with allowed scopes
+            if record.applicable_regions:
+                # Manual check or SQL check. Since we already loaded, manual check is fine.
+                allowed_set = set(access_scopes)
+                record_set = set(record.applicable_regions)
+                if not allowed_set.intersection(record_set):
+                    return None
+                    
+        return record
 
     async def list_controls(
         self, 
@@ -40,7 +52,8 @@ class ControlService:
         tenant_id: UUID, 
         risk_typology: Optional[str] = None,
         limit: int = 50, 
-        offset: int = 0
+        offset: int = 0,
+        access_scopes: Optional[List[UUID]] = None
     ) -> List[SurveillanceControl]:
         """List surveillance controls with optional filtering"""
         stmt = select(SurveillanceControl).options(
@@ -48,6 +61,13 @@ class ControlService:
         ).where(
             SurveillanceControl.tenant_id == tenant_id
         )
+        
+        if access_scopes:
+            from sqlalchemy import or_
+            stmt = stmt.where(or_(
+                SurveillanceControl.applicable_regions.is_(None),
+                SurveillanceControl.applicable_regions.overlap(access_scopes)
+            ))
         
         if risk_typology:
             stmt = stmt.where(SurveillanceControl.risk_typology == risk_typology)
@@ -62,10 +82,11 @@ class ControlService:
         db: AsyncSession, 
         control_id: UUID, 
         tenant_id: UUID, 
-        control_in: SurveillanceControlUpdate
+        control_in: SurveillanceControlUpdate,
+        access_scopes: Optional[List[UUID]] = None
     ) -> Optional[SurveillanceControl]:
         """Update surveillance control"""
-        db_control = await self.get_control(db, control_id, tenant_id)
+        db_control = await self.get_control(db, control_id, tenant_id, access_scopes)
         if not db_control:
             return None
             
@@ -77,9 +98,9 @@ class ControlService:
         await db.refresh(db_control)
         return db_control
 
-    async def delete_control(self, db: AsyncSession, control_id: UUID, tenant_id: UUID) -> bool:
+    async def delete_control(self, db: AsyncSession, control_id: UUID, tenant_id: UUID, access_scopes: Optional[List[UUID]] = None) -> bool:
         """Delete surveillance control"""
-        db_control = await self.get_control(db, control_id, tenant_id)
+        db_control = await self.get_control(db, control_id, tenant_id, access_scopes)
         if not db_control:
             return False
             

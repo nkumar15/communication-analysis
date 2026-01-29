@@ -56,11 +56,14 @@ class CaseService:
         await db.refresh(db_obj)
         return db_obj
 
-    async def get_case(self, db: AsyncSession, case_id: uuid.UUID) -> Optional[Case]:
-        """Fetch a single case by ID with its relations enriched."""
+    async def get_case(self, db: AsyncSession, case_id: uuid.UUID, tenant_id: uuid.UUID) -> Optional[Case]:
+        """Fetch a single case by ID with its relations enriched, ensuring tenant ownership."""
         result = await db.execute(
             select(Case)
-            .where(Case.id == case_id)
+            .where(
+                Case.id == case_id,
+                Case.tenant_id == tenant_id
+            )
             .options(
                 selectinload(Case.notes).selectinload(CaseNote.author),
                 selectinload(Case.evidence)
@@ -76,20 +79,22 @@ class CaseService:
                     note.author_name = "System"
         return db_obj
 
-    async def get_case_stats(self, db: AsyncSession, tenant_id: uuid.UUID) -> CaseStats:
+    async def get_case_stats(self, db: AsyncSession, tenant_id: uuid.UUID, access_scopes: Optional[List[uuid.UUID]] = None) -> CaseStats:
         """Get summary statistics for cases."""
         from sqlalchemy import func
         
         counts = {}
         for status in ["open", "in_review", "escalated"]:
-            res = await db.execute(
-                select(func.count(Case.id)).where(Case.tenant_id == tenant_id, Case.status == status)
-            )
+            stmt = select(func.count(Case.id)).where(Case.tenant_id == tenant_id, Case.status == status)
+            if access_scopes:
+                stmt = stmt.where(Case.data_region_id.in_(access_scopes))
+            res = await db.execute(stmt)
             counts[status] = res.scalar() or 0
             
-        total_res = await db.execute(
-            select(func.count(Case.id)).where(Case.tenant_id == tenant_id)
-        )
+        total_stmt = select(func.count(Case.id)).where(Case.tenant_id == tenant_id)
+        if access_scopes:
+            total_stmt = total_stmt.where(Case.data_region_id.in_(access_scopes))
+        total_res = await db.execute(total_stmt)
         total = total_res.scalar() or 0
         
         return CaseStats(
@@ -105,10 +110,13 @@ class CaseService:
         tenant_id: uuid.UUID, 
         status: Optional[str] = None,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
+        access_scopes: Optional[List[uuid.UUID]] = None
     ) -> List[Case]:
         """List all cases for a tenant, optionally filtered by status with pagination."""
         query = select(Case).where(Case.tenant_id == tenant_id)
+        if access_scopes:
+            query = query.where(Case.data_region_id.in_(access_scopes))
         if status:
             query = query.where(Case.status == status)
         query = query.order_by(Case.created_at.desc())
@@ -118,9 +126,9 @@ class CaseService:
         result = await db.execute(query)
         return list(result.scalars().all())
 
-    async def update_case(self, db: AsyncSession, case_id: uuid.UUID, obj_in: CaseUpdate) -> Optional[Case]:
+    async def update_case(self, db: AsyncSession, case_id: uuid.UUID, tenant_id: uuid.UUID, obj_in: CaseUpdate) -> Optional[Case]:
         """Update case metadata and handle status transitions (e.g., closing)."""
-        db_obj = await self.get_case(db, case_id)
+        db_obj = await self.get_case(db, case_id, tenant_id)
         if not db_obj:
             return None
         

@@ -24,13 +24,23 @@ const SurveillanceDashboardPage = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
+            // Safe fetch wrapper for ingestion which might return 403
+            const fetchIngestionSafe = async () => {
+                try {
+                    return await b2bDomainClient.getIngestionStats();
+                } catch (error) {
+                    console.warn("Ingestion stats access restricted:", error);
+                    return { restricted: true };
+                }
+            };
+
             const [alertStats, caseStats, regStats, alerts, cases, ingestion] = await Promise.all([
                 b2bDomainClient.getAlertStats(),
                 b2bDomainClient.getCaseStats(),
                 b2bDomainClient.getRegionalStats(),
                 b2bDomainClient.getAlerts({ status: 'open', limit: 6 }),
                 b2bDomainClient.getCases({ status: 'open', limit: 5 }),
-                b2bDomainClient.getIngestionStats()
+                fetchIngestionSafe()
             ]);
 
             // Map Alert/Case stats to KPI cards
@@ -58,11 +68,11 @@ const SurveillanceDashboardPage = () => {
                 {
                     title: 'Ingestion Lag',
                     subtitle: 'System',
-                    value: ingestion.lag_ms ? `${ingestion.lag_ms}ms` : 'Healthy',
-                    trend: ingestion.status || 'Stable',
+                    value: ingestion.restricted ? 'N/A' : (ingestion.lag_ms ? `${ingestion.lag_ms}ms` : 'Healthy'),
+                    trend: ingestion.restricted ? 'Restricted' : (ingestion.status || 'Stable'),
                     icon: <Storage fontSize="small" />,
-                    color: 'success.main',
-                    bgcolor: 'success.light',
+                    color: ingestion.restricted ? 'text.disabled' : 'success.main',
+                    bgcolor: ingestion.restricted ? 'action.hover' : 'success.light',
                     path: '/b2b/surveillance/ingestion'
                 },
             ]);
