@@ -26,6 +26,7 @@ For Python/backend work, also always apply:
 
 - `.agent/rules/python-developer.md`
 - `.agent/rules/observability-standards.md`
+- `.agent/rules/db-migration-standards.md` (any time a model is touched)
 
 For Celery tasks or background workers, also always apply:
 
@@ -88,6 +89,7 @@ If multiple types apply, execute in this sequence:
 - Rules:
   - `.agent/rules/backend-architecture.md`
   - `.agent/rules/python-developer.md`
+  - `.agent/rules/db-migration-standards.md` (mandatory)
 - Workflow:
   - `.agent/workflows/security-audit.md` (RLS/isolation checks)
 - Skills:

@@ -62,12 +62,49 @@ $HITS")
     fi
 fi
 
-# ── Check 4: Migration files — remind about schema requirements ───────────────
-if echo "$FILE_PATH" | grep -qE "migrations/versions/[^/]+\.py$"; then
-    WARNINGS+=("MIGRATION REMINDER — before committing this migration verify:
-  • New tenant-scoped tables have: tenant_id (UUID, indexed), created_at + updated_at (TIMESTAMPTZ), UUID primary key
-  • Foreign keys are used for relations (no raw IDs stored in JSONB)
-  • Run: make db-setup-auth  after applying to re-apply RLS policies")
+# ── Check 4: SQL migration files — schema requirements checklist ─────────────
+if echo "$FILE_PATH" | grep -qE "migrations/(b2b|b2c|platform|core)/[^/]+\.sql$"; then
+    # Check for non-idempotent ADD COLUMN (missing IF NOT EXISTS)
+    HITS=$(grep -n "ADD COLUMN [^I]" "$FILE_PATH" 2>/dev/null | grep -v "IF NOT EXISTS" || true)
+    if [ -n "$HITS" ]; then
+        WARNINGS+=("MIGRATION NOT IDEMPOTENT — use 'ADD COLUMN IF NOT EXISTS':
+$HITS")
+    fi
+    # Check for non-idempotent CREATE INDEX (missing IF NOT EXISTS)
+    HITS=$(grep -n "^CREATE INDEX [^I]" "$FILE_PATH" 2>/dev/null | grep -v "IF NOT EXISTS" || true)
+    if [ -n "$HITS" ]; then
+        WARNINGS+=("MIGRATION NOT IDEMPOTENT — use 'CREATE INDEX IF NOT EXISTS':
+$HITS")
+    fi
+    # Check new tables for missing RLS
+    NEW_TABLES=$(grep -n "^CREATE TABLE" "$FILE_PATH" 2>/dev/null || true)
+    if [ -n "$NEW_TABLES" ]; then
+        HAS_RLS=$(grep -c "ENABLE ROW LEVEL SECURITY\|DISABLE ROW LEVEL SECURITY" "$FILE_PATH" 2>/dev/null || echo "0")
+        if [ "$HAS_RLS" -eq 0 ]; then
+            WARNINGS+=("MIGRATION — new table(s) found but no RLS policy set.
+  Every new tenant-scoped table needs ENABLE ROW LEVEL SECURITY + isolation policy.
+  Global/shared tables must explicitly DISABLE ROW LEVEL SECURITY.
+$NEW_TABLES")
+        fi
+    fi
+fi
+
+# ── Check 4b: Model edits — remind to create a migration ─────────────────────
+if echo "$FILE_PATH" | grep -qE "models/[^/]+\.py$" && ! echo "$FILE_PATH" | grep -qE "(test_|_test\.py)"; then
+    # Look for Column( additions that suggest a schema change
+    HITS=$(grep -n "Column(" "$FILE_PATH" 2>/dev/null || true)
+    if [ -n "$HITS" ]; then
+        # Determine product from path
+        PRODUCT="b2b"
+        echo "$FILE_PATH" | grep -q "b2c"      && PRODUCT="b2c"
+        echo "$FILE_PATH" | grep -q "platform"  && PRODUCT="platform"
+        NEXT_NUM=$(ls "$(dirname "$FILE_PATH"/../../../migrations/$PRODUCT/)"*.sql 2>/dev/null | \
+            sort | tail -1 | grep -oE '[0-9]{3}' | head -1 || echo "???")
+        WARNINGS+=("MODEL CHANGE DETECTED — ensure a migration file exists.
+  Check: backend/migrations/$PRODUCT/ for a matching SQL file.
+  Next number after current last: use 'ls backend/migrations/$PRODUCT/ | sort | tail -1'
+  See: .agent/rules/db-migration-standards.md")
+    fi
 fi
 
 # ── Check 5: New service files should not import from routers ────────────────
