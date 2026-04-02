@@ -390,37 +390,38 @@ team_roles:
 #       - resource: team_settings
 #         actions: [read, write]
 
-#   - name: it_admin
-#     display_name: IT Administrator
-#     clearance_level: 2
-#     description: >
-#       User Story: "As an IT Admin, I want to assign users to specific Regions 
-#       so that they physically cannot access foreign data."
-#     allowed_org_tiers: [GLOBAL]
-#     is_system: false
-#     permissions:
-#       # REGION MANAGEMENT
-#       - resource: regions
-#         actions: [read, assign, configure]
-#       # INGESTION
-#       - resource: ingestion
-#         actions: [read, trigger, retry]
-#       # AUDIT
-#       - resource: audit_logs
-#         actions: [read, export]
-#       # PLATFORM
-#       - resource: users
-#         actions: [read, write]
-#       - resource: teams
-#         actions: [read, write]
-#       - resource: team_members
-#         actions: [read, write]
-#       - resource: team_settings
-#         actions: [read, write]
-#       - resource: dashboard
-#         actions: [read]
-#       - resource: analytics
-#         actions: [read]
+  - name: it_operations
+    display_name: IT Operations
+    clearance_level: 2
+    description: >
+      User Story: "As an IT Admin, I want to assign users to specific Regions and view ingestion logs, audit logs"
+    allowed_org_tiers: [GLOBAL]
+    is_system: false
+    permissions:
+      # REGION MANAGEMENT
+      - resource: regions
+        actions: [read, assign, configure]
+      # INGESTION
+      - resource: ingestion
+        actions: [read, trigger, retry]
+      # AUDIT
+      - resource: audit_logs
+        actions: [read, export]
+      # PLATFORM
+      - resource: users
+        actions: [read, write]
+      - resource: teams
+        actions: [read, write]
+      - resource: team_members
+        actions: [read, write]
+      - resource: team_settings
+        actions: [read, write]
+      - resource: dashboard
+        actions: [read]
+      - resource: analytics
+        actions: [read]
+      - resource: roles
+        actions: [read, write]
 
   # =========================================================================
   # EXTERNAL / GUEST ROLES

@@ -60,6 +60,8 @@ const Sidebar = () => {
         { isHeader: true, label: 'Organization' },
         { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
         { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
+        { id: 'roles', label: 'Roles & Permissions', icon: '🛡️', path: '/roles', feature: 'roles' },
+        { id: 'team-roles', label: 'Team Roles', icon: '👔', path: '/team-roles', feature: 'team_roles' },
     ];
 
     // Determine domain menu items

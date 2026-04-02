@@ -11,6 +11,17 @@ The B2B Foundation module provides the essential scaffolding for any multi-tenan
 - [ ] Mobile (iOS/Android)
 - [x] Backend API Only
 
+## Key Features
+
+| Feature | Description | Status |
+| :--- | :--- | :--- |
+| **[Tenant Onboarding](./pages/onboarding.md)** | Self-service signup and activation flow. | ✅ Ready |
+| **[SSO Integration](./features/authentication.md)** | OIDC/SAML support for Enterprise Identity. | ✅ Ready |
+| **[User Invitations](./features/team_management.md)** | Role-based invites and bulk CSV options. | ✅ Ready |
+| **[Audit Logs](./features/audit_logs.md)** | Immutable security trails for compliance. | ✅ Ready |
+| **[Notifications](./features/notifications.md)** | Transactional emails and system alerts. | ✅ Ready |
+| **[GenAI RAG](./features/genai_rag.md)** | AI-powered search and summarization (Domain). | 🔵 Available |
+
 ## Documentation
 
 | Document | Description |

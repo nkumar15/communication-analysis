@@ -19,10 +19,10 @@ This module follows a **Layered Architecture**:
 | [Technical Reference](docs/technical/) | API, Schema, Architecture |
 
 ### Key Features
-- [Authentication](docs/technical/authentication.md)
-- [RBAC (Role Based Access Control)](docs/technical/rbac.md)
-- [Billing & Subscriptions](docs/pages/settings_billing.md)
-- [Team Management](docs/pages/team_members.md)
+- [Authentication](docs/features/authentication.md)
+- [RBAC & Permissions](docs/features/rbac.md)
+- [Billing & Subscriptions](docs/features/billing.md)
+- [Team Management](docs/features/team_management.md)
 
 ### Domain Features
 Specialized vertical solutions built on the B2B foundation:

@@ -107,6 +107,7 @@ export const useAuth = () => {
             rag_documents: 'rag_documents:read',
             rag_nse: 'rag_nse:read',
             rag_enron: 'rag_enron:read',
+            team_roles: 'teams:write',
             surveillance: 'communications:read'  // Bank surveillance feature
         };
 

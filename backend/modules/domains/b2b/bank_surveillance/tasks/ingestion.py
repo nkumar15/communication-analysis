@@ -204,47 +204,52 @@ async def _run_ingestion_async(
                     
                     recipients = [r.strip() for r in row.get('recipients', '').split(',') if r.strip()]
                     
-                    email_data = EmailParsedData(
-                        message_id=row.get('message_id', str(uuid.uuid4())),
-                        sender=row.get('sender', 'unknown'),
-                        recipients=recipients or ['unknown'],
-                        subject=row.get('subject', ''),
-                        body=row.get('body', ''),
-                        date=dt
-                    )
-
-                    # Insert into DB
-                    result_code = await service.ingest_message_with_status(email_data, tenant_id, source_ref="csv_row", forced_region_id=forced_region_id)
+                    sender = row.get('sender', 'unknown')
                     
-                    if result_code == "inserted":
-                        count += 1
-                        
-                        # Queue for vector indexing
-                        text_content = f"Subject: {email_data.subject}\n\n{email_data.body}"
-                        metadata = {
-                            "message_id": email_data.message_id,
-                            "sender": email_data.sender[:200],
-                            "recipients": ",".join(email_data.recipients)[:500],
-                            "date": str(email_data.date),
-                            "tenant_id": str(tenant_id)
-                        }
-                        vector_batch.append({
-                            "text": text_content, 
-                            "metadata": metadata,
-                            "doc_id": email_data.message_id
-                        })
-                        
-                        # Batch index
-                        if len(vector_batch) >= vector_batch_size:
-                            await communication_rag_service.index_batch(vector_batch, enable_semantic=index_vectors)
-                            # Track indexed IDs for rollback
-                            indexed_in_transaction.extend([d['doc_id'] for d in vector_batch])
-                            vector_batch = []
-                            
-                    elif result_code == "skipped":
+                    if 'enron.com' not in sender.lower():
                         skipped += 1
                     else:
-                        errors += 1
+                        email_data = EmailParsedData(
+                            message_id=row.get('message_id', str(uuid.uuid4())),
+                            sender=sender,
+                            recipients=recipients or ['unknown'],
+                            subject=row.get('subject', ''),
+                            body=row.get('body', ''),
+                            date=dt
+                        )
+
+                        # Insert into DB
+                        result_code = await service.ingest_message_with_status(email_data, tenant_id, source_ref="csv_row", forced_region_id=forced_region_id)
+                        
+                        if result_code == "inserted":
+                            count += 1
+                            
+                            # Queue for vector indexing
+                            text_content = f"Subject: {email_data.subject}\n\n{email_data.body}"
+                            metadata = {
+                                "message_id": email_data.message_id,
+                                "sender": email_data.sender[:200],
+                                "recipients": ",".join(email_data.recipients)[:500],
+                                "date": str(email_data.date),
+                                "tenant_id": str(tenant_id)
+                            }
+                            vector_batch.append({
+                                "text": text_content, 
+                                "metadata": metadata,
+                                "doc_id": email_data.message_id
+                            })
+                            
+                            # Batch index
+                            if len(vector_batch) >= vector_batch_size:
+                                await communication_rag_service.index_batch(vector_batch, enable_semantic=index_vectors)
+                                # Track indexed IDs for rollback
+                                indexed_in_transaction.extend([d['doc_id'] for d in vector_batch])
+                                vector_batch = []
+                                
+                        elif result_code == "skipped":
+                            skipped += 1
+                        else:
+                            errors += 1
                     
                     # Batch commit every 100
                     if (count + skipped + errors) % 100 == 0:

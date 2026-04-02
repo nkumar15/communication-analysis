@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 from infrastructure.email.providers import get_provider, EmailProvider
+from core.config import settings
 
 
 class EmailService:
@@ -186,6 +187,47 @@ class EmailService:
             invitation_url=invitation_url,
             expires_at=expires_at
         )
+
+    def send_billing_payment_failed_alert_email(
+        self,
+        to_email: str,
+        tenant_name: str,
+        invoice_number: str,
+        amount_due_cents: int,
+        currency: str = "USD",
+        invoice_url: Optional[str] = None,
+    ) -> bool:
+        """
+        Send high-priority billing payment failure alert email.
+        """
+        amount_display = f"{amount_due_cents / 100:.2f}"
+        subject = f"Action Required: Payment failed for {tenant_name}"
+        destination_url = invoice_url or f"{settings.frontend_url}/billing/invoices"
+
+        html_content = f"""
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #b91c1c;">Payment Failure Alert</h2>
+        <p>We could not process a recent billing payment for <strong>{tenant_name}</strong>.</p>
+
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0;"><strong>Invoice:</strong> {invoice_number}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Amount Due:</strong> {amount_display} {currency.upper()}</p>
+            <p style="margin: 0;"><strong>Status:</strong> Payment failed</p>
+        </div>
+
+        <p>Please review and update billing details to avoid service interruption.</p>
+        <p>
+            <a href="{destination_url}" style="display: inline-block; background-color: #b91c1c; color: #fff; text-decoration: none; padding: 12px 22px; border-radius: 6px;">
+                Review Billing
+            </a>
+        </p>
+    </div>
+</body>
+</html>
+"""
+        return self.provider.send(to_email, subject, html_content)
 
 
     def send_subscription_confirmation_email(
