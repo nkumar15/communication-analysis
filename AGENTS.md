@@ -25,6 +25,11 @@ Apply these rule files on every implementation task:
 For Python/backend work, also always apply:
 
 - `.agent/rules/python-developer.md`
+- `.agent/rules/observability-standards.md`
+
+For Celery tasks or background workers, also always apply:
+
+- `.agent/rules/celery-standards.md`
 
 For tests, always apply:
 
@@ -192,3 +197,21 @@ If a requested change conflicts with this playbook:
 1. Explicitly state the conflicting rule/workflow.
 2. Propose the compliant alternative.
 3. Proceed only after user confirmation for the deviation.
+
+### Deviation Request Template
+
+When a deviation is needed, output this block before proceeding:
+
+```
+⚠️  DEVIATION REQUEST
+─────────────────────────────────────────────
+Conflicting rule : <rule file> § <section>
+Rule says        : <exact constraint being violated>
+Requested change : <what the user asked for>
+Risk             : <what could go wrong if rule is bypassed>
+Proposed alternative : <compliant way to achieve the same goal>
+─────────────────────────────────────────────
+Confirm to proceed with deviation, or approve alternative?
+```
+
+Do not proceed until the user explicitly confirms one of the options.
