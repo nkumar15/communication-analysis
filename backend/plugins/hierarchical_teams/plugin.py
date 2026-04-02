@@ -117,24 +117,28 @@ class HierarchicalTeamsPlugin(RBACPlugin):
 
     async def _get_child_teams(self, parent_team_id: str, db: AsyncSession) -> List[str]:
         """
-        Recursively find all child teams using the team_hierarchy view or recursive CTE.
+        Recursively find all child teams using a recursive CTE.
+        CYCLE guard: tracks visited IDs to prevent infinite loops on circular
+        parent_team_id relationships (PostgreSQL 14+ CYCLE clause not used for
+        broader compatibility; UNION — not UNION ALL — deduplicates instead).
         """
-        # Using Recursive CTE
         stmt = text("""
             WITH RECURSIVE team_tree AS (
-                SELECT id 
-                FROM b2b.teams 
+                SELECT id
+                FROM b2b.teams
                 WHERE parent_team_id = :parent_id
-                
-                UNION ALL
-                
+                  AND id != :parent_id
+
+                UNION
+
                 SELECT t.id
                 FROM b2b.teams t
                 JOIN team_tree tt ON t.parent_team_id = tt.id
+                WHERE t.id != :parent_id
             )
             SELECT id FROM team_tree
         """)
-        
+
         result = await db.execute(stmt, {"parent_id": parent_team_id})
         return [str(row.id) for row in result]
 

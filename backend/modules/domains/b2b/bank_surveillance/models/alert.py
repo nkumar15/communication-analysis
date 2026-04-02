@@ -6,6 +6,8 @@ from sqlalchemy import Column, String, ForeignKey, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from core.db.base import Base, TimestampMixin
+from modules.b2b.models.geographic_region import GeographicRegion  # noqa: F401
+from modules.b2b.models.sensitivity_level import SensitivityLevel  # noqa: F401
 
 class AlertStatus(str, Enum):
     OPEN = "open"
@@ -46,10 +48,16 @@ class Alert(Base, TimestampMixin):
     assigned_to = Column(UUID(as_uuid=True), ForeignKey("b2b.users.id"), nullable=True)
     description = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, default=dict) # 'metadata' is reserved in SQLAlchemy Base
-    
+
+    # Plugin metadata — denormalized from source communication at creation time
+    data_region_id = Column(UUID(as_uuid=True), ForeignKey("b2b.geographic_regions.id"), nullable=True, index=True)
+    sensitivity_level_id = Column(UUID(as_uuid=True), ForeignKey("b2b.sensitivity_levels.id"), nullable=True)
+
     detected_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    
+
     # Relationships
     communication = relationship("Communication", backref="alerts")
     assignee = relationship("UserModel")
     incidents = relationship("Incident", back_populates="alert")
+    region = relationship("GeographicRegion", foreign_keys=[data_region_id])
+    sensitivity_level = relationship("SensitivityLevel", foreign_keys=[sensitivity_level_id])

@@ -117,6 +117,38 @@ class GeographicBoundariesPlugin(RBACPlugin):
             
         return True
 
+    async def enrich_user_context(self, user: Dict[str, Any], db) -> Dict[str, Any]:
+        """
+        Derive geographic_scopes from the user's accessible_teams.
+        Each team is linked to a GeographicRegion via teams.region_id.
+        Returns the union of all region IDs covering the user's accessible teams.
+        """
+        accessible_teams = user.get("accessible_teams", [])
+        if not accessible_teams:
+            # Fall back to scopes already on the user model (set at provisioning)
+            return {}
+
+        from sqlalchemy import select
+        from modules.b2b.models.team import Team
+
+        stmt = (
+            select(Team.region_id)
+            .where(
+                Team.id.in_(accessible_teams),
+                Team.region_id.isnot(None)
+            )
+        )
+        result = await db.execute(stmt)
+        region_ids = [str(row.region_id) for row in result if row.region_id]
+
+        if not region_ids:
+            return {}
+
+        # Merge with any scopes already on the user (e.g. manually provisioned)
+        existing = user.get("geographic_scopes", [])
+        merged = list({*existing, *region_ids})
+        return {"geographic_scopes": merged}
+
     async def on_tenant_enable(self, tenant_id: str, db) -> None:
         """
         Lifecycle hook when plugin is enabled.

@@ -81,12 +81,15 @@ async def has_permission_with_plugins(
     from modules.b2b.models.team_role_definition import TeamRoleDefinition
     
     # 1. OPTIMIZATION: Check if user context is already enriched (e.g., by Middleware)
-    # This avoids redundant DB lookups and plugin re-execution.
+    # Use the explicit context_enriched flag set by plugin_registry.enrich_user().
+    # Do NOT rely on geographic_scopes presence — it exists in the base context even
+    # when enrichment failed, which would cause a half-baked context to be trusted.
     enriched_user = None
     enabled_plugins = []
-    
-    if extra_context and extra_context.get("user") and "geographic_scopes" in extra_context["user"]:
-        enriched_user = extra_context["user"]
+
+    user_from_context = extra_context.get("user") if extra_context else None
+    if user_from_context and user_from_context.get("context_enriched") is True:
+        enriched_user = user_from_context
         enabled_plugins = enriched_user.get("enabled_plugins", [])
     
     # 2. Fallback: Fetch and Enrich if not provided (e.g. background tasks)

@@ -27,12 +27,23 @@ class AlertService:
             metadata_=alert_in.metadata_,
             detected_at=alert_in.detected_at or datetime.utcnow()
         )
-        
+
+        # Stamp region + sensitivity from source communication (denormalized for efficient scoping)
+        if alert_in.communication_id:
+            comm_result = await db.execute(
+                select(Communication.data_region_id, Communication.sensitivity_level_id)
+                .where(Communication.id == alert_in.communication_id)
+            )
+            comm_row = comm_result.one_or_none()
+            if comm_row:
+                db_alert.data_region_id = comm_row.data_region_id
+                db_alert.sensitivity_level_id = comm_row.sensitivity_level_id
+
         # 1. Derive deterministic numeric ID from UUID
         from modules.domains.b2b.bank_surveillance.utils.id_utils import generate_deterministic_numeric_id
         numeric_suffix = generate_deterministic_numeric_id(db_alert.id)
         db_alert.display_id = f"ALT-{numeric_suffix}"
-        
+
         db.add(db_alert)
         await db.flush()
         await db.refresh(db_alert)
@@ -144,12 +155,10 @@ class AlertService:
 
     async def get_alert_stats(self, db: AsyncSession, tenant_id: UUID, access_scopes: Optional[List[UUID]] = None) -> AlertStats:
         """Get summary statistics for the Alerts Dashboard."""
-        
+
         def apply_scopes(stmt):
             if access_scopes:
-                return stmt.join(Communication, Alert.communication_id == Communication.id).where(
-                    Communication.data_region_id.in_(access_scopes)
-                )
+                return stmt.where(Alert.data_region_id.in_(access_scopes))
             return stmt
 
         # 1. Total Alerts
@@ -202,11 +211,10 @@ class AlertService:
         regions_res = await db.execute(regions_stmt)
         all_regions = regions_res.scalars().all()
         
-        # 2. Fetch alert counts and max severity grouped by region
-        # We join through Communication to get the region ID
+        # 2. Fetch alert counts and max severity grouped by region directly from Alert.data_region_id
         stats_stmt = (
             select(
-                Communication.data_region_id,
+                Alert.data_region_id,
                 func.count(Alert.id).label("count"),
                 func.max(
                     sql_case(
@@ -218,14 +226,13 @@ class AlertService:
                 ).label("max_severity")
             )
             .select_from(Alert)
-            .join(Communication, Alert.communication_id == Communication.id)
             .where(Alert.tenant_id == tenant_id, Alert.status == AlertStatus.OPEN.value)
         )
-        
+
         if access_scopes:
-            stats_stmt = stats_stmt.where(Communication.data_region_id.in_(access_scopes))
-            
-        stats_stmt = stats_stmt.group_by(Communication.data_region_id)
+            stats_stmt = stats_stmt.where(Alert.data_region_id.in_(access_scopes))
+
+        stats_stmt = stats_stmt.group_by(Alert.data_region_id)
         
         stats_res = await db.execute(stats_stmt)
         stats_map = {row.data_region_id: row for row in stats_res.all()}
@@ -265,14 +272,14 @@ class AlertService:
     ) -> Tuple[List[Alert], int]:
         """List alerts with filtering"""
         query = select(Alert).where(Alert.tenant_id == tenant_id)
-        
-        # Join Communication and Region for listing
-        query = query.outerjoin(Communication, Alert.communication_id == Communication.id)
-        query = query.outerjoin(GeographicRegion, Communication.data_region_id == GeographicRegion.id)
-        
-        # Apply geographic scopes if provided
+
+        # Apply geographic scopes directly on Alert (no JOIN needed)
         if access_scopes:
-            query = query.where(Communication.data_region_id.in_(access_scopes))
+            query = query.where(Alert.data_region_id.in_(access_scopes))
+
+        # Join Region only for the region name filter
+        if filters.region:
+            query = query.join(GeographicRegion, Alert.data_region_id == GeographicRegion.id)
         
         query = query.options(
             selectinload(Alert.communication).selectinload(Communication.region),
@@ -290,9 +297,6 @@ class AlertService:
             query = query.where(Alert.assigned_to == filters.assigned_to)
         if filters.communication_id:
             query = query.where(Alert.communication_id == filters.communication_id)
-        if filters.region:
-            query = query.where(GeographicRegion.name == filters.region)
-            
         if filters.region:
             query = query.where(GeographicRegion.name == filters.region)
             
@@ -388,6 +392,8 @@ class AlertService:
             priority=alert.severity, # Map critical/high/medium directly
             status="open",
             assigned_to_user_id=alert.assigned_to,
+            data_region_id=alert.data_region_id,
+            sensitivity_level_id=alert.sensitivity_level_id,
             source_uuid=alert.id, # Pass alert UUID to ensure numeric ID consistency
             initial_evidence=[
                 CaseEvidenceCreate(

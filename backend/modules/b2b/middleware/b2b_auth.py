@@ -104,25 +104,25 @@ async def get_current_active_user(
         "enabled_plugins": tenant.features.get('plugins', []) if tenant.features else []
     }
 
-    # 4. Enrich User Context via Plugins (Fix for Geographic Scope Leak)
-    # This ensures team-based scopes provided by GeographicBoundariesPlugin are merged
-    # into the user context before any route handler or permission check runs.
+    # 4. Enrich User Context via Plugins
+    # Adds geographic_scopes (from team hierarchy), clearance_level, accessible_teams.
+    # plugin_registry.enrich_user() sets context_enriched=True on success, False on partial failure.
+    # The permission checker checks this flag — a missing or False flag triggers re-enrichment.
     try:
         from core.rbac.plugin_registry import plugin_registry
-        enabled_plugins = user_context["enabled_plugins"]
-        
-        # Enrich the user dict (e.g., adds geographic_scopes from team membership)
         enriched_user = await plugin_registry.enrich_user(
-            user_context, 
-            db, 
-            enabled_plugin_names=enabled_plugins
+            user_context,
+            db,
+            enabled_plugin_names=user_context["enabled_plugins"]
         )
         return enriched_user
-        
     except Exception as e:
-        # Fallback to base context if enrichment fails, but log error
         import logging
-        logging.getLogger(__name__).error(f"Plugin enrichment failed for user {user_row.id}: {e}")
+        logging.getLogger(__name__).error(f"Plugin enrichment failed for user {user_row.id}: {e}", exc_info=True)
+        # Return base context explicitly marked as not enriched so the permission
+        # checker falls back to its own DB enrichment path rather than trusting
+        # an incomplete context.
+        user_context["context_enriched"] = False
         return user_context
 
 

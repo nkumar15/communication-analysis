@@ -151,6 +151,7 @@ async def seed_team_roles(db: AsyncSession, config_dir: Path) -> None:
             existing.description = role_data.get('description')
             existing.permissions = role_data.get('permissions', [])
             existing.allowed_org_tiers = role_data.get('allowed_org_tiers', [])
+            existing.clearance_level = role_data.get('clearance_level', 1)
             flag_modified(existing, 'permissions')
             flag_modified(existing, 'allowed_org_tiers')
         else:
@@ -160,7 +161,8 @@ async def seed_team_roles(db: AsyncSession, config_dir: Path) -> None:
                 description=role_data.get('description'),
                 tenant_id=None,
                 permissions=role_data.get('permissions', []),
-                allowed_org_tiers=role_data.get('allowed_org_tiers', [])
+                allowed_org_tiers=role_data.get('allowed_org_tiers', []),
+                clearance_level=role_data.get('clearance_level', 1)
             )
             db.add(role)
     await db.flush()

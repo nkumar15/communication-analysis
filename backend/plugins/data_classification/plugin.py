@@ -75,28 +75,27 @@ class DataClassificationPlugin(RBACPlugin):
 
     async def enrich_user_context(self, user: Dict[str, Any], db) -> Dict[str, Any]:
         """
-        Fetch clearance level from the user's role and add to context.
+        Derive clearance level from the user's team role definitions.
+        Takes the highest clearance_level across all team roles the user holds.
+        Falls back to 1 (INTERNAL) if no team roles are found.
         """
         user_id = user.get("id")
-        role_id = user.get("role_id")
-        
-        if not role_id and user_id:
-             # Try to fetch role_id from DB if not in context
-             pass 
+        if not user_id:
+            return {"clearance_level": 1}
 
-        if not role_id:
-            return {"clearance_level": 1} # Default
-            
-        # Fetch clearance from Role table
-        from sqlalchemy import text
-        stmt = text("SELECT clearance_level FROM b2b.roles WHERE id = :role_id")
-        result = await db.execute(stmt, {"role_id": role_id})
-        row = result.fetchone()
-        
-        if row:
-            return {"clearance_level": row.clearance_level}
-            
-        return {"clearance_level": 1}
+        from sqlalchemy import select, func
+        from modules.b2b.models.team_role_definition import TeamRoleDefinition
+        from modules.b2b.models.team_member import TeamMember
+
+        stmt = (
+            select(func.max(TeamRoleDefinition.clearance_level))
+            .join(TeamMember, TeamMember.team_role_id == TeamRoleDefinition.id)
+            .where(TeamMember.user_id == user_id)
+        )
+        result = await db.execute(stmt)
+        max_clearance = result.scalar()
+
+        return {"clearance_level": max_clearance if max_clearance is not None else 1}
 
     async def on_tenant_enable(self, tenant_id: str, db) -> None:
         """
