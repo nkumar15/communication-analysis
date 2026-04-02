@@ -87,6 +87,13 @@ class PluginRegistry:
     async def enrich_user(self, user: Dict, db, enabled_plugin_names: Optional[List[str]] = None) -> Dict:
         """Enrich user dictionary with plugin data."""
         enriched = user.copy()
+
+        # Let each active plugin verify its sibling dependencies once per enrichment.
+        if enabled_plugin_names is not None:
+            for name, plugin in self._plugins.items():
+                if name in enabled_plugin_names:
+                    plugin.check_dependencies(enabled_plugin_names)
+
         for name, plugin in self._plugins.items():
             if enabled_plugin_names is not None and name not in enabled_plugin_names:
                 continue

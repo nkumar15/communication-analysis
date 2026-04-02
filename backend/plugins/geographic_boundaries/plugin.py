@@ -21,15 +21,34 @@ class GeographicBoundariesPlugin(RBACPlugin):
         """
         Initialize plugin with configuration.
         Falls back to database template if runtime config is empty.
+
+        Dependency note: geographic_boundaries derives geographic_scopes from
+        accessible_teams, which is populated by hierarchical_teams. If
+        hierarchical_teams is not enabled, scopes fall back to the manually-set
+        user.geographic_scopes DB column — hierarchy-derived scopes won't work.
         """
         self.config = config
-        
-        # Fallback: If config is empty (e.g. Docker env without mounted scripts), 
+
+        # Fallback: If config is empty (e.g. Docker env without mounted scripts),
         # load from seeded PluginTemplate in DB.
         if not self.config or not self.config.get("global_roles"):
             await self._load_config_from_db(db)
-            
+
         return True
+
+    def check_dependencies(self, enabled_plugin_names: list) -> None:
+        """
+        Called by PluginRegistry after all plugins are initialized for a tenant.
+        Warns if hierarchical_teams is absent — geographic scope derivation will
+        be limited to the user.geographic_scopes DB column only.
+        """
+        if "hierarchical_teams" not in enabled_plugin_names:
+            logger.warning(
+                "geographic_boundaries is enabled without hierarchical_teams. "
+                "Geographic scopes will fall back to user.geographic_scopes DB column — "
+                "hierarchy-derived scopes (manager sees child team regions) will not work. "
+                "Enable hierarchical_teams alongside geographic_boundaries for full enforcement."
+            )
 
     async def _load_config_from_db(self, db):
         """Helper to load configuration from the database Template."""
