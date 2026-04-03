@@ -51,6 +51,22 @@ from modules.b2c.main import app as b2c_app
 from modules.domains.b2b.main import app as b2b_domain_app
 from modules.domains.b2c.main import app as b2c_domain_app
 
+# Register RBAC plugins at module load so plugin_registry._plugins is populated.
+# ASGITransport (httpx) does not trigger the ASGI lifespan, so plugin init via
+# lifespan won't happen. Registration here ensures:
+#   - plugin_registry._plugins.keys() returns all 3 plugin names
+#   - auth_service.get_or_sync_user builds a non-empty active_plugin_list
+#   - b2b_auth.get_current_active_user passes correct enabled_plugin_names to enrich_user
+# initialize() is intentionally skipped; each plugin handles missing config gracefully.
+from core.rbac.plugin_registry import plugin_registry as _plugin_registry
+from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin as _HTP
+from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin as _GBP
+from plugins.data_classification.plugin import DataClassificationPlugin as _DCP
+
+_plugin_registry.register(_HTP())
+_plugin_registry.register(_GBP())
+_plugin_registry.register(_DCP())
+
 
 # ============================================================================
 # Unified Test App (combines all microservice routers)
@@ -64,9 +80,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     get_auth_provider().initialize()
     print("✓ Test app ready")
-    
+
     yield
-    
+
     # Shutdown
     await close_db()
 

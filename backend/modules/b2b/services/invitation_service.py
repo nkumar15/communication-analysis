@@ -429,7 +429,7 @@ class InvitationService:
                 detail="Invitation not found"
             )
         
-        if invitation.tenant_id != tenant_id:
+        if str(invitation.tenant_id) != str(tenant_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot cancel invitation from another tenant"
@@ -469,7 +469,7 @@ class InvitationService:
                 detail="Invitation not found"
             )
         
-        if invitation.tenant_id != tenant_id:
+        if str(invitation.tenant_id) != str(tenant_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot resend invitation from another tenant"

@@ -3,6 +3,7 @@ from sqlalchemy import Column, String, Boolean, ForeignKey, text, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
+
 class Team(Base, TimestampMixin, SoftDeleteMixin):
     """Team model for organizing users within a tenant"""
     __tablename__ = "teams"
@@ -28,6 +29,9 @@ class Team(Base, TimestampMixin, SoftDeleteMixin):
     team_type = Column(String(50))
     hierarchy_level = Column(Integer, default=0)
     
+    # Geographic plugin: link to a GeographicRegion for scope derivation
+    region_id = Column(UUID(as_uuid=True), ForeignKey('b2b.geographic_regions.id', ondelete='SET NULL'), nullable=True, index=True)
+
     # config_data
     config_data = Column(JSONB, default={}, nullable=False, server_default='{}')
     

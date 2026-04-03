@@ -23,6 +23,10 @@ from tests.conftest import (
     encode_mock_jwt,
 )
 
+from modules.b2b.models.team import Team
+from modules.b2b.models.team_member import TeamMember
+from modules.b2b.models.team_role_definition import TeamRoleDefinition
+
 
 pytestmark = pytest.mark.asyncio
 
@@ -137,97 +141,150 @@ class TestTenantWithoutPlugins:
 class TestTenantWithPlugins:
     """
     Tests for tenants WITH plugin features enabled.
-    
+
     These tests verify that plugins correctly extend RBAC:
     - Data Classification: Clearance level vs sensitivity
     - Geographic Boundaries: User region vs resource region
     - Hierarchical Teams: Manager inheritance
-    
-    Note: Many of these tests require specific infrastructure:
-    - Plugin enrichment in auth_service (pending integration)
-    - Domain resources with sensitivity/region fields (bank_surveillance)
     """
-    
-    @pytest.mark.xfail(reason="Plugin enrichment in auth_service pending re-integration")
-    async def test_auth_me_returns_plugin_context(
+
+    async def test_auth_me_returns_plugin_enrichment_in_active_features(
         self, api_client: AsyncClient, b2b_test_setup
     ):
         """
-        [WITH PLUGINS] GET /auth/me should return plugin-enriched context.
-        
-        Scenario: Tenant with plugins enabled
-        Expected: Response includes clearance_level, geographic_scopes, accessible_teams
+        [WITH PLUGINS] GET /auth/me must include plugin enrichment fields in active_features.
+
+        Scenario: Tenant with all three plugins enabled
+        Expected: active_features contains clearance_level, geographic_scopes,
+                  accessible_teams, and context_enriched=True
         """
-        # Arrange
         setup = b2b_test_setup
         token = setup["token"]
-        
-        # Act
+        session = setup["session"]
+        tenant_id = setup["tenant_id"]
+
+        from modules.b2b.services.tenant_service import tenant_service
+        await tenant_service.update_tenant_features(
+            session, tenant_id,
+            {"plugins": ["data_classification", "geographic_boundaries", "hierarchical_teams"]}
+        )
+        await session.commit()
+
         response = await api_client.get(
             "/api/b2b/auth/me",
             headers={"Authorization": f"Bearer {token}"}
         )
-        
-        # Assert
+
         assert response.status_code == 200
-        data = response.json()
-        
-        # Check for plugin enrichment in response
-        assert "active_features" in data or "user" in data
-        if "active_features" in data:
-            features = data["active_features"]
-            assert "clearance_level" in features
-            assert "geographic_scopes" in features
-            assert "accessible_teams" in features
-    
-    @pytest.mark.xfail(reason="Requires bank_surveillance domain resources")
+        features = response.json().get("active_features", {})
+        assert "clearance_level" in features, (
+            "DataClassificationPlugin.enrich_user_context() not running"
+        )
+        assert "geographic_scopes" in features, (
+            "GeographicBoundariesPlugin.enrich_user_context() not running"
+        )
+        assert "accessible_teams" in features, (
+            "HierarchicalTeamsPlugin.enrich_user_context() not running"
+        )
+        assert features.get("context_enriched") is True
+
+    @pytest.mark.skip(
+        reason="Requires bank_surveillance alert endpoint with sensitivity field — "
+               "add to test_plugin_integration.py once bank domain fixtures are seeded"
+    )
     async def test_clearance_denies_access_to_higher_classification(
         self, api_client: AsyncClient, b2b_test_setup
     ):
         """
         [WITH PLUGINS - DATA CLASSIFICATION]
-        User with L1 clearance should be denied access to L3 resource.
-        
-        Scenario: Tenant with data_classification plugin enabled
-        Expected: 403 Forbidden - plugin denies due to insufficient clearance
+        User with L1 clearance denied access to L3 resource.
         """
-        # This test requires:
-        # 1. A resource endpoint with sensitivity field (bank_surveillance)
-        # 2. Plugin middleware active and integrated with auth_service
-        pytest.skip("Requires bank_surveillance domain with classified resources")
-    
-    @pytest.mark.xfail(reason="Requires bank_surveillance domain resources")
+
+    @pytest.mark.skip(
+        reason="Requires bank_surveillance alert endpoint with data_region_id field — "
+               "add to test_plugin_integration.py once bank domain fixtures are seeded"
+    )
     async def test_geographic_denies_access_to_different_region(
         self, api_client: AsyncClient, b2b_test_setup
     ):
         """
         [WITH PLUGINS - GEOGRAPHIC BOUNDARIES]
-        User in EU should be denied access to US-region resource.
-        
-        Scenario: Tenant with geographic_boundaries plugin enabled
-        Expected: 403 Forbidden - plugin denies due to region mismatch
+        User with EU scope denied access to US-region alert.
         """
-        # This test requires:
-        # 1. A resource endpoint with data_region_id field (bank_surveillance)
-        # 2. Plugin middleware active and integrated with auth_service
-        pytest.skip("Requires bank_surveillance domain with region-tagged resources")
-    
-    @pytest.mark.xfail(reason="Requires team hierarchy seeded in test")
+
     async def test_hierarchical_grants_access_to_child_team(
-        self, api_client: AsyncClient, b2b_test_setup
+        self, api_client: AsyncClient, b2b_test_setup, db_session
     ):
         """
         [WITH PLUGINS - HIERARCHICAL TEAMS]
-        Manager of parent team should access child team resources.
-        
-        Scenario: Tenant with hierarchical_teams plugin enabled
-        Expected: 200 OK - plugin grants access due to hierarchy inheritance
+        Manager of a parent team has child team in accessible_teams after enrichment.
+
+        Scenario:
+          - Parent team "APAC Region" → child team "SG Desk"
+          - Admin user assigned to parent team with a role that has team_members:manage
+          - hierarchical_teams plugin enabled
+        Expected: active_features.accessible_teams includes both parent and child team IDs
         """
-        # This test requires:
-        # 1. Parent-child team hierarchy seeded
-        # 2. User assigned as manager of parent team
-        # 3. Plugin enrichment to add accessible_teams
-        pytest.skip("Requires hierarchical team structure in test fixture")
+        setup = b2b_test_setup
+        token = setup["token"]
+        admin = setup["admin"]
+        tenant_id = setup["tenant_id"]
+        session = setup["session"]
+
+        # Build team hierarchy directly in DB
+        parent_team = Team(
+            tenant_id=tenant_id,
+            name=f"APAC-{uuid4().hex[:6]}",
+            created_by=admin.id,
+        )
+        db_session.add(parent_team)
+        await db_session.flush()
+
+        child_team = Team(
+            tenant_id=tenant_id,
+            name=f"SG-Desk-{uuid4().hex[:6]}",
+            created_by=admin.id,
+            parent_team_id=parent_team.id,
+        )
+        db_session.add(child_team)
+        await db_session.flush()
+
+        manager_role = TeamRoleDefinition(
+            tenant_id=tenant_id,
+            name=f"manager_{uuid4().hex[:6]}",
+            display_name="Test Manager",
+            permissions=[{"resource": "team_members", "actions": ["manage"]}],
+        )
+        db_session.add(manager_role)
+        await db_session.flush()
+
+        membership = TeamMember(
+            team_id=parent_team.id,
+            user_id=admin.id,
+            team_role_id=manager_role.id,
+            team_role="team_manager",
+        )
+        db_session.add(membership)
+
+        from modules.b2b.services.tenant_service import tenant_service
+        await tenant_service.update_tenant_features(
+            session, tenant_id, {"plugins": ["hierarchical_teams"]}
+        )
+        await db_session.commit()
+
+        response = await api_client.get(
+            "/api/b2b/auth/me",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+
+        assert response.status_code == 200
+        features = response.json().get("active_features", {})
+        accessible = features.get("accessible_teams", [])
+
+        assert str(parent_team.id) in accessible, "Parent team not in accessible_teams"
+        assert str(child_team.id) in accessible, (
+            "Child team not in accessible_teams — hierarchical plugin not expanding hierarchy"
+        )
 
 
 # =============================================================================

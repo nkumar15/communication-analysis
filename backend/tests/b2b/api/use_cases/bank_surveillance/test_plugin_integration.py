@@ -1,114 +1,285 @@
 """
 Bank Surveillance Plugin Integration Tests
 
-NOTE: Most tests are skipped because plugin infrastructure is not yet implemented.
-Plugins are initialized at app startup but the actual models and tables don't exist yet.
-
-TODO: Implement these when plugin infrastructure is ready:
-- GeographicRegion model and table
-- SensitivityLevel model and table  
-- OrgTier enum with hierarchical values
-- Plugin seeding logic during subscription changes
+Tests plugin lifecycle hooks (on_tenant_enable) and DB schema structure.
+Subscription-upgrade tests remain skipped pending Stripe mock infrastructure.
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Requires domain-specific fixtures not currently in foundation scope")
+from unittest.mock import MagicMock, AsyncMock
+from uuid import uuid4
 
-from sqlalchemy import select, text
-from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy import text
 
-
-async def enable_plugins_for_tenant(db_session, tenant, plugins: list[str]):
-    """Helper to enable plugins for a tenant (simulates subscription upgrade)"""
-    if tenant.features is None:
-        tenant.features = {}
-    
-    tenant.features['plugins'] = plugins
-    flag_modified(tenant, 'features')
-    await db_session.commit()
-    await db_session.refresh(tenant)
+pytestmark = pytest.mark.asyncio
 
 
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="GeographicRegion model not implemented yet")
-async def test_geographic_boundaries_plugin_initialization(db_session, b2b_test_setup):
+# =============================================================================
+# Helpers
+# =============================================================================
+
+async def enable_plugins_for_tenant(session, tenant_id, plugins: list[str]):
+    """Enable plugins for a tenant (simulates subscription upgrade)."""
+    from sqlalchemy.orm.attributes import flag_modified
+    from modules.b2b.services.tenant_service import tenant_service
+
+    await tenant_service.update_tenant_features(
+        session, tenant_id, {"plugins": plugins}
+    )
+    await session.commit()
+
+
+def _mock_db_with_template(template_data: dict):
     """
-    Test that geographic_boundaries plugin creates schema and tables.
-    
-    TODO: Implement when GeographicRegion model exists
-    Requires: USE_CASE=bank_surveillance seeding
-    Validates: Real bank surveillance region data
+    Build an AsyncMock DB whose first execute() call returns a template,
+    and all subsequent calls return None (no existing records).
     """
-    pass
+    call_count = {"n": 0}
+
+    mock_template = MagicMock()
+    mock_template.template_data = template_data
+
+    async def mock_execute(stmt, *args, **kwargs):
+        call_count["n"] += 1
+        result = MagicMock()
+        if call_count["n"] == 1:
+            result.scalar_one_or_none.return_value = mock_template
+        else:
+            result.scalar_one_or_none.return_value = None
+        return result
+
+    db = AsyncMock()
+    db.execute.side_effect = mock_execute
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    return db
 
 
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="SensitivityLevel model not implemented yet")
-async def test_data_classification_sensitivity_levels(db_session, b2b_test_setup):
-    """
-    Test that data classification plugin seeds sensitivity levels.
-    
-    TODO: Implement when SensitivityLevel model exists
-    Requires: USE_CASE=bank_surveillance seeding
-    Validates: Bank-specific sensitivity levels (PUBLIC, INTERNAL, CONFIDENTIAL, etc.)
-    """
-    pass
+def _mock_db_no_template():
+    """DB that returns no template — hooks should log warning and return cleanly."""
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    db.execute.return_value = result
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    return db
 
 
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="OrgTier enum and hierarchical teams not implemented yet")
-async def test_hierarchical_teams_plugin_org_tiers(db_session, b2b_test_setup):
-    """
-    Test that hierarchical teams plugin enables org tier functionality.
-    
-    TODO: Implement when OrgTier enum has DESK, COUNTRY, REGIONAL, GLOBAL values
-    Requires: USE_CASE=bank_surveillance seeding
-    Validates: Teams can be assigned org tiers
-    """
-    pass
+# =============================================================================
+# Schema Smoke Test
+# =============================================================================
 
-
-@pytest.mark.asyncio
 async def test_plugin_schema_isolation(db_session, b2b_test_setup):
     """
-    Verify schema structure exists for potential plugin tables.
-    
-    This is a smoke test that doesn't require actual plugin implementation.
+    Verify the b2b schema exists.
+    This is a smoke test that does not require plugin-specific seeding.
     """
-    # Check if bank_surveillance schema exists
     result = await db_session.execute(text("""
-        SELECT schema_name 
-        FROM information_schema.schemata 
+        SELECT schema_name
+        FROM information_schema.schemata
         WHERE schema_name IN ('b2b', 'bank_surveillance')
     """))
     schemas = [row[0] for row in result.fetchall()]
-    
-    # Assert: b2b schema exists (core platform)
-    assert 'b2b' in schemas, "b2b schema should exist"
-    
-    # Note: bank_surveillance schema may or may not exist depending on migrations
+
+    assert 'b2b' in schemas, "b2b schema must exist"
 
 
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Subscription upgrade API requires Stripe mocking") 
-async def test_subscription_upgrade_enables_all_bank_plugins(api_client, db_session, b2b_test_setup):
+# =============================================================================
+# GeographicBoundariesPlugin — lifecycle hook
+# =============================================================================
+
+async def test_geographic_boundaries_on_tenant_enable_with_template():
     """
-    Integration test: Subscription upgrade enables all bank surveillance plugins.
-    
-    TODO: Implement when:
-    1. Plugin models exist
-    2. Subscription service initializes plugins
-    3. Test can mock Stripe or use service layer directly
+    on_tenant_enable clones default_regions from PluginTemplate into GeographicRegion.
+    Each region is inserted once (idempotent — skips if already exists).
     """
-    pass
+    from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin
+
+    plugin = GeographicBoundariesPlugin()
+    plugin.config = {}
+    tenant_id = str(uuid4())
+
+    db = _mock_db_with_template({
+        "default_regions": [
+            {"code": "US", "name": "United States", "regulatory_jurisdiction": "Federal"},
+            {"code": "EU", "name": "Europe", "regulatory_jurisdiction": "GDPR"},
+        ]
+    })
+
+    # Must not raise
+    await plugin.on_tenant_enable(tenant_id, db)
+
+    # Two regions → two db.add() calls
+    assert db.add.call_count == 2
+    db.flush.assert_called_once()
 
 
-@pytest.mark.asyncio
+async def test_geographic_boundaries_on_tenant_enable_no_template():
+    """
+    on_tenant_enable logs a warning and exits cleanly when no template is found.
+    No DB inserts must happen.
+    """
+    from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin
+
+    plugin = GeographicBoundariesPlugin()
+    plugin.config = {}
+
+    db = _mock_db_no_template()
+
+    await plugin.on_tenant_enable(str(uuid4()), db)
+
+    db.add.assert_not_called()
+
+
+async def test_geographic_boundaries_on_tenant_disable_is_noop():
+    """on_tenant_disable must complete without errors and never delete data."""
+    from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin
+
+    plugin = GeographicBoundariesPlugin()
+    plugin.config = {}
+    db = AsyncMock()
+
+    await plugin.on_tenant_disable(str(uuid4()), db)
+
+    db.delete.assert_not_called()
+    db.execute.assert_not_called()
+
+
+# =============================================================================
+# DataClassificationPlugin — lifecycle hook
+# =============================================================================
+
+async def test_data_classification_on_tenant_enable_with_template():
+    """
+    on_tenant_enable clones sensitivity_levels from PluginTemplate into SensitivityLevel.
+    """
+    from plugins.data_classification.plugin import DataClassificationPlugin
+
+    plugin = DataClassificationPlugin()
+    await plugin.initialize(None, {})
+    tenant_id = str(uuid4())
+
+    db = _mock_db_with_template({
+        "sensitivity_levels": [
+            {"name": "PUBLIC", "level": 0, "description": "Public data"},
+            {"name": "INTERNAL", "level": 1, "description": "Internal use only"},
+            {"name": "CONFIDENTIAL", "level": 2, "description": "Confidential"},
+        ]
+    })
+
+    await plugin.on_tenant_enable(tenant_id, db)
+
+    # Three levels → three db.add() calls
+    assert db.add.call_count == 3
+    db.flush.assert_called_once()
+
+
+async def test_data_classification_on_tenant_enable_no_template():
+    """on_tenant_enable exits cleanly when no template is found."""
+    from plugins.data_classification.plugin import DataClassificationPlugin
+
+    plugin = DataClassificationPlugin()
+    await plugin.initialize(None, {})
+
+    db = _mock_db_no_template()
+
+    await plugin.on_tenant_enable(str(uuid4()), db)
+
+    db.add.assert_not_called()
+
+
+async def test_data_classification_on_tenant_disable_is_noop():
+    """on_tenant_disable must complete without deleting data."""
+    from plugins.data_classification.plugin import DataClassificationPlugin
+
+    plugin = DataClassificationPlugin()
+    await plugin.initialize(None, {})
+    db = AsyncMock()
+
+    await plugin.on_tenant_disable(str(uuid4()), db)
+
+    db.delete.assert_not_called()
+    db.execute.assert_not_called()
+
+
+# =============================================================================
+# HierarchicalTeamsPlugin — lifecycle hook
+# =============================================================================
+
+async def test_hierarchical_teams_on_tenant_enable_with_template():
+    """
+    on_tenant_enable clones org_tiers from PluginTemplate into OrgTier.
+    """
+    from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin
+
+    plugin = HierarchicalTeamsPlugin()
+    await plugin.initialize(None, {})
+    tenant_id = str(uuid4())
+
+    db = _mock_db_with_template({
+        "org_tiers": [
+            {"name": "GLOBAL", "display_name": "Global", "hierarchy_order": 1},
+            {"name": "REGIONAL", "display_name": "Regional", "hierarchy_order": 2},
+            {"name": "COUNTRY", "display_name": "Country", "hierarchy_order": 3},
+            {"name": "DESK", "display_name": "Desk", "hierarchy_order": 4},
+        ]
+    })
+
+    await plugin.on_tenant_enable(tenant_id, db)
+
+    # Four tiers → four db.add() calls
+    assert db.add.call_count == 4
+    db.flush.assert_called_once()
+
+
+async def test_hierarchical_teams_on_tenant_enable_no_template():
+    """on_tenant_enable exits cleanly when no template is found."""
+    from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin
+
+    plugin = HierarchicalTeamsPlugin()
+    await plugin.initialize(None, {})
+
+    db = _mock_db_no_template()
+
+    await plugin.on_tenant_enable(str(uuid4()), db)
+
+    db.add.assert_not_called()
+
+
+async def test_hierarchical_teams_on_tenant_disable_is_noop():
+    """on_tenant_disable must complete without deleting data."""
+    from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin
+
+    plugin = HierarchicalTeamsPlugin()
+    await plugin.initialize(None, {})
+    db = AsyncMock()
+
+    await plugin.on_tenant_disable(str(uuid4()), db)
+
+    db.delete.assert_not_called()
+    db.execute.assert_not_called()
+
+
+# =============================================================================
+# Subscription upgrade / downgrade — pending Stripe mock infrastructure
+# =============================================================================
+
+@pytest.mark.skip(reason="Requires Stripe mock or service-layer test harness")
+async def test_subscription_upgrade_enables_all_bank_plugins(
+    api_client, db_session, b2b_test_setup
+):
+    """
+    Subscription upgrade enables data_classification, geographic_boundaries,
+    hierarchical_teams for the tenant and seeds each plugin's default data.
+    """
+
+
 @pytest.mark.skip(reason="Subscription downgrade logic not fully implemented")
-async def test_subscription_downgrade_removes_bank_plugins(api_client, db_session, b2b_test_setup):
+async def test_subscription_downgrade_removes_bank_plugins(
+    api_client, db_session, b2b_test_setup
+):
     """
-    Integration test: Subscription downgrade cleans up bank surveillance plugins.
-    
-    TODO: Implement when downgrade logic is complete
+    Subscription downgrade removes plugins from tenant features.
+    Existing data must NOT be deleted (safe downgrade).
     """
-    pass

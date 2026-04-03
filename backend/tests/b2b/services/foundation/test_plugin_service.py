@@ -60,29 +60,52 @@ class TestGeographicBoundariesServiceIntegration:
     """Tests for GeographicBoundariesPlugin with real DB session"""
     
     async def test_enrich_user_context_fetches_scopes_from_db(self, db_session, b2b_test_setup):
-        """Test that enrich_user_context fetches geographic scopes from team memberships"""
+        """
+        geographic_boundaries.enrich_user_context derives scopes from accessible_teams.
+
+        When accessible_teams is absent the plugin returns {} (no enrichment).
+        When accessible_teams lists teams with no region_id the plugin also returns {}
+        because no region mapping exists yet.  The scopes key is only present when
+        at least one accessible team has a region_id assigned.
+        """
         # Arrange
         setup = b2b_test_setup
         session = setup["session"]
         owner = setup["owner"]
         tenant_id = setup["tenant_id"]
-        
+
         plugin = GeographicBoundariesPlugin()
         await plugin.initialize(session, {"enforce_strict": True})
-        
-        user = {
+
+        # Case 1: no accessible_teams key → plugin returns {}
+        user_no_teams = {
             "id": str(owner.id),
-            "tenant_id": str(tenant_id)
+            "tenant_id": str(tenant_id),
         }
-        
-        # Act
-        enriched = await plugin.enrich_user_context(user, session)
-        
-        # Assert
-        assert "geographic_scopes" in enriched
-        assert isinstance(enriched["geographic_scopes"], list)
-        # team_roles may also be present
-        assert "team_roles" in enriched
+        enriched_no_teams = await plugin.enrich_user_context(user_no_teams, session)
+        assert enriched_no_teams == {}, (
+            "Expected {} when accessible_teams not provided"
+        )
+
+        # Case 2: accessible_teams present but teams have no region_id → still {}
+        # First use HierarchicalTeamsPlugin to get real team IDs for this user.
+        ht_plugin = HierarchicalTeamsPlugin()
+        await ht_plugin.initialize(session, {})
+        ht_enriched = await ht_plugin.enrich_user_context(
+            {"id": str(owner.id), "role": "owner"}, session
+        )
+        accessible_teams = ht_enriched.get("accessible_teams", [])
+
+        user_with_teams = {
+            "id": str(owner.id),
+            "tenant_id": str(tenant_id),
+            "accessible_teams": accessible_teams,
+        }
+        enriched_with_teams = await plugin.enrich_user_context(user_with_teams, session)
+        # Default teams have no region_id → still returns {}
+        assert enriched_with_teams == {}, (
+            "Expected {} when accessible teams have no region_id"
+        )
 
 
 class TestHierarchicalTeamsServiceIntegration:

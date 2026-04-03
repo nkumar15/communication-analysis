@@ -72,24 +72,24 @@ class GeographicBoundariesPlugin(RBACPlugin):
         Check if user should bypass geographic restrictions.
         Checks both Tenant Roles (System) and Team Roles (Business).
         """
+        # 1. Check explicit bypass flag first — independent of role config
+        if context.extra_context and context.extra_context.get("bypass_geographic_restrictions"):
+            return True
+
         global_roles = self.config.get("global_roles", [])
         if not global_roles:
             return False
 
-        # 1. Check Tenant Role (e.g., 'owner', 'admin')
+        # 2. Check Tenant Role (e.g., 'owner', 'admin')
         if context.user.get("role") in global_roles:
             return True
 
-        # 2. Check Team Roles (e.g., 'surveillance_chief')
+        # 3. Check Team Roles (e.g., 'surveillance_chief')
         # This relies on enrich_user_context having populated 'team_roles'
         user_team_roles = context.user.get("team_roles", [])
         for role in user_team_roles:
             if role in global_roles:
                 return True
-                
-        # 3. Check explicit bypass flag in context
-        if context.extra_context and context.extra_context.get("bypass_geographic_restrictions"):
-            return True
 
         return False
 

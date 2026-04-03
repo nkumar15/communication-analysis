@@ -49,7 +49,8 @@ async def has_permission(
             .where(Action.name == action)
         )
         tenant_perm_result = await db.execute(tenant_perm_stmt)
-        if tenant_perm_result.scalar_one_or_none():
+        perm = tenant_perm_result.scalar_one_or_none()
+        if perm:
             return True
 
     return False

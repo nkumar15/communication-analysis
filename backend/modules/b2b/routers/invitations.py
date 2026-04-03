@@ -23,7 +23,7 @@ from modules.b2b.schemas.invitation import (
     InviteUserResponse,
     InvitationListResponse
 )
-from modules.b2b.rbac import has_permission
+from modules.b2b.rbac import has_permission, require_permission
 from infrastructure.email import email_service
 from core.config import settings
 from core.db.rls import rls_service
@@ -161,21 +161,15 @@ async def list_invitations(
 @router.delete("/{invitation_id}")
 async def cancel_invitation(
     invitation_id: UUID,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = require_permission('users', 'invite'),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Cancel/delete a pending invitation
-    
+
     - Requires invitations:delete permission
     - Only pending invitations can be cancelled
     """
-    # Check permission
-    if not await has_permission(current_user['id'], 'users', 'invite', db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to cancel invitations"
-        )
     
     await invitation_service.cancel_invitation(
         db=db,
@@ -189,21 +183,15 @@ async def cancel_invitation(
 @router.post("/resend/{invitation_id}")
 async def resend_invitation(
     invitation_id: UUID,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = require_permission('users', 'invite'),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Resend invitation email
-    
+
     - Requires invitations:write permission
     - Only pending, non-expired invitations
     """
-    # Check permission
-    if not await has_permission(current_user['id'], 'users', 'invite', db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to resend invitations"
-        )
     
     # Get and validate invitation
     invitation = await invitation_service.get_invitation_for_resend(

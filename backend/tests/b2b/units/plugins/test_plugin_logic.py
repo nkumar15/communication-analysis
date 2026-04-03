@@ -2,7 +2,7 @@
 Unit Tests for RBAC Plugins Logic
 """
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from types import SimpleNamespace
 from core.rbac.plugin_system import PermissionContext
 from plugins.data_classification.plugin import DataClassificationPlugin
@@ -457,6 +457,172 @@ class TestGeographicBoundariesPluginExtended:
             tenant_id="t1",
             extra_context={"bypass_geographic_restrictions": True}
         )
-        
+
         result = await plugin.after_permission_check(ctx, True, None)
         assert result is True
+
+
+# =============================================================================
+# enrich_user_context — DataClassificationPlugin
+# =============================================================================
+
+class TestDataClassificationEnrich:
+    """DataClassificationPlugin.enrich_user_context derives clearance from team roles."""
+
+    async def test_returns_max_clearance_from_team_roles(self):
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {})
+
+        db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 3  # RESTRICTED
+        db.execute.return_value = mock_result
+
+        result = await plugin.enrich_user_context({"id": "u1"}, db)
+
+        assert result["clearance_level"] == 3
+
+    async def test_defaults_to_1_when_no_team_roles(self):
+        """User with no team memberships defaults to INTERNAL (1)."""
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {})
+
+        db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = None  # no rows
+        db.execute.return_value = mock_result
+
+        result = await plugin.enrich_user_context({"id": "u1"}, db)
+
+        assert result["clearance_level"] == 1
+
+    async def test_defaults_to_1_when_no_user_id(self):
+        """Missing user id must return clearance 1 without hitting DB."""
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {})
+
+        result = await plugin.enrich_user_context({}, None)
+
+        assert result["clearance_level"] == 1
+
+    async def test_clearance_is_integer(self):
+        plugin = DataClassificationPlugin()
+        await plugin.initialize(None, {})
+
+        db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 2
+        db.execute.return_value = mock_result
+
+        result = await plugin.enrich_user_context({"id": "u1"}, db)
+
+        assert isinstance(result["clearance_level"], int)
+
+
+# =============================================================================
+# enrich_user_context — GeographicBoundariesPlugin
+# =============================================================================
+
+class TestGeographicBoundariesEnrich:
+    """GeographicBoundariesPlugin.enrich_user_context derives scopes from accessible_teams."""
+
+    async def test_no_accessible_teams_returns_empty(self):
+        """When user has no accessible_teams, skip DB and return {} (fall back to DB column)."""
+        plugin = GeographicBoundariesPlugin()
+        plugin.config = {}
+
+        result = await plugin.enrich_user_context(
+            {"id": "u1", "accessible_teams": [], "geographic_scopes": []},
+            None  # DB never called
+        )
+
+        assert result == {}
+
+    async def test_derives_scopes_from_team_region_ids(self):
+        """Accessible teams are mapped to their region_ids via DB query."""
+        plugin = GeographicBoundariesPlugin()
+        plugin.config = {}
+
+        region_id = "123e4567-e89b-12d3-a456-426614174001"
+
+        mock_row = MagicMock()
+        mock_row.region_id = region_id
+
+        db = AsyncMock()
+        db.execute.return_value = [mock_row]  # iterable result
+
+        result = await plugin.enrich_user_context(
+            {"id": "u1", "accessible_teams": ["team_A"], "geographic_scopes": []},
+            db
+        )
+
+        assert "geographic_scopes" in result
+        assert region_id in result["geographic_scopes"]
+
+    async def test_merges_with_existing_geographic_scopes(self):
+        """Derived region IDs are merged with any pre-existing scopes on the user."""
+        plugin = GeographicBoundariesPlugin()
+        plugin.config = {}
+
+        existing_scope = "aaaaaaaa-0000-0000-0000-000000000001"
+        new_region = "bbbbbbbb-0000-0000-0000-000000000002"
+
+        mock_row = MagicMock()
+        mock_row.region_id = new_region
+
+        db = AsyncMock()
+        db.execute.return_value = [mock_row]
+
+        result = await plugin.enrich_user_context(
+            {"id": "u1", "accessible_teams": ["team_A"], "geographic_scopes": [existing_scope]},
+            db
+        )
+
+        scopes = result["geographic_scopes"]
+        assert existing_scope in scopes
+        assert new_region in scopes
+
+    async def test_teams_without_region_are_skipped(self):
+        """Teams where region_id is NULL contribute no scope (not a crash)."""
+        plugin = GeographicBoundariesPlugin()
+        plugin.config = {}
+
+        mock_row = MagicMock()
+        mock_row.region_id = None  # team has no region
+
+        db = AsyncMock()
+        db.execute.return_value = [mock_row]
+
+        result = await plugin.enrich_user_context(
+            {"id": "u1", "accessible_teams": ["team_A"], "geographic_scopes": []},
+            db
+        )
+
+        # None region filtered out; no scopes derived → fall back, return {}
+        assert result == {}
+
+
+# =============================================================================
+# check_dependencies — GeographicBoundariesPlugin
+# =============================================================================
+
+class TestGeographicCheckDependencies:
+    """Geographic plugin warns when hierarchical_teams is absent."""
+
+    def test_warns_when_hierarchical_teams_absent(self):
+        plugin = GeographicBoundariesPlugin()
+        plugin.config = {}
+
+        with patch("plugins.geographic_boundaries.plugin.logger") as mock_logger:
+            plugin.check_dependencies(["data_classification"])
+            mock_logger.warning.assert_called_once()
+            warning_text = mock_logger.warning.call_args[0][0]
+            assert "hierarchical_teams" in warning_text
+
+    def test_no_warning_when_hierarchical_teams_present(self):
+        plugin = GeographicBoundariesPlugin()
+        plugin.config = {}
+
+        with patch("plugins.geographic_boundaries.plugin.logger") as mock_logger:
+            plugin.check_dependencies(["hierarchical_teams", "data_classification"])
+            mock_logger.warning.assert_not_called()

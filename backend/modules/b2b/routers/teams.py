@@ -416,7 +416,7 @@ async def add_team_member(
     
     # Verify the user being added belongs to same tenant
     user_to_add = await db.get(UserModel, member.user_id)
-    if not user_to_add or user_to_add.tenant_id != current_user['tenant_id']:
+    if not user_to_add or str(user_to_add.tenant_id) != str(current_user['tenant_id']):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User not found or belongs to different tenant"

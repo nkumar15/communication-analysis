@@ -31,8 +31,12 @@ async def test_sync_stripe_invoice_with_missing_dates():
     mock_result_inv = MagicMock()
     mock_result_inv.scalar_one_or_none.return_value = None
     
-    # Setup execute side effects
-    db.execute.side_effect = [mock_result_sub, mock_result_inv]
+    # Setup execute side effects:
+    # 1st call: set_platform_admin_context (SET LOCAL ...) - returns irrelevant MagicMock
+    # 2nd call: Select Subscription
+    # 3rd call: Select Invoice (returns None)
+    mock_set_context = MagicMock()
+    db.execute.side_effect = [mock_set_context, mock_result_sub, mock_result_inv]
 
     service = InvoiceService(db)
     

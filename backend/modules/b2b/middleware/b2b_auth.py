@@ -67,19 +67,37 @@ async def get_current_active_user(
     await rls_service.set_tenant_context(db, tenant.id)
 
     # 3. Lookup User (RLS Enabled)
-    # This query matches the policy: tenant_id = app.current_tenant_id
+    # Primary: look up by firebase_uid. Fallback: look up by email to support
+    # cross-platform UID differences (mobile vs web GCIP UIDs may differ).
     result = await db.execute(
         select(UserModel).where(UserModel.firebase_uid == firebase_uid)
     )
     user_row = result.scalar_one_or_none()
-    
+
+    if not user_row:
+        # Email-based fallback for cross-platform identity (mobile/web UID mismatch)
+        email_from_token = decoded_token.get("email")
+        if email_from_token:
+            result = await db.execute(
+                select(UserModel)
+                .where(UserModel.email == email_from_token.lower())
+                .where(UserModel.is_active == True)
+                .where(UserModel.deleted_at.is_(None))
+            )
+            user_row = result.scalar_one_or_none()
+
     if not user_row:
         raise HTTPException(status_code=401, detail="User not found")
-    
+
     # Check if user is active
     if not user_row.is_active:
         raise HTTPException(status_code=401, detail="User is inactive")
-        
+
+    return await _build_enriched_user_context(user_row, tenant, db)
+
+
+async def _build_enriched_user_context(user_row, tenant, db: AsyncSession) -> Dict[str, Any]:
+    """Build and return an enriched user context dict from a UserModel row."""
     # Fetch role slug and display name (now with RLS context set)
     role_slug = None
     role_display_name = None
@@ -104,10 +122,7 @@ async def get_current_active_user(
         "enabled_plugins": tenant.features.get('plugins', []) if tenant.features else []
     }
 
-    # 4. Enrich User Context via Plugins
-    # Adds geographic_scopes (from team hierarchy), clearance_level, accessible_teams.
-    # plugin_registry.enrich_user() sets context_enriched=True on success, False on partial failure.
-    # The permission checker checks this flag — a missing or False flag triggers re-enrichment.
+    # Enrich User Context via Plugins
     try:
         from core.rbac.plugin_registry import plugin_registry
         enriched_user = await plugin_registry.enrich_user(
@@ -119,11 +134,56 @@ async def get_current_active_user(
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Plugin enrichment failed for user {user_row.id}: {e}", exc_info=True)
-        # Return base context explicitly marked as not enriched so the permission
-        # checker falls back to its own DB enrichment path rather than trusting
-        # an incomplete context.
         user_context["context_enriched"] = False
         return user_context
+
+
+async def get_optional_active_user(
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Soft version of get_current_active_user for the /me endpoint.
+
+    Returns enriched user context when the user is found, or an empty dict
+    when the user does not yet exist. This allows /me to create users on first
+    login via auth_service.get_or_sync_user without a 401 from this dependency.
+    """
+    firebase_uid = decoded_token.get('uid')
+    firebase_tenant_id = decoded_token.get('firebase', {}).get('tenant')
+    if not firebase_uid or not firebase_tenant_id:
+        return {}
+
+    from modules.b2b.services.tenant_service import tenant_service
+    tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
+    if not tenant or tenant.activation_status != 'active' or not tenant.is_active:
+        return {}
+
+    current_tenant_id.set(str(tenant.id))
+    from core.db.rls import rls_service
+    await rls_service.set_tenant_context(db, tenant.id)
+
+    # Try firebase_uid lookup first, then email fallback
+    result = await db.execute(
+        select(UserModel).where(UserModel.firebase_uid == firebase_uid)
+    )
+    user_row = result.scalar_one_or_none()
+
+    if not user_row:
+        email_from_token = decoded_token.get("email")
+        if email_from_token:
+            result = await db.execute(
+                select(UserModel)
+                .where(UserModel.email == email_from_token.lower())
+                .where(UserModel.is_active == True)
+                .where(UserModel.deleted_at.is_(None))
+            )
+            user_row = result.scalar_one_or_none()
+
+    if not user_row or not user_row.is_active:
+        return {}
+
+    return await _build_enriched_user_context(user_row, tenant, db)
 
 
 

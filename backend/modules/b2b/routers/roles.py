@@ -156,7 +156,7 @@ async def update_role(
     """
     # Verify ownership
     role = await role_service.get_role_by_id(db, role_id)
-    if not role or role.tenant_id != current_user['tenant_id']:
+    if not role or str(role.tenant_id) != str(current_user['tenant_id']):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Role not found"
@@ -179,12 +179,12 @@ async def delete_role(
     Permission required: roles:delete
     """
     role = await role_service.get_role_by_id(db, role_id)
-    if not role or role.tenant_id != current_user['tenant_id']:
+    if not role or str(role.tenant_id) != str(current_user['tenant_id']):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Role not found"
         )
-    
+
     await role_service.delete_role(db, role)
     await db.commit()
     return {"message": "Role deleted successfully"}
