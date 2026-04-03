@@ -9,7 +9,11 @@ class GeographicBoundariesPlugin(RBACPlugin):
     Enforces geographic access control.
     User must have the resource's 'data_region_id' in their 'geographic_scopes'.
     """
-    
+
+    # Default config so the plugin degrades gracefully when initialize() is
+    # skipped (e.g. in tests that register the plugin without calling lifespan).
+    config: dict = {}
+
     def get_metadata(self) -> dict:
         return {
             "name": "geographic_boundaries",

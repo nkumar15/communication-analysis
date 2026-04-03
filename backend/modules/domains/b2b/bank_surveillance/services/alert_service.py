@@ -326,17 +326,18 @@ class AlertService:
         alerts = result.scalars().all()
         
         for alert in alerts:
-            # Set region name if available
+            # Set region display name — stored in __dict__ to avoid conflicting
+            # with the SQLAlchemy 'region' relationship attribute.
             if alert.communication and alert.communication.region:
-                alert.region = alert.communication.region.name
+                alert.__dict__["region"] = alert.communication.region.name
             else:
-                alert.region = "Default"
-                
-            # Set assignee name
+                alert.__dict__["region"] = None
+
+            # Set assignee display name
             if alert.assignee:
-                alert.assignee_name = alert.assignee.name or alert.assignee.email
+                alert.__dict__["assignee_name"] = alert.assignee.name or alert.assignee.email
             else:
-                alert.assignee_name = "Unassigned"
+                alert.__dict__["assignee_name"] = None
 
         return list(alerts), total
 
