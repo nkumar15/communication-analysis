@@ -63,11 +63,12 @@ class RegulatoryService:
         return list(result.scalars().all())
 
     async def update_document(
-        self, 
-        db: AsyncSession, 
-        doc_id: UUID, 
-        tenant_id: UUID, 
-        doc_in: RegulatoryDocumentUpdate
+        self,
+        db: AsyncSession,
+        doc_id: UUID,
+        tenant_id: UUID,
+        doc_in: RegulatoryDocumentUpdate,
+        access_scopes: Optional[List[UUID]] = None
     ) -> Optional[RegulatoryDocument]:
         """Update regulatory document"""
         db_doc = await self.get_document(db, doc_id, tenant_id, access_scopes)

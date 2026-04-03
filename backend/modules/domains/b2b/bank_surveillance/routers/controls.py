@@ -35,7 +35,7 @@ async def create_control(
 ):
     """Create a new surveillance control."""
     tenant_id = current_user["tenant_id"]
-    if control_in.tenant_id != tenant_id:
+    if str(control_in.tenant_id) != tenant_id:
         raise HTTPException(status_code=403, detail="Cannot create control for another tenant")
     
     control = await control_service.create_control(db, control_in)

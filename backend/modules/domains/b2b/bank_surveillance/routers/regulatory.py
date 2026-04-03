@@ -34,7 +34,7 @@ async def create_document(
 ):
     """Create a new regulatory document."""
     tenant_id = current_user["tenant_id"]
-    if doc_in.tenant_id != tenant_id:
+    if str(doc_in.tenant_id) != tenant_id:
         raise HTTPException(status_code=403, detail="Cannot create document for another tenant")
     
     doc = await regulatory_service.create_document(db, doc_in)

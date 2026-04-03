@@ -10,48 +10,56 @@ class TestSurveillanceControls:
     """Tests for the Surveillance Controls feature."""
 
     async def setup_rbac(self, setup):
-        """Assign surveillance_chief role to the test user."""
-        db = setup["session"]
-        tenant_id = setup["tenant"].id
-        user_id = setup["owner"].id
+        """Grant controls and regulatory CRUD permissions directly on the owner's tenant role."""
+        from sqlalchemy import text, select
+        from modules.b2b.models.rbac import Resource, Action, RolePermission
 
-        from sqlalchemy import select
-        from modules.b2b.models import Team, TeamMember
-        from modules.b2b.models.team_role_definition import TeamRoleDefinition
+        raw_db = setup["session"]._session
+        user = setup["owner"]
 
-        # 1. Get/Create Surveillance Team
-        team_stmt = select(Team).where(Team.name == "Surveillance Team").where(Team.tenant_id == tenant_id)
-        team = (await db.execute(team_stmt)).scalar_one_or_none()
-        if not team:
-            team = Team(tenant_id=tenant_id, name="Surveillance Team")
-            db.add(team)
-            await db.flush()
+        await raw_db.execute(text("SET app.is_platform_admin = 'true'"))
 
-        # 2. Get surveillance_chief role
-        from sqlalchemy import or_
-        role_stmt = select(TeamRoleDefinition).where(
-            TeamRoleDefinition.name == "surveillance_chief",
-            or_(TeamRoleDefinition.tenant_id.is_(None), TeamRoleDefinition.tenant_id == tenant_id)
-        )
-        role = (await db.execute(role_stmt)).scalar_one_or_none()
-        
-        if not role:
-            # Fallback to searching without tenant_id if still not found
-            role_stmt = select(TeamRoleDefinition).where(TeamRoleDefinition.name == "surveillance_chief")
-            role = (await db.execute(role_stmt)).scalars().first()
+        if user not in raw_db:
+            user = await raw_db.merge(user)
+        await raw_db.refresh(user)
 
-        # 3. Assign role to user
-        tm_stmt = select(TeamMember).where(TeamMember.user_id == user_id).where(TeamMember.team_id == team.id)
-        tm = (await db.execute(tm_stmt)).scalar_one_or_none()
-        if not tm:
-            tm = TeamMember(
-                team_id=team.id,
-                user_id=user_id,
-                team_role="surveillance_chief",
-                team_role_id=role.id if role else None
-            )
-            db.add(tm)
-            await db.flush()
+        for resource_name, action_name in [
+            ("controls", "read"), ("controls", "write"),
+            ("controls", "update"), ("controls", "delete"),
+            # controls tests also create regulatory docs as fixtures
+            ("regulatory", "read"), ("regulatory", "write"),
+        ]:
+            res_obj = (await raw_db.execute(
+                select(Resource).where(Resource.name == resource_name)
+            )).scalar_one_or_none()
+            if not res_obj:
+                res_obj = Resource(name=resource_name, display_name=resource_name.title())
+                raw_db.add(res_obj)
+                await raw_db.flush()
+
+            act_obj = (await raw_db.execute(
+                select(Action).where(Action.name == action_name)
+            )).scalar_one_or_none()
+            if not act_obj:
+                act_obj = Action(name=action_name, display_name=action_name.title())
+                raw_db.add(act_obj)
+                await raw_db.flush()
+
+            perm = (await raw_db.execute(select(RolePermission).where(
+                RolePermission.role_id == user.role_id,
+                RolePermission.resource_id == res_obj.id,
+                RolePermission.action_id == act_obj.id,
+            ))).scalar_one_or_none()
+            if not perm:
+                raw_db.add(RolePermission(
+                    role_id=user.role_id,
+                    resource_id=res_obj.id,
+                    action_id=act_obj.id,
+                ))
+                await raw_db.flush()
+
+        await raw_db.execute(text("SET app.is_platform_admin = 'false'"))
+        await raw_db.commit()
 
     async def test_create_control_linked_success(self, api_client, b2b_test_setup):
         """Happy path: Create a control linked to a regulatory document."""

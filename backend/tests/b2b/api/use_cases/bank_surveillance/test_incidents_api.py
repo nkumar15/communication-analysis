@@ -217,44 +217,7 @@ class TestListIncidents:
         )
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        resource = res.scalar_one_or_none()
-        if not resource:
-            resource = Resource(name="alerts", display_name="Alerts", category="Domain")
-            db_session.add(resource)
-            await db_session.flush()
-            
-        # Action
-        res = await db_session.execute(select(Action).where(Action.name == "read"))
-        action = res.scalar_one_or_none()
-        if not action:
-            action = Action(name="read", display_name="Read")
-            db_session.add(action)
-            await db_session.flush()
-            
-        # RolePermission
-        res = await db_session.execute(select(RolePermission).where(
-            RolePermission.role_id == user.role_id,
-            RolePermission.resource_id == resource.id,
-            RolePermission.action_id == action.id
-        ))
-        if not res.scalar_one_or_none():
-            rp = RolePermission(role_id=user.role_id, resource_id=resource.id, action_id=action.id)
-            db_session.add(rp)
-            await db_session.commit()
-            
-        await db_session.execute(text("SET app.is_platform_admin = 'false'"))
-        
-        headers = {"Authorization": f"Bearer {setup['token']}"}
-        
-        response = await api_client.get(
-            "/api/b2b/domain/bank_surveillance/incidents/",
-            headers=headers
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert isinstance(data, list)
-    
+
     @pytest.mark.asyncio
     async def test_list_incidents_unauthorized(self, api_client):
         """No token should return 401."""

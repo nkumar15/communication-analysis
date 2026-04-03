@@ -503,8 +503,13 @@ async def api_client(db_session):
     app.dependency_overrides[get_current_b2c_user] = override_get_current_b2c_user
     
     # Propagate overrides to all sub-apps
-    # This is required because FastAPI sub-apps do not inherit dependency overrides from the parent
-    for sub_app in [b2b_app, platform_app, b2c_app, b2b_domain_app, b2c_domain_app]:
+    # This is required because FastAPI sub-apps do not inherit dependency overrides from the parent.
+    # Must include nested sub-apps too: b2b_domain_app mounts surveillance_app and
+    # task_management_app as separate FastAPI instances, so they need overrides directly.
+    from modules.domains.b2b.bank_surveillance.main import app as surveillance_app
+    from modules.domains.b2b.task_management.main import app as task_management_app
+    for sub_app in [b2b_app, platform_app, b2c_app, b2b_domain_app, b2c_domain_app,
+                    surveillance_app, task_management_app]:
         sub_app.dependency_overrides.update(app.dependency_overrides)
     
     # httpx 0.27+ requires ASGITransport instead of app parameter

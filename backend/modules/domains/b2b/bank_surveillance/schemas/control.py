@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Any, Optional, List
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
@@ -8,7 +8,7 @@ class SurveillanceControlBase(BaseModel):
     risk_indicator: str
     regulatory_id: Optional[UUID] = None
     regulatory_reference_text: Optional[str] = None
-    detection_methods: List[dict] = []
+    detection_methods: List[Any] = []
     status: str = "Active"
 
 class SurveillanceControlCreate(SurveillanceControlBase):
@@ -19,7 +19,7 @@ class SurveillanceControlUpdate(BaseModel):
     risk_indicator: Optional[str] = None
     regulatory_id: Optional[UUID] = None
     regulatory_reference_text: Optional[str] = None
-    detection_methods: Optional[List[dict]] = None
+    detection_methods: Optional[List[Any]] = None
     status: Optional[str] = None
 
 from .regulatory import RegulatoryDocumentResponse
