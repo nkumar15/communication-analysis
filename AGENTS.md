@@ -10,7 +10,7 @@ When multiple instructions exist, apply this precedence:
 2. This `AGENTS.md`.
 3. `.agent/rules/*.md`.
 4. `.agent/workflows/*.md`.
-5. `.agent/skills/*/SKILL.md`.
+5. `shared-skills/*/SKILL.md` (symlinked as `.agent/skills/` and `.claude/skills/`).
 6. User request for the current turn.
 
 If any conflict appears, follow the highest-priority item and explicitly call out the deviation.
