@@ -47,18 +47,19 @@ graph TD
 
 | Attribute | Storage Location | Loaded By |
 |-----------|------------------|-----------|
-| **Geography** | `teams.config_data['region_code']` | `GeographicBoundariesPlugin` (Derived from Team Membership) |
-| **Hierarchy** | `teams.parent_team_id` (FK) | `HierarchicalTeamsPlugin` (Standard recursion) |
-| **Clearance** | `roles.clearance_level` (Integer) | `DataClassificationPlugin` (Derived from System Role) |
+| **Accessible Teams** | `teams.parent_team_id` (FK, recursion) | `HierarchicalTeamsPlugin` — adds `accessible_teams` (direct + managed children) |
+| **Geography** | `users.geographic_scopes` (DB column, fallback) or derived from `accessible_teams` | `GeographicBoundariesPlugin` — reads scopes; validates in after-check |
+| **Clearance** | `team_role_definitions.clearance_level` (Integer) | `DataClassificationPlugin` — takes **max** across user's team roles (default: 1/INTERNAL) |
 | **Plugin Config** | `tenants.features['plugins']` (JSONB) | `TenantService` (at startup) |
 
 ### Enrichment Process
-1.  **Login**: User authenticates.
-2.  **Middleware**: `RBACMiddleware` loads the `Tenant`.
-3.  **Plugin Initialization**:
-    - **Geography**: Plugin queries `team_members` -> `teams` to find all regions the user is part of (e.g., "SG", "APAC"). It injects these as `geographic_scopes` into the user context.
-    - **Clearance**: Plugin queries the user's assigned **System Role** (`b2b.roles`) to find the `clearance_level` (e.g., 2) and injects it.
-4.  **Ready**: `request.state.user` now has enriched data (`geographic_scopes`, `clearance_level`) for Router checks.
+1.  **Login**: User authenticates via Firebase.
+2.  **Middleware** (`b2b_auth.py`): Sets RLS context, looks up user, then calls `plugin_registry.enrich_user()`.
+3.  **Plugin Enrichment** (runs once per request, result cached on `context_enriched` flag):
+    - **Hierarchy**: `HierarchicalTeamsPlugin` queries `team_members → teams` to find direct memberships + child teams for manager roles. Injects `accessible_teams` list.
+    - **Geography**: `GeographicBoundariesPlugin` validates plugin dependencies. It reads `geographic_scopes` from the user context (sourced from `user.geographic_scopes` DB column, or derived from `accessible_teams` when `hierarchical_teams` is enabled). Does **not** inject scopes — validates them in the after-check.
+    - **Clearance**: `DataClassificationPlugin` queries all `team_role_definitions` the user belongs to and derives `clearance_level = max(team_role.clearance_level)`.
+4.  **Ready**: Enriched user dict (with `accessible_teams`, `clearance_level`, `context_enriched=True`) is available to all permission checks in this request.
 
 ---
 
@@ -69,22 +70,19 @@ graph TD
 ### Step 1: Router Call
 ```python
 # routers/alerts.py
+from modules.b2b.rbac.decorators import require_permission
+
 @router.get("/alerts/{alert_id}")
-async def get_alert(alert_id: UUID, current_user = Depends(get_current_active_user)):
-    alert = await alert_service.get(alert_id)
-    
-    # Resource to check
-    resource = {
-        "type": "alert",
-        "region": alert.region,      # "EMEA"
-        "sensitivity": alert.level   # "HIGH" (3)
-    }
-    
-    await rls_service.check_permission(
-        user=current_user,
-        permission="alerts:read",
-        resource=resource
-    )
+async def get_alert(
+    alert_id: UUID,
+    current_user: dict = require_permission("alerts", "read"),
+    db: AsyncSession = Depends(get_db)
+):
+    # require_permission runs the full 3-layer check including plugin hooks.
+    # Plugin post-checks (geographic_boundaries, data_classification) receive
+    # the resource object via extra_context if the router passes it.
+    alert = await alert_service.get(db, alert_id)
+    ...
 ```
 
 ### Step 2: Plugin Evaluation
@@ -159,12 +157,15 @@ class RBACPlugin(ABC):
 ## 4. Dependencies & Configuration
 
 ### Dependencies
-- **Middleware**: `core.middleware.authentication` (Sets up `request.state.user`)
-- **Service**: `modules.b2b.services.rbac_service` (Orchestrator)
+- **Middleware**: `modules.b2b.middleware.b2b_auth` — authenticates user, sets RLS context, enriches user via plugins
+- **Permission Checker**: `modules.b2b.rbac.permission_checker.has_permission_with_plugins()` — main entry point for 3-layer checks
+- **Plugin Registry**: `core.rbac.plugin_registry` — orchestrates enrichment and plugin hook execution
+- **Decorator**: `modules.b2b.rbac.decorators.require_permission` — FastAPI dependency that calls `has_permission_with_plugins()`
 - **Database**:
-    - `tenant_settings`: Stores enabled plugins list per tenant.
+    - `tenants.features['plugins']` (JSONB): Stores enabled plugin list per tenant.
     - `b2b.teams`: Stores hierarchy (`parent_team_id`).
     - `b2b.geographic_regions`: Stores region definitions.
+    - `b2b.team_role_definitions`: Stores team role permissions (JSONB) and `clearance_level`.
 
 ### Configuration Example
 Plugins are configured via `plugins.yaml` and loaded into `tenant_settings` JSONB column.
@@ -192,5 +193,7 @@ data_classification:
 ## 5. Development Guidelines
 
 1.  **Keep Plugins Stateless**: Logic should rely on the `db` session and `context` passed in.
-2.  **Fail Safe**: If a plugin errors, it should log and default to **DENY** (Secure by Default).
+2.  **Fail Safe**: If a plugin errors, `plugin_registry` catches the exception, logs it, and returns `False` (DENY). This is enforced by the registry — individual plugins do not need to handle this themselves.
 3.  **Performance**: `enrich_user_context` runs on every request. Cache aggressive lookups (e.g., team hierarchy) in Redis.
+4.  **Enrichment Caching**: The middleware calls `plugin_registry.enrich_user()` once and sets `context_enriched=True` on the returned dict. `has_permission_with_plugins()` checks this flag and reuses the enriched context rather than re-fetching from DB. If enrichment failed, the flag is `False` and the permission checker re-enriches as a fallback. Never rely on the presence of `geographic_scopes` as a proxy for enrichment — use `context_enriched` only.
+5.  **Plugin Dependencies**: `geographic_boundaries` calls `check_dependencies()` and warns if `hierarchical_teams` is absent. Without `hierarchical_teams`, geographic scopes fall back to the `user.geographic_scopes` DB column (manually assigned), and hierarchy-derived scopes won't work. Always enable both together for full geographic enforcement.

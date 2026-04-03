@@ -1,95 +1,123 @@
-# Backend Testing Guide
+# Backend Testing Runbook
 
-This directory contains the automated test suite for the Enterprise SSO backend.
+Quick reference for running tests. Start here before opening the Makefile.
 
-## 📁 Directory Structure
+---
+
+## Mental Model
+
+Tests are organized across three tiers and three portals:
 
 ```
-backend/tests/
-├── conftest.py             # Global fixtures (DB session, API client)
-├── pytest.ini              # CRITICAL: Configures session-scoped event loop
-├── e2e_api/
-│   ├── b2b/
-│   │   ├── core/           # 🌍 CORE Platform Tests (use base roles)
-│   │   └── use_cases/      # 🏢 DOMAIN Tests (use domain-specific roles)
-│   └── platform/
-└── domain/                 # Isolated domain logic tests
+Tier               B2B                        B2C                    Platform
+─────────────────────────────────────────────────────────────────────────────
+API (integration)  tests/b2b/api/             tests/b2c/api/         tests/platform/api/
+                   ├── foundation/            ├── foundation/         (no domain split)
+                   └── use_cases/             └── use_cases/
+Service tests      tests/b2b/services/        tests/b2c/services/    tests/platform/services/
+                   ├── foundation/            ├── foundation/
+                   └── use_cases/             └── use_cases/
+Unit tests         tests/b2b/units/           tests/b2c/units/       tests/platform/units/
 ```
 
-## 🧪 Testing Methodology
+**Foundation** — core platform features: auth, invitations, teams, roles, billing, RBAC, audit logs.
+Seeded with base roles only. No `USE_CASE` env var required.
 
-### 1. Layered Test Architecture
+**Use cases** — domain verticals (bank_surveillance, task_management, finance_trader).
+Seeded with `USE_CASE=<domain>`. Adds domain-specific roles and resources on top of the base seed.
 
-We use a **2-Layer Testing Strategy** to separate platform from domain:
+---
 
-**Layer 1: Core Platform Tests** (`tests/e2e_api/b2b/core/`)
-- Tests platform features (auth, teams, billing, settings)
-- Uses **base roles only**: `owner`, `admin`, `member`, `team_contributor`
-- Runs with **NO USE_CASE** set (base-only seeding)
-- Independent of domain-specific features
+## Pick Your Scenario
 
-**Layer 2: Use Case Tests** (`tests/e2e_api/b2b/use_cases/`)
-- Tests domain-specific features (banking, marketing, etc.)
-- Uses **domain roles**: `surveillance_chief`, `operations_maker`, etc.
-- Runs with **USE_CASE=bank_surveillance** (domain seeding)
-- Builds on verified core functionality
+| I'm working on… | Command |
+|---|---|
+| B2B auth, invitations, teams, roles, billing | `make test-b2b-foundation-only` |
+| Bank surveillance domain features | `make test-b2b-bank-only` |
+| Bank surveillance + full B2B foundation | `make test-b2b-bank` |
+| B2C workspaces, subscriptions | `make test-b2c-foundation-only` |
+| Platform admin / tenant management | `make test-platform-foundation-only` |
+| Everything (CI / pre-merge) | `make test-all-foundation` |
 
-### 2. Seeding Strategy
+Each `make` target handles `db-recreate → up → seed → pytest` automatically.
 
-**Base-Only Seeding** (for core tests):
+---
+
+## Single Test / TDD Loop
+
+When iterating on a fix, you don't need to recreate the DB every time.
+
+### Phase A — DB already seeded (fast inner loop)
+
 ```bash
-# Seeds: owner, admin, member, team_contributor, team_manager, team_viewer
-python scripts/b2b/seed_rbac.py  # No USE_CASE
+# Run one test file
+docker-compose run --rm e2e-tests pytest tests/b2b/api/foundation/organization/test_users.py -v
+
+# Run one specific test
+docker-compose run --rm e2e-tests pytest \
+  tests/b2b/api/foundation/organization/test_users.py::TestUserManagement::test_deactivate_self_forbidden -v
+
+# Run by marker
+docker-compose run --rm e2e-tests pytest tests/b2b/ -m security -v
+
+# Unit tests — no DB needed, run locally outside Docker
+cd backend && pytest tests/b2b/units/ -v
 ```
 
-**Domain Seeding** (for use case tests):
+### Phase B — Reset DB first (when seed state is stale or wrong)
+
 ```bash
-# Seeds: base roles + domain roles + plugins
-USE_CASE=bank_surveillance python scripts/b2b/seed_rbac.py
+make db-recreate && make up && sleep 5 && make seed-all
+# then run any Phase A command above
 ```
 
-### 3. Pytest Configuration (CRITICAL)
+### Domain tests — pass USE_CASE through
 
-We use a **Session-Scoped Database Engine** (`test_db_engine`) in `conftest.py`.
-To avoid `RuntimeError: Task attached to a different loop`, we MUST configure `pytest-asyncio` to use a session-scoped event loop.
-
-**backend/pytest.ini**:
-```ini
-[pytest]
-asyncio_mode = auto
-asyncio_default_fixture_loop_scope = session
-```
-
-## 🚀 Running Tests
-
-### Core Platform Tests
 ```bash
-# Using Make target (recommended)
-make test-b2b-core-only
+make db-recreate && make up && sleep 5 && make seed-all USE_CASE=bank_surveillance
 
-# Manual
-docker compose run --rm b2b-api python scripts/b2b/seed_rbac.py
-docker compose run --rm e2e-tests pytest tests/e2e_api/b2b/core/ -v
+docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests \
+  pytest tests/b2b/api/use_cases/bank_surveillance/test_alerts.py -v
 ```
 
-### Use Case Tests
-```bash
-# Bank surveillance
-make test-b2b-bank-use-case
+---
 
-# Manual
-USE_CASE=bank_surveillance docker compose run --rm b2b-api python scripts/b2b/seed_rbac.py
-USE_CASE=bank_surveillance docker compose run --rm e2e-tests \
-  pytest tests/e2e_api/b2b/use_cases/bank_surveillance/ -v
-```
+## Seeding Reference
 
-### Full Suite
-```bash
-make test-b2b-all  # Runs core + all use cases
-```
+| Test area | Seed command | Roles seeded |
+|---|---|---|
+| Foundation (all portals) | `make seed-all` | owner, admin, member, team_contributor, team_manager, team_viewer |
+| Bank surveillance | `make seed-all USE_CASE=bank_surveillance` | above + surveillance_chief, surveillance_analyst, operations_maker, operations_checker |
 
-## 🛠 Troubleshooting
+Using a domain role in a foundation test (or vice versa) will produce a 403 — check this first when permissions fail unexpectedly.
 
-- **RuntimeError: Task pending...**: Check `pytest.ini` exists and sets `asyncio_default_fixture_loop_scope = session`.
-- **403 Forbidden**: Ensure correct roles are seeded for the test layer you're running.
-- **Role not found**: Core tests should use base roles only; domain tests use domain roles.
+---
+
+## Fixtures Quick Reference
+
+Defined in `backend/tests/conftest.py`:
+
+| Fixture / Helper | What it gives you |
+|---|---|
+| `db_session` | Per-test async DB session, auto-rolled back after each test |
+| `api_client` | `httpx.AsyncClient` wired to all routers (B2B, B2C, Platform, Domain) |
+| `create_test_tenant(db_session)` | Active tenant with RLS context set |
+| `create_test_user(db_session, tenant_id, role=...)` | User with a specific role slug |
+| `create_test_invitation(db_session, tenant_id)` | Pending invitation |
+| `encode_mock_jwt(uid, email, tenant_id)` | Mock Firebase JWT for `Authorization: Bearer` headers |
+
+Domain tests have their own conftest that extends these. For example:
+`tests/b2b/api/use_cases/bank_surveillance/conftest.py` adds bank-specific resource fixtures.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| 403 on all permission tests | Wrong roles seeded | Match seed tier to test tier (foundation vs domain) |
+| 401 on all requests | Tenant not active or DB not seeded | `make seed-all` |
+| `asyncio event loop` error | pytest-asyncio misconfigured | Ensure `asyncio_mode = auto` in `backend/pytest.ini` |
+| `ImportError` running unit tests | Wrong working directory | Run from `backend/`, not project root |
+| Unique constraint violation | Stale rows from a previous partial run | `make db-recreate` |
+| Domain role not found | Foundation seed used for domain test | Add `USE_CASE=bank_surveillance` to seed and pytest run |

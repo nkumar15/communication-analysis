@@ -13,7 +13,7 @@ For **RBAC Concepts**, see [RBAC Concepts Guide](../../guides/b2b-rbac-concepts.
 ## 📋 Table of Contents
 
 1. [Design Philosophy](#design-philosophy)
-2. [The 2-Layer Model](#the-2-layer-model)
+2. [The 3-Layer Model](#the-3-layer-model)
 3. [Database Schema](#database-schema)
 4. [Permission Resolution](#permission-resolution)
 5. [Implementation Patterns](#implementation-patterns)
@@ -85,7 +85,7 @@ This language passes security, audit, and banking reviews.
 
 ---
 
-## 7. The 2-Layer Model
+## 7. The 3-Layer Model
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
