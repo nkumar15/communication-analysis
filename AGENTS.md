@@ -8,7 +8,7 @@ When multiple instructions exist, apply this precedence:
 
 1. System and developer instructions from runtime.
 2. This `AGENTS.md`.
-3. `.agent/rules/*.md`.
+3. `shared-rules/*.md` (symlinked as `.agent/rules/` and `.claude/rules/`).
 4. `.agent/workflows/*.md`.
 5. `shared-skills/*/SKILL.md` (symlinked as `.agent/skills/` and `.claude/skills/`).
 6. User request for the current turn.
@@ -19,22 +19,22 @@ If any conflict appears, follow the highest-priority item and explicitly call ou
 
 Apply these rule files on every implementation task:
 
-- `.agent/rules/coding-standards.md`
-- `.agent/rules/skill-matching.md`
+- `shared-rules/coding-standards.md`
+- `shared-rules/skill-matching.md`
 
 For Python/backend work, also always apply:
 
-- `.agent/rules/python-developer.md`
-- `.agent/rules/observability-standards.md`
-- `.agent/rules/db-migration-standards.md` (any time a model is touched)
+- `shared-rules/python-developer.md`
+- `shared-rules/observability-standards.md`
+- `shared-rules/db-migration-standards.md` (any time a model is touched)
 
 For Celery tasks or background workers, also always apply:
 
-- `.agent/rules/celery-standards.md`
+- `shared-rules/celery-standards.md`
 
 For tests, always apply:
 
-- `.agent/rules/pytest-testing.md`
+- `shared-rules/pytest-testing.md`
 
 ## 3. Deterministic Request Classifier
 
@@ -63,9 +63,9 @@ If multiple types apply, execute in this sequence:
 ### 4.1 `backend_endpoint_change`
 
 - Rules:
-  - `.agent/rules/backend-architecture.md`
-  - `.agent/rules/python-developer.md`
-  - `.agent/rules/pytest-testing.md`
+  - `shared-rules/backend-architecture.md`
+  - `shared-rules/python-developer.md`
+  - `shared-rules/pytest-testing.md`
 - Workflow:
   - `.agent/workflows/add-new-endpoint.md`
   - `.agent/workflows/test-audit.md` (post-change coverage check)
@@ -76,9 +76,9 @@ If multiple types apply, execute in this sequence:
 ### 4.2 `backend_service_logic_change`
 
 - Rules:
-  - `.agent/rules/backend-architecture.md`
-  - `.agent/rules/python-developer.md`
-  - `.agent/rules/pytest-testing.md`
+  - `shared-rules/backend-architecture.md`
+  - `shared-rules/python-developer.md`
+  - `shared-rules/pytest-testing.md`
 - Workflow:
   - `.agent/workflows/test-audit.md`
 - Skills:
@@ -87,9 +87,9 @@ If multiple types apply, execute in this sequence:
 ### 4.3 `db_migration_or_schema_change`
 
 - Rules:
-  - `.agent/rules/backend-architecture.md`
-  - `.agent/rules/python-developer.md`
-  - `.agent/rules/db-migration-standards.md` (mandatory)
+  - `shared-rules/backend-architecture.md`
+  - `shared-rules/python-developer.md`
+  - `shared-rules/db-migration-standards.md` (mandatory)
 - Workflow:
   - `.agent/workflows/security-audit.md` (RLS/isolation checks)
 - Skills:
@@ -99,8 +99,8 @@ If multiple types apply, execute in this sequence:
 ### 4.4 `frontend_change`
 
 - Rules:
-  - `.agent/rules/frontend-architecture.md`
-  - `.agent/rules/reactjs-developer.md`
+  - `shared-rules/frontend-architecture.md`
+  - `shared-rules/reactjs-developer.md`
 - Workflow:
   - `.agent/workflows/run-e2e-tests.md` (when UI behavior changes)
 - Skills:
@@ -109,8 +109,8 @@ If multiple types apply, execute in this sequence:
 ### 4.5 `test_add_or_test_fix`
 
 - Rules:
-  - `.agent/rules/pytest-testing.md`
-  - `.agent/rules/python-developer.md`
+  - `shared-rules/pytest-testing.md`
+  - `shared-rules/python-developer.md`
 - Workflow:
   - `.agent/workflows/test-audit.md`
   - `.agent/workflows/run-e2e-tests.md` (if integration/e2e scope)
@@ -120,21 +120,21 @@ If multiple types apply, execute in this sequence:
 ### 4.6 `documentation_change`
 
 - Rules:
-  - `.agent/rules/documentation-standards.md`
-  - `.agent/rules/skill-matching.md`
+  - `shared-rules/documentation-standards.md`
+  - `shared-rules/skill-matching.md`
 - Workflow:
   - `.agent/workflows/doc-audit.md`
 - Skills selection:
   - `product-doc-generator` for personas/pages/features/technical bundles
   - `doc-generator` for guides/runbooks/tool docs
   - `system-doc-maintainer` for architecture/standards/policies
-  - If none match, follow `.agent/rules/skill-matching.md` fallback behavior
+  - If none match, follow `shared-rules/skill-matching.md` fallback behavior
 
 ### 4.7 `security_audit`
 
 - Rules:
-  - `.agent/rules/backend-architecture.md`
-  - `.agent/rules/python-developer.md`
+  - `shared-rules/backend-architecture.md`
+  - `shared-rules/python-developer.md`
 - Workflow:
   - `.agent/workflows/security-audit.md`
 - Skills:
@@ -143,7 +143,7 @@ If multiple types apply, execute in this sequence:
 ### 4.8 `environment_stabilization`
 
 - Rules:
-  - `.agent/rules/makefile-standards.md`
+  - `shared-rules/makefile-standards.md`
 - Workflow:
   - `.agent/workflows/build-verify-stable.md` or
   - `.agent/workflows/recreate-verify-stable.md`
@@ -154,8 +154,8 @@ If multiple types apply, execute in this sequence:
 ### 4.9 `makefile_change`
 
 - Rules:
-  - `.agent/rules/makefile-standards.md`
-  - `.agent/rules/coding-standards.md`
+  - `shared-rules/makefile-standards.md`
+  - `shared-rules/coding-standards.md`
 - Workflow:
   - Use `build-verify-stable` after make target changes if relevant
 - Skills:
@@ -177,7 +177,7 @@ For every backend write path:
 Use a skill when either condition is true:
 
 1. User explicitly requests that skill by name.
-2. Task matches the skill trigger from `.agent/rules/skill-matching.md` or skill description.
+2. Task matches the skill trigger from `shared-rules/skill-matching.md` or skill description.
 
 Do not invoke unrelated skills.
 
