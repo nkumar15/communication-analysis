@@ -1,5 +1,5 @@
 ---
-description: Handle requests where no existing skill matches - inform user and ask how to proceed.
+description: Govern when and how skills are invoked — automatic vs explicit triggers, multi-skill sequences, doc skill selection, and no-match fallback behaviour.
 ---
 
 # Skill Matching Rule

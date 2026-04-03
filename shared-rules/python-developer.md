@@ -33,7 +33,7 @@ Applies to: **Code Style, FastAPI, SQLAlchemy, Testing**
 - **Queries**: Use 2.0 style (`select(Model).where(...)`).
 - **N+1 Prevention**: Always use `options(selectinload(Model.relation))` in async queries.
 - **Sessions**: Use `AsyncSession`. Ensure `db.commit()` is called in the Router layer for atomic operations.
-- **Migrations**: Generate via `alembic revision --autogenerate`. Run via `make migrate-only`.
+- **Migrations**: Write raw SQL files in `backend/migrations/{product}/` following `db-migration-standards.md`. Run via `make migrate-schema`. Do NOT use `alembic revision --autogenerate` — this project uses hand-written SQL migrations, not Alembic autogenerate.
 
 ## 5. Celery & Background Tasks
 - **Arguments**: ONLY pass primitive IDs (UUID/int) to tasks. Never pass full SQLAlchemy objects.

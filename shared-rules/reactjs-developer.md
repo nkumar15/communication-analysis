@@ -1,3 +1,8 @@
+---
+trigger: model_decision
+description: Apply when implementing React components, hooks, CSS, or any frontend feature code.
+---
+
 # ReactJS Developer Rules
 
 ## Scope

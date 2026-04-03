@@ -1,3 +1,8 @@
+---
+trigger: model_decision
+description: Apply when working on frontend React code, UI components, state management, or API wiring in the frontend layer.
+---
+
 # Frontend Architecture Rules
 
 ## Scope

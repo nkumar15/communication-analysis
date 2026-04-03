@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Global Coding Standards
 
 ## Scope

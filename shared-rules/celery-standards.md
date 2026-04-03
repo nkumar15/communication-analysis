@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: model_decision
+description: Apply whenever creating or modifying Celery tasks, workers, beat schedules, or any background processing code.
 ---
 
 # Celery Standards

@@ -60,15 +60,15 @@ The `docs/` root is the **EntryPoint** and **Index** for the project.
 - **Content**: Visual assets are **Recommended** but optional based on feature complexity.
 
 ## 4. Automation First
-**Rule**: Use the **Feature Documentation Generator** skill to create and maintain feature docs.
-- **Skill**: `@[feature-doc-generator]`
+**Rule**: Use the **`product-doc-generator`** skill to create and maintain feature docs.
+- **Skill**: `product-doc-generator`
 - **Process**:
   1. Discovery: List all components.
   2. Generate: Create Feature README.
   3. Index: Update `docs/README.md`.
 
-## 4. Documentation Lifecycle
+## 5. Documentation Lifecycle
 1. **Drafting**: Brief Plan in `task.md`.
 2. **Implementation**: Write Code.
-3. **Documentation**: Run `@[feature-doc-generator]`.
+3. **Documentation**: Run `product-doc-generator` skill.
 4. **Verification**: Verify completeness against the "Inventory List" (did I miss any API?).
