@@ -198,7 +198,9 @@ These apply to every backend write path:
 This repo has a structured agent automation system:
 - `.agent/rules/` — always-on coding, architecture, testing, and documentation standards
 - `.agent/workflows/` — step-by-step guides for common change types (new endpoint, test audit, security audit, E2E)
-- `.agent/skills/` — code generation tools: `pytest-test-generator`, `pydantic-schema-generator`, `db-inspector`, `product-doc-generator`, `doc-generator`, `system-doc-maintainer`
+- `.claude/skills/` → `shared-skills/` — code generation tools: `pytest-test-generator`, `pydantic-schema-generator`, `db-inspector`, `product-doc-generator`, `doc-generator`, `system-doc-maintainer`
+
+Skills live in `shared-skills/` (canonical location) and are symlinked into `.claude/skills/` and `.agent/skills/` so Claude, Codex, and other agents share the same definitions.
 
 Always-on rules for Python/backend work: `coding-standards`, `python-developer`, `backend-architecture`, `observability-standards`.
 For Celery tasks/workers: also apply `celery-standards`.
