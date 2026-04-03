@@ -115,3 +115,14 @@ After creating documentation:
 1. **Guides**: Link from `docs/guides/README.md`
 2. **Runbooks**: Link from `docs/operations/README.md`
 3. **Tools**: Link from `backend/tools/README.md`
+
+---
+
+## Checklist Before Delivery
+
+- [ ] Correct template used (Guide / Runbook / Dev Tool)
+- [ ] Placed in the right directory (`docs/guides/`, `docs/operations/`, or `backend/tools/`)
+- [ ] Linked from the appropriate index README
+- [ ] Prerequisites section complete
+- [ ] All commands tested or marked as examples
+- [ ] Runbooks include Rollback and Escalation sections

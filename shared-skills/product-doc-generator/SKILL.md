@@ -112,7 +112,7 @@ Use the template files in this skill's `templates/` folder:
    - `schema.md` → All tables from models
    - `architecture.md` → Data flow, components, testing
 
-## Step 4: Generate Wireframes
+## Step 5: Generate Wireframes
 
 Use `generate_image` tool:
 ```
@@ -123,7 +123,7 @@ Clean enterprise wireframe style, grayscale only.
 
 Save to: `docs/wireframes/[page].png`
 
-## Step 5: Link to Root Indices
+## Step 6: Link to Root Indices
 
 **CRITICAL**: Always link new product docs to parent indices.
 
@@ -153,7 +153,7 @@ grep "[feature]" backend/modules/b2b/README.md
 
 ---
 
-## Step 6: Verify Links
+## Step 7: Verify Links
 
 **CRITICAL**: Check for dead links before finishing.
 

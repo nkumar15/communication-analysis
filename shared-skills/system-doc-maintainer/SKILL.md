@@ -30,7 +30,7 @@ This skill helps you organize and maintain the high-level documentation in `docs
 |-------|-------|----------|
 | `system-doc-maintainer` | System-wide (architecture, standards) | `docs/` |
 | `product-doc-generator` | Product-level (personas, demos) | `docs/products/` |
-| `doc-generator` | Feature-level (API, schema) | `backend/.../README.md` |
+| `doc-generator` | Standalone guides, runbooks, tool READMEs | `docs/guides/`, `docs/operations/` |
 
 ---
 
