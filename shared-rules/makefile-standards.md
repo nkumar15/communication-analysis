@@ -20,7 +20,7 @@ The Makefile must be organized into clear, labeled sections using `##@ <Section 
 6.  **B2B Demos**: End-to-end demo setup flows for specific use cases.
 7.  **Frontend**: Local development commands for web portals.
 8.  **Development**: Helper commands for backend-only dev, shells, etc.
-9.  **Testing**: All test runners (`test-api`, `test-browser`, coverage).
+9.  **Testing**: All test runners (`test-api`, `test-ui`, scoped suites, coverage).
 10. **Performance**: Load testing targets.
 11. **Security (SAST/DAST)**: Security scanning targets.
 12. **Stripe**: Payment gateway helpers.

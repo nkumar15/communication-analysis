@@ -60,15 +60,21 @@ make web-platform
 
 ### Testing
 ```bash
-make test-b2b-foundation-only       # B2B core tests only
-make test-b2b-bank-only             # Bank surveillance tests only
-make test-b2b-bank                  # Foundation + Bank combined
-make test-b2c-foundation-only       # B2C tests
-make test-platform-foundation-only  # Platform tests
-make test-all-foundation            # All foundation tests
+# Top-level entry points
+make test-api                                        # Full backend pytest suite (db-recreate + seed + run)
+make test-api path=tests/b2b/api/foundation          # Scoped to a specific path
+make test-ui                                         # Automated Playwright browser tests
 
-# Single test file (run from backend/):
-pytest tests/b2b/api/foundation/test_users.py -v
+# Scoped backend suites
+make test-b2b-foundation-only                        # B2B core tests only
+make test-b2b-bank-only USE_CASE=bank_surveillance   # Bank surveillance tests only
+make test-b2b-bank USE_CASE=bank_surveillance        # Foundation + Bank combined
+make test-b2c-foundation-only                        # B2C tests
+make test-platform-foundation-only                   # Platform tests
+make test-all-foundation                             # All foundation tests
+
+# Single test file (services must already be running via make up):
+docker-compose --profile test-api run --rm e2e-tests pytest tests/b2b/api/foundation/test_users.py -v
 
 # Load testing
 make load-test-b2b DURATION=1m      # 50 concurrent users

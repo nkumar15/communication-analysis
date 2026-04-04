@@ -11,9 +11,19 @@ Applies to: **All test code in `backend/tests/`**
 ## 0. Execution Environment
 **CRITICAL**: Tests must **ALWAYS** be run inside the Docker container to ensure access to DB, Redis, and other services.
 - **Do NOT** run `pytest` directly on the host machine.
-- **Use Make**: `make test-api` or `make test-coverage`
-- **Use Docker**: `docker compose run --rm e2e-tests pytest <path_to_test>`
-- **Output redirection**: always redirect test cases output to file for debugging and validation of test cases 
+- **Use Make** (preferred):
+  - `make test-api` — full backend pytest suite (db-recreate + seed + run)
+  - `make test-api path=tests/b2b/api/foundation` — specific path
+  - `make test-ui` — automated Playwright browser tests
+  - `make test-b2b-bank-only USE_CASE=bank_surveillance` — scoped suite
+- **Use Docker directly** (single test file, services must already be up):
+  ```bash
+  docker-compose --profile test-api run --rm e2e-tests pytest <path_to_test> -v
+  ```
+- **Output redirection**: always redirect test output to a file for debugging:
+  ```bash
+  docker-compose --profile test-api run --rm e2e-tests pytest <path> -v 2>&1 | tee /tmp/test-output.txt
+  ```
 ## 1. Test Organization
 
 ### Directory Structure
