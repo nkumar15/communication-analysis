@@ -21,5 +21,8 @@ This index links to technical documentation co-located with the source code.
 ### B2C Domain
 - [Finance Trader (RAG)](../backend/modules/domains/b2c/finance_trader/README.md)
 
-## 3. Developer Guides
+## 3. Operations
+- [Environment Setup Runbook](operations/environment-setup.md) — local dev, domain enablement, production checklist
+
+## 4. Developer Guides
 - [Setup Guide](../README.md)
