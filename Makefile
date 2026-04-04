@@ -32,22 +32,35 @@ display-services: ## Display running services
 elasticsearch: ## Start elasticsearch and elasticsearch-kibana
 	docker-compose up -d elasticsearch elasticsearch-kibana
 
-up: ## Start all backend services (frontend runs locally)
+up: ## Start core backend services (APIs + workers + infra, no frontend)
 	docker-compose up -d postgres minio \
 							b2b-api platform-api b2c-api \
 							b2b-domain-api b2c-domain-api \
 							b2c-worker b2b-worker \
 							b2b-domain-worker b2c-domain-worker \
-							dbmigrate redis \
-							nginx mailhog prometheus grafana jaeger
-
+							redis nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
-	@echo "$(YELLOW) Remember to start elasticsearch and elasticsearch-kibana manually if needed $(NC)"
-	@echo "$(YELLOW) run command make elasticsearch $(NC)"
+	@echo "$(YELLOW) Tip: run 'make dev-full' to also start the 3 frontend portals$(NC)"
+	@echo "$(YELLOW) Tip: run 'make up-full' to also start Elasticsearch + Kibana$(NC)"
+
+up-full: ## Start all backend services including Elasticsearch + Kibana
+	@$(MAKE) up
+	@docker-compose up -d elasticsearch kibana
+	@echo "$(GREEN)✓ All backend services started (including Elasticsearch)$(NC)"
+
+dev-full: ## Start everything for manual full-stack testing (backend + 3 frontend portals)
+	@$(MAKE) up
+	@docker-compose --profile dev-full up -d
+	@echo "$(GREEN)✓ Full stack ready$(NC)"
+	@echo "  B2B Portal:      http://localhost:3000"
+	@echo "  B2C Portal:      http://localhost:3001"
+	@echo "  Platform Portal: http://localhost:3002"
+	@echo "  API Gateway:     http://localhost:8080"
+	@echo "  Mailhog:         http://localhost:8025"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
-	docker-compose down --remove-orphans
+	docker-compose --profile dev-full --profile test-api --profile test-ui down --remove-orphans
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 restart: down up ## Restart all services
@@ -65,7 +78,7 @@ db-setup-auth: ## Setup app user and permissions
 
 migrate-schema: ## Run SQL migrations only (no seeds) - requires just postgres
 	@echo "$(BLUE)Running database migrations...$(NC)"
-	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
+	@docker-compose run --rm dbmigrate
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ Migrations applied$(NC)"
 
@@ -186,13 +199,36 @@ b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + tenant + demo d
 
 ##@ Testing
 
+test-api: ## Run backend API pytest suite (no browser). Usage: make test-api [USE_CASE=bank_surveillance] [path=tests/b2b/api]
+	@echo "$(BLUE)Running backend API tests...$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@sleep 5
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@docker-compose --profile test-api run --rm e2e-tests pytest \
+		$(or $(path),tests/) \
+		-v
+	@echo "$(GREEN)✓ Backend API tests complete$(NC)"
+
+test-ui: ## Run automated Playwright browser tests (frontend + backend). Usage: make test-ui [USE_CASE=bank_surveillance]
+	@echo "$(BLUE)Running automated UI tests...$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) up
+	@docker-compose --profile test-ui up -d
+	@sleep 8
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@docker-compose --profile test-ui run --rm e2e-tests pytest \
+		tests/e2e_browser \
+		-v
+	@echo "$(GREEN)✓ UI tests complete$(NC)"
+
 test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units)
 	@echo "$(BLUE)Running B2B Foundation Full Suite...$(NC)"
 	@$(MAKE) db-recreate
 	@$(MAKE) up
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose run --rm e2e-tests pytest \
+	@docker-compose --profile test-api run --rm e2e-tests pytest \
 		tests/b2b/api/foundation \
 		tests/b2b/services/foundation \
 		tests/b2b/units \
@@ -233,7 +269,7 @@ test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units
 	@$(MAKE) up
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose run --rm e2e-tests pytest \
+	@docker-compose --profile test-api run --rm e2e-tests pytest \
 		tests/b2c/api/foundation \
 		tests/b2c/services/foundation \
 		tests/b2c/units \
@@ -246,7 +282,7 @@ test-platform-foundation-only: ## Run Platform foundation full suite (API, Servi
 	@$(MAKE) up
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose run --rm e2e-tests pytest \
+	@docker-compose --profile test-api run --rm e2e-tests pytest \
 		tests/platform/api \
 		tests/platform/services \
 		tests/platform/units \
@@ -259,7 +295,7 @@ test-all-foundation: ## Run all foundation tests (B2B, B2C, Platform)
 	@$(MAKE) up
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose run --rm e2e-tests pytest \
+	@docker-compose --profile test-api run --rm e2e-tests pytest \
 		tests/b2b/api/foundation \
 		tests/b2b/services/foundation \
 		tests/b2b/units \
@@ -306,13 +342,13 @@ DURATION ?= 1m
 load-test-b2b: ## Run B2B Locust load test (50 users). Usage: make load-test-b2b DURATION=30s
 	@echo "$(BLUE)Starting B2B Locust load test (50 users, $(DURATION))...$(NC)"
 	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
-	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
+	docker-compose --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
 	@echo "$(GREEN)✓ B2B Load test complete$(NC)"
 
 load-test-b2c: ## Run B2C Locust load test (50 users). Usage: make load-test-b2c DURATION=30s
 	@echo "$(BLUE)Starting B2C Locust load test (50 users, $(DURATION))...$(NC)"
 	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
-	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
+	docker-compose --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
 	@echo "$(GREEN)✓ B2C Load test complete$(NC)"
 
 ##@ SAST (Static Application Security Testing)

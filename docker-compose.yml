@@ -187,7 +187,7 @@ services:
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - postgres
-    command: uvicorn modules.b2b.main:app --host 0.0.0.0 --port 9000 --reload
+    command: env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
 
   # B2B Worker - Celery Background Tasks
   b2b-api:
@@ -307,7 +307,7 @@ services:
 
   # B2C Domain Worker - Background Processing for B2C (RAG)
   frontend-b2b:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    profiles: [ "dev-full", "test-ui" ] # dev-full: manual testing; test-ui: automated browser tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -477,7 +477,7 @@ services:
     command: celery -A workers.b2c_domain_worker.celery_app worker --loglevel=info --concurrency=1 -Q b2c-domain
 
   frontend-b2c:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    profiles: [ "dev-full", "test-ui" ] # dev-full: manual testing; test-ui: automated browser tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -534,7 +534,7 @@ services:
 
   # B2C Microservice - Workspace Management
   frontend-platform:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    profiles: [ "dev-full", "test-ui" ] # dev-full: manual testing; test-ui: automated browser tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
@@ -562,7 +562,7 @@ services:
   # TEST Services
   # ------------------------------------------------------------------------------------
   e2e-tests:
-    profiles: [ "e2e" ] # Only start for E2E tests
+    profiles: [ "test-api", "test-ui" ] # test-api: backend pytest only; test-ui: full browser tests
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -592,7 +592,6 @@ services:
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - b2b-api
-      - frontend-b2b
     command: python -m pytest tests/e2e_browser -v
   # Jaeger - Distributed Tracing
 volumes:
