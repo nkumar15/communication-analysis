@@ -1,13 +1,8 @@
 import firebaseAuthService from '../firebase/authService';
 
-// B2B Domain API URL (Port 8003)
-// In production, this might be routed via Nginx /api/b2b/domain
-let envUrl = process.env.REACT_APP_B2B_DOMAIN_API_URL || '';
-
-// Local Development: 
-// Rely on webpack proxy or REACT_APP_B2B_DOMAIN_API_URL being set correctly.
-
-const API_BASE_URL = envUrl;
+// B2B Domain API routes through the API gateway (nginx locally, cloud gateway in production).
+// All domain endpoints are exposed under /api/b2b/domain/ by the gateway.
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 class B2BDomainService {
     async getAuthHeaders() {
@@ -22,7 +17,6 @@ class B2BDomainService {
     async post(path, data) {
         const headers = await this.getAuthHeaders();
         const url = `${API_BASE_URL}${path}`;
-        console.log('🌐 [b2bDomainClient] POST:', url, data);
         const response = await fetch(url, {
             method: 'POST',
             headers,
@@ -140,7 +134,6 @@ class B2BDomainService {
         const headers = await this.getAuthHeaders();
         const query = new URLSearchParams(params).toString();
         const url = `${API_BASE_URL}/api/b2b/domain/bank_surveillance${path}${query ? '?' + query : ''}`;
-        console.log('🌐 [b2bDomainClient] GET:', url);
         const response = await fetch(url, { headers });
         if (!response.ok) throw new Error(`Request failed: ${response.status}`);
         return response.json();

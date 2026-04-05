@@ -314,7 +314,7 @@ services:
     container_name: sso_frontend_b2b
     environment:
       - PORTAL=b2b
-      - REACT_APP_API_URL=http://b2b-api:8000
+      - REACT_APP_API_URL=http://localhost:8080
       - NODE_ENV=production
     ports:
       - "3000:3000"
@@ -484,7 +484,7 @@ services:
     container_name: sso_frontend_b2c
     environment:
       - PORTAL=b2c
-      - REACT_APP_API_URL=http://b2c-api:8002
+      - REACT_APP_API_URL=http://localhost:8080
       - NODE_ENV=production
     ports:
       - "3001:3001"
@@ -541,7 +541,7 @@ services:
     container_name: sso_frontend_platform
     environment:
       - PORTAL=platform
-      - REACT_APP_API_URL=http://platform-api:8001
+      - REACT_APP_API_URL=http://localhost:8080
       - NODE_ENV=production
     ports:
       - "3002:3002"
