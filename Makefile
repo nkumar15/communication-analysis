@@ -187,14 +187,19 @@ endif
 
 ##@ B2B Demos
 
-b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + tenant + demo data)
+b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + all 3 frontend portals)
 	@$(MAKE) seed-demo USE_CASE=bank_surveillance
+	@$(MAKE) dev-full
 	@echo ""
 	@echo "$(GREEN)✅ Bank Surveillance Demo Ready!$(NC)"
 	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
 	@echo "  👥 Roles: surveillance_chief, surveillance_analyst, operations_maker, operations_checker"
 	@echo ""
-	@echo "$(BLUE)Login as:$(NC) owner@worldwidebank.com"
+	@echo "$(BLUE)Login as:$(NC)         owner@worldwidebank.com"
+	@echo "$(BLUE)B2B Portal:$(NC)       http://localhost:3000"
+	@echo "$(BLUE)Platform Portal:$(NC)  http://localhost:3002"
+	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
+	@echo "$(BLUE)Mailhog:$(NC)          http://localhost:8025"
 
 
 ##@ Testing
