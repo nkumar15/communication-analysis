@@ -310,21 +310,18 @@ services:
     profiles: [ "dev-full", "test-ui" ] # dev-full: manual testing; test-ui: automated browser tests
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        PORTAL: b2b
+        REACT_APP_API_URL: http://localhost:8080
     container_name: sso_frontend_b2b
     environment:
-      - PORTAL=b2b
-      - REACT_APP_API_URL=http://localhost:8080
-      - NODE_ENV=production
+      - PORT=3000
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules # Don't mount node_modules from host
     depends_on:
-      - b2b-api
+      - nginx
     restart: unless-stopped
-    command: sh -c "npm run build:b2b && npx -y serve -s dist/b2b -l 3000"
 
   # ------------------------------------------------------------------------------------
   # B2C Services
@@ -480,21 +477,18 @@ services:
     profiles: [ "dev-full", "test-ui" ] # dev-full: manual testing; test-ui: automated browser tests
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        PORTAL: b2c
+        REACT_APP_API_URL: http://localhost:8080
     container_name: sso_frontend_b2c
     environment:
-      - PORTAL=b2c
-      - REACT_APP_API_URL=http://localhost:8080
-      - NODE_ENV=production
+      - PORT=3001
     ports:
       - "3001:3001"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     depends_on:
-      - b2c-api
+      - nginx
     restart: unless-stopped
-    command: sh -c "npm run build:b2c && npx -y serve -s dist/b2c -l 3001"
 
   # ------------------------------------------------------------------------------------
   # PLATFORM Services
@@ -537,21 +531,18 @@ services:
     profiles: [ "dev-full", "test-ui" ] # dev-full: manual testing; test-ui: automated browser tests
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        PORTAL: platform
+        REACT_APP_API_URL: http://localhost:8080
     container_name: sso_frontend_platform
     environment:
-      - PORTAL=platform
-      - REACT_APP_API_URL=http://localhost:8080
-      - NODE_ENV=production
+      - PORT=3002
     ports:
       - "3002:3002"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     depends_on:
-      - platform-api
+      - nginx
     restart: unless-stopped
-    command: sh -c "npm run build:platform && npx -y serve -s dist/platform -l 3002"
 
   # ------------------------------------------------------------------------------------
   # TESTS Services
