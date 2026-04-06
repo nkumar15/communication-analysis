@@ -2,14 +2,15 @@
 Bank Surveillance Plugin Integration Tests
 
 Tests plugin lifecycle hooks (on_tenant_enable) and DB schema structure.
-Subscription-upgrade tests remain skipped pending Stripe mock infrastructure.
+Subscription-upgrade / downgrade tests use a mocked SubscriptionService provider
+(no real Stripe calls) — same pattern as test_subscription_checkout.py.
 """
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from uuid import uuid4
 
-from sqlalchemy import text
+from sqlalchemy import text, select
 
 pytestmark = pytest.mark.asyncio
 
@@ -262,24 +263,189 @@ async def test_hierarchical_teams_on_tenant_disable_is_noop():
 
 
 # =============================================================================
-# Subscription upgrade / downgrade — pending Stripe mock infrastructure
+# Subscription upgrade / downgrade — mocked Stripe provider
 # =============================================================================
 
-@pytest.mark.skip(reason="Requires Stripe mock or service-layer test harness")
+BANK_PLUGINS = ["geographic_boundaries", "hierarchical_teams", "data_classification"]
+
+
+def _make_checkout_session(tenant_id: str, tier: str, seats: int = 5) -> dict:
+    return {
+        "id": f"cs_test_{uuid4().hex[:8]}",
+        "customer": f"cus_{uuid4().hex[:8]}",
+        "subscription": f"sub_{uuid4().hex[:8]}",
+        "metadata": {
+            "tenant_id": tenant_id,
+            "tier": tier,
+            "billing_interval": "monthly",
+            "seat_count": str(seats),
+        },
+    }
+
+
+def _mock_plan(tier: str, plugins: list, real_plan_id) -> MagicMock:
+    from modules.b2b.models import B2BSubscriptionPlan
+    plan = MagicMock(spec=B2BSubscriptionPlan)
+    plan.id = real_plan_id
+    plan.tier_key = tier
+    plan.features = {"plugins": plugins, "sso": tier == "enterprise", "audit_logs": True}
+    plan.limits = {
+        "max_users": -1 if tier == "enterprise" else 5,
+        "max_teams": -1 if tier == "enterprise" else 2,
+        "storage_gb": 1000 if tier == "enterprise" else 10,
+    }
+    plan.base_price_monthly = 0 if tier == "starter" else 5000
+    plan.per_seat_price_monthly = 0 if tier == "starter" else 2000
+    plan.provider_config = {"stripe": {"monthly_price_id": "price_mock"}}
+    return plan
+
+
+async def _seed_plan(db_session):
+    from modules.b2b.models import B2BSubscriptionPlan
+    result = await db_session.execute(select(B2BSubscriptionPlan))
+    plan = result.scalars().first()
+    if not plan:
+        plan = B2BSubscriptionPlan(
+            tier_key="starter",
+            name="Starter",
+            base_price_monthly=0,
+            per_seat_price_monthly=0,
+            provider_config={},
+        )
+        db_session.add(plan)
+        await db_session.flush()
+    return plan
+
+
+def _build_service(db_session, mock_plan: MagicMock):
+    from modules.b2b.services.subscription_service import SubscriptionService
+    svc = SubscriptionService(db_session)
+    svc.provider = AsyncMock()
+    svc.provider.get_subscription.return_value = {
+        "status": "active",
+        "current_period_start": 1700000000,
+        "current_period_end": 1702592000,
+        "latest_invoice": None,
+    }
+    svc.get_plan_by_tier_key = AsyncMock(return_value=mock_plan)
+    return svc
+
+
 async def test_subscription_upgrade_enables_all_bank_plugins(
-    api_client, db_session, b2b_test_setup
+    db_session, b2b_test_setup
 ):
     """
-    Subscription upgrade enables data_classification, geographic_boundaries,
-    hierarchical_teams for the tenant and seeds each plugin's default data.
+    Stripe checkout for enterprise tier must enable all 3 bank plugins on the tenant
+    and call each plugin's on_tenant_enable hook exactly once.
+    Uses mocked Stripe provider — no real Stripe calls.
     """
+    from modules.b2b.services.tenant_service import tenant_service
+
+    setup = b2b_test_setup
+    tenant_id = setup["tenant_id"]
+    real_plan = await _seed_plan(db_session)
+
+    # Tenant starts with no plugins
+    await tenant_service.update_tenant_features(db_session, tenant_id, {"plugins": []})
+    await db_session.commit()
+
+    mock_plan = _mock_plan("enterprise", BANK_PLUGINS, real_plan.id)
+    svc = _build_service(db_session, mock_plan)
+    session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
+
+    hook_calls: list[str] = []
+
+    async def spy_enable(plugin_name: str, t_id: str, db):
+        hook_calls.append(plugin_name)
+
+    with (
+        patch("infrastructure.email.email_service.send_subscription_confirmation_email"),
+        patch(
+            "plugins.geographic_boundaries.plugin.GeographicBoundariesPlugin.on_tenant_enable",
+            side_effect=lambda t, d: spy_enable("geographic_boundaries", t, d),
+        ),
+        patch(
+            "plugins.hierarchical_teams.plugin.HierarchicalTeamsPlugin.on_tenant_enable",
+            side_effect=lambda t, d: spy_enable("hierarchical_teams", t, d),
+        ),
+        patch(
+            "plugins.data_classification.plugin.DataClassificationPlugin.on_tenant_enable",
+            side_effect=lambda t, d: spy_enable("data_classification", t, d),
+        ),
+    ):
+        await svc.handle_checkout_completed(session_data)
+        await db_session.commit()
+
+    # All 3 bank plugins must be active in tenant features
+    updated = await tenant_service.get_tenant_by_id(setup["session"], tenant_id)
+    active_plugins = set(updated.features.get("plugins", []))
+    assert active_plugins == set(BANK_PLUGINS), (
+        f"Expected {BANK_PLUGINS}, got {sorted(active_plugins)}"
+    )
+
+    # Each plugin's on_tenant_enable hook called exactly once
+    assert set(hook_calls) == set(BANK_PLUGINS), (
+        f"Hook calls: {hook_calls}"
+    )
+    assert len(hook_calls) == 3
 
 
-@pytest.mark.skip(reason="Subscription downgrade logic not fully implemented")
 async def test_subscription_downgrade_removes_bank_plugins(
-    api_client, db_session, b2b_test_setup
+    db_session, b2b_test_setup
 ):
     """
-    Subscription downgrade removes plugins from tenant features.
-    Existing data must NOT be deleted (safe downgrade).
+    Stripe checkout for starter tier after enterprise must remove all 3 bank plugins.
+    Existing plugin data in DB must NOT be deleted (safe downgrade — data preserved).
+    on_tenant_disable must be called for each removed plugin.
     """
+    from modules.b2b.services.tenant_service import tenant_service
+
+    setup = b2b_test_setup
+    tenant_id = setup["tenant_id"]
+    real_plan = await _seed_plan(db_session)
+
+    # Tenant starts on enterprise with all bank plugins active
+    await tenant_service.update_tenant_features(
+        db_session, tenant_id, {"plugins": BANK_PLUGINS, "sso": True}
+    )
+    await db_session.commit()
+
+    mock_starter = _mock_plan("starter", [], real_plan.id)
+    svc = _build_service(db_session, mock_starter)
+    session_data = _make_checkout_session(str(tenant_id), tier="starter")
+
+    disable_calls: list[str] = []
+
+    async def spy_disable(plugin_name: str, t_id: str, db):
+        disable_calls.append(plugin_name)
+
+    with (
+        patch("infrastructure.email.email_service.send_subscription_confirmation_email"),
+        patch(
+            "plugins.geographic_boundaries.plugin.GeographicBoundariesPlugin.on_tenant_disable",
+            side_effect=lambda t, d: spy_disable("geographic_boundaries", t, d),
+        ),
+        patch(
+            "plugins.hierarchical_teams.plugin.HierarchicalTeamsPlugin.on_tenant_disable",
+            side_effect=lambda t, d: spy_disable("hierarchical_teams", t, d),
+        ),
+        patch(
+            "plugins.data_classification.plugin.DataClassificationPlugin.on_tenant_disable",
+            side_effect=lambda t, d: spy_disable("data_classification", t, d),
+        ),
+    ):
+        await svc.handle_checkout_completed(session_data)
+        await db_session.commit()
+
+    # Plugins must be cleared from tenant features after downgrade
+    updated = await tenant_service.get_tenant_by_id(setup["session"], tenant_id)
+    assert updated.features.get("plugins", []) == [], (
+        f"Expected empty plugins after downgrade, got {updated.features.get('plugins')}"
+    )
+    assert updated.features.get("sso") is False
+
+    # on_tenant_disable called for each removed plugin
+    assert set(disable_calls) == set(BANK_PLUGINS), (
+        f"Disable hook calls: {disable_calls}"
+    )
+    assert len(disable_calls) == 3
