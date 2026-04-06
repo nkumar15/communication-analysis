@@ -23,7 +23,11 @@ const IngestionPage = () => {
             setError(null);
         } catch (err) {
             console.error('Failed to fetch ingestion data:', err);
-            setError('Failed to load ingestion data. Please try again.');
+            if (err.message && err.message.includes('403')) {
+                setError('You do not have permission to view ingestion data. This page is restricted to roles with ingestion access (e.g. Surveillance Chief).');
+            } else {
+                setError('Failed to load ingestion data. Please try again.');
+            }
         } finally {
             setLoading(false);
         }

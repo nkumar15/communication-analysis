@@ -165,7 +165,7 @@ const UserProfileDropdown = () => {
 
                     {/* Billing & Settings Menu */}
                     <div style={{ padding: '8px 0', borderBottom: '1px solid #F3F4F6' }}>
-                        {canAccess('billing') && (
+                        {canAccess('billing:read') && (
                             <button
                                 onClick={() => { navigate('/billing/subscription'); setIsOpen(false); }}
                                 style={{
@@ -190,7 +190,7 @@ const UserProfileDropdown = () => {
                                 <span>Subscription & Billing</span>
                             </button>
                         )}
-                        {canAccess('invoices') && (
+                        {canAccess('invoices:read') && (
                             <button
                                 onClick={() => { navigate('/billing/invoices'); setIsOpen(false); }}
                                 style={{
@@ -215,7 +215,7 @@ const UserProfileDropdown = () => {
                                 <span>Invoices</span>
                             </button>
                         )}
-                        {canAccess('account') && (
+                        {canAccess('account:read') && (
                             <button
                                 onClick={() => { navigate('/settings/account'); setIsOpen(false); }}
                                 style={{
@@ -240,7 +240,7 @@ const UserProfileDropdown = () => {
                                 <span>Account Settings</span>
                             </button>
                         )}
-                        {canAccess('audit_logs') && (
+                        {canAccess('audit_logs:read') && (
                             <button
                                 onClick={() => { navigate('/audit-logs'); setIsOpen(false); }}
                                 style={{

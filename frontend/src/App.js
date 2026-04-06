@@ -189,7 +189,7 @@ function RootRedirect() {
     );
 
     // Strategic Redesign: Redirect Surveillance Users directly to Command Center
-    if (canAccess('surveillance')) {
+    if (canAccess('communications:read')) {
         return <Navigate to="/b2b/surveillance" replace />;
     }
 

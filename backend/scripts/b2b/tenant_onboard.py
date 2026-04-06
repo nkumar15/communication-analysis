@@ -117,14 +117,16 @@ async def seed_plugin_config_from_yaml(db, tenant_id, yaml_path):
         click.echo(f"⚠️  Failed to seed instance config: {e}", err=True)
 
 async def create_local_async(
-    company, domain, firebase_tenant_id, owner_email, tenant_id=None, plugins=None, subscription_tier=None, plugins_yaml_path=None):
+    company, domain, firebase_tenant_id, owner_email, tenant_id=None, plugins=None, subscription_tier=None, plugins_yaml_path=None, use_case=None):
     """Create tenant using API service (Local Mode) - Pure Logic"""
     click.echo(f"🚀 Creating local tenant for {company} ({domain})...")
     if plugins:
         click.echo(f"🔌 Plugins enabled: {plugins}")
     if subscription_tier:
         click.echo(f"💳 Subscription Tier: {subscription_tier}")
-    
+    if use_case:
+        click.echo(f"🏢 Use case: {use_case}")
+
     async with AsyncSessionLocal() as db:
         try:
             # Init Plugins Registry (Needed for hooks)
@@ -132,7 +134,7 @@ async def create_local_async(
 
             from core.db.rls import rls_service
             await rls_service.set_platform_admin_context(db)
-            
+
             # Check if tenant exists first (idempotency)
             if tenant_id:
                 from modules.b2b.models import TenantModel
@@ -151,7 +153,7 @@ async def create_local_async(
                 features={'plugins': plugins} if plugins else {},
                 subscription_tier=subscription_tier
             )
-            
+
             # Apply Plugin Config from YAML if provided
             if plugins_yaml_path:
                 # We need the real tenant_id for the seeding
@@ -159,10 +161,23 @@ async def create_local_async(
                 from uuid import UUID
                 real_tenant_id = UUID(result['tenant_id'])
                 await seed_plugin_config_from_yaml(db, real_tenant_id, plugins_yaml_path)
-            
+
+            # Set domain_type from use_case (e.g. 'bank_surveillance' -> tenant.domain_type)
+            # This controls which domain menu the sidebar shows for ALL users of this tenant.
+            if use_case:
+                from uuid import UUID as _UUID
+                from modules.b2b.models import TenantModel
+                from sqlalchemy import select
+                real_tenant_id = _UUID(result['tenant_id'])
+                stmt = select(TenantModel).where(TenantModel.id == real_tenant_id)
+                tenant_row = (await db.execute(stmt)).scalar_one_or_none()
+                if tenant_row and tenant_row.domain_type != use_case:
+                    tenant_row.domain_type = use_case
+                    click.echo(f"   ✓ Set tenant.domain_type = '{use_case}'")
+
             await db.commit()
             return result
-            
+
         except Exception:
             raise
 
@@ -400,9 +415,10 @@ def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file
         else:
             plugin_list = []
     
-    # Subscription Tier from Config
+    # Subscription Tier and use_case from Config
     subscription_tier = existing_config.get("subscription_tier")
-    
+    use_case = existing_config.get("use_case")
+
     tenant_id_str = existing_config.get("tenant_id")
     tenant_id = UUID(tenant_id_str) if tenant_id_str else None
 
@@ -436,7 +452,7 @@ def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file
     # Run Async Logic
     try:
         result = asyncio.run(create_local_async(
-            company, domain, firebase_tenant_id, owner_email, tenant_id, plugin_list, subscription_tier, plugins_yaml_path
+            company, domain, firebase_tenant_id, owner_email, tenant_id, plugin_list, subscription_tier, plugins_yaml_path, use_case
         ))
     except Exception as e:
         click.echo(f"\n❌ Error: {str(e)}", err=True)
