@@ -32,7 +32,7 @@ display-services: ## Display running services
 elasticsearch: ## Start elasticsearch and elasticsearch-kibana
 	docker-compose up -d elasticsearch elasticsearch-kibana
 
-up: ## Start core backend services (APIs + workers + infra, no frontend)
+up: ## Start all backend services (B2B + B2C + infra, no frontends) — used by test targets
 	docker-compose up -d postgres minio \
 							b2b-api platform-api b2c-api \
 							b2b-domain-api b2c-domain-api \
@@ -43,13 +43,25 @@ up: ## Start core backend services (APIs + workers + infra, no frontend)
 	@echo "$(YELLOW) Tip: run 'make dev-full' to also start the 3 frontend portals$(NC)"
 	@echo "$(YELLOW) Tip: run 'make up-full' to also start Elasticsearch + Kibana$(NC)"
 
+up-b2b: ## Start B2B-only services + infra (b2b-api, b2b-worker, b2b-domain-api, b2b-domain-worker, platform-api, frontends)
+	@docker-compose --profile b2b-demo up -d
+	@echo "$(GREEN)✓ B2B services started$(NC)"
+	@echo "  B2B Portal:      http://localhost:3000"
+	@echo "  Platform Portal: http://localhost:3002"
+	@echo "  API Gateway:     http://localhost:8080"
+
+up-b2c: ## Start B2C-only services + infra (b2c-api, b2c-worker, b2c-beat, b2c-domain-api, b2c-domain-worker, frontend-b2c)
+	@docker-compose --profile b2c-demo up -d
+	@echo "$(GREEN)✓ B2C services started$(NC)"
+	@echo "  B2C Portal:      http://localhost:3001"
+	@echo "  API Gateway:     http://localhost:8080"
+
 up-full: ## Start all backend services including Elasticsearch + Kibana
 	@$(MAKE) up
 	@docker-compose up -d elasticsearch kibana
 	@echo "$(GREEN)✓ All backend services started (including Elasticsearch)$(NC)"
 
-dev-full: ## Start everything for manual full-stack testing (backend + 3 frontend portals)
-	@$(MAKE) up
+dev-full: ## Start everything for manual full-stack testing (B2B + B2C + all 3 frontend portals)
 	@docker-compose --profile dev-full up -d
 	@echo "$(GREEN)✓ Full stack ready$(NC)"
 	@echo "  B2B Portal:      http://localhost:3000"
@@ -60,10 +72,10 @@ dev-full: ## Start everything for manual full-stack testing (backend + 3 fronten
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
-	docker-compose --profile dev-full --profile test-api --profile test-ui down --remove-orphans
+	docker-compose --profile b2b-demo --profile b2c-demo --profile dev-full --profile test-api --profile test-ui down --remove-orphans
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
-restart: down up ## Restart all services
+restart: down up ## Restart all services (full B2B + B2C stack)
 
 ##@ Database
 
@@ -133,7 +145,7 @@ ifdef USE_CASE
 	@docker-compose exec -T b2b-domain-api python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_meta.py
 endif
 
-seed-all: ## Run all seed scripts (requires API services running)
+seed-all: ## Run all seed scripts — B2B + B2C (requires all API services running)
 	@echo "$(BLUE)Running seed scripts...$(NC)"
 	@$(MAKE) platform-seed-permissions
 	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
@@ -142,7 +154,15 @@ seed-all: ## Run all seed scripts (requires API services running)
 	@$(MAKE) b2b-verify-seed
 	@echo "$(GREEN)✓ Seed scripts complete$(NC)"
 
-seed-demo: ## Full demo system (optional USE_CASE=xxx)
+seed-b2b: ## Seed B2B platform only — no b2c-api needed (USE_CASE=xxx for domain roles)
+	@echo "$(BLUE)Running B2B seed scripts...$(NC)"
+	@$(MAKE) platform-seed-permissions
+	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@$(MAKE) b2b-seed-plans
+	@$(MAKE) b2b-verify-seed
+	@echo "$(GREEN)✓ B2B seed complete$(NC)"
+
+seed-demo: ## Full demo system (optional USE_CASE=xxx) — starts all services
 	@echo "$(BLUE)=== Setting up Demo System ===$(NC)"
 	@$(MAKE) db-recreate
 	@$(MAKE) restart
@@ -187,9 +207,15 @@ endif
 
 ##@ B2B Demos
 
-b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + all 3 frontend portals)
-	@$(MAKE) seed-demo USE_CASE=bank_surveillance
-	@$(MAKE) dev-full
+b2b-demo-bank: ## Bank Surveillance demo — starts B2B-only containers (no B2C services)
+	@echo "$(BLUE)=== Bank Surveillance Demo Setup ===$(NC)"
+	@$(MAKE) db-recreate
+	@echo "$(BLUE)Starting B2B services...$(NC)"
+	@docker-compose --profile b2b-demo up -d
+	@sleep 5
+	@$(MAKE) seed-b2b USE_CASE=bank_surveillance
+	@$(MAKE) b2b-invite f=modules/domains/b2b/bank_surveillance/scripts/seeds/demo_tenant.json
+	@$(MAKE) b2b-seed-meta USE_CASE=bank_surveillance
 	@echo ""
 	@echo "$(GREEN)✅ Bank Surveillance Demo Ready!$(NC)"
 	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
@@ -200,6 +226,38 @@ b2b-demo-bank: ## Full bank surveillance demo (DB reset + seed + all 3 frontend 
 	@echo "$(BLUE)Platform Portal:$(NC)  http://localhost:3002"
 	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
 	@echo "$(BLUE)Mailhog:$(NC)          http://localhost:8025"
+	@echo ""
+	@echo "$(YELLOW)B2C services are NOT running (not needed for bank demo)$(NC)"
+	@echo "$(YELLOW)Run 'make dev-full' to start all services including B2C$(NC)"
+
+b2b-demo-task: ## Task Management demo — starts B2B-only containers (no B2C services)
+	@echo "$(BLUE)=== Task Management Demo Setup ===$(NC)"
+	@$(MAKE) db-recreate
+	@echo "$(BLUE)Starting B2B services...$(NC)"
+	@docker-compose --profile b2b-demo up -d
+	@sleep 5
+	@$(MAKE) seed-b2b USE_CASE=task_management
+	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/demo_tenant.json
+	@$(MAKE) b2b-seed-meta USE_CASE=task_management
+	@echo ""
+	@echo "$(GREEN)✅ Task Management Demo Ready!$(NC)"
+	@echo "$(BLUE)B2B Portal:$(NC)       http://localhost:3000"
+	@echo "$(BLUE)Platform Portal:$(NC)  http://localhost:3002"
+	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
+	@echo "$(YELLOW)B2C services are NOT running (not needed for task demo)$(NC)"
+
+b2c-demo-trader: ## Finance Trader demo — starts B2C-only containers (no B2B services)
+	@echo "$(BLUE)=== Finance Trader Demo Setup ===$(NC)"
+	@$(MAKE) db-recreate
+	@echo "$(BLUE)Starting B2C services...$(NC)"
+	@docker-compose --profile b2c-demo up -d
+	@sleep 5
+	@$(MAKE) b2c-seed-plans
+	@echo ""
+	@echo "$(GREEN)✅ Finance Trader Demo Ready!$(NC)"
+	@echo "$(BLUE)B2C Portal:$(NC)       http://localhost:3001"
+	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
+	@echo "$(YELLOW)B2B services are NOT running (not needed for B2C demo)$(NC)"
 
 
 ##@ Testing
