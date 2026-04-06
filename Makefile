@@ -6,6 +6,10 @@ GREEN := \033[0;32m
 YELLOW := \033[0;33m
 NC := \033[0m # No Color
 
+# Test compose: overrides DATABASE_URL on all services → saas_test_db
+# Demo targets use plain docker-compose (saas_demo_db). Never mix the two.
+DC_TEST = docker-compose -f docker-compose.yml -f docker-compose.test.yml
+
 
 ##@ General
 
@@ -94,15 +98,35 @@ migrate-schema: ## Run SQL migrations only (no seeds) - requires just postgres
 	@$(MAKE) db-setup-auth
 	@echo "$(GREEN)✓ Migrations applied$(NC)"
 
-db-recreate: ## Fast Database Reset (Drop DB -> Create DB). Uses POSTGRES_USER/DB from env (defaults: postgres/saas_demo_db)
-	@echo "$(BLUE)Recreating database (Drop & Create)...$(NC)"
+db-recreate: ## Reset demo database (saas_demo_db) — never touches saas_test_db
+	@echo "$(BLUE)Recreating demo database (saas_demo_db)...$(NC)"
 	@docker-compose up -d postgres
 	@sleep 2
 	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres dropdb -U $${POSTGRES_USER:-postgres} --if-exists --force $${POSTGRES_DB:-saas_demo_db}
 	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres createdb -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-saas_demo_db}
 	@$(MAKE) migrate-schema
-	@echo "$(GREEN)✓ Schema migrations completed(NC)"
-	@echo "$(GREEN)✓ Database recreated$(NC)"
+	@echo "$(GREEN)✓ Demo database recreated$(NC)"
+
+db-recreate-test: ## Reset test database (saas_test_db) — never touches saas_demo_db
+	@echo "$(BLUE)Recreating test database (saas_test_db)...$(NC)"
+	@docker-compose up -d postgres
+	@sleep 2
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres dropdb -U $${POSTGRES_USER:-postgres} --if-exists --force saas_test_db
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres createdb -U $${POSTGRES_USER:-postgres} saas_test_db
+	@$(MAKE) migrate-schema-test
+	@echo "$(GREEN)✓ Test database ready$(NC)"
+
+db-setup-auth-test: ## Setup app user permissions on saas_test_db
+	@echo "$(BLUE)Setting up auth for test database...$(NC)"
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_password=\$$DB_PASSWORD -c saas.app_db_user=\$$DB_USER -c saas.app_db_name=saas_test_db\"; psql -U \$$POSTGRES_USER -d saas_test_db -f /app/scripts/init_auth_db.sql"
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d saas_test_db -f /app/scripts/grant_permissions.sql"
+	@echo "$(GREEN)✓ Test DB auth setup complete$(NC)"
+
+migrate-schema-test: ## Run SQL migrations against saas_test_db
+	@echo "$(BLUE)Running migrations against test database...$(NC)"
+	@$(DC_TEST) run --rm dbmigrate
+	@$(MAKE) db-setup-auth-test
+	@echo "$(GREEN)✓ Test DB migrations applied$(NC)"
 
 
 ##@ Seed
@@ -262,62 +286,72 @@ b2c-demo-trader: ## Finance Trader demo — starts B2C-only containers (no B2B s
 
 ##@ Testing
 
-test-api: ## Run backend API pytest suite (no browser). Usage: make test-api [USE_CASE=bank_surveillance] [path=tests/b2b/api]
-	@echo "$(BLUE)Running backend API tests...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
+test-api: ## Run backend API pytest suite — uses saas_test_db, never touches demo data. Usage: make test-api [USE_CASE=bank_surveillance] [path=tests/b2b/api]
+	@echo "$(BLUE)Running backend API tests (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
-	@docker-compose --profile test-api run --rm e2e-tests pytest \
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
 		$(or $(path),tests/) \
 		-v
 	@echo "$(GREEN)✓ Backend API tests complete$(NC)"
 
-test-ui: ## Run automated Playwright browser tests (frontend + backend). Usage: make test-ui [USE_CASE=bank_surveillance]
-	@echo "$(BLUE)Running automated UI tests...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
-	@docker-compose --profile test-ui up -d
+test-ui: ## Run automated Playwright browser tests — uses saas_test_db. Usage: make test-ui [USE_CASE=bank_surveillance]
+	@echo "$(BLUE)Running automated UI tests (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@$(DC_TEST) --profile test-ui up -d
 	@sleep 8
 	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
-	@docker-compose --profile test-ui run --rm e2e-tests pytest \
+	@$(DC_TEST) --profile test-ui run --rm e2e-tests pytest \
 		tests/e2e_browser \
 		-v
 	@echo "$(GREEN)✓ UI tests complete$(NC)"
 
-test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units)
-	@echo "$(BLUE)Running B2B Foundation Full Suite...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
+test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running B2B Foundation Full Suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose --profile test-api run --rm e2e-tests pytest \
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
 		tests/b2b/api/foundation \
 		tests/b2b/services/foundation \
 		tests/b2b/units \
 		-v
 
 
-test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, Units)
-	@echo "$(BLUE)Running Bank Surveillance specific suite...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
+test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running Bank Surveillance specific suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
-	@docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests \
+	@$(DC_TEST) run --rm -e USE_CASE=bank_surveillance e2e-tests \
 		pytest \
 		tests/b2b/api/use_cases/bank_surveillance \
 		tests/b2b/services/use_cases/bank_surveillance \
 		tests/b2b/units/use_cases/bank_surveillance \
 		-v
 
-test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank)
-	@echo "$(BLUE)Running Bank Surveillance full suite (Foundation + Bank)...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
+test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank) — uses saas_test_db
+	@echo "$(BLUE)Running Bank Surveillance full suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
-	@docker-compose run --rm -e USE_CASE=bank_surveillance e2e-tests \
+	@$(DC_TEST) run --rm -e USE_CASE=bank_surveillance e2e-tests \
 		pytest \
 		tests/b2b/api/foundation \
 		tests/b2b/api/use_cases/bank_surveillance \
@@ -326,39 +360,45 @@ test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank)
 		tests/b2b/units \
 		-v
 
-test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units)
-	@echo "$(BLUE)Running B2C Foundation Full Suite...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
+test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running B2C Foundation Full Suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose --profile test-api run --rm e2e-tests pytest \
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
 		tests/b2c/api/foundation \
 		tests/b2c/services/foundation \
 		tests/b2c/units \
 		-v
 
 
-test-platform-foundation-only: ## Run Platform foundation full suite (API, Services, Units)
-	@echo "$(BLUE)Running Platform Foundation Full Suite...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
+test-platform-foundation-only: ## Run Platform foundation full suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running Platform Foundation Full Suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose --profile test-api run --rm e2e-tests pytest \
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
 		tests/platform/api \
 		tests/platform/services \
 		tests/platform/units \
 		-v
 
 
-test-all-foundation: ## Run all foundation tests (B2B, B2C, Platform)
-	@echo "$(BLUE)Running All Foundation Tests...$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) up
+test-all-foundation: ## Run all foundation tests (B2B, B2C, Platform) — uses saas_test_db
+	@echo "$(BLUE)Running All Foundation Tests (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all
-	@docker-compose --profile test-api run --rm e2e-tests pytest \
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
 		tests/b2b/api/foundation \
 		tests/b2b/services/foundation \
 		tests/b2b/units \
@@ -405,13 +445,13 @@ DURATION ?= 1m
 load-test-b2b: ## Run B2B Locust load test (50 users). Usage: make load-test-b2b DURATION=30s
 	@echo "$(BLUE)Starting B2B Locust load test (50 users, $(DURATION))...$(NC)"
 	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
-	docker-compose --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
+	$(DC_TEST) --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
 	@echo "$(GREEN)✓ B2B Load test complete$(NC)"
 
 load-test-b2c: ## Run B2C Locust load test (50 users). Usage: make load-test-b2c DURATION=30s
 	@echo "$(BLUE)Starting B2C Locust load test (50 users, $(DURATION))...$(NC)"
 	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
-	docker-compose --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
+	$(DC_TEST) --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
 	@echo "$(GREEN)✓ B2C Load test complete$(NC)"
 
 ##@ SAST (Static Application Security Testing)
