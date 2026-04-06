@@ -161,6 +161,17 @@ If multiple types apply, execute in this sequence:
 - Skills:
   - None
 
+### 4.10 `release_management`
+
+Triggered by: "what's changed in X since last release", "generate CHANGELOG for X", "cut a release for X", "tag X as vN.N.N", "what's in release X/vN.N.N", "audit release"
+
+- Rules:
+  - `shared-rules/coding-standards.md` (commit message format)
+- Workflow:
+  - None (skill handles the full workflow)
+- Skills:
+  - `release-manager` (mandatory — invoke immediately)
+
 ## 5. Mandatory Backend Guardrails
 
 For every backend write path:
