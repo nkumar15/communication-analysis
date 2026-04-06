@@ -317,8 +317,10 @@ async def _seed_plan(db_session):
     return plan
 
 
-def _build_service(db_session, mock_plan: MagicMock):
+async def _build_service(db_session, mock_plan: MagicMock):
     from modules.b2b.services.subscription_service import SubscriptionService
+    from core.db.rls import rls_service
+    await rls_service.set_platform_admin_context(db_session)
     svc = SubscriptionService(db_session)
     svc.provider = AsyncMock()
     svc.provider.get_subscription.return_value = {
@@ -350,27 +352,35 @@ async def test_subscription_upgrade_enables_all_bank_plugins(
     await db_session.commit()
 
     mock_plan = _mock_plan("enterprise", BANK_PLUGINS, real_plan.id)
-    svc = _build_service(db_session, mock_plan)
+    svc = await _build_service(db_session, mock_plan)
     session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
     hook_calls: list[str] = []
 
-    async def spy_enable(plugin_name: str, t_id: str, db):
-        hook_calls.append(plugin_name)
+    # Each side_effect must be a proper async callable so that
+    # `await plugin.on_tenant_enable(t, d)` in the service resolves correctly.
+    async def spy_geo_enable(t_id: str, db):
+        hook_calls.append("geographic_boundaries")
+
+    async def spy_hierarchical_enable(t_id: str, db):
+        hook_calls.append("hierarchical_teams")
+
+    async def spy_data_class_enable(t_id: str, db):
+        hook_calls.append("data_classification")
 
     with (
         patch("infrastructure.email.email_service.send_subscription_confirmation_email"),
         patch(
             "plugins.geographic_boundaries.plugin.GeographicBoundariesPlugin.on_tenant_enable",
-            side_effect=lambda t, d: spy_enable("geographic_boundaries", t, d),
+            side_effect=spy_geo_enable,
         ),
         patch(
             "plugins.hierarchical_teams.plugin.HierarchicalTeamsPlugin.on_tenant_enable",
-            side_effect=lambda t, d: spy_enable("hierarchical_teams", t, d),
+            side_effect=spy_hierarchical_enable,
         ),
         patch(
             "plugins.data_classification.plugin.DataClassificationPlugin.on_tenant_enable",
-            side_effect=lambda t, d: spy_enable("data_classification", t, d),
+            side_effect=spy_data_class_enable,
         ),
     ):
         await svc.handle_checkout_completed(session_data)
@@ -411,27 +421,33 @@ async def test_subscription_downgrade_removes_bank_plugins(
     await db_session.commit()
 
     mock_starter = _mock_plan("starter", [], real_plan.id)
-    svc = _build_service(db_session, mock_starter)
+    svc = await _build_service(db_session, mock_starter)
     session_data = _make_checkout_session(str(tenant_id), tier="starter")
 
     disable_calls: list[str] = []
 
-    async def spy_disable(plugin_name: str, t_id: str, db):
-        disable_calls.append(plugin_name)
+    async def spy_geo_disable(t_id: str, db):
+        disable_calls.append("geographic_boundaries")
+
+    async def spy_hierarchical_disable(t_id: str, db):
+        disable_calls.append("hierarchical_teams")
+
+    async def spy_data_class_disable(t_id: str, db):
+        disable_calls.append("data_classification")
 
     with (
         patch("infrastructure.email.email_service.send_subscription_confirmation_email"),
         patch(
             "plugins.geographic_boundaries.plugin.GeographicBoundariesPlugin.on_tenant_disable",
-            side_effect=lambda t, d: spy_disable("geographic_boundaries", t, d),
+            side_effect=spy_geo_disable,
         ),
         patch(
             "plugins.hierarchical_teams.plugin.HierarchicalTeamsPlugin.on_tenant_disable",
-            side_effect=lambda t, d: spy_disable("hierarchical_teams", t, d),
+            side_effect=spy_hierarchical_disable,
         ),
         patch(
             "plugins.data_classification.plugin.DataClassificationPlugin.on_tenant_disable",
-            side_effect=lambda t, d: spy_disable("data_classification", t, d),
+            side_effect=spy_data_class_disable,
         ),
     ):
         await svc.handle_checkout_completed(session_data)

@@ -66,8 +66,15 @@ def _mock_plan(tier: str, plugins: list, real_plan_id) -> MagicMock:
     return plan
 
 
-def _build_service(db_session, mock_plan: MagicMock) -> SubscriptionService:
-    """Build a SubscriptionService with mocked Stripe provider and plan lookup."""
+async def _build_service(db_session, mock_plan: MagicMock) -> SubscriptionService:
+    """Build a SubscriptionService with mocked Stripe provider and plan lookup.
+
+    Sets platform-admin RLS context so subscription INSERTs bypass row-level
+    security — matching the production webhook handler behaviour.
+    """
+    from core.db.rls import rls_service
+    await rls_service.set_platform_admin_context(db_session)
+
     svc = SubscriptionService(db_session)
     svc.provider = AsyncMock()
     svc.provider.get_subscription.return_value = {
@@ -121,7 +128,7 @@ class TestEnterpriseCheckoutActivatesPlugins:
         await tenant_service.update_tenant_features(db_session, tenant_id, {"plugins": []})
         await db_session.commit()
 
-        svc = _build_service(db_session, mock_plan)
+        svc = await _build_service(db_session, mock_plan)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
         # Act
@@ -147,7 +154,7 @@ class TestEnterpriseCheckoutActivatesPlugins:
         real_plan = await _seed_plan(db_session)
         mock_plan = _mock_plan("enterprise", ENTERPRISE_PLUGINS, real_plan.id)
 
-        svc = _build_service(db_session, mock_plan)
+        svc = await _build_service(db_session, mock_plan)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
         # Act
@@ -177,7 +184,7 @@ class TestEnterpriseCheckoutActivatesPlugins:
         await tenant_service.update_tenant_features(db_session, tenant_id, {"plugins": []})
         await db_session.commit()
 
-        svc = _build_service(db_session, mock_plan)
+        svc = await _build_service(db_session, mock_plan)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
         hook_calls: list[str] = []
@@ -216,7 +223,7 @@ class TestEnterpriseCheckoutActivatesPlugins:
         real_plan = await _seed_plan(db_session)
         mock_plan = _mock_plan("enterprise", ENTERPRISE_PLUGINS, real_plan.id)
 
-        svc = _build_service(db_session, mock_plan)
+        svc = await _build_service(db_session, mock_plan)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise", seats=10)
 
         # Act
@@ -253,7 +260,7 @@ class TestSubscriptionDowngradeRemovesPlugins:
         await db_session.commit()
 
         mock_starter = _mock_plan("starter", [], real_plan.id)
-        svc = _build_service(db_session, mock_starter)
+        svc = await _build_service(db_session, mock_starter)
         session_data = _make_checkout_session(str(tenant_id), tier="starter")
 
         # Act
@@ -283,7 +290,7 @@ class TestSubscriptionDowngradeRemovesPlugins:
         await db_session.commit()
 
         mock_starter = _mock_plan("starter", [], real_plan.id)
-        svc = _build_service(db_session, mock_starter)
+        svc = await _build_service(db_session, mock_starter)
         session_data = _make_checkout_session(str(tenant_id), tier="starter")
 
         disable_calls: list[str] = []
@@ -327,7 +334,7 @@ class TestSubscriptionDowngradeRemovesPlugins:
         await db_session.commit()
 
         mock_enterprise = _mock_plan("enterprise", ENTERPRISE_PLUGINS, real_plan.id)
-        svc = _build_service(db_session, mock_enterprise)
+        svc = await _build_service(db_session, mock_enterprise)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
         enable_calls: list[str] = []
@@ -378,14 +385,18 @@ class TestCheckoutIdempotency:
         real_plan = await _seed_plan(db_session)
         mock_plan = _mock_plan("enterprise", ENTERPRISE_PLUGINS, real_plan.id)
 
-        svc = _build_service(db_session, mock_plan)
+        svc = await _build_service(db_session, mock_plan)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
         with patch("infrastructure.email.email_service.send_subscription_confirmation_email"):
             await svc.handle_checkout_completed(session_data)
             await db_session.commit()
 
-            # Second identical checkout (e.g. Stripe retry)
+            # Second identical checkout (e.g. Stripe retry).
+            # RLS SET LOCAL resets on commit, so re-establish platform-admin context
+            # exactly as a second webhook HTTP request would.
+            from core.db.rls import rls_service
+            await rls_service.set_platform_admin_context(db_session)
             await svc.handle_checkout_completed(session_data)
             await db_session.commit()
 
@@ -405,7 +416,7 @@ class TestCheckoutIdempotency:
         real_plan = await _seed_plan(db_session)
         mock_plan = _mock_plan("enterprise", ENTERPRISE_PLUGINS, real_plan.id)
 
-        svc = _build_service(db_session, mock_plan)
+        svc = await _build_service(db_session, mock_plan)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
         with patch(

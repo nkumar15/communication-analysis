@@ -300,7 +300,7 @@ class TestInvoicePaymentFailed:
                 return_value=mock_invoice,
             ),
             patch(
-                "modules.b2b.tasks.billing.send_payment_failure_alert.delay"
+                "workers.b2b_worker.email_tasks.send_payment_failure_alert.delay"
             ) as mock_task,
         ):
             response = await api_client.post(

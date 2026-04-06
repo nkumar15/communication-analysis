@@ -386,6 +386,8 @@ async def stripe_webhook(
         
         return {"status": "success"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Webhook error: {e}", exc_info=True)
         await db.rollback()
