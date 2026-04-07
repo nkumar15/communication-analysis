@@ -351,23 +351,46 @@ class AuthService:
         # Fetch active plugins & features
         # Mechanism: Intersection of Tenant Config (DB) and System Registry (Code)
         from core.rbac.plugin_registry import plugin_registry
-        
+        from modules.b2b.models import B2BSubscription, B2BSubscriptionPlan
+        from modules.b2b.schemas.features import PlanLimits
+
         tenant_features = tenant.features or {}
-        # Ensure plugins list is present
         tenant_plugins = tenant_features.get('plugins', [])
-        
+
         available_plugins = plugin_registry._plugins.keys()
-        
-        # Filter plugins that are actually installed/available in code
+
+        # Filter plugins to those actually installed in code
         active_plugin_list = [
-            p for p in tenant_plugins 
+            p for p in tenant_plugins
             if p in available_plugins
         ]
-        
-        # Construct active_features (override plugins with filtered list)
-        active_features = tenant_features.copy()
+
+        # Build active_features from tenant flags only (no stale limits copy)
+        active_features = {
+            k: v for k, v in tenant_features.items()
+            if k != 'limits'           # exclude any legacy stale copy
+        }
         active_features['plugins'] = active_plugin_list
-        
+
+        # Always fetch limits fresh from the active subscription → plan row.
+        # This ensures limits reflect the current plan definition even if the
+        # plan was updated after the tenant's last checkout.
+        plan_result = await db.execute(
+            select(B2BSubscriptionPlan)
+            .join(B2BSubscription, B2BSubscription.plan_id == B2BSubscriptionPlan.id)
+            .where(
+                B2BSubscription.tenant_id == tenant.id,
+                B2BSubscription.status.in_(['active', 'trialing']),
+            )
+        )
+        plan = plan_result.scalars().first()
+        if plan and plan.limits:
+            active_features['limits'] = PlanLimits(**(plan.limits)).model_dump()
+        else:
+            # No active subscription — apply starter defaults so frontend always
+            # has a defined limits object to render against.
+            active_features['limits'] = PlanLimits().model_dump()
+
         return user, tenant, permissions, teams, active_features
 
 # Global auth service instance

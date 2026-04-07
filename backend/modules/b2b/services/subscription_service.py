@@ -472,10 +472,11 @@ class SubscriptionService:
             Dict with added/removed plugins and final active features
         """
         from modules.b2b.services.tenant_service import tenant_service
-        
-        plan_features = plan.features or {}
-        plan_limits = plan.limits or {}
-        
+        from modules.b2b.schemas.features import PlanFeatures, TenantFeatures
+
+        # Validate plan's feature blob before applying — catches bad seeds/typos early
+        plan_features = PlanFeatures(**(plan.features or {}))
+
         # Get current tenant features to preserve custom flags
         tenant_result = await self.db.execute(
             select(TenantModel).where(TenantModel.id == tenant_id)
@@ -483,19 +484,24 @@ class SubscriptionService:
         tenant = tenant_result.scalar_one_or_none()
         if not tenant:
             raise ValueError(f"Tenant {tenant_id} not found")
-        
+
         current_features = tenant.features or {}
-        
-        # Merge: Plan features overlay current (preserves custom tenant flags)
-        merged_features = current_features.copy()
-        merged_features.update(plan_features)
-        merged_features['limits'] = plan_limits
-        
+
+        # Merge: plan feature flags overlay current tenant flags.
+        # Limits are intentionally NOT stored in tenant.features — they are
+        # always read fresh from the subscription → plan join so they can
+        # never go stale if a plan definition changes.
+        merged = TenantFeatures(**current_features)
+        merged = merged.model_copy(update=plan_features.model_dump(exclude={"plugins"}))
+        merged.plugins = plan_features.plugins   # plugins replaced wholesale by plan
+
         logger.info(f"Applying subscription config for tenant {tenant_id}: plan={plan.tier_key}")
-        
-        # Delegate to tenant_service for plugin hooks
-        result = await tenant_service.update_tenant_features(self.db, tenant_id, merged_features)
-        
+
+        # Delegate to tenant_service for plugin lifecycle hooks
+        result = await tenant_service.update_tenant_features(
+            self.db, tenant_id, merged.model_dump()
+        )
+
         logger.info(f"✅ Subscription config applied: added={result.get('added_plugins')}, removed={result.get('removed_plugins')}")
         
         return result

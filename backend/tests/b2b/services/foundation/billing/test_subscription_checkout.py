@@ -144,11 +144,12 @@ class TestEnterpriseCheckoutActivatesPlugins:
             f"Expected {ENTERPRISE_PLUGINS}, got {sorted(active_plugins)}"
         )
 
-    async def test_checkout_enables_sso_and_limits(self, db_session, b2b_test_setup):
+    async def test_checkout_enables_sso_flag(self, db_session, b2b_test_setup):
         """
-        Enterprise checkout also syncs non-plugin features (sso, limits) to the tenant.
+        Enterprise checkout syncs boolean feature flags (sso=True) into tenant.features.
+        Limits are intentionally NOT stored in tenant.features — they live on the plan row
+        and are fetched fresh via the subscription JOIN on every auth request.
         """
-        # Arrange
         setup = b2b_test_setup
         tenant_id = setup["tenant_id"]
         real_plan = await _seed_plan(db_session)
@@ -157,16 +158,20 @@ class TestEnterpriseCheckoutActivatesPlugins:
         svc = await _build_service(db_session, mock_plan)
         session_data = _make_checkout_session(str(tenant_id), tier="enterprise")
 
-        # Act
         with patch("infrastructure.email.email_service.send_subscription_confirmation_email"):
             await svc.handle_checkout_completed(session_data)
             await db_session.commit()
 
-        # Assert
         updated = await tenant_service.get_tenant_by_id(setup["session"], tenant_id)
+
+        # Feature flags are written to tenant.features
         assert updated.features.get("sso") is True
-        assert updated.features["limits"]["max_users"] == -1
-        assert updated.features["limits"]["max_teams"] == -1
+
+        # CRITICAL invariant: limits must NOT be in tenant.features.
+        # They live on b2b.subscription_plans.limits and are read fresh per request.
+        assert "limits" not in updated.features, (
+            f"tenant.features must not contain 'limits'. Got: {updated.features}"
+        )
 
     async def test_checkout_calls_on_tenant_enable_for_each_plugin(
         self, db_session, b2b_test_setup

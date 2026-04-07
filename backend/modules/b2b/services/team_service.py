@@ -60,12 +60,7 @@ async def create_team(
     plan = plan_result.scalars().first()
     
     if plan and plan.limits:
-        # Default to 5 if not specified (legacy safety), or use new max_teams key
-        # Handle both 'projects' (legacy) and 'max_teams' keys for backward compat check
-        max_teams = plan.limits.get('max_teams')
-        if max_teams is None:
-             max_teams = plan.limits.get('projects', 5)
-             
+        max_teams = plan.limits.get('max_teams', -1)
         if max_teams != -1 and current_team_count >= max_teams:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
