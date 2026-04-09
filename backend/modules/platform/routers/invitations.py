@@ -12,7 +12,7 @@ from modules.platform.middleware.platform_auth import verify_platform_admin, Req
 from modules.platform.models import PlatformInvitation, InvitationStatus, PlatformRole
 
 router = APIRouter(
-    prefix="/api/platform/invitations",
+    prefix="/invitations",
     tags=["platform-invitations"]
 )
 

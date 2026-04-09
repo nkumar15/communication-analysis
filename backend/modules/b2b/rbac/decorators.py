@@ -29,18 +29,26 @@ def require_permission(resource: str, action: str):
         current_user: dict = Depends(get_current_active_user),
         db: AsyncSession = Depends(get_db)
     ):
-        """Check if user has required permission"""
-        user_id = current_user.get('id')
+        """Check if user has required permission (3-layer aware)"""
+        from .permission_checker import has_permission_with_plugins
         
+        user_id = current_user.get('id')
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated"
             )
         
-        # Check permission (optimized with role_id)
-        role_id = current_user.get('role_id')
-        allowed = await has_permission(user_id, resource, action, db, role_id=role_id)
+        # Check permission using the comprehensive 3-layer flow
+        allowed = await has_permission_with_plugins(
+            user_id, 
+            resource, 
+            action, 
+            db, 
+            role_id=current_user.get('role_id'),
+            extra_context={"user": current_user}
+        )
+        
         if not allowed:
             from infrastructure.monitoring import increment_rbac_denial
             increment_rbac_denial(resource, action)

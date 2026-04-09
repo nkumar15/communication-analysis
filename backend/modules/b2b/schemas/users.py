@@ -1,9 +1,6 @@
-"""
-User Management Schemas
-"""
+from pydantic import BaseModel, EmailStr, ConfigDict
 from uuid import UUID
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
 
@@ -26,8 +23,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     teams: List[TeamMembership] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserStatsResponse(BaseModel):

@@ -7,7 +7,7 @@ import useAuth from '../../../../core/hooks/useAuth';
 import { TENANT_ROLES } from '../../constants/roles';
 import ImpersonationBanner from '../../../../core/components/ImpersonationBanner';
 import MyTeamsWidget from '../components/widgets/MyTeamsWidget';
-import MyTasksWidget from '../components/widgets/MyTasksWidget';
+
 import QuickActionsWidget from '../components/widgets/QuickActionsWidget';
 import { DashboardSkeleton } from '../../../../core/components/LoadingSkeleton';
 
@@ -136,20 +136,14 @@ const DashboardPage = () => {
                                     loading={loading}
                                 />
 
-                                {/* My Work Widget - Projects/Tasks */}
-                                <MyTasksWidget
-                                    projectsCount={dashboardData.my_projects_count || 0}
-                                    tasksCount={dashboardData.my_tasks_count || 0}
-                                    overdueCount={dashboardData.overdue_tasks_count || 0}
-                                    loading={loading}
+                                {/* Quick Actions Widget - Replaces My Work */}
+                                <QuickActionsWidget
+                                    actions={dashboardData.quick_actions || []}
+                                    role={role}
                                 />
                             </div>
 
-                            {/* Quick Actions */}
-                            <QuickActionsWidget
-                                actions={dashboardData.quick_actions || []}
-                                role={role}
-                            />
+
                         </>
                     )}
                 </div>

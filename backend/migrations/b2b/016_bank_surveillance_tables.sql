@@ -38,26 +38,27 @@ CREATE INDEX IF NOT EXISTS idx_investigations_sensitivity ON bank_surveillance.i
 -- COMMUNICATIONS
 CREATE TABLE IF NOT EXISTS bank_surveillance.communications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES b2b.tenants(id) ON DELETE CASCADE,
-    investigation_id UUID REFERENCES bank_surveillance.investigations(id) ON DELETE SET NULL,
-    
-    channel VARCHAR(50) NOT NULL, -- email, chat, voice
+    tenant_id UUID REFERENCES b2b.tenants(id) ON DELETE CASCADE NOT NULL,
+    channel VARCHAR(50) NOT NULL, -- 'email', 'chat', 'voice'
+    sub_channel VARCHAR(50), -- e.g. 'whatsapp', 'slack', 'gmail'
+    message_id VARCHAR UNIQUE, -- Original Message-ID header or external ID
     sender VARCHAR(200) NOT NULL,
-    recipient VARCHAR(200) NOT NULL,
+    recipients VARCHAR[], -- Array of recipient strings
     subject VARCHAR(200),
     content TEXT,
-    flagged_keywords JSONB, -- e.g. ["insider", "meeting"]
+    flagged_keywords JSONB DEFAULT '[]',
     
-    -- PLUGIN COLUMNS
+    -- Metadata from plugins
     data_region_id UUID REFERENCES b2b.geographic_regions(id),
     sensitivity_level_id UUID REFERENCES b2b.sensitivity_levels(id),
-    
+
     timestamp TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_communications_tenant_id ON bank_surveillance.communications(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_communications_investigation ON bank_surveillance.communications(investigation_id);
+
 CREATE INDEX IF NOT EXISTS idx_communications_region ON bank_surveillance.communications(data_region_id);
 CREATE INDEX IF NOT EXISTS idx_communications_sensitivity ON bank_surveillance.communications(sensitivity_level_id);
 

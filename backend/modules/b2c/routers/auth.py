@@ -10,7 +10,7 @@ from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/b2c/auth", tags=["B2C Auth"])
+router = APIRouter(prefix="/auth", tags=["B2C Auth"])
 
 
 # Schemas

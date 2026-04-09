@@ -65,6 +65,14 @@ class RBACPlugin(ABC):
         """
         return {}
 
+    def check_dependencies(self, enabled_plugin_names: list) -> None:
+        """
+        Called by PluginRegistry after resolving which plugins are active for a tenant.
+        Override to warn or raise if required sibling plugins are absent.
+        Default: no-op.
+        """
+        pass
+
     async def on_tenant_enable(self, tenant_id: str, db) -> None:
         """
         Lifecycle Hook: Called when a tenant Enables this plugin.

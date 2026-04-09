@@ -90,14 +90,14 @@ module.exports = {
         allowedHosts: process.env.NODE_ENV === 'production' ? undefined : 'all',  // Allow Docker in dev only
         proxy: {
             '/api': {
-                target: process.env.REACT_APP_API_URL || (PORTAL === 'b2c'
-                    ? 'http://localhost:8002'  // B2C API
-                    : PORTAL === 'platform'
-                        ? 'http://localhost:8080'  // Platform API
-                        : 'http://localhost:8000'), // B2B API
+                // Setup specific API Target or Default to Nginx Gateway
+                target: process.env.REACT_APP_API_URL || 'http://localhost:8080',
                 changeOrigin: true,
                 secure: false
             }
+        },
+        client: {
+            webSocketURL: 'auto://0.0.0.0:0/ws',
         }
     },
     resolve: {

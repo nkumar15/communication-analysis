@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
@@ -11,7 +11,7 @@ from modules.platform.middleware.platform_auth import verify_platform_admin, Req
 from modules.platform.models import PlatformRole, PlatformPermission
 
 router = APIRouter(
-    prefix="/api/platform/roles",
+    prefix="/roles",
     tags=["platform-roles"]
 )
 
@@ -36,8 +36,7 @@ class RoleResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Endpoints
 @router.get("/", response_model=List[RoleResponse])

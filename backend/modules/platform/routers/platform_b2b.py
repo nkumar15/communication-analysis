@@ -31,7 +31,7 @@ from modules.platform.schemas.platform_schemas import (
 from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
 
 router = APIRouter(
-    prefix="/api/platform/b2b",
+    prefix="/b2b",
     tags=["platform-b2b"]
 )
 

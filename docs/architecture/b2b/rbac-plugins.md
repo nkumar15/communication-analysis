@@ -9,12 +9,12 @@ This document describes the **Plugin Layer** that extends the 3-Layer RBAC model
 
 ## Overview
 
-## Overview
-The core **2-Layer RBAC** model handles:
-- **Layer 1:** System Role (can login?)
-- **Layer 2:** Business Role (what actions + which data?)
+The core **3-Layer RBAC** model handles:
+- **Layer 1:** System Role (can login? billing access?)
+- **Layer 2:** Tenant/Business Role (what actions are permitted?)
+- **Layer 3:** Team Membership (which data scope?)
 
-For enterprise use cases, additional constraints are needed:
+For enterprise use cases, additional constraints are layered on top via plugins:
 - **Hierarchical Teams:** Director sees child desks without explicit membership
 - **Geographic Boundaries:** User can only access data from their region
 - **Data Classification:** User clearance must match data sensitivity
@@ -22,12 +22,7 @@ For enterprise use cases, additional constraints are needed:
 > [!NOTE]
 > **No `__unassigned__` team pattern.** Users without team assignment simply have 0 rows in `team_members`. This is the valid "unassigned" state.
 
-For enterprise use cases, additional constraints are needed:
-- **Hierarchical Teams:** Director sees child desks without explicit membership
-- **Geographic Boundaries:** User can only access data from their region
-- **Data Classification:** User clearance must match data sensitivity
-
-These are handled by the **Plugin Layer** - an interceptor-based extension system.
+These are handled by the **Plugin Layer** — an interceptor-based extension system.
 
 ---
 
@@ -235,6 +230,14 @@ data_classification:
 
 ---
 
+## Plugin Dependencies
+
+`geographic_boundaries` depends on `hierarchical_teams` for hierarchy-derived scopes. When `hierarchical_teams` is absent, the geo plugin falls back to the `user.geographic_scopes` DB column (manually assigned by admins), and team-hierarchy-derived scopes won't apply. Always enable both together for full geographic enforcement.
+
+The plugin registry enforces fail-safe behavior: if any plugin throws an exception during `before_permission_check` or `after_permission_check`, the registry catches it, logs the error, and returns **DENY** (False). A broken plugin can never silently pass access.
+
+---
+
 ## Plugin Configuration
 
 Plugins are configured per use case in `plugins.yaml`:
@@ -247,15 +250,16 @@ The configuration is loaded during tenant setup and stored in tenant settings.
 
 ---
 
-## How Plugins Extend the 2-Layer Model
+## How Plugins Add Enterprise Constraints
 
-The 2-Layer model becomes a **3-Layer model** with plugins:
+Plugins extend the 3-Layer core model with enforcement that depends on runtime data (regions, team hierarchy, clearance):
 
 | Layer | Purpose | Example |
 |-------|---------|---------|
 | **Layer 1:** System Role | Can login? | member, admin, viewer |
-| **Layer 2:** Business Role | Actions + Data Scope | surveillance_chief (Global Team) |
-| **Layer 3:** Plugins | Enterprise constraints | Geographic, Hierarchy, Classification |
+| **Layer 2:** Business/Tenant Role | Actions permitted | surveillance_chief permissions |
+| **Layer 3:** Team Membership | Data scope | member of SG Desk |
+| **Plugin Layer:** Constraints | Enterprise enforcement | Geographic, Hierarchy, Classification |
 
 ### Permission Resolution with Plugins
 

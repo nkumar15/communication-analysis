@@ -449,7 +449,7 @@ class UserService:
         # 4. Hierarchy and safety checks
         
         # 4.1 Prevent self-modification
-        if user.id == current_user_id:
+        if str(user.id) == str(current_user_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot change your own role. Ask another admin to do it."
@@ -510,7 +510,7 @@ class UserService:
             )
 
         # 2. Prevent self-deactivation
-        if user_id == current_user_id:
+        if str(user_id) == str(current_user_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot deactivate yourself."

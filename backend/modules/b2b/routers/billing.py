@@ -19,11 +19,12 @@ from modules.b2b.services.subscription_service import SubscriptionService
 from modules.b2b.services.invoice_service import InvoiceService
 from modules.b2b.services.tenant_service import tenant_service
 from modules.b2b.models import SubscriptionTier, InvoiceStatus
+from workers.b2b_worker.email_tasks import send_payment_failure_alert
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-router =APIRouter(prefix="/api/b2b/billing", tags=["B2B Billing"])
+router = APIRouter(prefix="/billing", tags=["B2B Billing"])
 
 
 # ============================================================================
@@ -365,19 +366,28 @@ async def stripe_webhook(
         elif event_type == 'invoice.payment_failed':
             logger.warning(f"⚠️ Processing payment failure...")
             try:
-                await invoice_service.sync_stripe_invoice(data)
+                invoice = await invoice_service.sync_stripe_invoice(data)
                 await db.commit()
             except ValueError as e:
                 # Same race condition handling
                 logger.warning(f"Skipping invoice sync (will retry): {e}")
                 await db.rollback()
                 return {"status": "deferred", "message": str(e)}
-            # TODO: Send payment failure notification
+
+            try:
+                send_payment_failure_alert.delay(
+                    tenant_id=str(invoice.tenant_id),
+                    invoice_id=str(invoice.id),
+                )
+            except Exception as e:
+                logger.error(f"Failed to queue payment failure alert: {e}", exc_info=True)
         else:
             logger.info(f"ℹ️ Unhandled event type: {event_type}")
         
         return {"status": "success"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Webhook error: {e}", exc_info=True)
         await db.rollback()

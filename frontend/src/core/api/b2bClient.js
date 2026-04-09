@@ -1,21 +1,9 @@
 import firebaseAuthService from '../firebase/authService';
 
-// Use environment variable for production, empty string for dev/test (uses webpack proxy)
-// Set REACT_APP_API_URL in production to point to your backend
-let envUrl = process.env.REACT_APP_API_URL || '';
-
-// Runtime Fix for Local Development:
-// If we are running on localhost (browser) but the API URL is set to an internal Docker hostname (b2b-api),
-// it means the environment variable is polluted. We should ignore it and use the proxy.
-if (typeof window !== 'undefined' &&
-    window.location.hostname === 'localhost' &&
-    envUrl &&
-    (envUrl.includes('b2b-api') || envUrl.includes('b2c-api') || envUrl.includes('platform-api'))) {
-    console.warn('⚠️ b2bClient: Ignoring Docker internal URL on localhost. Using proxy instead.', envUrl);
-    envUrl = '';
-}
-
-const API_BASE_URL = envUrl;
+// API gateway URL. All requests route through nginx locally or the cloud API gateway in production.
+// Set REACT_APP_API_URL to the gateway URL (e.g. http://localhost:8080 or https://api.yourdomain.com).
+// Leave empty to use the webpack dev server proxy (host dev only).
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 class ApiService {
     /**
@@ -124,23 +112,15 @@ class ApiService {
     }
 
 
+    async updateRolePermissions(roleId, permissions) {
+        return this.put(`/api/b2b/roles/${roleId}/permissions`, { permissions });
+    }
+
     /**
-     * Update user role
+     * List all users in the tenant
      */
-    async updateUserRole(userId, role) {
-        const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}/api/b2b/users/${userId}/role`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify({ role }),
-        });
-
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`Failed to update role: ${response.status} - ${error}`);
-        }
-
-        return response.json();
+    async listUsers() {
+        return this.get('/api/b2b/users/list');
     }
 
     /**
@@ -173,9 +153,24 @@ class ApiService {
     }
 
     // Generic GET request with auth headers
-    async get(path) {
+    async get(path, options = {}) {
         const headers = await this.getAuthHeaders();
-        const response = await fetch(`${API_BASE_URL}${path}`, {
+        let url = `${API_BASE_URL}${path}`;
+
+        if (options.params) {
+            const queryParams = new URLSearchParams();
+            Object.entries(options.params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    queryParams.append(key, value);
+                }
+            });
+            const queryString = queryParams.toString();
+            if (queryString) {
+                url += `?${queryString}`;
+            }
+        }
+
+        const response = await fetch(url, {
             method: 'GET',
             headers,
         });

@@ -22,7 +22,7 @@ from modules.b2b.schemas.roles import ResourceResponse
 from modules.b2b.schemas.actions_all import ActionsAllResponse
 
 
-router = APIRouter(prefix="/api/b2b/team-roles", tags=["team-roles"])
+router = APIRouter(prefix="/team-roles", tags=["team-roles"])
 
 
 @router.get("/resources", response_model=List[ResourceResponse])

@@ -39,7 +39,9 @@ class PluginRegistry:
                 logger.error(f"Failed to initialize plugin {name}: {str(e)}")
                 # Depending on strictness, we might want to raise here
                 
-    async def check_permission(self, context: PermissionContext, core_checker, db) -> bool:
+    async def check_permission(
+        self, context: PermissionContext, core_checker, db, enabled_plugin_names: Optional[List[str]] = None
+    ) -> bool:
         """
         Execute permission check with all plugins.
         Flow:
@@ -49,40 +51,63 @@ class PluginRegistry:
         """
         
         # 1. Pre-Check Hooks
-        for plugin in self._plugins.values():
+        for name, plugin in self._plugins.items():
+            if enabled_plugin_names is not None and name not in enabled_plugin_names:
+                continue
+
             try:
                 result = await plugin.before_permission_check(context, db)
                 if result is True:
-                    return True # Short-circuit ALLOW
+                    return True  # Short-circuit ALLOW
                 if result is False:
-                    return False # Short-circuit DENY
+                    return False  # Short-circuit DENY
             except Exception as e:
-                logger.error(f"Error in before_permission_check for plugin {plugin.get_metadata()['name']}: {e}")
-                # Fail safe? Or continue? Continuing for now.
+                # Fail-safe: security plugin errors must deny, not silently pass.
+                logger.error(f"before_permission_check error in plugin '{name}' — failing safe (DENY): {e}", exc_info=True)
+                return False
 
         # 2. Core Check
-        # core_checker should be an async callable receiving (context, db)
         core_result = await core_checker(context, db)
-        
-        # 3. Post-Check Hooks
+
+        # 3. Post-Check Hooks (can only restrict, never promote)
         final_result = core_result
-        for plugin in self._plugins.values():
+        for name, plugin in self._plugins.items():
+            if enabled_plugin_names is not None and name not in enabled_plugin_names:
+                continue
+
             try:
                 final_result = await plugin.after_permission_check(context, final_result, db)
             except Exception as e:
-                logger.error(f"Error in after_permission_check for plugin {plugin.get_metadata()['name']}: {e}")
-        
+                # Fail-safe: an erroring post-check constraint must deny access.
+                logger.error(f"after_permission_check error in plugin '{name}' — failing safe (DENY): {e}", exc_info=True)
+                return False
+
         return final_result
     
-    async def enrich_user(self, user: Dict, db) -> Dict:
+    async def enrich_user(self, user: Dict, db, enabled_plugin_names: Optional[List[str]] = None) -> Dict:
         """Enrich user dictionary with plugin data."""
         enriched = user.copy()
-        for plugin in self._plugins.values():
+
+        # Let each active plugin verify its sibling dependencies once per enrichment.
+        if enabled_plugin_names is not None:
+            for name, plugin in self._plugins.items():
+                if name in enabled_plugin_names:
+                    plugin.check_dependencies(enabled_plugin_names)
+
+        for name, plugin in self._plugins.items():
+            if enabled_plugin_names is not None and name not in enabled_plugin_names:
+                continue
+                
             try:
                 plugin_data = await plugin.enrich_user_context(user, db)
                 enriched.update(plugin_data)
             except Exception as e:
-                logger.error(f"Error enriching user context for plugin {plugin.get_metadata()['name']}: {e}")
+                logger.error(f"enrich_user_context error in plugin '{name}': {e}", exc_info=True)
+                # Mark context as not fully enriched so permission checker re-fetches rather
+                # than treating a partial result as complete.
+                enriched["context_enriched"] = False
+                return enriched
+        enriched["context_enriched"] = True
         return enriched
 
 # Global instance

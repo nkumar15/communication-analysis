@@ -3,7 +3,7 @@ Dashboard Schemas
 
 Schemas for dashboard statistics and summaries.
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 
@@ -15,8 +15,7 @@ class TeamSummary(BaseModel):
     team_role_display: Optional[str] = None
     member_count: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DashboardStats(BaseModel):

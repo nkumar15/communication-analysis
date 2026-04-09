@@ -1,0 +1,405 @@
+{
+  "config": {
+    "name": "enron_intent_v1",
+    "description": "Baseline Intent Classification using GPT-4o-mini on Enron Golden Dataset v3 (Balanced)",
+    "pipeline": {
+      "retriever": {
+        "type": "vector",
+        "top_k": 20,
+        "index_name": "enron_emails",
+        "weights": null
+      },
+      "reranker": {
+        "enabled": true,
+        "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        "top_n": 5
+      },
+      "llm": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.0,
+        "prompt_strategy": "grounding_cot"
+      }
+    },
+    "dataset_path": "scripts/evaluation/datasets/enron/golden_dataset/enron_intent_golden_v3.json",
+    "tenant_id": "00000000-0000-0000-0000-000000000000",
+    "metrics": [
+      "faithfulness",
+      "answer_relevancy"
+    ],
+    "output_dir": "results",
+    "update_registry": false
+  },
+  "metrics": {
+    "accuracy": 0.9565217391304348
+  },
+  "results": [
+    {
+      "id": "<18626567.1075861055894.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: FMTM by counterparty as of 11/30/01\nFrom: tanya.rohauer@enron.com\nTo: elizabeth.sager@enron",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses financial data and processing without any indication of fraud, evasion, or collusion. It appears to be a standard corporate communication regarding financial terminations.",
+      "correct": true
+    },
+    {
+      "id": "<32050957.1075856767550.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: LJM\nFrom: paulo.issler@enron.com\nTo: vince.kaminski@enron.com, stinson.gibner@enron.com\n\nVi",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email explicitly discusses the LJM deal and involves internal discussions about accounting practices related to it, which indicates potential collusion or fraudulent activity.",
+      "correct": true
+    },
+    {
+      "id": "<33388682.1075860480466.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: Tape Retention Policy\nFrom: michelle.cash@enron.com\nTo: richard.sanders@enron.com\n\nRich",
+      "expected": "Evasion Attempt",
+      "predicted": "Evasion Attempt",
+      "reasoning": "The email discusses the destruction of old tapes and mentions the need to know what time period to keep them until litigations are completed, which suggests an attempt to manage evidence related to ongoing litigation.",
+      "correct": true
+    },
+    {
+      "id": "<901762.1075860659088.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Copy of June 6, 2001 Letter to Judge Whaley\nFrom: lhernandez@luce.com\nTo: jalexander@gibbs-",
+      "expected": "Evasion Attempt",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a copy of a letter to a judge and is addressed to multiple legal and corporate contacts, indicating it is part of a legal communication rather than an indication of fraud or evasion.",
+      "correct": false
+    },
+    {
+      "id": "<28201650.1075843044285.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: nan\nFrom: gfergus@brobeck.com\nTo: rcarroll@bracepatt.com\n\nRon,\nI believe there is a problem",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses regulatory issues related to penalties on underscheduling of load and generators, which is a normal corporate communication regarding operational matters. There are no indications of fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<9908428.1075856379297.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Additional info\nFrom: faizs@texaco.com\nTo: vince.j.kaminski@enron.com\n\nDear Vince,\n\nThanks ",
+      "expected": "Evasion Attempt",
+      "predicted": "Evasion Attempt",
+      "reasoning": "The sender explicitly requests to correspond via a personal email address and mentions checking their phone and email infrequently, indicating an attempt to move the conversation to a non-recorded channel.",
+      "correct": true
+    },
+    {
+      "id": "<17693645.1075842008591.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: FW: New West Power Deal Info\nFrom: w..white@enron.com\nTo: jim.fallon@enron.com\n\nI spoke to ",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses internal activities related to a power deal and does not indicate any fraudulent behavior or attempts to evade communication. It appears to be a standard corporate communication regarding business operations.",
+      "correct": true
+    },
+    {
+      "id": "<16506378.1075856552628.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: London Visit\nFrom: vince.kaminski@enron.com\nTo: paul.e.day@uk.arthurandersen.com\n\nPaul,",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a scheduling communication regarding a trip to London and a meeting arrangement. It does not discuss any fraudulent activities or attempts to evade communication.",
+      "correct": true
+    },
+    {
+      "id": "<4546459.1075853129099.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: PR Internet Issue\nFrom: michelle.cash@enron.com\nTo: teobaldo.camejo@enron.com, roberto.dele",
+      "expected": "Evasion Attempt",
+      "predicted": "Evasion Attempt",
+      "reasoning": "The email discusses the need to destroy materials that are a violation of law, indicating an attempt to eliminate evidence. The mention of destroying materials and the context of potential legal issues suggest an evasion of responsibility.",
+      "correct": true
+    },
+    {
+      "id": "<9007762.1075846161851.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: CONFIDENTIAL - Disclosure Schedules\nFrom: droark@velaw.com\nTo: lance.schuler-legal@enron.co",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses the sharing of schedules and annexes related to a Purchase and Sale Agreement, which is typical corporate communication. It does not indicate any fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<6303993.1075840095994.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Congratulations\nFrom: enr2000@swbell.net\nTo: jskilli@enron.com\n\nJeff, I didn't know about y",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a personal congratulatory message regarding a job change and does not discuss any fraudulent activities or attempts to evade communication.",
+      "correct": true
+    },
+    {
+      "id": "<8133090.1075858684100.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: RE: Memo in support of Protective Order re production to Califo rnia AG\nFrom: b..sanders@en",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses a memo related to a protective order and does not contain any explicit references to fraud, evasion, or collusion. It appears to be a standard corporate communication regarding legal matters.",
+      "correct": true
+    },
+    {
+      "id": "<17745746.1075845797201.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: Transfer of Blue Dog Turbines into E-Next Generation LLC\nFrom: amy_harvey@dc.kirkland.c",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email explicitly mentions 'LJM', which is associated with fraudulent activities and off-balance-sheet entities in the context of Enron's operations.",
+      "correct": true
+    },
+    {
+      "id": "<8298503.1075853081351.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Important Announcement Regarding Document Preservation\nFrom: no.address@enron.com\nTo: nan\n\n",
+      "expected": "Evasion Attempt",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses the LJM partnerships in the context of litigation and document preservation, indicating a connection to known fraud entities and related party transactions.",
+      "correct": false
+    },
+    {
+      "id": "<7839786.1075845608498.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: ESA Option Agreement\nFrom: lisa.bills@enron.com\nTo: ben.jacoby@enron.com\n\nComments on a",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses internal arrangements related to an off-balance-sheet transaction and mentions the SPV/Owner, which indicates a potential collusion or fraudulent activity in the context of financial dealings.",
+      "correct": true
+    },
+    {
+      "id": "<17353323.1075861470157.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Replay Available for Power Generation Conference Call\nFrom: neil.stein@csfb.com\nTo: undiscl",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses a replay of a conference call and provides information about topics covered, which is typical corporate communication. It does not indicate any fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<18522744.1075854388628.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Originations Detail Request\nFrom: darron.giron@enron.com\nTo: kristen.clause@enron.com\n\n----",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a request for information regarding a deal and does not indicate any fraudulent activity or attempts to evade communication. It is a standard corporate inquiry.",
+      "correct": true
+    },
+    {
+      "id": "<2335135.1075853240157.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: FW: Governor Davis' Power Grab\nFrom: james.derrick@enron.com\nTo: richard.sanders@enron.com\n",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses a forwarded article regarding Governor Davis and includes a confidentiality notice. It does not indicate any fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<8062889.1075845396847.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Weekly Staff Call MOVED TO MONDAY, MAY 21st, 11:00 am AST (PR Time)\nFrom: 40enron@enron.com",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a scheduling notification for a staff call and does not discuss any fraudulent activities or attempts to evade communication.",
+      "correct": true
+    },
+    {
+      "id": "<16452426.1075861970544.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: RE: Wrapco\nFrom: trish.lindloff@weil.com\nTo: legal <.taylor@enron.com>\n\n\nDo you have Mike M",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a request for information about an individual and does not discuss any fraudulent activities or attempts to evade communication records.",
+      "correct": true
+    },
+    {
+      "id": "<12360925.1075853960713.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: E-Schedules\nFrom: brian.dawson@enron.com\nTo: dana.davis@enron.com\n\ndana,\n\ni had the e-s",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses the logistics of accessing files and does not indicate any fraudulent activity or attempts to evade record-keeping. It is a normal corporate communication regarding the handling of schedules.",
+      "correct": true
+    },
+    {
+      "id": "<17846070.1075847066434.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: CES/Merchant Energy Group of the Americas\nFrom: cyndie.balfour-flanagan@enron.com\nTo: stacy",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses contract terminations and internal processes related to the Merchant Energy Group, which is typical corporate communication without any indication of fraud or evasion.",
+      "correct": true
+    },
+    {
+      "id": "<19727452.1075861981827.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: Legal Support for Swapco\nFrom: stuart.ogg@weil.com\nTo: legal <.taylor@enron.com>\n\n\nThis",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses legal support for a transaction (Swapco) and addresses concerns about conflicts of interest and privilege, which are typical corporate legal matters. There is no indication of fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<1741832.1075861272668.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: FW: SEC Information/Earnings Restatement\nFrom: j..farmer@enron.com\nTo: tjfarmer@houston.rr.",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses the LJM limited partnerships and off-balance sheet transactions in a business context, indicating potential fraudulent activities related to these entities.",
+      "correct": true
+    },
+    {
+      "id": "<19827470.1075859915185.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Agreement re: Rhythms Net/LJM Assets\nFrom: shari.stack@enron.com\nTo: deville@lcc.net, devil",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses an agreement involving LJM, which is a known fraud entity in the context of Enron's fraudulent activities.",
+      "correct": true
+    },
+    {
+      "id": "<11571177.1075845646370.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: Blue Dog Change Order\nFrom: ben.jacoby@enron.com\nTo: chris.booth@enron.com\n\nChris:\n\nPle",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses a transaction involving LJM, which is a known fraud entity in the context of Enron's fraudulent activities.",
+      "correct": true
+    },
+    {
+      "id": "<13819818.1075857204850.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: FW: Pastoria\nFrom: benjamin.rogers@enron.com\nTo: christopher.calger@enron.com, andrew.kelem",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses questions from PG&E and involves normal corporate communication regarding a project. There are no indications of fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<2875901.1075853253212.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: FW: Divorce Lawyer\nFrom: richard.sanders@enron.com\nTo: linda.guinn@enron.com\n\n----- Forward",
+      "expected": "Evasion Attempt",
+      "predicted": "Evasion Attempt",
+      "reasoning": "The email contains a request to 'destroy' the information and mentions that it is 'extremely confidential', indicating an attempt to evade record-keeping or scrutiny.",
+      "correct": true
+    },
+    {
+      "id": "<29926534.1075842926755.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re:\nFrom: james.derrick@enron.com\nTo: john.west@enron.com\n\nJohn, you have my approval.  Jim",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses a transaction involving a loan that was removed from Enron's balance sheet and mentions a strategy to avoid having it put back on the books, which indicates an attempt to manipulate financial reporting. The mention of a 'Whitewing entity' suggests a potential off-balance-sheet maneuver, which aligns with known fraudulent practices.",
+      "correct": true
+    },
+    {
+      "id": "<20536469.1075845882170.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: BLUE DOG\nFrom: cheryl.costa@enron.com\nTo: scott.dieball@enron.com\n\nFolks, for your convenie",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email explicitly mentions 'LJM' in the context of a business document, indicating a discussion related to known fraud entities.",
+      "correct": true
+    },
+    {
+      "id": "<15435016.1075858302275.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Helsinki - Update on Various Issues\nFrom: steve.young@enron.com\nTo: ted.murphy@enron.com, r",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses the status of an audit and mentions that B/L's (Bill of Lading) have been 'adjusted', which implies potential manipulation of documents. This raises concerns about fraudulent activities in a business context.",
+      "correct": true
+    },
+    {
+      "id": "<995804.1075854928873.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: DB - READY TO GO!\nFrom: sara.shackleton@enron.com\nTo: marie.heard@enron.com\n\n\n\n -----Origin",
+      "expected": "Evasion Attempt",
+      "predicted": "Evasion Attempt",
+      "reasoning": "The email contains a request to destroy the email if received in error, which indicates an attempt to avoid record-keeping or accountability.",
+      "correct": true
+    },
+    {
+      "id": "<3341102.1075858694972.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Proposed Housekeeping Solution\nFrom: melanie.gray@weil.com\nTo: b..sanders@enron.com\n\nFollow",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses delegating tasks related to information gathering for conflicts/disclosure requirements, which is a normal corporate communication. There are no indications of fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<25672738.1075854436134.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: AIG Fund\nFrom: david.delainey@enron.com\nTo: joseph.deffner@enron.com, david.gorte@enron.com",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses the use of Raptor in the context of an investment, which is a known suspicious mechanism related to Enron's fraudulent activities.",
+      "correct": true
+    },
+    {
+      "id": "<10658740.1075844811194.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: mariner\nFrom: lisa.mellencamp@enron.com\nTo: gordon.mckillop@enron.com\n\ngordon what will the",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses the 'raptor swap' in a business context, which is related to known fraud entities associated with Enron.",
+      "correct": true
+    },
+    {
+      "id": "<31683165.1075841979341.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Loftus\nFrom: charles.weldon@enron.com\nTo: kelli.little@enron.com\n\nDo you have his home phon",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a simple request for a home phone number and does not indicate any fraudulent activity or evasion.",
+      "correct": true
+    },
+    {
+      "id": "<12468590.1075853198128.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Protocol for Preservation of Evidence Pending Subpoena\nFrom: richard.sanders@enron.com\nTo: ",
+      "expected": "Evasion Attempt",
+      "predicted": "Evasion Attempt",
+      "reasoning": "The email discusses the preservation of evidence pending a subpoena, which implies a need to manage or potentially conceal information. The language suggests an awareness of the sensitive nature of the content, indicating an attempt to evade scrutiny.",
+      "correct": true
+    },
+    {
+      "id": "<25430492.1075849295370.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Angelides Investor Memo - Timetable Update -- says CPUC vote not needed until mid August\nFr",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses a timetable update for a bond sale and includes a forwarded memo from a state treasurer, which is typical corporate communication and does not indicate any fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<22047417.1075861368965.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: SEC Information/Earnings Restatement\nFrom: chairman.ken@enron.com\nTo: dl-ga-all_enron_world",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses the LJM limited partnerships and transactions between Enron and LJM entities, which are known fraud entities in a business context.",
+      "correct": true
+    },
+    {
+      "id": "<27299681.1075842039571.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: RE: $2.15 bn Enron Metals Inventory Financings Closed\nFrom: greg.whalley@enron.com\nTo: paul",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses an off-balance-sheet facility and mentions deconsolidation of debt, which are indicative of suspicious financial mechanisms often associated with fraudulent activities.",
+      "correct": true
+    },
+    {
+      "id": "<33016262.1075853098248.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: FW: TNPC Warrants\nFrom: john.swafford@enron.com\nTo: facundo.caminos@enron.com\n\nFacundo:   W",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses Raptor activity and the unwinding of transactions related to the TNPC warrants, which indicates a focus on off-balance-sheet entities and potential fraudulent activities.",
+      "correct": true
+    },
+    {
+      "id": "<22967303.1075861736826.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Pompano\nFrom: reetzr@gtlaw.com\nTo: kay.mann@enron.com, steven.krimsky@enron.com\n\nIn light o",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses a response to DEP's notice of change and requests comments on a revised version, which is typical corporate communication. There are no indications of fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<6281815.1075858960961.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Delivery Status Notification (Relay)\nFrom: postmaster@enron.com\nTo: tana.jones@enron.com\n\nT",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a delivery status notification and contains personal chatter about a song, which does not indicate any fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<6428813.1075858812867.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: RE: Raptor\nFrom: joel.ephross@enron.com\nTo: mary.cook@enron.com, maricela.trevino@enron.com",
+      "expected": "Fraud/Collusion",
+      "predicted": "Fraud/Collusion",
+      "reasoning": "The email discusses the Raptor entities and their dissolution in a business context, which indicates potential collusion or fraudulent activity related to off-balance-sheet entities.",
+      "correct": true
+    },
+    {
+      "id": "<22158545.1075853219167.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: new gas complaint\nFrom: gfergus@brobeck.com\nTo: apickens@gibbs-bruns.com, breasoner@gibbs-b",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email discusses a gas complaint and includes a legal document attachment, which is typical corporate communication. It does not indicate any fraud, evasion, or collusion.",
+      "correct": true
+    },
+    {
+      "id": "<3098872.1075853954270.JavaMail.evans@thyme>",
+      "input_snippet": "Subject: Re: You received a PassionUp Greeting Page!\nFrom: dana.davis@enron.com\nTo: bjackson@sswpc.c",
+      "expected": "Business as Usual",
+      "predicted": "Business as Usual",
+      "reasoning": "The email is a personal message expressing gratitude for a Valentine's greeting and includes casual conversation about lunch plans, which does not indicate any fraudulent activity or evasion.",
+      "correct": true
+    }
+  ]
+}

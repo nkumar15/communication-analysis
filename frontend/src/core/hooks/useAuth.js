@@ -77,17 +77,30 @@ export const useAuth = () => {
     };
 
     /**
-     * Check if user can access a specific feature
-     * Maps feature names to required permissions
-     * 
-     * @param {string} feature - Feature name
+     * Check if user can access a feature by its required permission.
+     *
+     * Preferred call form: canAccess('resource:action')
+     *   — the permission string exactly as it appears in user.permissions (from the DB).
+     *   e.g. canAccess('communications:read'), canAccess('ingestion:read')
+     *
+     * Legacy call form: canAccess('featureName')
+     *   — resolved via the compatibility map below. Kept only for callers not yet migrated.
+     *
+     * @param {string} permission - 'resource:action' string or legacy feature name
      * @returns {boolean}
      */
-    const canAccess = (feature) => {
-        if (!user) return false;
+    const canAccess = (permission) => {
+        if (!user || !permission) return false;
 
-        // Map features to required permissions
-        const featurePermissions = {
+        // Direct permission string — no indirection needed
+        if (permission.includes(':')) {
+            const [resource, action] = permission.split(':');
+            return hasPermission(resource, action);
+        }
+
+        // Legacy feature-name compatibility map.
+        // Migrate callers to pass 'resource:action' directly and remove entries here.
+        const legacyMap = {
             dashboard: 'dashboard:read',
             projects: 'projects:read',
             users: 'users:read',
@@ -107,16 +120,14 @@ export const useAuth = () => {
             rag_documents: 'rag_documents:read',
             rag_nse: 'rag_nse:read',
             rag_enron: 'rag_enron:read',
-            surveillance: 'communications:read'  // Bank surveillance feature
+            team_roles: 'teams:write',
+            surveillance: 'communications:read',
         };
 
-        const requiredPermission = featurePermissions[feature];
-        if (!requiredPermission) {
-            // Unknown feature - deny access by default for security
-            return false;
-        }
+        const resolved = legacyMap[permission];
+        if (!resolved) return false; // Unknown — deny by default
 
-        const [resource, action] = requiredPermission.split(':');
+        const [resource, action] = resolved.split(':');
         return hasPermission(resource, action);
     };
 

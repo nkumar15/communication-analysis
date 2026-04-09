@@ -13,7 +13,7 @@ from modules.b2b.rbac import has_permission
 from core.constants import B2BRoleName
 
 
-router = APIRouter(prefix="/api/b2b/account", tags=["account"])
+router = APIRouter(prefix="/account", tags=["account"])
 
 
 @router.get("", response_model=AccountSettingsResponse)

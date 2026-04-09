@@ -1,3 +1,9 @@
+-- ============================================================================
+-- B2B TENANT PLUGINS
+-- ============================================================================
+-- Add features JSONB column for tenant plugin configuration
+-- ============================================================================
+
 -- Add features configuration column to tenants table
 ALTER TABLE b2b.tenants ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '{}'::jsonb;
 

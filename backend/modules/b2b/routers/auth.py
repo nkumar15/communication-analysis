@@ -15,6 +15,7 @@ from modules.b2b.schemas.auth import (
 )
 from modules.b2b.schemas.user import TeamMembership
 from modules.b2b.services.auth_service import auth_service
+from modules.b2b.middleware.b2b_auth import get_current_active_user, get_optional_active_user
 from infrastructure.auth import get_auth_provider
 from core.middleware import get_current_user
 from core.db.session import get_db
@@ -22,7 +23,7 @@ from infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/b2b/auth", tags=["authentication"])
+router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/mobile-login", response_model=MobileLoginResponse)
@@ -83,29 +84,31 @@ async def get_oidc_config(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     decoded_token: Dict[str, Any] = Depends(get_current_user),
+    enriched_user: Dict[str, Any] = Depends(get_optional_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get current authenticated user
-    
+
     This endpoint validates the Firebase ID token and returns or creates
-    the user record in PostgreSQL.
+    the user record in PostgreSQL. Plugin enrichment fields (clearance_level,
+    geographic_scopes, accessible_teams) are merged into active_features.
+    get_current_user is shared between both dependencies — FastAPI calls it once.
     """
-    # Extract user info from token
     user_info = get_auth_provider().get_user_info(decoded_token)
-    
+
     firebase_uid = user_info.get("firebase_uid")
     email = user_info.get("email")
     name = user_info.get("name")
     firebase_tenant_id = user_info.get("firebase_tenant_id")
-    
+
     if not firebase_uid or not email or not firebase_tenant_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token: missing required claims"
         )
-    
-    # Get or sync user
+
+    # Get or sync user (creates user on first login, fetches permissions/teams)
     user, tenant, permissions, teams, active_features = await auth_service.get_or_sync_user(
         db=db,
         firebase_uid=firebase_uid,
@@ -113,7 +116,13 @@ async def get_current_user_info(
         name=name,
         firebase_tenant_id=firebase_tenant_id
     )
-    
+
+    # Merge plugin enrichment into active_features so the frontend can use
+    # clearance_level, geographic_scopes, and accessible_teams directly.
+    for key in ("clearance_level", "geographic_scopes", "accessible_teams", "context_enriched"):
+        if key in enriched_user:
+            active_features[key] = enriched_user[key]
+
     # Convert teams to TeamMembership objects
     team_memberships = [
         TeamMembership(id=t["id"], name=t["name"], team_role=t["team_role"])

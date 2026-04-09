@@ -13,66 +13,104 @@ const Sidebar = () => {
     });
 
 
+    // Hardcoded for Communication Surveillance as per requirement
     useEffect(() => {
-        localStorage.setItem('sidebar_collapsed', isCollapsed);
-    }, [isCollapsed]);
+        document.title = "Communication Surveillance";
+    }, []);
 
-    // Core menu items (always shown)
-    const coreMenuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: '🏠', path: '/dashboard', feature: 'dashboard' },
+    // Core menu items (Personal Workspace)
+    const personalMenuItems = [
+        { isHeader: true, label: 'Personal Workspace' },
+        { id: 'dashboard', label: 'My Workspace', icon: '🏠', path: '/dashboard', feature: 'dashboard:read' },
     ];
 
+
     // Domain-specific menus
+    // feature values use 'resource:action' strings directly — no mapping layer needed.
     const domainMenus = {
         bank_surveillance: [
-            { isHeader: true, label: 'Surveillance' },
-            { id: 'surv-dashboard', label: 'Overview', icon: '📊', path: '/b2b/surveillance', feature: 'surveillance' },
-            { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'surveillance' },
-            { id: 'investigations', label: 'Investigations', icon: '🔍', path: '/b2b/surveillance/investigations', feature: 'surveillance' },
+            { isHeader: true, label: 'Surveillance Suite' },
+            { id: 'surv-dashboard', label: 'Command Center', icon: '🚀', path: '/b2b/surveillance', feature: 'communications:read' },
+            { id: 'alerts', label: 'Alerts', icon: '⚠️', path: '/b2b/surveillance/alerts', feature: 'alerts:read' },
+            // { id: 'communications', label: 'Communications', icon: '💬', path: '/b2b/surveillance/communications', feature: 'communications:read' },
+            { id: 'cases', label: 'Case Management', icon: '⚖️', path: '/b2b/surveillance/cases', feature: 'cases:read' },
+            { id: 'regulatory-library', label: 'Regulatory Library', icon: '📜', path: '/b2b/surveillance/regulatory', feature: 'regulatory:read' },
+            { id: 'surveillance-controls', label: 'Surveillance Controls', icon: '🛡️', path: '/b2b/surveillance/controls', feature: 'controls:read' },
+            { id: 'knowledge-base', label: 'Search & Discover', icon: '📚', path: '/b2b/surveillance/knowledge-base', feature: 'rag_search:read' },
+            { id: 'ingestion', label: 'Data Ingestion', icon: '📥', path: '/b2b/surveillance/ingestion', feature: 'ingestion:read' },
         ],
         marketing_agency: [
             { isHeader: true, label: 'Campaigns' },
-            { id: 'campaigns-active', label: 'Active Campaigns', icon: '📢', path: '/b2b/campaigns', feature: 'campaigns' },
-            { id: 'campaigns-drafts', label: 'Drafts', icon: '📝', path: '/b2b/campaigns/drafts', feature: 'campaigns' },
+            { id: 'campaigns-active', label: 'Active Campaigns', icon: '📢', path: '/b2b/campaigns', feature: 'campaigns:read' },
+            { id: 'campaigns-drafts', label: 'Drafts', icon: '📝', path: '/b2b/campaigns/drafts', feature: 'campaigns:read' },
             { isHeader: true, label: 'Social Media' },
-            { id: 'social-posts', label: 'Posts', icon: '📱', path: '/b2b/social/posts', feature: 'social_posts' },
-            { id: 'social-scheduler', label: 'Scheduler', icon: '📅', path: '/b2b/social/scheduler', feature: 'social_posts' },
+            { id: 'social-posts', label: 'Posts', icon: '📱', path: '/b2b/social/posts', feature: 'social_posts:read' },
+            { id: 'social-scheduler', label: 'Scheduler', icon: '📅', path: '/b2b/social/scheduler', feature: 'social_posts:read' },
         ],
-        default: [
-            // Default/task management domains
-            { isHeader: true, label: 'Domains' },
-            { id: 'projects', label: 'Projects', icon: '📋', path: '/projects', feature: 'projects' },
-            { id: 'rag-nse', label: 'NSE Earnings', icon: '📈', path: '/b2b/c/nse/rag', feature: 'rag_nse' },
-            { id: 'rag-enron', label: 'Enron Emails', icon: '📧', path: '/b2b/c/enron/rag', feature: 'rag_enron' },
-        ]
+        default: []
     };
+
+    // Common Domains (always shown below specific domains)
+    const commonDomainItems = [
+        { isHeader: true, label: 'Domains' },
+        { id: 'projects', label: 'Projects', icon: '📋', path: '/projects', feature: 'projects:read' },
+    ];
 
     // Organization & Config (always shown)
     const organizationMenuItems = [
         { isHeader: true, label: 'Organization' },
-        { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams' },
-        { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users' },
-
-        { isHeader: true, label: 'Configuration' },
-        { id: 'roles', label: 'Tenant Roles', icon: '🛡️', path: '/roles', feature: 'roles' },
-        { id: 'team-roles', label: 'Team Roles', icon: '🎯', path: '/team-roles', feature: 'roles' }
+        { id: 'teams', label: 'Teams', icon: '🏢', path: '/b2b/teams', feature: 'teams:read' },
+        { id: 'users', label: 'User Management', icon: '👥', path: '/invitations', feature: 'users:read' },
+        { id: 'roles', label: 'Roles & Permissions', icon: '🛡️', path: '/roles', feature: 'roles:read' },
+        { id: 'team-roles', label: 'Team Roles', icon: '👔', path: '/team-roles', feature: 'teams:write' },
     ];
 
-    // Get domain type from user, fallback to 'default'
-    const domainType = user?.domain_type || 'default';
-    const domainItems = domainMenus[domainType] || domainMenus.default;
+    // Determine domain menu items
+    // Hybrid approach: Respect explicit tenant domain_type, but also allow permissions to unlock domains
+    // This supports "Default" tenants having teams that use specific domain features (like Surveillance)
+
+    let domainItems = [];
+    const userDomainType = user?.domain_type || 'default';
+
+    // 1. Start with tenant's configured domain menu (if not default/empty)
+    if (userDomainType !== 'default' && domainMenus[userDomainType]) {
+        domainItems = domainMenus[userDomainType];
+    }
+
+    // 2. Add Surveillance menu if user has access (via specific Team Role)
+    // even if tenant is 'default'
+    if (canAccess('communications:read') && userDomainType !== 'bank_surveillance') {
+        const surveillanceMenu = domainMenus.bank_surveillance;
+        // Avoid duplicates if we already added it (rare case of overlapping types)
+        if (domainItems !== surveillanceMenu) {
+            domainItems = [...domainItems, ...surveillanceMenu];
+        }
+    }
+
+    // 3. Fallback: if absolutely nothing is selected, use default
+    if (domainItems.length === 0) {
+        domainItems = domainMenus.default;
+    }
 
     // Build complete menu
+    // STRATEGIC CHANGE: Domain items come FIRST to emphasize the Product.
+    // Personal/Foundational items move to the bottom.
     const allMenuItems = [
-        ...coreMenuItems,
         ...domainItems,
-        ...organizationMenuItems
+        // ...commonDomainItems,
+        ...organizationMenuItems,
+        ...personalMenuItems
     ];
 
-    // Filter menu items based on user permissions
-    // Note: This simple filter leaves headers even if all their children are hidden.
-    // Ideally we'd do a reduce or smarter filter, but this is acceptable for now.
-    const menuItems = allMenuItems.filter(item => item.isHeader || canAccess(item.feature));
+    // Filter menu items based on user permissions, removing orphan headers.
+    // A header is kept only if at least one non-header item follows it and passes canAccess.
+    const visibleItems = allMenuItems.filter(item => item.isHeader || canAccess(item.feature));
+    const menuItems = visibleItems.filter((item, idx) => {
+        if (!item.isHeader) return true;
+        // Keep header only if the next item exists and is not itself a header
+        const next = visibleItems[idx + 1];
+        return next && !next.isHeader;
+    });
 
     const isActive = (path) => location.pathname === path;
 
@@ -132,9 +170,9 @@ const Sidebar = () => {
                     </div>
                     {!isCollapsed && (
                         <div>
-                            <div style={{ fontWeight: '700', fontSize: '16px' }}>B2B SaaS App</div>
+                            <div style={{ fontWeight: '700', fontSize: '16px' }}>Communication Surveillance</div>
                             <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
-                                {getTenantRoleLabel(user?.role)}
+                                {user?.tenant_name || 'Organization'}
                             </div>
                         </div>
                     )}

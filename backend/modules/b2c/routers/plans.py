@@ -13,7 +13,7 @@ from modules.b2c.models.subscription_plan import SubscriptionPlan
 from modules.platform.schemas.plan_schemas import PlanResponse
 from datetime import datetime, timezone
 
-router = APIRouter(prefix="/api/b2c/plans", tags=["B2C Plans"])
+router = APIRouter(prefix="/plans", tags=["B2C Plans"])
 
 @router.get("", response_model=List[PlanResponse])
 async def list_public_plans(

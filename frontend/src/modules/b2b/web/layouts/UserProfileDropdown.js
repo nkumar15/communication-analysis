@@ -109,7 +109,7 @@ const UserProfileDropdown = () => {
                     right: 0,
                     top: '100%',
                     marginTop: '8px',
-                    width: '280px',
+                    width: '300px',
                     backgroundColor: 'white',
                     border: '1px solid #E5E7EB',
                     borderRadius: '8px',
@@ -122,35 +122,50 @@ const UserProfileDropdown = () => {
                         <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>
                             {user.name || 'User'}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: '12px' }}>
                             {user.email}
                         </div>
-                        <div style={{
-                            display: 'inline-block',
-                            padding: '4px 8px',
-                            backgroundColor: '#EDE9FE',
-                            color: '#7C3AED',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontWeight: '500'
-                        }}>
-                            {user.role}
-                        </div>
-                    </div>
 
-                    {/* Tenant Info */}
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #F3F4F6', backgroundColor: '#F9FAFB' }}>
-                        <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px', textTransform: 'uppercase', fontWeight: '600' }}>
-                            Organization
+                        {/* Organization */}
+                        <div style={{ marginBottom: '12px' }}>
+                            <div style={{ fontSize: '11px', color: '#9CA3AF', textTransform: 'uppercase', fontWeight: '600', marginBottom: '2px' }}>
+                                Organization
+                            </div>
+                            <div style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>
+                                {user.tenant_name}
+                            </div>
                         </div>
-                        <div style={{ fontSize: '13px', color: '#111827', fontWeight: '500' }}>
-                            {user.tenant_name}
-                        </div>
+
+                        {/* Team Roles */}
+                        {user.teams && user.teams.length > 0 && (
+                            <div style={{ marginBottom: '12px' }}>
+                                <div style={{ fontSize: '11px', color: '#9CA3AF', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>
+                                    Team Roles
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {user.teams.map((team, idx) => (
+                                        <div key={idx} style={{
+                                            fontSize: '12px',
+                                            padding: '4px 8px',
+                                            backgroundColor: '#EEF2FF',
+                                            color: '#4338CA',
+                                            borderRadius: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px'
+                                        }}>
+                                            <span style={{ fontWeight: '600' }}>{team.name}</span>
+                                            <span style={{ fontSize: '11px', opacity: 0.8 }}>({team.team_role})</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Billing & Settings Menu */}
                     <div style={{ padding: '8px 0', borderBottom: '1px solid #F3F4F6' }}>
-                        {canAccess('billing') && (
+                        {canAccess('billing:read') && (
                             <button
                                 onClick={() => { navigate('/billing/subscription'); setIsOpen(false); }}
                                 style={{
@@ -175,7 +190,7 @@ const UserProfileDropdown = () => {
                                 <span>Subscription & Billing</span>
                             </button>
                         )}
-                        {canAccess('invoices') && (
+                        {canAccess('invoices:read') && (
                             <button
                                 onClick={() => { navigate('/billing/invoices'); setIsOpen(false); }}
                                 style={{
@@ -200,7 +215,7 @@ const UserProfileDropdown = () => {
                                 <span>Invoices</span>
                             </button>
                         )}
-                        {canAccess('account') && (
+                        {canAccess('account:read') && (
                             <button
                                 onClick={() => { navigate('/settings/account'); setIsOpen(false); }}
                                 style={{
@@ -225,7 +240,7 @@ const UserProfileDropdown = () => {
                                 <span>Account Settings</span>
                             </button>
                         )}
-                        {canAccess('audit_logs') && (
+                        {canAccess('audit_logs:read') && (
                             <button
                                 onClick={() => { navigate('/audit-logs'); setIsOpen(false); }}
                                 style={{

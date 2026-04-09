@@ -41,7 +41,7 @@ def get_user_id(user) -> str:
     return user.id
 
 
-router = APIRouter(prefix="/api/b2c/billing", tags=["B2C Billing"])
+router = APIRouter(prefix="/billing", tags=["B2C Billing"])
 
 
 # ============================================================================

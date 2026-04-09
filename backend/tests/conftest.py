@@ -1,9 +1,3 @@
-"""
-Pytest configuration and shared fixtures for E2E testing - SIMPLIFIED VERSION
-"""
-import os
-
-# Set TESTING flag BEFORE importing app (enables Celery eager mode for sync task execution)
 import os
 from dotenv import load_dotenv
 
@@ -22,7 +16,7 @@ import pytest_asyncio
 from typing import Dict, Any
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 import secrets
 from contextlib import asynccontextmanager
@@ -38,22 +32,40 @@ from core.config import settings
 from core.utils import get_utc_now
 from infrastructure.auth import get_auth_provider
 
-# Import ALL routers for testing
-from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles, dashboard, regions
-from modules.b2b.models import RolePermission, Resource, Action, Role
-from sqlalchemy import select
-from modules.domains.projects.routers import projects, tasks, comments
-from modules.platform.routers import platform, platform_b2b, platform_b2c
-from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
-from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
+# Mock langchain for environment where it is missing (e.g. CI/Test container subset)
+import sys
+from unittest.mock import MagicMock
+if 'langchain' not in sys.modules:
+    sys.modules['langchain'] = MagicMock()
+    sys.modules['langchain.agents'] = MagicMock()
+    sys.modules['langchain.tools'] = MagicMock()
+    sys.modules['langchain.prompts'] = MagicMock()
+    sys.modules['langchain.chat_models'] = MagicMock()
+if 'langchain_openai' not in sys.modules:
+    sys.modules['langchain_openai'] = MagicMock()
 
+# Import ALL primary apps (sub-apps are internal to these)
+from modules.b2b.main import app as b2b_app
+from modules.platform.main import app as platform_app
+from modules.b2c.main import app as b2c_app
+from modules.domains.b2b.main import app as b2b_domain_app
+from modules.domains.b2c.main import app as b2c_domain_app
 
-# B2C billing router requires stripe - import conditionally
-try:
-    from modules.b2c.routers import billing as b2c_billing
-    HAS_B2C_BILLING = True
-except ImportError:
-    HAS_B2C_BILLING = False
+# Register RBAC plugins at module load so plugin_registry._plugins is populated.
+# ASGITransport (httpx) does not trigger the ASGI lifespan, so plugin init via
+# lifespan won't happen. Registration here ensures:
+#   - plugin_registry._plugins.keys() returns all 3 plugin names
+#   - auth_service.get_or_sync_user builds a non-empty active_plugin_list
+#   - b2b_auth.get_current_active_user passes correct enabled_plugin_names to enrich_user
+# initialize() is intentionally skipped; each plugin handles missing config gracefully.
+from core.rbac.plugin_registry import plugin_registry as _plugin_registry
+from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin as _HTP
+from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin as _GBP
+from plugins.data_classification.plugin import DataClassificationPlugin as _DCP
+
+_plugin_registry.register(_HTP())
+_plugin_registry.register(_GBP())
+_plugin_registry.register(_DCP())
 
 
 # ============================================================================
@@ -68,11 +80,51 @@ async def lifespan(app: FastAPI):
     await init_db()
     get_auth_provider().initialize()
     print("✓ Test app ready")
-    
+
     yield
-    
+
     # Shutdown
     await close_db()
+
+
+@pytest.fixture(autouse=True)
+def mock_stripe():
+    """Mock Stripe globally for all tests"""
+    import stripe
+    from unittest.mock import MagicMock, patch
+    
+    with patch("stripe.Customer.create") as mock_cust_create, \
+         patch("stripe.Customer.retrieve") as mock_cust_ret, \
+         patch("stripe.checkout.Session.create") as mock_check_create, \
+         patch("stripe.billing_portal.Session.create") as mock_portal_create, \
+         patch("stripe.Subscription.retrieve") as mock_sub_ret:
+        
+        mock_cust_create.return_value = MagicMock(
+            id="cus_test_123", 
+            email="test@example.com", 
+            created=1704067200
+        )
+        mock_cust_ret.return_value = MagicMock(
+            id="cus_test_123",
+            email="test@example.com"
+        )
+        mock_check_create.return_value = MagicMock(
+            id="cs_test_123", 
+            url="https://checkout.stripe.com/test_123", 
+            expires_at=1704153600
+        )
+        mock_portal_create.return_value = MagicMock(
+            url="https://billing.stripe.com/test_123"
+        )
+        mock_sub_ret.return_value = MagicMock(
+            id="sub_test_123",
+            status="active",
+            current_period_start=1704067200,
+            current_period_end=1706745600,
+            items=MagicMock(data=[MagicMock(id="si_test_123")])
+        )
+        
+        yield
 
 
 # Create unified test app
@@ -92,40 +144,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include ALL routers
-app.include_router(auth.router)
-app.include_router(activation.router)
-app.include_router(invitations.router)  # B2B invitations
-app.include_router(users.router)
-app.include_router(roles.router)  # B2B roles
-app.include_router(teams.router)
-app.include_router(team_roles.router)  # B2B team roles
-app.include_router(account.router)
-app.include_router(audit_logs.router)
-app.include_router(billing.router)  # B2B billing
-app.include_router(sso_settings.router)  # SSO settings
-app.include_router(dashboard.router)   # Dashboard Stats
-app.include_router(regions.router)     # Regions
-app.include_router(projects.router)
-app.include_router(tasks.router)
-app.include_router(comments.router)
-app.include_router(platform.router)
-app.include_router(platform_b2b.router)
-app.include_router(platform_b2c.router)
-app.include_router(platform_roles.router)  # Platform roles management
-app.include_router(platform_invitations.router)  # Platform invitations
-app.include_router(platform_billing.router)
-app.include_router(b2c_auth.router)
-app.include_router(b2c_workspaces.router)
-app.include_router(b2c_invitations.router)
+# Mount ALL primary apps with their correct prefixes
+# CRITICAL: Mount specific paths BEFORE generic paths to avoid shadowing!
+app.mount("/api/b2b/domain", b2b_domain_app)
+app.mount("/api/b2c/domain", b2c_domain_app)
+app.mount("/api/b2b", b2b_app)
+app.mount("/api/platform", platform_app)
+app.mount("/api/b2c", b2c_app)
 
-# Include NSE RAG router
-from modules.domains.nse.routers import rag as nse_rag
-app.include_router(nse_rag.router)
-
-# Include B2C billing router if stripe is available
-if HAS_B2C_BILLING:
-    app.include_router(b2c_billing.router)
 
 
 @app.get("/")
@@ -241,79 +267,10 @@ async def test_db_engine():
     await engine.dispose()
 
 
-# from tests.seed_utils import seed_test_database_from_yaml, clean_test_database # DELETED
-from scripts.b2b.seed_rbac import seed_b2b_rbac_data
-
 # ... (omitted)
 
-@pytest_asyncio.fixture(scope="session")
-async def seed_db():
-    """
-    Session-scoped fixture to seed the database ONCE using production YAML.
-    It creates its OWN engine to avoid Loop Scope Mismatch with function-scoped tests.
-    """
-
-
-    admin_url = os.getenv("ADMIN_DATABASE_URL")
-    seed_engine_to_dispose = None
-    seed_engine = None
-    
-    if admin_url:
-        print(f"\nDEBUG: Using ADMIN_DATABASE_URL for seeding: {admin_url}")
-        # Ensure async driver
-        if "postgresql+asyncpg://" not in admin_url:
-            if admin_url.startswith("postgres://"):
-                admin_url = admin_url.replace("postgres://", "postgresql+asyncpg://", 1)
-            elif admin_url.startswith("postgresql://"):
-                admin_url = admin_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-                
-        seed_engine = create_async_engine(admin_url, echo=False)
-        seed_engine_to_dispose = seed_engine
-    else:
-        print("\nDEBUG: Using TEST_DATABASE_URL for seeding (expect failures if not superuser)")
-        # Create dedicated engine for seeding
-        url = TEST_DATABASE_URL
-        if "postgresql+asyncpg://" not in url:
-             if url.startswith("postgres://"):
-                 url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-             elif url.startswith("postgresql://"):
-                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        seed_engine = create_async_engine(url, echo=False)
-        seed_engine_to_dispose = seed_engine
-
-    try:
-        async with AsyncSession(seed_engine) as session:
-            # Auto-commit mode using begin()
-            async with session.begin():
-                # Force admin permissions if using app user (fallback)
-                if not admin_url:
-                    from sqlalchemy import text
-                    await session.execute(text("SET app.is_platform_admin = 'true'"))
-                
-                # 1. Clean DB (Truncate all tables) - SKIPPED (Handled by Drop/Recreate in Makefile)
-                # print("\n🧹 Cleaning database...")
-                # await clean_test_database(session)
-                
-                # 2. Seed Data from YAML (reusing production script logic)
-                use_case = os.getenv("USE_CASE", "bank_surveillance")
-                os.environ["USE_CASE"] = use_case # Ensure seeder script sees it
-                print(f"\n🌱 Seeding database from YAML for use case: {use_case}...")
-                
-                # Using shared logic from scripts/b2b/seed_rbac.py
-                # This ensures tests use EXACTLY what production/demo uses.
-                await seed_b2b_rbac_data(session)
-                
-                print("✓ Database seeded successfully")
-        
-        yield # Yield control to session
-        
-    finally:
-        if seed_engine_to_dispose:
-            await seed_engine_to_dispose.dispose()
-
-
 @pytest_asyncio.fixture
-async def db_session(test_db_engine, seed_db) -> AsyncSession:
+async def db_session(test_db_engine) -> AsyncSession:
     """Create a fresh database session for each test"""
     async_session_factory = async_sessionmaker(
         test_db_engine, class_=AsyncSession, expire_on_commit=False
@@ -446,7 +403,7 @@ async def api_client(db_session):
             # DEBUG
             # print(f"DEBUG AUTH: User ID type: {type(user_dict.get('id'))}, Val: {user_dict.get('id')}")
             
-            user_dict['permissions'] = await get_user_permissions(db, user)
+            user_dict['permissions'] = await get_user_permissions(user.id, db)
             
             # Enrich with plugins
             from core.rbac.plugin_registry import plugin_registry
@@ -544,7 +501,16 @@ async def api_client(db_session):
             )
     
     app.dependency_overrides[get_current_b2c_user] = override_get_current_b2c_user
-    # Removed override_get_current_active_user to verify real middleware logic
+    
+    # Propagate overrides to all sub-apps
+    # This is required because FastAPI sub-apps do not inherit dependency overrides from the parent.
+    # Must include nested sub-apps too: b2b_domain_app mounts surveillance_app and
+    # task_management_app as separate FastAPI instances, so they need overrides directly.
+    from modules.domains.b2b.bank_surveillance.main import app as surveillance_app
+    from modules.domains.b2b.task_management.main import app as task_management_app
+    for sub_app in [b2b_app, platform_app, b2c_app, b2b_domain_app, b2c_domain_app,
+                    surveillance_app, task_management_app]:
+        sub_app.dependency_overrides.update(app.dependency_overrides)
     
     # httpx 0.27+ requires ASGITransport instead of app parameter
     from httpx import ASGITransport
@@ -593,6 +559,32 @@ async def platform_admin_setup(db_session: AsyncSession):
         )
         db_session.add(role)
         await db_session.flush()
+        
+        # Add wildcard permissions to allow all platform operations in tests
+        from modules.platform.models import PlatformPermission
+        wildcard_perm = PlatformPermission(
+            platform_role_id=role.id,
+            resource="*",
+            action="*"
+        )
+        db_session.add(wildcard_perm)
+        await db_session.flush()
+    else:
+        # Relationship check: Ensure it has the wildcard permission even if role existed
+        from modules.platform.models import PlatformPermission
+        perm_result = await db_session.execute(
+            select(PlatformPermission)
+            .where(PlatformPermission.platform_role_id == role.id)
+            .where(PlatformPermission.resource == "*")
+        )
+        if not perm_result.scalar_one_or_none():
+            wildcard_perm = PlatformPermission(
+                platform_role_id=role.id,
+                resource="*",
+                action="*"
+            )
+            db_session.add(wildcard_perm)
+            await db_session.flush()
     
     # 3. Create Platform Admin User with UNIQUE email per test
     # This avoids IntegrityError when tests run in parallel or sequentially
@@ -802,13 +794,6 @@ async def create_test_tenant(
     # Set tenant context for RLS before inserting tenant-scoped data
     from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
-    
-    
-    # Ensure RBAC seeds exist (Global Templates)
-    # Replaced by session-scoped seed_db fixture
-    # await ensure_rbac_seeds(db_session)
-    # await ensure_team_roles(db_session)
-    
     # Seed roles for this tenant using RoleTemplateService
     from modules.b2b.services.role_template_service import role_template_service
     await role_template_service.seed_tenant_roles(db_session, tenant.id)

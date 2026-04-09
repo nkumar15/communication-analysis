@@ -1,6 +1,6 @@
 from .tenant import TenantModel
 from .user import UserModel
-from .rag_document import RagDocument
+
 from .invitation import InvitationModel
 from .rbac import Role, Resource, Action, RolePermission
 from .team import Team
@@ -24,6 +24,8 @@ from .subscription_plan import B2BSubscriptionPlan
 from .coupon import B2BCoupon, B2BCouponRedemption
 
 from .geographic_region import GeographicRegion
+from .sensitivity_level import SensitivityLevel
+from .plugin_template import PluginTemplate
 
 # Backwards compatibility aliases
 Subscription = B2BSubscription
@@ -36,7 +38,7 @@ CouponRedemption = B2BCouponRedemption
 __all__ = [
     "TenantModel", 
     "UserModel", 
-    "RagDocument",
+
     "InvitationModel", 
     "Role", 
     "Resource", 
@@ -49,6 +51,8 @@ __all__ = [
     "OrgTier",
     "AuditLog",
     "GeographicRegion",
+    "SensitivityLevel",
+    "PluginTemplate",
     # Billing models
     "Subscription",
     "B2BSubscription",

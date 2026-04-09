@@ -1,7 +1,7 @@
 """
 Subscription Plan Schemas for Platform API
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from uuid import UUID
@@ -38,5 +38,4 @@ class PlanResponse(PlanBase):
     created_at: datetime
     created_by: Optional[UUID]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

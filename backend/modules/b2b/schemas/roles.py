@@ -1,9 +1,6 @@
-"""
-Role Management Schemas
-"""
+from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 from typing import List, Optional
-from pydantic import BaseModel, Field
 
 
 class ResourceResponse(BaseModel):
@@ -14,8 +11,7 @@ class ResourceResponse(BaseModel):
     category: Optional[str]
     description: Optional[str]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ActionResponse(BaseModel):
@@ -26,8 +22,7 @@ class ActionResponse(BaseModel):
     description: Optional[str] = None
     applicable_resources: Optional[List[str]] = None  # null = applies to all
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PermissionResponse(BaseModel):
@@ -35,8 +30,7 @@ class PermissionResponse(BaseModel):
     resource: ResourceResponse
     action: ActionResponse
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RoleCreate(BaseModel):
@@ -65,8 +59,7 @@ class RoleResponse(BaseModel):
     is_system_role: bool
     permissions: List[PermissionResponse] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RoleTemplateResponse(BaseModel):
@@ -78,8 +71,7 @@ class RoleTemplateResponse(BaseModel):
     permissions: List[dict] = []
     is_system_role: bool
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RoleDetailResponse(BaseModel):
@@ -92,15 +84,14 @@ class RoleDetailResponse(BaseModel):
     is_active: bool
     permissions: list[PermissionResponse]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UpdateRolePermissionsRequest(BaseModel):
     """Request to update role permissions"""
     permissions: list[dict]  # [{"resource_id": 1, "action_id": 1}, ...]
     
-    class Config:
+    model_config = ConfigDict(
         json_schema_extra = {
             "example": {
                 "permissions": [
@@ -110,6 +101,7 @@ class UpdateRolePermissionsRequest(BaseModel):
                 ]
             }
         }
+    )
 
 
 class CreateRoleRequest(BaseModel):
