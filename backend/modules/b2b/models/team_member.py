@@ -14,7 +14,7 @@ class TeamMember(Base, TimestampMixin):
     user_id = Column(UUID(as_uuid=True), ForeignKey('b2b.users.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Team-specific role (legacy column - kept for backward compatibility)
-    team_role = Column(String(50), nullable=False, default='team_contributor', index=True)
+    team_role = Column(String(50), nullable=True, default=None, index=True)
     
     # New team role FK (preferred)
     team_role_id = Column(UUID(as_uuid=True), ForeignKey('b2b.team_role_definitions.id'), nullable=True, index=True)

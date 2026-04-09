@@ -32,7 +32,16 @@ class TeamRoleDefinition(Base, TimestampMixin):
     # Granular Access Control
     from sqlalchemy.dialects.postgresql import JSONB
     permissions = Column(JSONB, default=list, nullable=False, server_default=text("'[]'::jsonb"))
-    
+
+    # Data Classification: minimum clearance level granted by this role.
+    # 0=PUBLIC, 1=INTERNAL, 2=CONFIDENTIAL, 3=RESTRICTED, 4=TOP_SECRET
+    # Matches DataClassificationPlugin.SENSITIVITY_LEVELS scale.
+    clearance_level = Column(Integer, default=1, nullable=False, server_default=text("1"))
+
     is_system = Column(Boolean, default=False, nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
+    
+    # Org Tier Enforcement: Array of allowed org tiers e.g. ['GLOBAL', 'REGIONAL']
+    from sqlalchemy.dialects.postgresql import ARRAY
+    allowed_org_tiers = Column(ARRAY(String), default=list, nullable=False, server_default=text("'{}'::varchar[]"))

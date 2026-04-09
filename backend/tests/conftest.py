@@ -1,9 +1,3 @@
-"""
-Pytest configuration and shared fixtures for E2E testing - SIMPLIFIED VERSION
-"""
-import os
-
-# Set TESTING flag BEFORE importing app (enables Celery eager mode for sync task execution)
 import os
 from dotenv import load_dotenv
 
@@ -22,12 +16,14 @@ import pytest_asyncio
 from typing import Dict, Any
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 import secrets
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+
 
 # Import app components
 from core.db.session import get_db, init_db, close_db
@@ -36,19 +32,40 @@ from core.config import settings
 from core.utils import get_utc_now
 from infrastructure.auth import get_auth_provider
 
-# Import ALL routers for testing
-from modules.b2b.routers import auth, activation, invitations, users, roles, teams, account, audit_logs, billing, sso_settings, team_roles
-from modules.domains.projects.routers import projects, tasks, comments
-from modules.platform.routers import platform, platform_b2b, platform_b2c
-from modules.platform.routers import roles as platform_roles, invitations as platform_invitations, billing as platform_billing
-from modules.b2c.routers import auth as b2c_auth, workspaces as b2c_workspaces, invitations as b2c_invitations
+# Mock langchain for environment where it is missing (e.g. CI/Test container subset)
+import sys
+from unittest.mock import MagicMock
+if 'langchain' not in sys.modules:
+    sys.modules['langchain'] = MagicMock()
+    sys.modules['langchain.agents'] = MagicMock()
+    sys.modules['langchain.tools'] = MagicMock()
+    sys.modules['langchain.prompts'] = MagicMock()
+    sys.modules['langchain.chat_models'] = MagicMock()
+if 'langchain_openai' not in sys.modules:
+    sys.modules['langchain_openai'] = MagicMock()
 
-# B2C billing router requires stripe - import conditionally
-try:
-    from modules.b2c.routers import billing as b2c_billing
-    HAS_B2C_BILLING = True
-except ImportError:
-    HAS_B2C_BILLING = False
+# Import ALL primary apps (sub-apps are internal to these)
+from modules.b2b.main import app as b2b_app
+from modules.platform.main import app as platform_app
+from modules.b2c.main import app as b2c_app
+from modules.domains.b2b.main import app as b2b_domain_app
+from modules.domains.b2c.main import app as b2c_domain_app
+
+# Register RBAC plugins at module load so plugin_registry._plugins is populated.
+# ASGITransport (httpx) does not trigger the ASGI lifespan, so plugin init via
+# lifespan won't happen. Registration here ensures:
+#   - plugin_registry._plugins.keys() returns all 3 plugin names
+#   - auth_service.get_or_sync_user builds a non-empty active_plugin_list
+#   - b2b_auth.get_current_active_user passes correct enabled_plugin_names to enrich_user
+# initialize() is intentionally skipped; each plugin handles missing config gracefully.
+from core.rbac.plugin_registry import plugin_registry as _plugin_registry
+from plugins.hierarchical_teams.plugin import HierarchicalTeamsPlugin as _HTP
+from plugins.geographic_boundaries.plugin import GeographicBoundariesPlugin as _GBP
+from plugins.data_classification.plugin import DataClassificationPlugin as _DCP
+
+_plugin_registry.register(_HTP())
+_plugin_registry.register(_GBP())
+_plugin_registry.register(_DCP())
 
 
 # ============================================================================
@@ -63,11 +80,51 @@ async def lifespan(app: FastAPI):
     await init_db()
     get_auth_provider().initialize()
     print("✓ Test app ready")
-    
+
     yield
-    
+
     # Shutdown
     await close_db()
+
+
+@pytest.fixture(autouse=True)
+def mock_stripe():
+    """Mock Stripe globally for all tests"""
+    import stripe
+    from unittest.mock import MagicMock, patch
+    
+    with patch("stripe.Customer.create") as mock_cust_create, \
+         patch("stripe.Customer.retrieve") as mock_cust_ret, \
+         patch("stripe.checkout.Session.create") as mock_check_create, \
+         patch("stripe.billing_portal.Session.create") as mock_portal_create, \
+         patch("stripe.Subscription.retrieve") as mock_sub_ret:
+        
+        mock_cust_create.return_value = MagicMock(
+            id="cus_test_123", 
+            email="test@example.com", 
+            created=1704067200
+        )
+        mock_cust_ret.return_value = MagicMock(
+            id="cus_test_123",
+            email="test@example.com"
+        )
+        mock_check_create.return_value = MagicMock(
+            id="cs_test_123", 
+            url="https://checkout.stripe.com/test_123", 
+            expires_at=1704153600
+        )
+        mock_portal_create.return_value = MagicMock(
+            url="https://billing.stripe.com/test_123"
+        )
+        mock_sub_ret.return_value = MagicMock(
+            id="sub_test_123",
+            status="active",
+            current_period_start=1704067200,
+            current_period_end=1706745600,
+            items=MagicMock(data=[MagicMock(id="si_test_123")])
+        )
+        
+        yield
 
 
 # Create unified test app
@@ -87,34 +144,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include ALL routers
-app.include_router(auth.router)
-app.include_router(activation.router)
-app.include_router(invitations.router)  # B2B invitations
-app.include_router(users.router)
-app.include_router(roles.router)  # B2B roles
-app.include_router(teams.router)
-app.include_router(team_roles.router)  # B2B team roles
-app.include_router(account.router)
-app.include_router(audit_logs.router)
-app.include_router(billing.router)  # B2B billing
-app.include_router(sso_settings.router)  # SSO settings
-app.include_router(projects.router)
-app.include_router(tasks.router)
-app.include_router(comments.router)
-app.include_router(platform.router)
-app.include_router(platform_b2b.router)
-app.include_router(platform_b2c.router)
-app.include_router(platform_roles.router)  # Platform roles management
-app.include_router(platform_invitations.router)  # Platform invitations
-app.include_router(platform_billing.router)
-app.include_router(b2c_auth.router)
-app.include_router(b2c_workspaces.router)
-app.include_router(b2c_invitations.router)
+# Mount ALL primary apps with their correct prefixes
+# CRITICAL: Mount specific paths BEFORE generic paths to avoid shadowing!
+app.mount("/api/b2b/domain", b2b_domain_app)
+app.mount("/api/b2c/domain", b2c_domain_app)
+app.mount("/api/b2b", b2b_app)
+app.mount("/api/platform", platform_app)
+app.mount("/api/b2c", b2c_app)
 
-# Include B2C billing router if stripe is available
-if HAS_B2C_BILLING:
-    app.include_router(b2c_billing.router)
 
 
 @app.get("/")
@@ -213,7 +250,7 @@ class TenantAwareSession:
 
 @pytest_asyncio.fixture(scope="function")
 async def test_db_engine():
-    """Create test database engine for session"""
+    """Create test database engine for FUNCTION scope (safe for asyncio loop isolation)"""
     url = TEST_DATABASE_URL
     # Fail-safe: Ensure async driver is used
     if "postgresql+asyncpg://" not in url:
@@ -222,11 +259,15 @@ async def test_db_engine():
         elif url.startswith("postgresql://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
             
-    print(f"\nDEBUG: Connecting to DB with URL: {url}")
-    engine = create_async_engine(url, echo=False, pool_pre_ping=True)
+    # print(f"\nDEBUG: Connecting to DB with URL: {url}") # Reduced noise
+    # pool_pre_ping=True needed to verify connection in function scope?
+    # Yes, but each test gets new engine. Overhead is acceptable for stability.
+    engine = create_async_engine(url, echo=False, pool_pre_ping=False) # False is faster for tests
     yield engine
     await engine.dispose()
 
+
+# ... (omitted)
 
 @pytest_asyncio.fixture
 async def db_session(test_db_engine) -> AsyncSession:
@@ -290,7 +331,8 @@ async def api_client(db_session):
     import base64
     
     async def override_get_current_user(
-        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
+        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+        db: AsyncSession = Depends(get_db)
     ):
         if not credentials:
             raise HTTPException(
@@ -300,17 +342,78 @@ async def api_client(db_session):
         
         token = credentials.credentials
         try:
-            # Simple decode of our mock token format: header.payload.signature
+            # Simple decode
             parts = token.split(".")
             if len(parts) != 3:
                 raise ValueError("Invalid token format")
                 
             payload_str = parts[1]
-            # Add padding if needed
             payload_str += "=" * ((4 - len(payload_str) % 4) % 4)
             payload_json = base64.urlsafe_b64decode(payload_str).decode()
-            return json.loads(payload_json)
+            token_data = json.loads(payload_json)
+            
+            # Hydrate user from DB to get permissions
+            from modules.b2b.services.user_service import user_service
+            from modules.b2b.rbac import get_user_permissions
+            
+            # Token data has 'firebase_tenant_id' or 'email'. 
+            # We need to find the user.
+            # user_service.get_user_by_firebase_uid checks tenant_id. 
+            # We need tenant_id from token?
+            # The mock token: {"user_id": uid, "email": email, "firebase": {"tenant": ...}}
+            
+            firebase_uid = token_data.get("user_id")
+            email = token_data.get("email")
+            # We might not have tenant_id easily if it's cross-tenant test?
+            # But the user is unique by firebase_uid globally usually?
+            # Actually user_service.get_user_by_firebase_uid expects tenant_id.
+            
+            # Helper to find user across tenants?
+            # Or assume we set tenant context?
+            # The tests set tenant context for the DB session in override_get_db?
+            # No, override_get_db clears context for B2B.
+            
+            # Let's try to find the user by email if needed, or scan tenants?
+            # Better: The token has `firebase_tenant_id`.
+            firebase_tenant_id = token_data.get("firebase", {}).get("tenant")
+            
+            if not firebase_uid: 
+                 # Fallback to returning token data (legacy behavior)
+                 return token_data
+
+            # Find tenant by firebase_tenant_id
+            from modules.b2b.services.tenant_service import tenant_service
+            tenant = await tenant_service.get_tenant_by_firebase_id(db, firebase_tenant_id)
+            
+            if not tenant:
+                 # Fallback
+                 return token_data
+            
+            user = await user_service.get_user_by_firebase_uid(db, tenant.id, firebase_uid)
+            if not user:
+                return token_data
+                
+            # get_user_by_firebase_uid returns Pydantic User model
+            # Use model_dump() if available (v2), else dict()
+            if hasattr(user, 'model_dump'):
+                user_dict = user.model_dump()
+            else:
+                user_dict = user.dict()
+            
+            # DEBUG
+            # print(f"DEBUG AUTH: User ID type: {type(user_dict.get('id'))}, Val: {user_dict.get('id')}")
+            
+            user_dict['permissions'] = await get_user_permissions(user.id, db)
+            
+            # Enrich with plugins
+            from core.rbac.plugin_registry import plugin_registry
+            # Plugin registry expects dict
+            user_dict = await plugin_registry.enrich_user(user_dict, db)
+            
+            return user_dict
+            
         except Exception as e:
+            # print(f"Auth Error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
@@ -398,9 +501,20 @@ async def api_client(db_session):
             )
     
     app.dependency_overrides[get_current_b2c_user] = override_get_current_b2c_user
-    # Removed override_get_current_active_user to verify real middleware logic
     
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    # Propagate overrides to all sub-apps
+    # This is required because FastAPI sub-apps do not inherit dependency overrides from the parent.
+    # Must include nested sub-apps too: b2b_domain_app mounts surveillance_app and
+    # task_management_app as separate FastAPI instances, so they need overrides directly.
+    from modules.domains.b2b.bank_surveillance.main import app as surveillance_app
+    from modules.domains.b2b.task_management.main import app as task_management_app
+    for sub_app in [b2b_app, platform_app, b2c_app, b2b_domain_app, b2c_domain_app,
+                    surveillance_app, task_management_app]:
+        sub_app.dependency_overrides.update(app.dependency_overrides)
+    
+    # httpx 0.27+ requires ASGITransport instead of app parameter
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
     
     app.dependency_overrides.clear()
@@ -445,6 +559,32 @@ async def platform_admin_setup(db_session: AsyncSession):
         )
         db_session.add(role)
         await db_session.flush()
+        
+        # Add wildcard permissions to allow all platform operations in tests
+        from modules.platform.models import PlatformPermission
+        wildcard_perm = PlatformPermission(
+            platform_role_id=role.id,
+            resource="*",
+            action="*"
+        )
+        db_session.add(wildcard_perm)
+        await db_session.flush()
+    else:
+        # Relationship check: Ensure it has the wildcard permission even if role existed
+        from modules.platform.models import PlatformPermission
+        perm_result = await db_session.execute(
+            select(PlatformPermission)
+            .where(PlatformPermission.platform_role_id == role.id)
+            .where(PlatformPermission.resource == "*")
+        )
+        if not perm_result.scalar_one_or_none():
+            wildcard_perm = PlatformPermission(
+                platform_role_id=role.id,
+                resource="*",
+                action="*"
+            )
+            db_session.add(wildcard_perm)
+            await db_session.flush()
     
     # 3. Create Platform Admin User with UNIQUE email per test
     # This avoids IntegrityError when tests run in parallel or sequentially
@@ -494,6 +634,9 @@ async def set_tenant_context(db_session: AsyncSession, tenant_id: UUID) -> None:
         team = result.scalar_one()
     """
     from core.db.rls import rls_service
+    from core.db.session import current_tenant_id
+    
+    current_tenant_id.set(str(tenant_id))
     await rls_service.set_tenant_context(db_session, tenant_id)
 
 
@@ -522,24 +665,27 @@ async def b2b_test_setup(db_session: AsyncSession):
     # Step 2: Create TenantAwareSession for this tenant
     tenant_session = TenantAwareSession(db_session, tenant.id)
     
-    # Step 3: Create admin user using tenant-aware session
-    admin = await create_test_user(
+    # Step 3: Create OWNER user
+    # We use OWNER instead of ADMIN because many tests (Billing, Settings) require full permissions.
+    # The 'admin' role intentionally lacks billing access (see saas_roles.yaml).
+    owner = await create_test_user(
         tenant_session,  # Use tenant-aware session
         tenant_id=tenant.id,
-        email=f"admin@{tenant.domain}",
-        role_slug="admin"
+        email=f"owner@{tenant.domain}",
+        role_slug="owner"
     )
-    
+
     # Step 4: Create token
     token = encode_mock_jwt(create_mock_firebase_token(
-        uid=admin.firebase_uid,
-        email=admin.email,
-        firebase_tenant_id=tenant.firebase_tenant_id # FIX: Use actual tenant ID
+        uid=owner.firebase_uid,
+        email=owner.email,
+        firebase_tenant_id=tenant.firebase_tenant_id
     ))
     
     return {
         "tenant": tenant,
-        "admin": admin,
+        "owner": owner,
+        "admin": owner, # Alias for backward compatibility (tests expect 'admin' key)
         "token": token,
         "session": tenant_session,  # Use this for all DB operations
         "tenant_id": tenant.id,
@@ -619,89 +765,7 @@ def create_auth_headers(user, tenant=None):
 
 # Direct async helper functions (not fixtures)
 
-async def ensure_rbac_seeds(db_session: AsyncSession):
-    """Ensure basic RBAC data (Resources, Actions, Templates) exists"""
-    from modules.b2b.models.rbac import Resource, Action
-    from modules.b2b.models.role_template import RoleTemplate
-    from sqlalchemy import select
-    from core.constants import B2BRoleName
 
-    # 1. Resources
-    # Must match resources.yaml
-    resources = [
-        ("users", True), 
-        ("roles", True), 
-        ("settings", True), 
-        ("audit_logs", True),
-        ("billing", True),
-        ("invoices", True),
-        ("teams", False),
-        ("team_members", False),
-        ("projects", False),
-        ("tasks", False),
-        ("comments", False)
-    ]
-    existing_res = await db_session.execute(select(Resource.name))
-    existing_res_names = set(existing_res.scalars().all())
-    
-    for name, is_system in resources:
-        if name not in existing_res_names:
-            db_session.add(Resource(
-                name=name,
-                display_name=name.replace('_', ' ').title(),
-                is_system_resource=is_system
-            ))
-    
-    # 2. Actions
-    actions = ["read", "write", "delete", "create", "admin", "invite", "manage", "export"]
-    existing_act = await db_session.execute(select(Action.name))
-    existing_act_names = set(existing_act.scalars().all())
-    
-    for a in actions:
-        if a not in existing_act_names:
-            db_session.add(Action(name=a, display_name=a.title()))
-            
-    # 3. Role Templates
-    # We need to ensure we cover: admin, owner, member, viewer
-    # Grant basic permissions to unblock tests
-    all_perms = [
-        {"resource": "users", "actions": ["read", "write", "create", "delete", "invite"]},
-        {"resource": "roles", "actions": ["read", "write", "create", "delete"]},
-        {"resource": "settings", "actions": ["read", "write"]},
-        {"resource": "audit_logs", "actions": ["read"]},
-        {"resource": "billing", "actions": ["read", "write", "manage"]},
-        {"resource": "teams", "actions": ["read", "write", "delete"]},
-        {"resource": "projects", "actions": ["read", "write", "delete"]},
-        {"resource": "tasks", "actions": ["read", "write", "delete"]},
-    ]
-    read_only = [
-        {"resource": "users", "actions": ["read"]},
-        {"resource": "roles", "actions": ["read"]},
-        {"resource": "settings", "actions": ["read"]},
-        {"resource": "projects", "actions": ["read"]},
-        {"resource": "tasks", "actions": ["read"]}
-    ]
-    
-    templates = {
-        "owner": {"is_default": True, "perms": all_perms}, 
-        "admin": {"is_default": True, "perms": all_perms},
-        "member": {"is_default": True, "perms": read_only},
-        "viewer": {"is_default": True, "perms": read_only},
-    }
-    
-    existing_tpl = await db_session.execute(select(RoleTemplate.name))
-    existing_tpl_names = set(existing_tpl.scalars().all())
-    
-    for name, config in templates.items():
-        if name not in existing_tpl_names:
-            db_session.add(RoleTemplate(
-                name=name,
-                display_name=name.title(),
-                is_default=config["is_default"],
-                permissions=config["perms"]
-            ))
-            
-    await db_session.flush()
 async def create_test_tenant(
     db_session: AsyncSession,
     name: str = "Test Company",
@@ -730,10 +794,6 @@ async def create_test_tenant(
     # Set tenant context for RLS before inserting tenant-scoped data
     from core.db.rls import rls_service
     await rls_service.set_tenant_context(db_session, tenant.id)
-    
-    # Ensure RBAC seeds exist (Global Templates)
-    await ensure_rbac_seeds(db_session)
-    
     # Seed roles for this tenant using RoleTemplateService
     from modules.b2b.services.role_template_service import role_template_service
     await role_template_service.seed_tenant_roles(db_session, tenant.id)

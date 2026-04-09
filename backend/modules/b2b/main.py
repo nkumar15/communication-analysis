@@ -13,8 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from core.config import settings
-from core.db.session import init_db, engine
-from infrastructure.logging.config import setup_logging, get_logger
+from core.db.session import engine
+from core.lifespan import base_lifespan
 from infrastructure.monitoring.config import setup_observability
 from infrastructure.logging.middleware import LoggingMiddleware
 
@@ -30,37 +30,15 @@ from modules.b2b.routers import (
     account,
     audit_logs,
     dashboard,
-    billing,  # Billing router
-    sso_settings,  # SSO Settings
+    billing,
+    sso_settings,
+    regions,
 )
-
-# Setup logging first
-setup_logging(environment=settings.log_environment, log_level=settings.log_level)
-logger = get_logger(__name__)
-
-logger.info(f"Starting B2B Service in {settings.log_environment} mode")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    logger.info("Initializing database...")
-    await init_db()
-    
-    # Startup: Initialize Observability (Tracing, Metrics)
-    # We pass the engine for SQL instrumentation
-    # Startup: Initialize Observability (Tracing, Metrics)
-    # We pass the engine for SQL instrumentation
-    setup_observability(app, service_name="b2b-api", sqlalchemy_engine=engine)
-    
-    # Startup: Initialize Firebase
-    from infrastructure.auth import get_auth_provider
-    get_auth_provider().initialize()
-
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down...")
-
+    async with base_lifespan(app, "b2b-api"):
+        yield
 
 app = FastAPI(
     title="Enterprise SSO - B2B Service",
@@ -79,7 +57,19 @@ app.add_middleware(
 )
 
 # Add structured logging middleware
+# Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
+
+# Middleware to strip /api/b2b prefix if accessing directly via port 8000
+@app.middleware("http")
+async def strip_prefix_middleware(request, call_next):
+    path = request.url.path
+    if path.startswith("/api/b2b/"):
+        request.scope["path"] = path.replace("/api/b2b", "", 1)
+    return await call_next(request)
+
+# Initialize Observability
+setup_observability(app, service_name="b2b-api", sqlalchemy_engine=engine)
 
 # Include routers
 app.include_router(auth.router)
@@ -88,15 +78,13 @@ app.include_router(invitations.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(teams.router)
-app.include_router(team_roles.router)  # NEW: Team Role Definitions
+app.include_router(team_roles.router)
 app.include_router(account.router)
-app.include_router(audit_logs.router)  # Audit Logs
-app.include_router(dashboard.router)   # Dashboard Stats
-app.include_router(billing.router)     # Billing & Subscriptions
-app.include_router(sso_settings.router)  # SSO Settings
-
-
-
+app.include_router(audit_logs.router)
+app.include_router(dashboard.router)
+app.include_router(billing.router)
+app.include_router(sso_settings.router)
+app.include_router(regions.router)
 
 @app.get("/")
 async def root():
@@ -107,7 +95,6 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
-
 
 @app.get("/health")
 async def health():

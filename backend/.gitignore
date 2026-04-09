@@ -64,3 +64,14 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# DeepEval & RAG
+.deepeval/
+result.txt
+
+# Celery
+celerybeat-schedule
+
+# Enron Dataset
+backend/scripts/evaluation/datasets/enron/source/emails.zip
+backend/scripts/evaluation/datasets/enron/source/emails.csv

@@ -464,6 +464,8 @@ class TenantService:
             activated_by=model.activated_by,
             activation_started_at=model.activation_started_at,
             is_active=model.is_active,
+            domain_type=getattr(model, 'domain_type', 'default'),
+            features=model.features or {},
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -568,6 +570,85 @@ class TenantService:
             "provider_id": provider.provider_id,
             "message": "SSO configured successfully"
         }
+
+
+    async def update_tenant_features(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        new_features: dict
+    ) -> dict:
+        """
+        Update tenant features with lifecycle hooks for plugins.
+        Calculates diff for 'plugins' list, runs enable/disable hooks for plugins, and updates DB features.
+        
+        Args:
+            db: Database session
+            tenant_id: Tenant UUID
+            new_features: Dict of features that SHOULD be active (includes 'plugins' list)
+            
+        Returns:
+            Dict with added/removed plugins, and current active features
+        """
+        from core.rbac.plugin_registry import plugin_registry
+        from sqlalchemy.orm.attributes import flag_modified
+        
+        tenant = await db.get(TenantModel, tenant_id)
+        if not tenant:
+            raise ValueError(f"Tenant {tenant_id} not found")
+        
+        current_features = tenant.features or {}
+        
+        old_plugins = set(current_features.get('plugins', []))
+        new_plugin_list = new_features.get('plugins', [])
+        new_plugins = set(new_plugin_list)
+        
+        added = new_plugins - old_plugins
+        removed = old_plugins - new_plugins
+
+        # 1. Run Enable Hooks (Additions)
+        for plugin_name in added:
+            plugin = plugin_registry.get_plugin(plugin_name)
+            if plugin:
+
+                # Idempotent seed/init
+                try:
+                    await plugin.on_tenant_enable(str(tenant_id), db)
+                except Exception as e:
+                    # If hook fails, we should probably abort the whole transaction to be safe?
+                    # Or log and continue? Safe approach -> abort.
+                    raise Exception(f"Failed to enable plugin {plugin_name}: {str(e)}")
+            else:
+                # Warning: Enabling a plugin that isn't registered in the code
+                # This might happen if code is old but config is new, or plugin removed.
+                pass
+
+        # 2. Run Disable Hooks (Removals)
+        for plugin_name in removed:
+            plugin = plugin_registry.get_plugin(plugin_name)
+            if plugin:
+                try:
+                    await plugin.on_tenant_disable(str(tenant_id), db)
+                except Exception as e:
+                    # Log error but proceed with disabling?
+                    # Usually better to fail loudly.
+                    raise Exception(f"Failed to disable plugin {plugin_name}: {str(e)}")
+
+        # 3. Update DB (Full Replace of Features, as caller handles merge)
+        # Ensure plugins list is sorted for consistency
+        new_features['plugins'] = sorted(list(new_plugins))
+        
+        tenant.features = new_features
+        flag_modified(tenant, 'features')
+        await db.flush()
+        
+        return {
+            "tenant_id": str(tenant_id),
+            "added_plugins": sorted(list(added)),
+            "removed_plugins": sorted(list(removed)),
+            "active_features": new_features
+        }
+
 
 
 # Global tenant service instance

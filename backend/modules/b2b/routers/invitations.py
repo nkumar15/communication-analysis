@@ -23,16 +23,17 @@ from modules.b2b.schemas.invitation import (
     InviteUserResponse,
     InvitationListResponse
 )
-from modules.b2b.rbac import has_permission
+from modules.b2b.rbac import has_permission, require_permission
 from infrastructure.email import email_service
 from core.config import settings
 from core.db.rls import rls_service
 from modules.b2b.utils.csv_parser import BulkInviteCSVParser
 from workers.b2b_worker.email_tasks import send_bulk_invitation_emails, send_invitation_email
 from modules.b2b.models import UserModel
+from workers.b2b_worker.audit_tasks import persist_audit_log
 
 
-router = APIRouter(prefix="/api/b2b/invitations", tags=["invitations"])
+router = APIRouter(prefix="/invitations", tags=["invitations"])
 
 
 @router.post("/invite", response_model=InviteUserResponse)
@@ -89,18 +90,25 @@ async def invite_user(
         tenant_id=str(current_user['tenant_id'])
     )
     
-    # Log audit event via Celery (async in production, sync in tests via eager mode)
-    from workers.b2b_worker.audit_tasks import persist_audit_log
-    persist_audit_log.delay({
-        'tenant_id': str(current_user['tenant_id']),
-        'event_type': 'user.invited',
-        'resource_type': 'invitation',
-        'actor_id': str(current_user['id']),
-        'resource_id': str(res_id),
-        'details': {'email': request.email, 'role': request.role, 'team_id': str(request.team_id) if request.team_id else None},
-        'ip_address': req.client.host if req.client else None,
-        'user_agent': req.headers.get('User-Agent')
-    })
+    # Log audit event via Celery (async)
+    # Log audit event via Celery (async)
+    # from workers.b2b_worker.audit_tasks import persist_audit_log
+    
+    try:
+        persist_audit_log.delay({
+            'tenant_id': str(current_user['tenant_id']),
+            'event_type': 'user.invited',
+            'resource_type': 'invitation',
+            'actor_id': str(current_user['id']),
+            'resource_id': str(res_id),
+            'details': {'email': request.email, 'role': request.role, 'team_id': str(request.team_id) if request.team_id else None},
+            'ip_address': req.client.host if req.client else None,
+            'user_agent': req.headers.get('User-Agent')
+        })
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.getLogger(__name__).error(f"Failed to trigger audit log: {e}")
     
     return InviteUserResponse(
         invitation_id=res_id,
@@ -153,21 +161,15 @@ async def list_invitations(
 @router.delete("/{invitation_id}")
 async def cancel_invitation(
     invitation_id: UUID,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = require_permission('users', 'invite'),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Cancel/delete a pending invitation
-    
+
     - Requires invitations:delete permission
     - Only pending invitations can be cancelled
     """
-    # Check permission
-    if not await has_permission(current_user['id'], 'users', 'invite', db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to cancel invitations"
-        )
     
     await invitation_service.cancel_invitation(
         db=db,
@@ -181,21 +183,15 @@ async def cancel_invitation(
 @router.post("/resend/{invitation_id}")
 async def resend_invitation(
     invitation_id: UUID,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = require_permission('users', 'invite'),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Resend invitation email
-    
+
     - Requires invitations:write permission
     - Only pending, non-expired invitations
     """
-    # Check permission
-    if not await has_permission(current_user['id'], 'users', 'invite', db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to resend invitations"
-        )
     
     # Get and validate invitation
     invitation = await invitation_service.get_invitation_for_resend(
@@ -338,8 +334,7 @@ async def bulk_invite_users(
         tenant_id=current_user['tenant_id'],
         file=file,
         current_user=current_user,
-        send_emails=send_emails,
-        auto_create_teams=auto_create_teams
+        send_emails=send_emails
     )
     
     # Commit all changes
@@ -360,19 +355,19 @@ async def bulk_invite_users(
         "failed": result['failed'],
         "results": result['results'],
         "teams_created": result['teams_created'],
-        "download_url": f"/api/b2b/invitations/bulk/{result['job_id']}/download",
-        "failures_url": f"/api/b2b/invitations/bulk/{result['job_id']}/download/failures"
+        "download_url": f"/invitations/bulk/{result['job_id']}/download",
+        "failures_url": f"/invitations/bulk/{result['job_id']}/download/failures"
     }
 
 
 @router.get("/bulk/template")
 async def download_template():
     """Download CSV template for bulk invitations"""
-    template = """email,role,team_name,team_role,name
+    template = """email,team_name,team_role,role,name
 # Example rows (remove these before uploading):
-alice@yourdomain.com,admin,Engineering,team_manager,Alice Smith
-bob@yourdomain.com,member,Engineering,team_contributor,Bob Jones
-carol@yourdomain.com,viewer,Sales,team_reader,Carol White
+alice@yourdomain.com,Engineering,team_manager,,Alice Smith
+bob@yourdomain.com,Engineering,team_contributor,admin,Bob Jones
+carol@yourdomain.com,Sales,team_reader,,Carol White
 """
     
     return StreamingResponse(
@@ -451,7 +446,7 @@ async def get_bulk_job_status(
             "email": creator.email,
             "name": creator.name
         } if creator else None,
-        "download_url": f"/api/b2b/invitations/bulk/{job.id}/download"
+        "download_url": f"/invitations/bulk/{job.id}/download"
     }
 
 
@@ -506,7 +501,7 @@ async def download_failures(
     
     failures = [
         row for row in job.results.get('rows', [])
-        if row.get('status') == 'error'
+        if row.get('status') == 'failed'
     ]
     
     if not failures:

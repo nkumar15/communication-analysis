@@ -12,7 +12,7 @@ from modules.b2b.rbac.decorators import require_permission, require_role
 from modules.b2b.models.audit_log import AuditLog
 from modules.b2b.schemas.audit_logs import AuditLogList, AuditLogResponse
 
-router = APIRouter(prefix="/api/b2b/audit-logs", tags=["audit-logs"])
+router = APIRouter(prefix="/audit-logs", tags=["audit-logs"])
 
 @router.get("", response_model=AuditLogList)
 async def list_audit_logs(

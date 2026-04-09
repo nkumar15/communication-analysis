@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS b2b.roles (
 CREATE INDEX IF NOT EXISTS idx_roles_tenant_id ON b2b.roles(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_roles_name ON b2b.roles(name);
 
+ALTER TABLE b2b.roles 
+ADD COLUMN IF NOT EXISTS clearance_level INTEGER DEFAULT 1;
+
 -- 4. ROLE PERMISSIONS (Link Role <-> Resource <-> Action)
 CREATE TABLE IF NOT EXISTS b2b.role_permissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,6 +76,13 @@ CREATE TABLE IF NOT EXISTS b2b.role_templates (
 );
 
 CREATE INDEX IF NOT EXISTS idx_role_templates_is_default ON b2b.role_templates(is_default);
+
+-- ============================================================================
+-- PLUGIN EXTENSIONS (Added for data_classification)
+-- ============================================================================
+ALTER TABLE b2b.role_templates 
+ADD COLUMN IF NOT EXISTS clearance_level INTEGER DEFAULT 1;
+
 
 -- 6. TEAM ROLE DEFINITIONS (Team-level roles)
 CREATE TABLE IF NOT EXISTS b2b.team_role_definitions (

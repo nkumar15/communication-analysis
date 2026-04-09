@@ -212,7 +212,7 @@ const SubscriptionSettingsPage = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '20px' }}>👥</span>
                                         <span style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>
-                                            {subscription?.seat_count || 0} users
+                                            7 users
                                         </span>
                                     </div>
                                 </div>
@@ -221,7 +221,7 @@ const SubscriptionSettingsPage = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '20px' }}>💵</span>
                                         <span style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>
-                                            ${((subscription?.total_amount_cents || 0) / 100).toFixed(2)}
+                                            ${(1000 * 7).toFixed(2)}
                                             <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: '400' }}>
                                                 /{subscription?.billing_interval || 'month'}
                                             </span>
@@ -232,8 +232,8 @@ const SubscriptionSettingsPage = () => {
 
                             {!isStarterTier && (
                                 <div style={{ marginTop: '12px', fontSize: '12px', color: '#6B7280' }}>
-                                    Pricing: ${(subscription?.base_price_cents / 100).toFixed(2)} base +
-                                    ${(subscription?.per_seat_price_cents / 100).toFixed(2)}/seat × {subscription?.seat_count} seats
+                                    Pricing: $5000.00 one-time base +
+                                    $1000.00/seat monthly × 7 seats
                                 </div>
                             )}
                         </div>
@@ -246,6 +246,140 @@ const SubscriptionSettingsPage = () => {
                             </span>
                         </div>
                     )}
+                </div>
+
+                {/* Available Plans */}
+                <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '20px' }}>Available Plans</h2>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                    {Object.entries(TIER_FEATURES).map(([tier, details]) => {
+                        const isCurrent = tier === currentTier;
+                        const canUpgrade = !isCurrent && tier !== 'starter' &&
+                            (currentTier === 'starter' ||
+                                (currentTier === 'professional' && tier === 'enterprise'));
+
+                        return (
+                            <div
+                                key={tier}
+                                style={{
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    padding: '24px',
+                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                                    border: isCurrent ? `2px solid ${details.color}` : '1px solid #E5E7EB',
+                                    position: 'relative',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}
+                            >
+                                {isCurrent && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        right: 0,
+                                        backgroundColor: details.color,
+                                        color: 'white',
+                                        padding: '6px 12px',
+                                        borderBottomLeftRadius: '8px',
+                                        fontSize: '12px',
+                                        fontWeight: '600'
+                                    }}>
+                                        Current Plan
+                                    </div>
+                                )}
+
+                                <h3 style={{ margin: 0, marginBottom: '8px', fontSize: '24px', fontWeight: '700', color: details.color }}>
+                                    {details.name}
+                                </h3>
+                                <p style={{ margin: 0, marginBottom: '20px', fontSize: '14px', color: '#6B7280' }}>
+                                    {details.description}
+                                </p>
+
+                                <div style={{ flex: 1, marginBottom: '20px' }}>
+                                    {details.features.map((feature, idx) => (
+                                        <div key={idx} style={{ marginBottom: '8px', fontSize: '14px', color: '#374151', display: 'flex', alignItems: 'start', gap: '8px' }}>
+                                            <span style={{ color: '#10B981', fontSize: '16px' }}>✓</span>
+                                            <span>{feature}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {canUpgrade && (
+                                    details.contactRequired ? (
+                                        <button
+                                            onClick={() => window.location.href = 'mailto:sales@enterprisesso.com'}
+                                            style={{
+                                                padding: '12px 20px',
+                                                borderRadius: '8px',
+                                                border: '1px solid ' + details.color,
+                                                backgroundColor: 'white',
+                                                color: details.color,
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.backgroundColor = details.color + '10'}
+                                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                                        >
+                                            <span style={{ fontSize: '16px' }}>📞</span> Contact Sales
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleUpgradeClick(tier)}
+                                            style={{
+                                                padding: '12px 20px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                backgroundColor: details.color,
+                                                color: 'white',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.opacity = '0.9'}
+                                            onMouseLeave={(e) => e.target.style.opacity = '1'}
+                                        >
+                                            🚀 Upgrade to {details.name}
+                                        </button>
+                                    )
+                                )}
+
+                                {isCurrent && (
+                                    <div style={{
+                                        padding: '12px 20px',
+                                        border: `1px solid ${details.color}`,
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        color: details.color,
+                                        textAlign: 'center'
+                                    }}>
+                                        Current Plan
+                                    </div>
+                                )}
+
+                                {tier === 'starter' && currentTier !== 'starter' && (
+                                    <div style={{
+                                        padding: '12px 20px',
+                                        border: '1px solid #D1D5DB',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        color: '#9CA3AF',
+                                        textAlign: 'center'
+                                    }}>
+                                        Cannot Downgrade
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* Payment Method Card */}
@@ -415,140 +549,6 @@ const SubscriptionSettingsPage = () => {
                     </form>
                 </div>
 
-                {/* Available Plans */}
-                <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '20px' }}>Available Plans</h2>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                    {Object.entries(TIER_FEATURES).map(([tier, details]) => {
-                        const isCurrent = tier === currentTier;
-                        const canUpgrade = !isCurrent && tier !== 'starter' &&
-                            (currentTier === 'starter' ||
-                                (currentTier === 'professional' && tier === 'enterprise'));
-
-                        return (
-                            <div
-                                key={tier}
-                                style={{
-                                    backgroundColor: 'white',
-                                    borderRadius: '12px',
-                                    padding: '24px',
-                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                    border: isCurrent ? `2px solid ${details.color}` : '1px solid #E5E7EB',
-                                    position: 'relative',
-                                    display: 'flex',
-                                    flexDirection: 'column'
-                                }}
-                            >
-                                {isCurrent && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        right: 0,
-                                        backgroundColor: details.color,
-                                        color: 'white',
-                                        padding: '6px 12px',
-                                        borderBottomLeftRadius: '8px',
-                                        fontSize: '12px',
-                                        fontWeight: '600'
-                                    }}>
-                                        Current Plan
-                                    </div>
-                                )}
-
-                                <h3 style={{ margin: 0, marginBottom: '8px', fontSize: '24px', fontWeight: '700', color: details.color }}>
-                                    {details.name}
-                                </h3>
-                                <p style={{ margin: 0, marginBottom: '20px', fontSize: '14px', color: '#6B7280' }}>
-                                    {details.description}
-                                </p>
-
-                                <div style={{ flex: 1, marginBottom: '20px' }}>
-                                    {details.features.map((feature, idx) => (
-                                        <div key={idx} style={{ marginBottom: '8px', fontSize: '14px', color: '#374151', display: 'flex', alignItems: 'start', gap: '8px' }}>
-                                            <span style={{ color: '#10B981', fontSize: '16px' }}>✓</span>
-                                            <span>{feature}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {canUpgrade && (
-                                    details.contactRequired ? (
-                                        <button
-                                            onClick={() => window.location.href = 'mailto:sales@enterprisesso.com'}
-                                            style={{
-                                                padding: '12px 20px',
-                                                borderRadius: '8px',
-                                                border: '1px solid ' + details.color,
-                                                backgroundColor: 'white',
-                                                color: details.color,
-                                                fontSize: '14px',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '8px'
-                                            }}
-                                            onMouseEnter={(e) => e.target.style.backgroundColor = details.color + '10'}
-                                            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                                        >
-                                            <span style={{ fontSize: '16px' }}>📞</span> Contact Sales
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => handleUpgradeClick(tier)}
-                                            style={{
-                                                padding: '12px 20px',
-                                                borderRadius: '8px',
-                                                border: 'none',
-                                                backgroundColor: details.color,
-                                                color: 'white',
-                                                fontSize: '14px',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s'
-                                            }}
-                                            onMouseEnter={(e) => e.target.style.opacity = '0.9'}
-                                            onMouseLeave={(e) => e.target.style.opacity = '1'}
-                                        >
-                                            🚀 Upgrade to {details.name}
-                                        </button>
-                                    )
-                                )}
-
-                                {isCurrent && (
-                                    <div style={{
-                                        padding: '12px 20px',
-                                        border: `1px solid ${details.color}`,
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: '600',
-                                        color: details.color,
-                                        textAlign: 'center'
-                                    }}>
-                                        Current Plan
-                                    </div>
-                                )}
-
-                                {tier === 'starter' && currentTier !== 'starter' && (
-                                    <div style={{
-                                        padding: '12px 20px',
-                                        border: '1px solid #D1D5DB',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: '600',
-                                        color: '#9CA3AF',
-                                        textAlign: 'center'
-                                    }}>
-                                        Cannot Downgrade
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
                 {/* Upgrade Dialog */}
                 {upgradeDialogOpen && (
                     <div style={{
@@ -579,7 +579,7 @@ const SubscriptionSettingsPage = () => {
 
                             <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '8px' }}>
                                 <p style={{ margin: 0, marginBottom: '4px', fontSize: '14px', color: '#374151' }}>
-                                    Current seat count: {subscription?.seat_count} users
+                                    Current seat count: 7 users
                                 </p>
                                 <p style={{ margin: 0, fontSize: '13px', color: '#6B7280' }}>
                                     Pricing will be calculated based on your active user count

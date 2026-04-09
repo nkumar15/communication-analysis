@@ -1,7 +1,7 @@
 """
 Teams API Router - Manage teams and team membership
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -24,7 +24,7 @@ from modules.b2b.schemas.team import (
 from modules.b2b.services import team_service
 from modules.b2b.models import UserModel
 
-router = APIRouter(prefix="/api/b2b/teams", tags=["teams"])
+router = APIRouter(prefix="/teams", tags=["teams"])
 
 
 @router.get("/stats", response_model=TeamStatsResponse)
@@ -65,16 +65,16 @@ async def get_team_roles(
         include_system=True
     )
     
-    # If no roles found, return hardcoded defaults as fallback
+    # If no roles found, return empty - frontend should handle this gracefully
     if not roles:
-        return [
-            {"value": "team_manager", "label": "Team Manager"},
-            {"value": "team_contributor", "label": "Contributor"},
-            {"value": "team_reader", "label": "Reader"}
-        ]
+        return []
     
     return [
-        {"value": r.name, "label": r.display_name}
+        {
+            "value": r.name, 
+            "label": r.display_name,
+            "allowed_org_tiers": r.allowed_org_tiers or []
+        }
         for r in roles
     ]
 
@@ -108,7 +108,9 @@ async def list_teams(
             description=team.description,
             is_default=team.is_default,
             member_count=member_count,
-            created_at=team.created_at
+            created_at=team.created_at,
+            parent_team_id=team.parent_team_id,
+            org_tier=team.org_tier
         ))
     
     return response
@@ -117,6 +119,7 @@ async def list_teams(
 @router.post("/", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
 async def create_team(
     team: TeamCreate,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -144,6 +147,19 @@ async def create_team(
     
     await db.commit()
     
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team.created',
+        'resource_type': 'team',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(created_team.id),
+        'details': {'team_name': team.name},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     member_count = await team_service.get_team_member_count(db, created_team.id)
     
     return TeamResponse(
@@ -156,7 +172,8 @@ async def create_team(
         config_data=created_team.config_data,
         created_at=created_team.created_at,
         updated_at=created_team.updated_at,
-        member_count=member_count
+        member_count=member_count,
+        org_tier=created_team.org_tier
     )
 
 
@@ -178,19 +195,14 @@ async def get_team(
             detail="You do not have permission to view teams"
         )
     
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    # Verify team belongs to user's tenant
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     member_count = await team_service.get_team_member_count(db, team.id)
     
@@ -204,7 +216,8 @@ async def get_team(
         config_data=team.config_data,
         created_at=team.created_at,
         updated_at=team.updated_at,
-        member_count=member_count
+        member_count=member_count,
+        org_tier=team.org_tier
     )
 
 
@@ -212,6 +225,7 @@ async def get_team(
 async def update_team(
     team_id: UUID,
     updates: TeamUpdate,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -221,18 +235,14 @@ async def update_team(
     Requires: teams:write permission OR being a team_manager of this team
     """
     # Get team first to check tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -250,6 +260,19 @@ async def update_team(
     )
     
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team.updated',
+        'resource_type': 'team',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_id),
+        'details': {'team_name': updated_team.name},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     member_count = await team_service.get_team_member_count(db, updated_team.id)
     
@@ -270,6 +293,7 @@ async def update_team(
 @router.delete("/{team_id}", status_code=status.HTTP_200_OK)
 async def delete_team(
     team_id: UUID,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -286,22 +310,33 @@ async def delete_team(
             detail="You do not have permission to delete teams"
         )
     
-    # Get team to verify tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    # Get team to verify tenant and capture name for audit
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
+    team_name = team.name
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     await team_service.delete_team(db, team_id)
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team.deleted',
+        'resource_type': 'team',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_id),
+        'details': {'team_name': team_name},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     return {"message": "Team deleted successfully"}
 
 
@@ -324,18 +359,14 @@ async def list_team_members(
         )
     
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     members = await team_service.get_team_members(db, team_id)
     
@@ -357,6 +388,7 @@ async def list_team_members(
 async def add_team_member(
     team_id: UUID,
     member: TeamMemberAdd,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -366,18 +398,14 @@ async def add_team_member(
     Requires: Being owner/admin OR team_manager of this team
     """
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -388,7 +416,7 @@ async def add_team_member(
     
     # Verify the user being added belongs to same tenant
     user_to_add = await db.get(UserModel, member.user_id)
-    if not user_to_add or user_to_add.tenant_id != current_user['tenant_id']:
+    if not user_to_add or str(user_to_add.tenant_id) != str(current_user['tenant_id']):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User not found or belongs to different tenant"
@@ -402,6 +430,19 @@ async def add_team_member(
     )
     
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.added',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_member.id),
+        'details': {'team_id': str(team_id), 'user_id': str(member.user_id), 'user_email': user_to_add.email},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     return TeamMemberResponse(
         id=team_member.id,
@@ -418,6 +459,7 @@ async def add_team_member(
 async def remove_team_member(
     team_id: UUID,
     user_id: UUID,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -427,18 +469,14 @@ async def remove_team_member(
     Requires: Being owner/admin OR team_manager of this team
     """
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -457,6 +495,20 @@ async def remove_team_member(
     
     await team_service.remove_team_member(db, team_id, user_id)
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.removed',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': None,
+        'details': {'team_id': str(team_id), 'user_id': str(user_id)},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
+    
     return {"message": "Member removed successfully"}
 
 
@@ -465,6 +517,7 @@ async def update_team_member_role(
     team_id: UUID,
     user_id: UUID,
     update: TeamMemberUpdate,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -474,18 +527,14 @@ async def update_team_member_role(
     Requires: Being owner/admin OR team_manager of this team
     """
     # Verify team exists and belongs to tenant
-    team = await team_service.get_team_by_id(db, team_id)
+    team = await team_service.get_team_by_id(db, team_id, current_user['tenant_id'])
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found"
         )
     
-    if team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage this team
     if not await can_manage_team(current_user['id'], team_id, db):
@@ -502,6 +551,19 @@ async def update_team_member_role(
     )
     
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.role_updated',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(team_member.id),
+        'details': {'team_id': str(team_id), 'user_id': str(user_id), 'new_role': update.team_role},
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     # Get user details
     user = await db.get(UserModel, user_id)
@@ -521,6 +583,7 @@ async def update_team_member_role(
 async def move_user_between_teams(
     user_id: UUID,
     move_request: MoveUserRequest,
+    req: Request,
     current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -530,8 +593,8 @@ async def move_user_between_teams(
     Requires: Being owner/admin OR team_manager of BOTH teams
     """
     # Verify both teams exist and belong to tenant
-    from_team = await team_service.get_team_by_id(db, move_request.from_team_id)
-    to_team = await team_service.get_team_by_id(db, move_request.to_team_id)
+    from_team = await team_service.get_team_by_id(db, move_request.from_team_id, current_user['tenant_id'])
+    to_team = await team_service.get_team_by_id(db, move_request.to_team_id, current_user['tenant_id'])
     
     if not from_team or not to_team:
         raise HTTPException(
@@ -539,11 +602,7 @@ async def move_user_between_teams(
             detail="One or both teams not found"
         )
     
-    if from_team.tenant_id != current_user['tenant_id'] or to_team.tenant_id != current_user['tenant_id']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    # tenant_id already enforced in get_team_by_id
     
     # Check if user can manage both teams
     can_manage_from = await can_manage_team(current_user['id'], move_request.from_team_id, db)
@@ -564,6 +623,23 @@ async def move_user_between_teams(
     )
     
     await db.commit()
+    
+    # Audit log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'team_member.moved',
+        'resource_type': 'team_member',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(new_membership.id),
+        'details': {
+            'user_id': str(user_id),
+            'from_team_id': str(move_request.from_team_id),
+            'to_team_id': str(move_request.to_team_id)
+        },
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('User-Agent')
+    })
     
     # Get user details
     user = await db.get(UserModel, user_id)

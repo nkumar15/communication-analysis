@@ -15,6 +15,7 @@ const Navbar = () => {
     const navItems = [
         { label: 'Dashboard', path: '/', icon: '🏠' },
         { label: 'Workspaces', path: '/workspaces', icon: '📁' },
+        { label: 'Finance Trader', path: '/finance-trader', icon: '📈' },
         { label: 'Tasks', path: '/tasks', icon: '✓' },
     ];
 

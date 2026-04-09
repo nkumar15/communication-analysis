@@ -1,9 +1,4 @@
-.PHONY: help setup status up down restart build logs ps migrate b2b-migrate b2c-migrate db-shell reset-db platform-seed-system platform-seed-permissions platform-create-admin b2b-seed-roles b2b-seed-plans b2b-invite b2b-resend-invite b2c-seed-plans web-b2b web-b2c web-platform web-all up-backend dev-b2b dev-b2c dev-platform shell clean clean-all test-api test-browser test test-env email-ui stripe-listen-b2b stripe-listen-b2c sast-scan sast-scan-python sast-scan-react sast-scan-containers security-update-npm dast-scan dast-scan-b2b dast-scan-platform dast-scan-b2c dast-scan-domain dast-scan-full
 
-
-
-# Default target
-.DEFAULT_GOAL := help
 
 # Colors for output
 BLUE := \033[0;34m
@@ -11,160 +6,216 @@ GREEN := \033[0;32m
 YELLOW := \033[0;33m
 NC := \033[0m # No Color
 
+# Test compose: overrides DATABASE_URL on all services → saas_test_db
+# Demo targets use plain docker-compose (saas_demo_db). Never mix the two.
+DC_TEST = docker-compose -f docker-compose.yml -f docker-compose.test.yml
+
+
 ##@ General
-
-help: ## Display this help message
-	@echo "$(BLUE)Enterprise SSO - Development Commands$(NC)"
-	@echo ""
-	@awk 'BEGIN {FS = ":.*##"; printf "Usage:\n  make $(GREEN)<target>$(NC)\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(YELLOW)%s$(NC)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
-
-##@ Setup & Installation
-
-setup: ## Initial project setup (create .env files, install dependencies)
-	@echo "$(BLUE)Setting up project...$(NC)"
-	@for file in .env backend/.env frontend/.env; do \
-		if [ ! -f $$file ]; then \
-			cp $${file}.example $$file; \
-			echo "$(GREEN)✓ Created $$file from template$(NC)"; \
-		else \
-			echo "$(YELLOW)✓ $$file already exists$(NC)"; \
-		fi \
-	done
-	@if [ ! -f secrets/firebase-credentials.json ]; then \
-		echo "$(YELLOW)⚠ Missing secrets/firebase-credentials.json (see secrets/README.md)$(NC)"; \
-	fi
-	@if [ ! -d "frontend/node_modules" ]; then cd frontend && npm install; fi
-	@echo "$(GREEN)✓ Setup complete!$(NC)"
-
-status: ## Show status of all services and configuration
-	@echo "$(BLUE)=== Service Status ===$(NC)"
-	@$(MAKE) ps
-	@echo ""
-	@echo "$(BLUE)=== Environment Files ===$(NC)"
-	@$(MAKE) test-env
-
-##@ Docker Services
-
-up: ## Start all backend services (frontend runs locally)
-	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api dbmigrate redis b2b-worker b2c-worker nginx mailhog prometheus grafana jaeger
-	@echo "$(GREEN)✓ Backend services started$(NC)"
-	@echo "API Gateway:  http://localhost:8080"
-	@echo "Email UI:     http://localhost:8025 (Mailhog)"
-	@echo "Grafana:      http://localhost:3002"
-	@echo "Prometheus:   http://localhost:9090"
-	@echo "Jaeger:       http://localhost:16686"
-	@echo "Run 'make web-b2b' for B2B frontend on port 3000"
-
-down: ## Stop all services
-	@echo "$(BLUE)Stopping services...$(NC)"
-	docker-compose down
-	@echo "$(GREEN)✓ Services stopped$(NC)"
-
-restart: down up ## Restart all services
-
-build: ## Build/rebuild Docker images
-	@echo "$(BLUE)Building images...$(NC)"
-	docker-compose build --no-cache
-	@echo "$(GREEN)✓ Build complete$(NC)"
 
 logs: ## View logs (usage: make logs [s=service])
 ifdef s
 	docker-compose logs -f $(s)
 else
-	docker-compose logs -f b2b-api platform-api b2c-api domain-api b2c-worker nginx
+	docker-compose logs -f b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api b2c-worker b2b-domain-worker b2c-domain-worker nginx
 endif
 
-ps: ## List running services
-	docker-compose ps
 
-email-ui: ## Open Mailhog email UI in browser
-	@echo "$(BLUE)Opening Mailhog at http://localhost:8025$(NC)"
-	@xdg-open http://localhost:8025 2>/dev/null || open http://localhost:8025 2>/dev/null || echo "Open http://localhost:8025 in your browser"
+display-services: ## Display running services
+	@echo "$(BLUE)=== Running Services ===$(NC)"
+	@docker-compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Ports}}"
+	@echo ""
+	@echo "$(YELLOW)Common URLs:$(NC)"
+	@echo "API Gateway:  http://localhost:8080"
+	@echo "Email UI:     http://localhost:8025 (Mailhog)"
+	@echo "Grafana:      http://localhost:3002"
+	@echo "Prometheus:   http://localhost:9090"
+	@echo "Jaeger:       http://localhost:16686"
+	@echo "Kibana:       http://localhost:5601"
+
+elasticsearch: ## Start elasticsearch and elasticsearch-kibana
+	docker-compose up -d elasticsearch elasticsearch-kibana
+
+up: ## Start all backend services (B2B + B2C + infra, no frontends) — used by test targets
+	docker-compose up -d postgres minio \
+							b2b-api platform-api b2c-api \
+							b2b-domain-api b2c-domain-api \
+							b2c-worker b2b-worker \
+							b2b-domain-worker b2c-domain-worker \
+							redis nginx mailhog prometheus grafana jaeger
+	@echo "$(GREEN)✓ Backend services started$(NC)"
+	@echo "$(YELLOW) Tip: run 'make dev-full' to also start the 3 frontend portals$(NC)"
+	@echo "$(YELLOW) Tip: run 'make up-full' to also start Elasticsearch + Kibana$(NC)"
+
+up-b2b: ## Start B2B-only services + infra (b2b-api, b2b-worker, b2b-domain-api, b2b-domain-worker, platform-api, frontends)
+	@docker-compose --profile b2b-demo up -d
+	@echo "$(GREEN)✓ B2B services started$(NC)"
+	@echo "  B2B Portal:      http://localhost:3000"
+	@echo "  Platform Portal: http://localhost:3002"
+	@echo "  API Gateway:     http://localhost:8080"
+
+up-b2c: ## Start B2C-only services + infra (b2c-api, b2c-worker, b2c-beat, b2c-domain-api, b2c-domain-worker, frontend-b2c)
+	@docker-compose --profile b2c-demo up -d
+	@echo "$(GREEN)✓ B2C services started$(NC)"
+	@echo "  B2C Portal:      http://localhost:3001"
+	@echo "  API Gateway:     http://localhost:8080"
+
+up-full: ## Start all backend services including Elasticsearch + Kibana
+	@$(MAKE) up
+	@docker-compose up -d elasticsearch kibana
+	@echo "$(GREEN)✓ All backend services started (including Elasticsearch)$(NC)"
+
+dev-full: ## Start everything for manual full-stack testing (B2B + B2C + all 3 frontend portals)
+	@docker-compose --profile dev-full up -d
+	@echo "$(GREEN)✓ Full stack ready$(NC)"
+	@echo "  B2B Portal:      http://localhost:3000"
+	@echo "  B2C Portal:      http://localhost:3001"
+	@echo "  Platform Portal: http://localhost:3002"
+	@echo "  API Gateway:     http://localhost:8080"
+	@echo "  Mailhog:         http://localhost:8025"
+
+down: ## Stop all services
+	@echo "$(BLUE)Stopping services...$(NC)"
+	docker-compose --profile b2b-demo --profile b2c-demo --profile dev-full --profile test-api --profile test-ui down --remove-orphans
+	@echo "$(GREEN)✓ Services stopped$(NC)"
+
+restart: down up ## Restart all services (full B2B + B2C stack)
 
 ##@ Database
 
 db-shell: ## Open PostgreSQL shell
 	docker-compose exec postgres sh -c "psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB"
 
-db-setup-auth: ## Setup app user and permissionsznnnnnnnnhh
+db-setup-auth: ## Setup app user and permissions
 	@echo "$(BLUE)Setting up application user and permissions...$(NC)"
-	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_password=\$$DB_PASSWORD -c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/init_auth_db.sql"
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_password=\$$DB_PASSWORD -c saas.app_db_user=\$$DB_USER -c saas.app_db_name=\$$POSTGRES_DB\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/init_auth_db.sql"
 	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d \$$POSTGRES_DB -f /app/scripts/grant_permissions.sql"
 	@echo "$(GREEN)✓ Auth setup complete$(NC)"
 
-migrate: ## Run migrations for all products (platform + b2b + b2c)
-	@echo "$(BLUE)Running database migrations (all products)...$(NC)"
-	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
+migrate-schema: ## Run SQL migrations only (no seeds) - requires just postgres
+	@echo "$(BLUE)Running database migrations...$(NC)"
+	@docker-compose run --rm dbmigrate
 	@$(MAKE) db-setup-auth
-	@$(MAKE) platform-seed-permissions
-	@$(MAKE) b2b-seed-roles
-	@$(MAKE) b2b-seed-plans
-	@$(MAKE) b2c-seed-plans
-	@echo "$(GREEN)✓ Migrations complete$(NC)"
+	@echo "$(GREEN)✓ Migrations applied$(NC)"
 
-b2b-migrate: ## Run migrations for B2B only (platform + b2b)
-	@echo "$(BLUE)Running B2B migrations...$(NC)"
-	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2b python /app/migrations/run_migrations.py
-	@$(MAKE) db-setup-auth
-	@$(MAKE) b2b-seed-roles
-	@$(MAKE) b2b-seed-plans
-	@echo "$(GREEN)✓ B2B migrations complete$(NC)"
+db-recreate: ## Reset demo database (saas_demo_db) — never touches saas_test_db
+	@echo "$(BLUE)Recreating demo database (saas_demo_db)...$(NC)"
+	@docker-compose up -d postgres
+	@sleep 2
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres dropdb -U $${POSTGRES_USER:-postgres} --if-exists --force $${POSTGRES_DB:-saas_demo_db}
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres createdb -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-saas_demo_db}
+	@$(MAKE) migrate-schema
+	@echo "$(GREEN)✓ Demo database recreated$(NC)"
 
-b2c-migrate: ## Run migrations for B2C only (platform + b2c)
-	@echo "$(BLUE)Running B2C migrations...$(NC)"
-	@docker-compose run --rm dbmigrate env ENABLED_PRODUCTS=platform,b2c python /app/migrations/run_migrations.py
-	@$(MAKE) db-setup-auth
-	@$(MAKE) b2c-seed-plans	
-	@echo "$(GREEN)✓ B2C migrations complete$(NC)"
+db-recreate-test: ## Reset test database (saas_test_db) — never touches saas_demo_db
+	@echo "$(BLUE)Recreating test database (saas_test_db)...$(NC)"
+	@docker-compose up -d postgres
+	@sleep 2
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres dropdb -U $${POSTGRES_USER:-postgres} --if-exists --force saas_test_db
+	@docker-compose exec -T -e PGPASSWORD=$${POSTGRES_PASSWORD:-postgres} postgres createdb -U $${POSTGRES_USER:-postgres} saas_test_db
+	@$(MAKE) migrate-schema-test
+	@echo "$(GREEN)✓ Test database ready$(NC)"
 
-reset-db: ## Reset database (WARNING: deletes all data!)
-	@echo "$(YELLOW)⚠ This will delete all data!$(NC)"
-	@printf "Are you sure? [y/N] "; \
-	read REPLY; \
-	case "$$REPLY" in \
-		[Yy]*) \
-			docker-compose down -v; \
-			docker-compose up -d postgres platform-api b2b-api b2c-api domain-api dbmigrate b2b-worker b2c-worker nginx mailhog; \
-			sleep 5; \
-			$(MAKE) migrate; \
-			docker-compose restart postgres; \
-			sleep 5; \
-			docker-compose restart platform-api b2b-api b2c-api domain-api nginx mailhog; \
-			echo "$(GREEN)✓ Database reset complete$(NC)"; \
-			;; \
-		*) echo "Cancelled."; ;; \
-	esac
+db-setup-auth-test: ## Setup app user permissions on saas_test_db
+	@echo "$(BLUE)Setting up auth for test database...$(NC)"
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_password=\$$DB_PASSWORD -c saas.app_db_user=\$$DB_USER -c saas.app_db_name=saas_test_db\"; psql -U \$$POSTGRES_USER -d saas_test_db -f /app/scripts/init_auth_db.sql"
+	@docker-compose exec -T postgres sh -c "export PGOPTIONS=\"-c saas.app_db_user=\$$DB_USER\"; psql -U \$$POSTGRES_USER -d saas_test_db -f /app/scripts/grant_permissions.sql"
+	@echo "$(GREEN)✓ Test DB auth setup complete$(NC)"
+
+migrate-schema-test: ## Run SQL migrations against saas_test_db
+	@echo "$(BLUE)Running migrations against test database...$(NC)"
+	@$(DC_TEST) run --rm dbmigrate
+	@$(MAKE) db-setup-auth-test
+	@echo "$(GREEN)✓ Test DB migrations applied$(NC)"
+
+
+##@ Seed
 
 platform-seed-system: ## Seed System Tenant (Platform)
 	@echo "$(BLUE)Seeding System Tenant...$(NC)"
 	@docker-compose exec -T platform-api python /app/scripts/platform/seed_system_tenant.py
 
-platform-seed-permissions: ## Seed platform permissions
-	docker-compose exec -T platform-api python /app/scripts/platform/seed_platform_permissions.py
-
-platform-create-admin: ## Create Platform Admin User
+platform-seed-admin: ## Create Platform Admin User
 	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
 	@docker-compose exec -T platform-api python /app/scripts/platform/create_platform_admin.py
 
-b2b-seed-roles: ## Seed domain-specific roles and templates
-	@echo "$(BLUE)Seeding domain data...$(NC)"
-	@docker-compose run --rm b2b-api python /app/scripts/b2b/seed_domain_data.py
-	@echo "$(GREEN)✓ Domain data seeded$(NC)"
+platform-seed-permissions: ## Seed platform permissions
+	docker-compose exec -T platform-api python /app/scripts/platform/seed_platform_permissions.py
 
-b2b-seed-plans: ## Seed B2B subscription plans
-	@echo "$(BLUE)Seeding B2B subscription plans...$(NC)"
-	@docker-compose exec -T b2b-api python /app/scripts/b2b/seed_b2b_plans.py
-	@echo "$(GREEN)✓ B2B plans seeded$(NC)"
+b2b-seed-roles: ## Seed B2B RBAC Roles (Foundation + [USE_CASE])
+	@echo "$(BLUE)=== SaaS Admin Console - RBAC Seeding ===$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/seed_rbac.py
+ifdef USE_CASE
+	@echo "$(YELLOW)Loading domain use case: $(USE_CASE)$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_rbac.py
+endif
+
+b2b-seed-plans: ## Seed B2B Subscription Plans
+	@echo "$(BLUE)=== SaaS Admin Console - Subscription Seeding ===$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/seed_subscription_plans.py
 
 b2c-seed-plans: ## Seed B2C subscription plans
 	@echo "$(BLUE)Seeding B2C subscription plans...$(NC)"
 	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
 	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
-b2b-invite: ## Invite B2B Tenant (interactive)
+b2b-verify-seed: ## Verify B2B Seed Data
+	@echo "$(BLUE)=== SaaS Admin Console - Seed Verification ===$(NC)"
+	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/verify_seed.py
+
+b2b-seed-meta: ## Seed domain-specific metadata (generic - calls domain's seed_meta.py)
+ifdef USE_CASE
+	@echo "$(BLUE)=== $(USE_CASE) - Meta Seeding ===$(NC)"
+	@docker-compose exec -T b2b-domain-api python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_meta.py
+endif
+
+seed-all: ## Run all seed scripts — B2B + B2C (requires all API services running)
+	@echo "$(BLUE)Running seed scripts...$(NC)"
+	@$(MAKE) platform-seed-permissions
+	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@$(MAKE) b2b-seed-plans
+	@$(MAKE) b2c-seed-plans
+	@$(MAKE) b2b-verify-seed
+	@echo "$(GREEN)✓ Seed scripts complete$(NC)"
+
+seed-b2b: ## Seed B2B platform only — no b2c-api needed (USE_CASE=xxx for domain roles)
+	@echo "$(BLUE)Running B2B seed scripts...$(NC)"
+	@$(MAKE) platform-seed-permissions
+	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@$(MAKE) b2b-seed-plans
+	@$(MAKE) b2b-verify-seed
+	@echo "$(GREEN)✓ B2B seed complete$(NC)"
+
+seed-demo: ## Full demo system (optional USE_CASE=xxx) — starts all services
+	@echo "$(BLUE)=== Setting up Demo System ===$(NC)"
+	@$(MAKE) db-recreate
+	@$(MAKE) restart
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+ifdef USE_CASE
+	@$(MAKE) b2b-invite f=modules/domains/b2b/$(USE_CASE)/scripts/seeds/demo_tenant.json
+	@$(MAKE) b2b-seed-meta USE_CASE=$(USE_CASE)
+else
+	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/demo_tenant.json
+endif
+	@echo "$(GREEN)✅ Demo system ready$(NC)"
+
+
+## B2B Onboarding
+
+b2b-invite: ## Invite B2B Tenant (f=file.json [PLUGINS=p1,p2])
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
-	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local
+	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local \
+		--file $(or $(f),modules/domains/b2b/task_management/scripts/seeds/task_management_demo.json) \
+		$(if $(PLUGINS),--plugins $(PLUGINS),)
+
+b2b-invite-bank: ## Invite Bank Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=modules/domains/b2b/bank_surveillance/scripts/seeds/bank_surveillance_demo.json
+
+b2b-invite-marketing: ## Invite Marketing Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=modules/domains/b2b/marketing_agency/scripts/seeds/marketing_agency_demo.json
+
+b2b-invite-task: ## Invite Task Management Tenant (Shortcut)
+	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/task_management_demo.json
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -177,6 +228,187 @@ else
 	@echo "$(YELLOW)Usage: make b2b-resend-invite d=<domain> OR t=<tenant-id>$(NC)"
 	@echo "Example: make b2b-resend-invite d=acme.com"
 endif
+
+##@ B2B Demos
+
+b2b-demo-bank: ## Bank Surveillance demo — starts B2B-only containers (no B2C services)
+	@echo "$(BLUE)=== Bank Surveillance Demo Setup ===$(NC)"
+	@$(MAKE) db-recreate
+	@echo "$(BLUE)Starting B2B services...$(NC)"
+	@docker-compose --profile b2b-demo up -d
+	@sleep 5
+	@$(MAKE) seed-b2b USE_CASE=bank_surveillance
+	@$(MAKE) b2b-invite f=modules/domains/b2b/bank_surveillance/scripts/seeds/demo_tenant.json
+	@$(MAKE) b2b-seed-meta USE_CASE=bank_surveillance
+	@echo ""
+	@echo "$(GREEN)✅ Bank Surveillance Demo Ready!$(NC)"
+	@echo "  📋 Resources: communications, investigations, alerts, surveillance_reports"
+	@echo "  👥 Roles: surveillance_chief, surveillance_analyst, operations_maker, operations_checker"
+	@echo ""
+	@echo "$(BLUE)Login as:$(NC)         owner@worldwidebank.com"
+	@echo "$(BLUE)B2B Portal:$(NC)       http://localhost:3000"
+	@echo "$(BLUE)Platform Portal:$(NC)  http://localhost:3002"
+	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
+	@echo "$(BLUE)Mailhog:$(NC)          http://localhost:8025"
+	@echo ""
+	@echo "$(YELLOW)B2C services are NOT running (not needed for bank demo)$(NC)"
+	@echo "$(YELLOW)Run 'make dev-full' to start all services including B2C$(NC)"
+
+b2b-demo-task: ## Task Management demo — starts B2B-only containers (no B2C services)
+	@echo "$(BLUE)=== Task Management Demo Setup ===$(NC)"
+	@$(MAKE) db-recreate
+	@echo "$(BLUE)Starting B2B services...$(NC)"
+	@docker-compose --profile b2b-demo up -d
+	@sleep 5
+	@$(MAKE) seed-b2b USE_CASE=task_management
+	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/demo_tenant.json
+	@$(MAKE) b2b-seed-meta USE_CASE=task_management
+	@echo ""
+	@echo "$(GREEN)✅ Task Management Demo Ready!$(NC)"
+	@echo "$(BLUE)B2B Portal:$(NC)       http://localhost:3000"
+	@echo "$(BLUE)Platform Portal:$(NC)  http://localhost:3002"
+	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
+	@echo "$(YELLOW)B2C services are NOT running (not needed for task demo)$(NC)"
+
+b2c-demo-trader: ## Finance Trader demo — starts B2C-only containers (no B2B services)
+	@echo "$(BLUE)=== Finance Trader Demo Setup ===$(NC)"
+	@$(MAKE) db-recreate
+	@echo "$(BLUE)Starting B2C services...$(NC)"
+	@docker-compose --profile b2c-demo up -d
+	@sleep 5
+	@$(MAKE) b2c-seed-plans
+	@echo ""
+	@echo "$(GREEN)✅ Finance Trader Demo Ready!$(NC)"
+	@echo "$(BLUE)B2C Portal:$(NC)       http://localhost:3001"
+	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
+	@echo "$(YELLOW)B2B services are NOT running (not needed for B2C demo)$(NC)"
+
+
+##@ Testing
+
+test-api: ## Run backend API pytest suite — uses saas_test_db, never touches demo data. Usage: make test-api [USE_CASE=bank_surveillance] [path=tests/b2b/api]
+	@echo "$(BLUE)Running backend API tests (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@sleep 5
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
+		$(or $(path),tests/) \
+		-v
+	@echo "$(GREEN)✓ Backend API tests complete$(NC)"
+
+test-ui: ## Run automated Playwright browser tests — uses saas_test_db. Usage: make test-ui [USE_CASE=bank_surveillance]
+	@echo "$(BLUE)Running automated UI tests (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@$(DC_TEST) --profile test-ui up -d
+	@sleep 8
+	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
+	@$(DC_TEST) --profile test-ui run --rm e2e-tests pytest \
+		tests/e2e_browser \
+		-v
+	@echo "$(GREEN)✓ UI tests complete$(NC)"
+
+test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running B2B Foundation Full Suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@sleep 5
+	@$(MAKE) seed-all
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
+		tests/b2b/api/foundation \
+		tests/b2b/services/foundation \
+		tests/b2b/units \
+		-v
+
+
+test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running Bank Surveillance specific suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@sleep 5
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
+	@$(DC_TEST) run --rm -e USE_CASE=bank_surveillance e2e-tests \
+		pytest \
+		tests/b2b/api/use_cases/bank_surveillance \
+		tests/b2b/services/use_cases/bank_surveillance \
+		tests/b2b/units/use_cases/bank_surveillance \
+		-v
+
+test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank) — uses saas_test_db
+	@echo "$(BLUE)Running Bank Surveillance full suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@sleep 5
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
+	@$(DC_TEST) run --rm -e USE_CASE=bank_surveillance e2e-tests \
+		pytest \
+		tests/b2b/api/foundation \
+		tests/b2b/api/use_cases/bank_surveillance \
+		tests/b2b/services/foundation \
+		tests/b2b/services/use_cases/bank_surveillance \
+		tests/b2b/units \
+		-v
+
+test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running B2C Foundation Full Suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@sleep 5
+	@$(MAKE) seed-all
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
+		tests/b2c/api/foundation \
+		tests/b2c/services/foundation \
+		tests/b2c/units \
+		-v
+
+
+test-platform-foundation-only: ## Run Platform foundation full suite (API, Services, Units) — uses saas_test_db
+	@echo "$(BLUE)Running Platform Foundation Full Suite (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@sleep 5
+	@$(MAKE) seed-all
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
+		tests/platform/api \
+		tests/platform/services \
+		tests/platform/units \
+		-v
+
+
+test-all-foundation: ## Run all foundation tests (B2B, B2C, Platform) — uses saas_test_db
+	@echo "$(BLUE)Running All Foundation Tests (saas_test_db)...$(NC)"
+	@$(MAKE) db-recreate-test
+	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
+		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+	@sleep 5
+	@$(MAKE) seed-all
+	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
+		tests/b2b/api/foundation \
+		tests/b2b/services/foundation \
+		tests/b2b/units \
+		tests/b2c/api/foundation \
+		tests/b2c/services/foundation \
+		tests/b2c/units \
+		tests/platform/api \
+		tests/platform/services \
+		tests/platform/units \
+		-v
 
 ##@ Frontend (Local Development)
 
@@ -201,136 +433,10 @@ web-platform: ## Start Platform portal (port 3002)
 	fi
 	cd frontend && npm run start:platform
 
-web-all: ## Build all portals for production
-	cd frontend && npm run build:all
-
-##@ Development
-
-up-backend: ## Start only backend services
-	@echo "$(BLUE)Starting backend services...$(NC)"
-	docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
-	@echo "$(GREEN)✓ Backend services started$(NC)"
-
-dev-b2b: ## Start dev env: backend + B2B frontend (port 3000)
-	@$(MAKE) up-backend
-	@sleep 3
-	@echo "$(BLUE)Backend started, starting B2B frontend...$(NC)"
-	@$(MAKE) web-b2b
-
-dev-b2c: ## Start dev env: backend + B2C frontend (port 3001)
-	@$(MAKE) up-backend
-	@sleep 3
-	@echo "$(BLUE)Backend started, starting B2C frontend...$(NC)"
-	@$(MAKE) web-b2c
-
-dev-platform: ## Start dev env: backend + Platform frontend (port 3002)
-	@$(MAKE) up-backend
-	@sleep 3
-	@echo "$(BLUE)Backend started, starting Platform frontend...$(NC)"
-	@$(MAKE) web-platform
-
-shell: ## Open shell (usage: make shell s=b2b-api)
-ifdef s
-	docker-compose exec $(s) /bin/bash
-else
-	@echo "$(YELLOW)Usage: make shell s=<service_name>$(NC)"
-	@echo "Available services: b2b-api, platform-api, b2c-api, domain-api, postgres"
-endif
-
-clean: ## Clean up containers, volumes, and build artifacts
-	@echo "$(BLUE)Cleaning up...$(NC)"
-	docker-compose down -v
-	rm -rf frontend/node_modules/.cache
-	rm -rf frontend/dist
-	@echo "$(GREEN)✓ Cleanup complete$(NC)"
-
-clean-all: clean ## Complete cleanup including node_modules
-	rm -rf frontend/node_modules
-
-##@ Testing
-
-test-api: ## Run all API integration tests
-	@echo "$(BLUE)Running API integration tests...$(NC)"
-	docker-compose run --rm e2e-tests pytest -n auto tests/e2e_api/ -v
-	@echo "$(GREEN)✓ API tests complete$(NC)"
+stop-web-all:
+	docker-compose stop frontend-b2c frontend-b2b frontend-platform || true
 
 
-# Test Runner Config
-# Test Runner Config
-ifdef LOCAL
-TEST_CMD := cd backend && pytest
-PROVISION_BACKEND := docker-compose up -d postgres b2b-api platform-api b2c-api domain-api nginx
-else
-TEST_CMD := docker-compose run --rm e2e-tests pytest
-PROVISION_BACKEND := docker-compose up -d
-endif
-
-test-browser: ## Run E2E browser tests (Use LOCAL=1 to run locally)
-	@echo "$(BLUE)Running E2E browser tests...$(NC)"
-	@if [ "$(HEADED)" = "1" ] && [ -z "$(LOCAL)" ]; then \
-		echo "$(YELLOW)Note: Running in HEADED mode requires X11 forwarding for Docker.$(NC)"; \
-	fi
-	$(PROVISION_BACKEND)
-	@if [ -z "$(LOCAL)" ]; then sleep 10; else sleep 3; fi
-	$(TEST_CMD) tests/e2e_browser/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v
-	@echo "$(GREEN)✓ E2E browser tests complete$(NC)"
-
-test-browser-b2c: ## Run B2C E2E browser tests (usage: make test-browser-b2c TEST_PATH=tests/e2e_browser/b2c/test_file.py)
-	@echo "$(BLUE)Running B2C E2E tests...$(NC)"
-	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
-	docker-compose --profile e2e up -d frontend-b2c
-	$(PROVISION_BACKEND)
-	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2c/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-b2c && exit 1)
-	docker-compose stop frontend-b2c
-
-test-browser-b2b: ## Run B2B E2E browser tests (usage: make test-browser-b2b TEST_PATH=tests/e2e_browser/b2b/test_file.py)
-	@echo "$(BLUE)Running B2B E2E tests...$(NC)"
-	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
-	docker-compose --profile e2e up -d frontend-b2b
-	$(PROVISION_BACKEND)
-	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) $(if $(TEST_PATH),$(TEST_PATH),tests/e2e_browser/b2b/) $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-b2b && exit 1)
-	docker-compose stop frontend-b2b
-
-test-browser-platform: ## Run Platform E2E browser tests
-	@echo "$(BLUE)Running Platform E2E tests...$(NC)"
-	@echo "$(YELLOW)Starting frontend containers for E2E tests...$(NC)"
-	docker-compose --profile e2e up -d frontend-platform
-	$(PROVISION_BACKEND)
-	@if [ -z "$(LOCAL)" ]; then sleep 5; else sleep 3; fi
-	$(TEST_CMD) tests/e2e_browser/platform/ $(if $(filter 1,$(HEADED)),--headed,) $(if $(filter 1,$(SLOW)),--slowmo 2000,) $(ARGS) -v || (docker-compose stop frontend-platform && exit 1)
-	docker-compose stop frontend-platform
-
-local-test-browser-b2b: ## Run B2B browser tests locally with venv (headed)
-	cd backend && .venv/bin/pytest tests/e2e_browser/b2b/ --headed -v
-
-local-test-browser-b2c: ## Run B2C browser tests locally with venv (headed)
-	cd backend && .venv/bin/pytest tests/e2e_browser/b2c/ --headed -v
-
-local-test-browser-platform: ## Run Platform browser tests locally with venv (headed)
-	cd backend && .venv/bin/pytest tests/e2e_browser/platform/ --headed -v
-
-test: ## Run all tests
-	@$(MAKE) test-api
-	@$(MAKE) test-browser
-
-test-coverage: ## Run tests with code coverage report
-	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=modules --cov=core --cov-report=term-missing --cov-report=html:coverage_html
-	@echo "$(GREEN)✓ Coverage report generated in backend/coverage_html/$(NC)"
-
-test-coverage-xml: ## Run tests with coverage (XML for CI)
-	@echo "$(BLUE)Running tests with coverage (XML)...$(NC)"
-	docker-compose run --rm e2e-tests pytest tests/e2e_api/ -v --cov=modules --cov=core --cov-report=xml:coverage.xml
-	@echo "$(GREEN)✓ Coverage XML generated$(NC)"
-
-test-env: ## Validate environment configuration
-	@echo "$(BLUE)Checking environment configuration...$(NC)"
-	@for file in .env backend/.env frontend/.env secrets/firebase-credentials.json; do \
-		if [ -f $$file ]; then echo "$(GREEN)✓ $$file exists$(NC)"; \
-		else echo "$(YELLOW)✗ $$file missing$(NC)"; fi \
-	done
 
 ##@ Performance
 
@@ -339,13 +445,13 @@ DURATION ?= 1m
 load-test-b2b: ## Run B2B Locust load test (50 users). Usage: make load-test-b2b DURATION=30s
 	@echo "$(BLUE)Starting B2B Locust load test (50 users, $(DURATION))...$(NC)"
 	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
-	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
+	$(DC_TEST) --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
 	@echo "$(GREEN)✓ B2B Load test complete$(NC)"
 
 load-test-b2c: ## Run B2C Locust load test (50 users). Usage: make load-test-b2c DURATION=30s
 	@echo "$(BLUE)Starting B2C Locust load test (50 users, $(DURATION))...$(NC)"
 	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
-	docker-compose run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
+	$(DC_TEST) --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
 	@echo "$(GREEN)✓ B2C Load test complete$(NC)"
 
 ##@ SAST (Static Application Security Testing)
@@ -371,7 +477,8 @@ sast-scan-containers: ## Run Trivy vulnerability scan on Docker images
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2b-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-platform-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2c-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
-	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2b-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
+	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2c-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@echo "$(YELLOW)Scanning frontend image...$(NC)"
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-frontend:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@echo "$(GREEN)✓ Container security scan complete - Report saved to backend/trivy-report.txt$(NC)"
@@ -419,7 +526,6 @@ dast-scan-full: ## Run OWASP ZAP full active scan (comprehensive but slow)
 
 
 ##@ Stripe
-
 
 stripe-listen-b2b: ## Forward Stripe webhooks to B2B service (Port 8000)
 	@echo "$(BLUE)Forwarding Stripe events to B2B Service...$(NC)"

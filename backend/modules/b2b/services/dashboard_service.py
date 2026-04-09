@@ -105,7 +105,7 @@ class DashboardService:
             my_teams.append({
                 "id": str(team.id),
                 "name": team.name,
-                "team_role": member.team_role or (role_def.name if role_def else 'team_contributor'),
+                "team_role": member.team_role or (role_def.name if role_def else None),
                 "team_role_display": role_def.display_name if role_def else None,
                 "member_count": member_count
             })
@@ -130,7 +130,7 @@ class DashboardService:
         overdue_tasks_count = 0
         
         try:
-            from modules.domains.projects.models import Project, Task
+            from modules.domains.b2b.task_management.models import Project, Task
             from datetime import datetime, timezone
             
             if is_admin_scope:

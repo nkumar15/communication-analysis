@@ -377,8 +377,12 @@ class SubscriptionService:
         )
         self.db.add(event)
         await self.db.flush()
+
+        # SYNC PLAN CONFIG (Plugins + Features + Limits)
+        await self.apply_subscription_to_tenant(tenant_id, plan)
         
         logger.info(f"✅ Subscription activated: {subscription.id} (tier: {tier.value}, seats: {seat_count})")
+
         
         # Metric
         from infrastructure.monitoring import increment_subscription_event
@@ -442,6 +446,66 @@ class SubscriptionService:
             # Don't fail the whole transaction for email issues
         
         return subscription
+
+    async def apply_subscription_to_tenant(
+        self,
+        tenant_id: UUID,
+        plan: B2BSubscriptionPlan
+    ) -> dict:
+        """
+        Single entry point for applying subscription plan config to a tenant.
+        
+        Extracts features (including plugins) and limits from the plan,
+        then applies them to the tenant via tenant_service.update_tenant_features().
+        This triggers plugin enable/disable lifecycle hooks.
+        
+        Called by:
+        - handle_checkout_completed() (runtime upgrade/downgrade via Stripe)
+        - tenant_onboarding_service (initial provisioning with tier)
+        - CLI set-subscription command (admin tool)
+        
+        Args:
+            tenant_id: Target tenant UUID
+            plan: B2BSubscriptionPlan instance with features and limits
+            
+        Returns:
+            Dict with added/removed plugins and final active features
+        """
+        from modules.b2b.services.tenant_service import tenant_service
+        from modules.b2b.schemas.features import PlanFeatures, TenantFeatures
+
+        # Validate plan's feature blob before applying — catches bad seeds/typos early
+        plan_features = PlanFeatures(**(plan.features or {}))
+
+        # Get current tenant features to preserve custom flags
+        tenant_result = await self.db.execute(
+            select(TenantModel).where(TenantModel.id == tenant_id)
+        )
+        tenant = tenant_result.scalar_one_or_none()
+        if not tenant:
+            raise ValueError(f"Tenant {tenant_id} not found")
+
+        current_features = tenant.features or {}
+
+        # Merge: plan feature flags overlay current tenant flags.
+        # Limits are intentionally NOT stored in tenant.features — they are
+        # always read fresh from the subscription → plan join so they can
+        # never go stale if a plan definition changes.
+        merged = TenantFeatures(**current_features)
+        merged = merged.model_copy(update=plan_features.model_dump(exclude={"plugins"}))
+        merged.plugins = plan_features.plugins   # plugins replaced wholesale by plan
+
+        logger.info(f"Applying subscription config for tenant {tenant_id}: plan={plan.tier_key}")
+
+        # Delegate to tenant_service for plugin lifecycle hooks
+        result = await tenant_service.update_tenant_features(
+            self.db, tenant_id, merged.model_dump()
+        )
+
+        logger.info(f"✅ Subscription config applied: added={result.get('added_plugins')}, removed={result.get('removed_plugins')}")
+        
+        return result
+
     
     async def get_active_seat_count(self, tenant_id: UUID) -> int:
         """

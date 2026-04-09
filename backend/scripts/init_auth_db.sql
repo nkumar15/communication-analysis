@@ -23,7 +23,8 @@ DO
 $do$
 DECLARE
    _user text := current_setting('saas.app_db_user');
+   _dbname text := current_setting('saas.app_db_name');
 BEGIN
-   EXECUTE format('GRANT CONNECT ON DATABASE sso_db TO %I', _user);
+   EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', _dbname, _user);
 END
 $do$;

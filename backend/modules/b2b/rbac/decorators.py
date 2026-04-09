@@ -29,18 +29,26 @@ def require_permission(resource: str, action: str):
         current_user: dict = Depends(get_current_active_user),
         db: AsyncSession = Depends(get_db)
     ):
-        """Check if user has required permission"""
-        user_id = current_user.get('id')
+        """Check if user has required permission (3-layer aware)"""
+        from .permission_checker import has_permission_with_plugins
         
+        user_id = current_user.get('id')
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated"
             )
         
-        # Check permission (optimized with role_id)
-        role_id = current_user.get('role_id')
-        allowed = await has_permission(user_id, resource, action, db, role_id=role_id)
+        # Check permission using the comprehensive 3-layer flow
+        allowed = await has_permission_with_plugins(
+            user_id, 
+            resource, 
+            action, 
+            db, 
+            role_id=current_user.get('role_id'),
+            extra_context={"user": current_user}
+        )
+        
         if not allowed:
             from infrastructure.monitoring import increment_rbac_denial
             increment_rbac_denial(resource, action)
@@ -95,49 +103,3 @@ def require_role(*allowed_roles: str):
         return current_user
     
     return Depends(role_dependency)
-
-
-# Combined permission + role check
-def require_permission_and_role(resource: str, action: str, *allowed_roles: str):
-    """
-    Decorator to require both permission AND role
-    
-    More restrictive - user must have both the permission and be in one of the allowed roles.
-    Usually, permission check alone is sufficient.
-    
-    Usage:
-        @router.delete("/shops/{id}")
-        @require_permission_and_role('shops', 'delete', 'admin', 'shop_manager')
-        async def delete_shop(id: int, current_user: dict = Depends(get_current_user)):
-            ...
-    """
-    async def combined_dependency(
-        current_user: dict = Depends(get_current_active_user),
-        db: AsyncSession = Depends(get_db)
-    ):
-        user_id = current_user.get('id')
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
-            )
-        
-        # Check role first
-        role_name = await get_user_role_name(user_id, db)
-        if role_name not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required roles: {', '.join(allowed_roles)}"
-            )
-        
-        # Check permission
-        allowed = await has_permission(user_id, resource, action, db)
-        if not allowed:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: {resource}:{action}"
-            )
-        
-        return current_user
-    
-    return Depends(combined_dependency)

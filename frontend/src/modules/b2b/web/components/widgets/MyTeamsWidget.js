@@ -45,7 +45,7 @@ const MyTeamsWidget = ({ teams = [], loading = false }) => {
 
             {teams.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>
-                    You're not part of any teams yet.
+                    You're not part of any business teams yet.
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

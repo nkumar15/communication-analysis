@@ -3,7 +3,7 @@ $do$
 DECLARE
    _user text := current_setting('saas.app_db_user');
    _schema text;
-   _schemas text[] := ARRAY['public', 'platform', 'b2b', 'b2c', 'domain', 'b2c_todos'];
+   _schemas text[] := ARRAY['public', 'platform', 'b2b', 'b2c', 'bank_surveillance', 'b2b_project_management', 'b2c_finance_trader'];
 BEGIN
    FOREACH _schema IN ARRAY _schemas
    LOOP

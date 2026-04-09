@@ -10,7 +10,7 @@ from modules.b2b.schemas.dashboard import DashboardStats
 from modules.b2b.services.dashboard_service import dashboard_service
 
 
-router = APIRouter(prefix="/api/b2b/dashboard", tags=["dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats", response_model=DashboardStats)

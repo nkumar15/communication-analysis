@@ -1,6 +1,6 @@
 import firebaseAuthService from '../firebase/authService';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 /**
  * Get authorization headers
@@ -216,6 +216,13 @@ const invitationApi = {
 
         if (!response.ok) {
             const error = await response.json();
+            // Handle validation errors with detailed row information
+            if (error.detail?.error === 'validation_failed' && error.detail?.errors) {
+                const validationError = new Error(error.detail.message || 'Validation failed');
+                validationError.validationErrors = error.detail.errors;
+                validationError.isValidationError = true;
+                throw validationError;
+            }
             throw new Error(error.detail?.message || error.detail || 'Failed to process bulk invitations');
         }
 

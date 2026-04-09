@@ -71,6 +71,16 @@ const ActivationPage = () => {
 
         } catch (err) {
             console.error('SSO config error:', err);
+
+            // Check if SSO provider already exists (HTTP 409)
+            if (err.message && err.message.includes('already configured')) {
+                console.log('✅ SSO already configured, skipping to login step');
+                // SSO already exists, proceed to login
+                await startSSO();
+                return;
+            }
+
+            // Other errors
             setError(err.message || 'Failed to configure SSO');
             setStep('error');
         } finally {

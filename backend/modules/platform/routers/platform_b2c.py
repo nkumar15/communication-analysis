@@ -18,7 +18,7 @@ from uuid import UUID
 from typing import List
 
 router = APIRouter(
-    prefix="/api/platform/b2c",
+    prefix="/b2c",
     tags=["platform-b2c"]
 )
 

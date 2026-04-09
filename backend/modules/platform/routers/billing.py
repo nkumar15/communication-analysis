@@ -42,7 +42,7 @@ from modules.platform.schemas.billing_schemas import (
 )
 
 router = APIRouter(
-    prefix="/api/platform/billing",
+    prefix="/billing",
     tags=["Platform Billing"],
     dependencies=[Depends(verify_platform_admin)]
 )
@@ -250,7 +250,9 @@ async def cancel_subscription(
         except ValueError as e:
             raise HTTPException(404, str(e))
         except Exception as e:
-             raise HTTPException(500, str(e))
+             import logging
+             logging.getLogger(__name__).error(f"Cancel subscription failed: {e}", exc_info=True)
+             raise HTTPException(500, "Failed to cancel subscription")
 
     elif type == 'user':
         # B2C: cancel takes 'workspace'.
@@ -325,7 +327,9 @@ async def send_invoice_email(
         except ValueError as e:
             raise HTTPException(404, str(e))
         except Exception as e:
-             raise HTTPException(500, str(e))
+             import logging
+             logging.getLogger(__name__).error(f"Send invoice email failed: {e}", exc_info=True)
+             raise HTTPException(500, "Failed to send invoice email")
     else:
         # B2C Invoice Service not implemented yet with this method
         raise HTTPException(501, "Not implemented for B2C yet")
@@ -350,7 +354,9 @@ async def refund_invoice(
         except ValueError as e:
             raise HTTPException(400, str(e))
         except Exception as e:
-             raise HTTPException(500, str(e))
+             import logging
+             logging.getLogger(__name__).error(f"Refund invoice failed: {e}", exc_info=True)
+             raise HTTPException(500, "Failed to process refund")
     else:
         raise HTTPException(501, "Not implemented for B2C yet")
 

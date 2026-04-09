@@ -123,6 +123,17 @@ def increment_subscription_event(event_type: str, plan: str):
         labels={"event_type": event_type, "plan": plan}
     )
 
+@contextmanager
+def record_rag_processing(domain: str, stage: str):
+    start = time.time()
+    yield
+    duration = time.time() - start
+    get_metrics_provider().observe(
+        "rag_processing_duration_seconds", 
+        duration, 
+        labels={"domain": domain, "stage": stage}
+    )
+
 def setup_metrics():
     """Initialize metrics provider (Idempotent)"""
     get_metrics_provider()

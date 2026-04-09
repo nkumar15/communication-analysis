@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS b2b.tenants (
     domain VARCHAR(255) NOT NULL UNIQUE,
     firebase_tenant_id VARCHAR(255) NOT NULL UNIQUE,
     logo_url VARCHAR(500),
+    domain_type VARCHAR(50) DEFAULT 'default',
     
     -- Activation workflow fields
     activation_token VARCHAR(64) UNIQUE,
@@ -71,6 +72,16 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON b2b.users(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON b2b.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON b2b.users(firebase_uid);
 
+-- ============================================================================
+-- PLUGIN EXTENSIONS (Added for geographic_boundaries)
+-- ============================================================================
+ALTER TABLE b2b.users 
+ADD COLUMN IF NOT EXISTS geographic_scopes UUID[] DEFAULT ARRAY[]::UUID[];
+
+CREATE INDEX IF NOT EXISTS idx_users_geographic_scopes 
+ON b2b.users USING GIN(geographic_scopes);
+
+
 -- Now we can add the circular FK for tenants.activated_by
 ALTER TABLE b2b.tenants ADD CONSTRAINT fk_tenants_activated_by 
     FOREIGN KEY (activated_by) REFERENCES b2b.users(id);
@@ -107,6 +118,22 @@ CREATE INDEX IF NOT EXISTS idx_teams_tenant_id ON b2b.teams(tenant_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_teams_one_default_per_tenant 
     ON b2b.teams(tenant_id) 
     WHERE is_default = true AND deleted_at IS NULL;
+
+-- ============================================================================
+-- PLUGIN EXTENSIONS (Added for hierarchical_teams)
+-- ============================================================================
+ALTER TABLE b2b.teams 
+ADD COLUMN IF NOT EXISTS parent_team_id UUID REFERENCES b2b.teams(id);
+
+ALTER TABLE b2b.teams 
+ADD COLUMN IF NOT EXISTS team_type VARCHAR(50);
+
+ALTER TABLE b2b.teams 
+ADD COLUMN IF NOT EXISTS hierarchy_level INTEGER DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_teams_parent ON b2b.teams(parent_team_id);
+CREATE INDEX IF NOT EXISTS idx_teams_hierarchy ON b2b.teams(hierarchy_level);
+
 
 -- Team Members
 CREATE TABLE IF NOT EXISTS b2b.team_members (

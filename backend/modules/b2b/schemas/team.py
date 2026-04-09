@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -11,6 +11,8 @@ class TeamBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Team name")
     description: Optional[str] = Field(None, max_length=1000, description="Team description")
     config_data: Dict[str, Any] = Field(default_factory=dict, description="Additional team configuration")
+    parent_team_id: Optional[UUID] = Field(None, description="Parent team ID for hierarchy")
+    team_type: str = Field("standard", description="Team type (standard/hierarchical)")
 
 class TeamCreate(TeamBase):
     """Schema for creating a new team"""
@@ -31,9 +33,9 @@ class TeamResponse(TeamBase):
     created_at: datetime
     updated_at: datetime
     member_count: int = 0
+    org_tier: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TeamListResponse(BaseModel):
     """Schema for team list item"""
@@ -43,9 +45,10 @@ class TeamListResponse(BaseModel):
     is_default: bool
     member_count: int = 0
     created_at: datetime
+    parent_team_id: Optional[UUID] = None
+    org_tier: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ============================================================================
 # Team Member Schemas
@@ -54,18 +57,20 @@ class TeamListResponse(BaseModel):
 class TeamMemberAdd(BaseModel):
     """Schema for adding a user to a team"""
     user_id: UUID
-    team_role: str = Field(
-        default="team_contributor", 
-        pattern="^(team_manager|team_contributor|team_reader)$",
-        description="Role within the team"
+    team_role: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=50,
+        description="Role within the team (optional, can be None)"
     )
 
 class TeamMemberUpdate(BaseModel):
     """Schema for updating team member role"""
-    team_role: str = Field(
-        ..., 
-        pattern="^(team_manager|team_contributor|team_reader)$",
-description="New role for the team member"
+    team_role: Optional[str] = Field(
+        None, 
+        min_length=1,
+        max_length=50,
+        description="New role for the team member (optional)"
     )
 
 class TeamMemberResponse(BaseModel):
@@ -73,21 +78,22 @@ class TeamMemberResponse(BaseModel):
     id: UUID
     team_id: UUID
     user_id: UUID
-    team_role: str
+    team_role: Optional[str] = None
     user_email: Optional[EmailStr] = None
     user_name: Optional[str] = None
     joined_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MoveUserRequest(BaseModel):
     """Schema for moving user between teams"""
     from_team_id: UUID
     to_team_id: UUID
-    team_role: str = Field(
-        default="team_contributor",
-        pattern="^(team_manager|team_contributor|team_reader)$"
+    team_role: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=50,
+        description="Role in the destination team"
     )
 
 # ============================================================================
@@ -100,5 +106,4 @@ class TeamStatsResponse(BaseModel):
     default_team_id: Optional[UUID]
     user_teams_count: int  # Number of teams current user belongs to
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

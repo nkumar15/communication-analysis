@@ -8,6 +8,12 @@ This microservice handles domain-specific business logic:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
+# CRITICAL: Disable LlamaIndex's auto-patching of event loop (nest_asyncio)
+# Monkeypatch nest_asyncio.apply to be a no-op because we use uvloop (incompatible)
+import nest_asyncio
+nest_asyncio.apply = lambda: None
+
 from core.config import settings
 from core.db.session import init_db, close_db, engine
 from infrastructure.auth import get_auth_provider
@@ -21,11 +27,16 @@ from infrastructure.logging.middleware import LoggingMiddleware
 logger = get_logger(__name__)
 
 # Import domain-specific routers
-from modules.domains.projects.routers import (
+from modules.domains.b2b.task_management.routers import (
     projects_router,
     tasks_router,
     comments_router
 )
+from modules.domains.b2c.finance_trader.routers.rag import router as rag_router
+from modules.domains.b2b.bank_surveillance.routers.enron import router as enron_router
+from modules.domains.b2b.bank_surveillance.routers.alerts import router as alerts_router
+from modules.domains.b2b.bank_surveillance.routers.risk_events import router as risk_events_router
+from modules.domains.b2b.bank_surveillance.routers.incidents import router as incidents_router
 
 
 @asynccontextmanager
@@ -41,7 +52,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     # Startup: Initialize Observability (Tracing, Metrics)
-    setup_observability(app, service_name="domain-api", sqlalchemy_engine=engine)
+    # setup_observability(app, service_name="domain-api", sqlalchemy_engine=engine) - MOVED
     
     get_auth_provider().initialize()
     logger.info("domain_api_ready",
@@ -78,10 +89,20 @@ app.add_middleware(
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
 
+# Initialize Observability (Tracing, Metrics)
+# Must be done after app creation but before requests
+setup_observability(app, service_name="domain-api", sqlalchemy_engine=engine)
+
 # Include domain-specific routers
 app.include_router(projects_router)
 app.include_router(tasks_router)
 app.include_router(comments_router)
+app.include_router(rag_router)
+app.include_router(enron_router)
+app.include_router(alerts_router)
+app.include_router(risk_events_router)
+app.include_router(incidents_router)
+
 
 
 @app.get("/")

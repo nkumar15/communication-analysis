@@ -4,8 +4,8 @@ from core.db.base import Base, TimestampMixin
 
 class B2CTodo(Base, TimestampMixin):
     """B2C Todo Item - Implements the Workspace Container Pattern"""
-    __tablename__ = "items"
-    __table_args__ = {'schema': 'b2c_todos'}
+    __tablename__ = "todos"
+    __table_args__ = {'schema': 'b2c_finance_trader'}
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), index=True)
     

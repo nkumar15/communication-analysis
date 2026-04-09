@@ -17,7 +17,7 @@ from modules.b2b.services.role_service import role_service
 from modules.b2b.services.role_template_service import role_template_service
 
 
-router = APIRouter(prefix="/api/b2b/roles", tags=["roles"])
+router = APIRouter(prefix="/roles", tags=["roles"])
 
 
 @router.get("/templates", response_model=List[RoleTemplateResponse])
@@ -63,6 +63,30 @@ async def list_resources(
     Permission required: roles:read
     """
     return await role_service.get_all_resources(db)
+
+
+@router.get("/invitable", response_model=List[RoleResponse])
+async def list_invitable_roles(
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List roles that the current user is allowed to invite
+    
+    Returns roles based on user's permissions:
+    - Users with 'users:invite' permission see invitable roles
+    - Generally excludes 'owner' role (only one owner per tenant)
+    """
+    # Get all roles for this tenant
+    all_roles = await role_service.get_all_roles(db, current_user['tenant_id'])
+    
+    # Filter to invitable roles (exclude 'owner' which is system-assigned)
+    invitable_roles = [
+        role for role in all_roles
+        if role.name != 'owner'  # Owner cannot be invited
+    ]
+    
+    return invitable_roles
 
 
 @router.post("", response_model=RoleResponse)
@@ -132,7 +156,7 @@ async def update_role(
     """
     # Verify ownership
     role = await role_service.get_role_by_id(db, role_id)
-    if not role or role.tenant_id != current_user['tenant_id']:
+    if not role or str(role.tenant_id) != str(current_user['tenant_id']):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Role not found"
@@ -155,12 +179,12 @@ async def delete_role(
     Permission required: roles:delete
     """
     role = await role_service.get_role_by_id(db, role_id)
-    if not role or role.tenant_id != current_user['tenant_id']:
+    if not role or str(role.tenant_id) != str(current_user['tenant_id']):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Role not found"
         )
-    
+
     await role_service.delete_role(db, role)
     await db.commit()
     return {"message": "Role deleted successfully"}

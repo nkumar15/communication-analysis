@@ -13,7 +13,7 @@ from modules.platform.middleware.platform_auth import verify_platform_admin
 from modules.platform.models import PlatformTenant, PlatformUser, PlatformRole
 
 router = APIRouter(
-    prefix="/api/platform",
+    prefix="",
     tags=["platform"]
 )
 

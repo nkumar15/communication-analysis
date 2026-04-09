@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/neeraj/codes/enterprisesso/.claude/hooks/post_edit_check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

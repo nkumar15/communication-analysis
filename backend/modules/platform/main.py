@@ -10,52 +10,21 @@ This microservice handles platform administration:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from core.config import settings
-from core.db.session import init_db, close_db, engine
-from infrastructure.auth import get_auth_provider
 
-# Import logging
-from infrastructure.logging.config import setup_logging, get_logger
+from core.config import settings
+from core.db.session import engine
+from core.lifespan import base_lifespan
 from infrastructure.monitoring.config import setup_observability
 from infrastructure.logging.middleware import LoggingMiddleware
-
-# Get logger for this module
-logger = get_logger(__name__)
 
 # Import Platform routers
 from modules.platform.routers import platform, platform_b2b, platform_b2c, roles, invitations, billing
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    # Startup - Initialize logging FIRST
-    setup_logging(
-        environment=settings.log_environment,
-        log_level=settings.log_level
-    )
-    logger.info("platform_api_starting", service="platform-api", port=8001)
-    
-    await init_db()
-    
-    # Startup: Initialize Observability (Tracing, Metrics)
-    # Note: Platform API currently uses sync DB for some parts and 'engine' from 'core.db.session'
-    setup_observability(app, service_name="platform-api", sqlalchemy_engine=engine)
-    
-    get_auth_provider().initialize()
-    logger.info("platform_api_ready",
-                database="connected",
-                firebase="initialized",
-                service="platform-api")
-    
-    yield
-    
-    # Shutdown
-    logger.info("platform_api_shutting_down", service="platform-api")
-    await close_db()
+    async with base_lifespan(app, "platform-api"):
+        yield
 
-
-# Create FastAPI application
 app = FastAPI(
     title="Platform Admin API",
     description="Platform administration API for managing tenants, users, and system-wide operations",
@@ -77,14 +46,16 @@ app.add_middleware(
 # Add structured logging middleware
 app.add_middleware(LoggingMiddleware)
 
-# Include Platform routers
-app.include_router(platform.router)      # Core platform endpoints (/api/platform/config, /api/platform/auth/me)
-app.include_router(platform_b2b.router)  # B2B endpoints (/api/platform/b2b/*)
-app.include_router(platform_b2c.router)  # B2C endpoints (/api/platform/b2c/*)
-app.include_router(roles.router)         # Platform roles management (/api/platform/roles)
-app.include_router(invitations.router)   # Platform user invitations (/api/platform/invitations)
-app.include_router(billing.router)       # Unified Billing Admin (Coupons, Subs, Invoices)
+# Initialize Observability
+setup_observability(app, service_name="platform-api", sqlalchemy_engine=engine)
 
+# Include Platform routers
+app.include_router(platform.router)
+app.include_router(platform_b2b.router)
+app.include_router(platform_b2c.router)
+app.include_router(roles.router)
+app.include_router(invitations.router)
+app.include_router(billing.router)
 
 @app.get("/")
 async def root():
@@ -95,7 +66,6 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
-
 
 @app.get("/health")
 async def health():

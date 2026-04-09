@@ -66,6 +66,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Node.js
+node_modules/
+
 # Docker
 docker-compose.override.yml
 
@@ -85,3 +88,10 @@ backend/zap-*.html
 backend/zap-*.md
 backend/zap-*.json
 backend/zap-*.log
+
+backend/.cache
+backend/.pytest_cache
+
+# Enron Dataset
+backend/tools/genai_evaluator/datasets/enron/source/emails*
+data/

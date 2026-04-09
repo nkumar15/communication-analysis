@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
-from modules.b2b.models import Team, TeamMember, UserModel
+from modules.b2b.models import Team, TeamMember, UserModel, TenantModel, B2BSubscription, B2BSubscriptionPlan
 from modules.b2b.models.team_role_definition import TeamRoleDefinition
 
 
@@ -36,8 +36,37 @@ async def create_team(
         Created team
         
     Raises:
-        HTTPException: If team name already exists in tenant
+        HTTPException: If team name already exists or plan limit reached
     """
+    # 1. Enforce Plan Limits (Max Teams)
+    # Count existing teams
+    count_result = await db.execute(
+        select(func.count(Team.id)).where(
+            Team.tenant_id == tenant_id,
+            Team.deleted_at.is_(None)
+        )
+    )
+    current_team_count = count_result.scalar() or 0
+    
+    # Get active subscription plan
+    plan_result = await db.execute(
+        select(B2BSubscriptionPlan)
+        .join(B2BSubscription, B2BSubscription.plan_id == B2BSubscriptionPlan.id)
+        .where(
+            B2BSubscription.tenant_id == tenant_id,
+            B2BSubscription.status.in_(['active', 'trialing'])
+        )
+    )
+    plan = plan_result.scalars().first()
+    
+    if plan and plan.limits:
+        max_teams = plan.limits.get('max_teams', -1)
+        if max_teams != -1 and current_team_count >= max_teams:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Team creation failed. Your plan limit is {max_teams} teams. Upgrade to add more."
+            )
+
     # Check if team name already exists
     existing = await db.execute(
         select(Team).where(
@@ -67,68 +96,17 @@ async def create_team(
     result = await db.execute(select(Team).where(Team.id == team.id))
     team = result.scalar_one()
     
-    # Add creator as team manager (if created_by is provided)
-    if created_by:
-        # Get or create team_manager role definition
-        from modules.b2b.models import TeamRoleDefinition
-        role_def_result = await db.execute(
-            select(TeamRoleDefinition).where(
-                TeamRoleDefinition.name == "team_manager",
-                (TeamRoleDefinition.tenant_id == tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
-            ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last())
-        )
-        role_def = role_def_result.scalars().first()
-        
-        creator_member = TeamMember(
-            team_id=team.id,
-            user_id=created_by,
-            team_role="team_manager",
-            team_role_id=role_def.id if role_def else None
-        )
-        db.add(creator_member)
-        await db.flush()
+    # NOTE: We do NOT automatically add the creator as a team member.
+    # The creator (usually Owner/Admin) has System Role authority to manage the team.
+    # They should only be added as a member if they explicitly assign themselves
+    # a Business Role (e.g., to work on a campaign).
     
     return team
 
 
-async def get_or_create_default_team(
-    db: AsyncSession,
-    tenant_id: UUID,
-    created_by: Optional[UUID] = None
-) -> Team:
-    """
-    Get the default team for a tenant, creating it if it doesn't exist
-    
-    Args:
-        db: Database session
-        tenant_id: Tenant ID
-        created_by: User ID (for creation only)
-        
-    Returns:
-        Default team
-    """
-    # Try to find existing default team
-    result = await db.execute(
-        select(Team).where(
-            Team.tenant_id == tenant_id,
-            Team.is_default == True,
-            Team.deleted_at.is_(None)
-        )
-    )
-    default_team = result.scalar_one_or_none()
-    
-    if not default_team:
-        # Create default team
-        default_team = await create_team(
-            db=db,
-            tenant_id=tenant_id,
-            name="Default Team",
-            description="Default team for all users",
-            created_by=created_by,
-            is_default=True
-        )
-    
-    return default_team
+
+
+
 
 
 async def get_tenant_teams(
@@ -148,14 +126,22 @@ async def get_tenant_teams(
     return list(result.scalars().all())
 
 
-async def get_team_by_id(db: AsyncSession, team_id: UUID) -> Optional[Team]:
-    """Get team by ID"""
-    result = await db.execute(
-        select(Team).where(
-            Team.id == team_id,
-            Team.deleted_at.is_(None)
-        )
+async def get_team_by_id(db: AsyncSession, team_id: UUID, tenant_id: UUID = None) -> Optional[Team]:
+    """
+    Get team by ID with optional tenant scope for defense-in-depth isolation.
+    
+    Args:
+        db: Database session
+        team_id: Team ID
+        tenant_id: Tenant ID (optional, but recommended for defense-in-depth)
+    """
+    query = select(Team).where(
+        Team.id == team_id,
+        Team.deleted_at.is_(None)
     )
+    if tenant_id:
+        query = query.where(Team.tenant_id == tenant_id)
+    result = await db.execute(query)
     return result.scalar_one_or_none()
 
 
@@ -281,7 +267,7 @@ async def add_team_member(
     db: AsyncSession,
     team_id: UUID,
     user_id: UUID,
-    team_role: str = "team_contributor"
+    team_role: Optional[str] = None
 ) -> TeamMember:
     """
     Add a user to a team
@@ -290,7 +276,7 @@ async def add_team_member(
         db: Database session
         team_id: Team ID
         user_id: User ID
-        team_role: Role within the team
+        team_role: Role within the team (if None, uses configured default)
         
     Returns:
         Created team member
@@ -327,6 +313,25 @@ async def add_team_member(
             detail="User is already a member of this team"
         )
     
+    # Determine team_role if not provided
+    if not team_role:
+         # Find default role
+         def_result = await db.execute(
+            select(TeamRoleDefinition).where(
+                TeamRoleDefinition.is_default == True,
+                (TeamRoleDefinition.tenant_id == team.tenant_id) | (TeamRoleDefinition.tenant_id.is_(None))
+            ).order_by(TeamRoleDefinition.tenant_id.desc().nulls_last()).limit(1)
+         )
+         def_role_obj = def_result.scalars().first()
+         if def_role_obj:
+             team_role = def_role_obj.name
+         else:
+             from fastapi import HTTPException, status as http_status
+             raise HTTPException(
+                 status_code=http_status.HTTP_400_BAD_REQUEST,
+                 detail="team_role is required. No default role is configured."
+             )
+
     # Look up team_role_id from team_role_definitions
     # First try to find by name, checking both system roles and tenant-specific roles
     team = await get_team_by_id(db, team_id)
@@ -338,6 +343,24 @@ async def add_team_member(
     )
     role_def = role_def_result.scalars().first()
     
+    # Validation: Org Tier Enforcement
+    # A role may only be assigned to a team whose org_tier matches the role's allowed tiers.
+    if role_def and role_def.allowed_org_tiers and team.org_tier:
+        if team.org_tier not in role_def.allowed_org_tiers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role '{role_def.display_name}' cannot be assigned to teams with tier '{team.org_tier}'. Allowed tiers: {role_def.allowed_org_tiers}"
+            )
+    
+    # Validation: Hard Quarantine for Default Team
+    # If the team is the Default Team, ONLY allow roles flagged as 'is_default'
+    # This prevents accidental assignment of privileged roles to the holding area
+    if team.is_default and role_def and not role_def.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Restricted: The Default Team only supports the designated default role."
+        )
+
     member = TeamMember(
         team_id=team_id,
         user_id=user_id,
@@ -369,6 +392,10 @@ async def remove_team_member(
         
     Raises:
         HTTPException: If membership not found
+        
+    Note:
+        Per RBAC design, users CAN have 0 team memberships (valid "unassigned" state).
+        No automatic fallback to default team.
     """
     result = await db.execute(
         select(TeamMember).where(
@@ -384,8 +411,14 @@ async def remove_team_member(
             detail="User is not a member of this team"
         )
     
+    # Delete the membership
     await db.delete(member)
     await db.flush()
+    
+    # NOTE: Per RBAC design, users CAN have 0 team memberships
+    # This is the valid "unassigned" state - no orphan fallback needed
+    # REMOVED: Auto-assignment to default team (contradicts "No default team" design)
+
 
 
 async def update_team_member_role(
@@ -434,6 +467,22 @@ async def update_team_member_role(
     )
     role_def = role_def_result.scalars().first()
     
+    # Validation: Org Tier Enforcement
+    # A role may only be assigned to a team whose org_tier matches the role's allowed tiers.
+    if role_def and role_def.allowed_org_tiers and team.org_tier:
+        if team.org_tier not in role_def.allowed_org_tiers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role '{role_def.display_name}' cannot be assigned to teams with tier '{team.org_tier}'. Allowed tiers: {role_def.allowed_org_tiers}"
+            )
+    
+    # Validation: Hard Quarantine for Default Team
+    if team.is_default and role_def and not role_def.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Restricted: The Default Team only supports the designated default role."
+        )
+    
     member.team_role = new_role
     member.team_role_id = role_def.id if role_def else None
     
@@ -469,7 +518,7 @@ async def move_user_to_team(
     user_id: UUID,
     from_team_id: UUID,
     to_team_id: UUID,
-    team_role: str = "team_contributor"
+    team_role: str  # Required - no default
 ) -> TeamMember:
     """
     Move a user from one team to another

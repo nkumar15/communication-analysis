@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 from pathlib import Path
 
@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     sentry_dsn: Optional[str] = None
     otel_exporter_otlp_endpoint: Optional[str] = None
 
+    # RAG Settings
+    rag_skip_deduplication: bool = False
+
     # Cloud Provider Configuration (for logging)
     gcp_project_id: Optional[str] = None
     aws_region: Optional[str] = None
@@ -140,10 +143,11 @@ class Settings(BaseSettings):
         # Fallback to default Docker path (will fail if not exists, but that's okay)
         return "/app/firebase-credentials.json"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore"
+    )
 
 
 settings = Settings()
