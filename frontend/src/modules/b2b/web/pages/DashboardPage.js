@@ -5,7 +5,6 @@ import StatCard from '../../../../core/components/StatCard';
 import AdminLayout from '../layouts/AdminLayout';
 import useAuth from '../../../../core/hooks/useAuth';
 import { TENANT_ROLES } from '../../constants/roles';
-import ImpersonationBanner from '../../../../core/components/ImpersonationBanner';
 import MyTeamsWidget from '../components/widgets/MyTeamsWidget';
 
 import QuickActionsWidget from '../components/widgets/QuickActionsWidget';
@@ -15,13 +14,10 @@ const DashboardPage = () => {
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [isImpersonating, setIsImpersonating] = useState(false);
     const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Check if we're in impersonation mode
-        setIsImpersonating(localStorage.getItem('impersonating') === 'true');
         loadDashboard();
     }, []);
 
@@ -62,7 +58,6 @@ const DashboardPage = () => {
 
     return (
         <>
-            {isImpersonating && <ImpersonationBanner />}
             <AdminLayout title="Dashboard" subtitle={getRoleGreeting()}>
                 <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
 
