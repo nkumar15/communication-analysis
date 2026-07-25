@@ -1,3 +1,0 @@
-# No additional team roles needed for task management
-# Uses base team_manager/team_contributor/team_reader roles
-team_roles: []
