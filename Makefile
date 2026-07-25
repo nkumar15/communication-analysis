@@ -33,42 +33,24 @@ display-services: ## Display running services
 	@echo "Jaeger:       http://localhost:16686"
 	@echo "Kibana:       http://localhost:5601"
 
-elasticsearch: ## Start elasticsearch and kibana
+elasticsearch: ## Start just Elasticsearch + Kibana (useful to pre-warm before 'make up' — ES takes ~90s to become healthy)
 	docker-compose up -d elasticsearch kibana
 
-up: ## Start all backend services (B2B + infra, no frontend) — used by test targets
-	docker-compose up -d postgres minio \
-							b2b-api b2b-domain-api \
-							b2b-worker b2b-domain-worker \
-							redis nginx mailhog prometheus grafana jaeger
-	@echo "$(GREEN)✓ Backend services started$(NC)"
-	@echo "$(YELLOW) Tip: run 'make dev-full' to also start the frontend portal$(NC)"
-	@echo "$(YELLOW) Tip: run 'make up-full' to also start Elasticsearch + Kibana$(NC)"
-
-up-b2b: ## Start B2B services + infra (b2b-api, b2b-worker, b2b-domain-api, b2b-domain-worker, frontend)
-	@docker-compose --profile b2b-demo up -d
-	@echo "$(GREEN)✓ B2B services started$(NC)"
-	@echo "  B2B Portal:      http://localhost:3000"
-	@echo "  API Gateway:     http://localhost:8080"
-
-up-full: ## Start all backend services including Elasticsearch + Kibana
-	@$(MAKE) up
-	@docker-compose up -d elasticsearch kibana
-	@echo "$(GREEN)✓ All backend services started (including Elasticsearch)$(NC)"
-
-dev-full: ## Start everything for manual full-stack testing (B2B + frontend portal)
-	@docker-compose --profile dev-full up -d
-	@echo "$(GREEN)✓ Full stack ready$(NC)"
+up: ## Build and start the full stack: infra, B2B API/worker, Bank Surveillance domain API/worker, frontend
+	docker-compose up -d --build postgres redis elasticsearch kibana minio jaeger prometheus grafana mailhog nginx \
+							b2b-api b2b-worker b2b-domain-api b2b-domain-worker frontend-b2b
+	@echo "$(GREEN)✓ Full stack started$(NC)"
 	@echo "  B2B Portal:      http://localhost:3000"
 	@echo "  API Gateway:     http://localhost:8080"
 	@echo "  Mailhog:         http://localhost:8025"
+	@echo "  Kibana:          http://localhost:5601"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
-	docker-compose --profile b2b-demo --profile dev-full --profile test-api --profile test-ui down --remove-orphans
+	docker-compose --profile b2b-demo --profile test-api --profile test-ui down --remove-orphans
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
-restart: down up ## Restart all services (B2B stack)
+restart: down up ## Restart all services
 
 ##@ Database
 
@@ -144,16 +126,7 @@ seed-all: ## Run all seed scripts (requires b2b-api running)
 	@$(MAKE) b2b-verify-seed
 	@echo "$(GREEN)✓ Seed scripts complete$(NC)"
 
-seed-b2b: seed-all ## Alias for seed-all
-
-seed-demo: ## Full demo system (optional USE_CASE=xxx, defaults to bank_surveillance) — starts all services
-	@echo "$(BLUE)=== Setting up Demo System ===$(NC)"
-	@$(MAKE) db-recreate
-	@$(MAKE) restart
-	@$(MAKE) seed-all USE_CASE=$(or $(USE_CASE),bank_surveillance)
-	@$(MAKE) b2b-invite f=modules/domains/b2b/$(or $(USE_CASE),bank_surveillance)/scripts/seeds/demo_tenant.json
-	@$(MAKE) b2b-seed-meta USE_CASE=$(or $(USE_CASE),bank_surveillance)
-	@echo "$(GREEN)✅ Demo system ready$(NC)"
+seed-demo: b2b-demo-bank ## Alias for b2b-demo-bank (bank_surveillance is the only domain, so USE_CASE is no longer needed)
 
 
 ## B2B Onboarding
@@ -161,11 +134,8 @@ seed-demo: ## Full demo system (optional USE_CASE=xxx, defaults to bank_surveill
 b2b-invite: ## Invite B2B Tenant (f=file.json [PLUGINS=p1,p2])
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
 	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local \
-		--file $(or $(f),modules/domains/b2b/bank_surveillance/scripts/seeds/bank_surveillance_demo.json) \
+		--file $(or $(f),modules/domains/b2b/bank_surveillance/scripts/seeds/demo_tenant.json) \
 		$(if $(PLUGINS),--plugins $(PLUGINS),)
-
-b2b-invite-bank: ## Invite Bank Tenant (Shortcut)
-	@$(MAKE) b2b-invite f=modules/domains/b2b/bank_surveillance/scripts/seeds/bank_surveillance_demo.json
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -187,7 +157,7 @@ b2b-demo-bank: ## Bank Surveillance demo — starts B2B containers
 	@echo "$(BLUE)Starting B2B services...$(NC)"
 	@docker-compose --profile b2b-demo up -d
 	@sleep 5
-	@$(MAKE) seed-b2b USE_CASE=bank_surveillance
+	@$(MAKE) seed-all USE_CASE=bank_surveillance
 	@$(MAKE) b2b-invite f=modules/domains/b2b/bank_surveillance/scripts/seeds/demo_tenant.json
 	@$(MAKE) b2b-seed-meta USE_CASE=bank_surveillance
 	@echo ""
