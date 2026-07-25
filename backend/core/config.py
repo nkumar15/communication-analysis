@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # Email (Resend)
     resend_api_key: Optional[str] = None
-    email_provider: str = "mailhog"
+    email_provider: str = "console"
     email_from: str = "Enterprise SSO <noreply@localhost>"
     mailhog_host: str = "mailhog"
     mailhog_port: int = 1025

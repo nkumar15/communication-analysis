@@ -1,9 +1,0 @@
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'sso_backend'
-    metrics_path: '/metrics'
-    static_configs:
-      # In docker-compose, using service names as hostnames
-      - targets: ['b2b-api:8000', 'b2b-domain-api:8003']

@@ -3,7 +3,7 @@
 # Redirects all services to saas_test_db so test runs never touch saas_demo_db.
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.test.yml [command]
 #
-# NEVER use this file for demo targets (make b2b-demo-bank, make b2b-demo-task).
+# NEVER use this file for demo targets (make b2b-demo-bank).
 # Demo targets use plain docker-compose (saas_demo_db).
 # Test targets use DC_TEST = docker-compose -f docker-compose.yml -f docker-compose.test.yml.
 

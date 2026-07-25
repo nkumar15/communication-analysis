@@ -43,8 +43,8 @@ cp ~/Downloads/firebase-credentials.json secrets/firebase-credentials.json
 #      EMBEDDING_DIM=384
 #      HF_HOME=/app/.cache/huggingface
 
-# 4. Start the full stack (Postgres, Redis, Elasticsearch, Kibana, MinIO, B2B API/worker,
-#    Bank Surveillance domain API/worker, frontend, observability)
+# 4. Start the full stack (Postgres, Redis, Elasticsearch, MinIO, B2B API/worker,
+#    Bank Surveillance domain API/worker, frontend)
 make up
 
 # 5. Run migrations + seed RBAC roles
@@ -63,11 +63,9 @@ make b2b-demo-bank         # recreates the DB, starts everything, seeds roles, o
 
 | Environment | Provider | What to set |
 |-------------|----------|-------------|
-| Local dev | `mailhog` | Nothing — runs in Docker at port 8025 |
+| Local dev | `console` | Nothing — logs the email body instead of sending it |
 | Staging | `resend` | `EMAIL_PROVIDER=resend` + `RESEND_API_KEY=re_...` |
 | Production | `resend` or `ses` | Same as staging, use live keys |
-
-Mailhog UI: http://localhost:8025
 
 ---
 
@@ -101,7 +99,7 @@ Go through this before any non-local deployment.
 
 ### Feature flags
 - [ ] `AUTH_PROVIDER=firebase` — never `mock` in prod
-- [ ] `EMAIL_PROVIDER=resend` (or `ses`) — never `mailhog` in prod
+- [ ] `EMAIL_PROVIDER=resend` (or `ses`) — never `console` in prod
 - [ ] `MINIO_SECURE=true` — TLS for object storage in prod
 
 ---

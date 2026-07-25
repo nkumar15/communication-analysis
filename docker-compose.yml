@@ -45,9 +45,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Mailhog - Local Email Testing
-  # Web UI: http://localhost:8025
-  # SMTP: localhost:1025
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: sso_elasticsearch
@@ -65,18 +62,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 90s
-    restart: unless-stopped
-
-  # Kibana - Elasticsearch Dashboard
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.11.0
-    container_name: sso_kibana
-    ports:
-      - "5601:5601"
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
     restart: unless-stopped
 
   # MinIO - Object Storage (S3 Compatible)
@@ -99,60 +84,6 @@ services:
       retries: 3
     restart: unless-stopped
 
-  jaeger:
-    image: jaegertracing/all-in-one:1.50
-    container_name: sso_jaeger
-    ports:
-      - "16686:16686" # Web UI
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    restart: unless-stopped
-
-  # Prometheus - Metrics collection
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    container_name: sso_prometheus
-    ports:
-      - "9090:9090"
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
-    volumes:
-      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    restart: unless-stopped
-
-  # Grafana - Metrics Visualization
-  grafana:
-    image: grafana/grafana:10.0.0
-    container_name: sso_grafana
-    ports:
-      - "5000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - ./ops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
-      - jaeger
-    restart: unless-stopped
-
-  # Elasticsearch - Vector Store & Search Engine
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: sso_mailhog
-    ports:
-      - "1025:1025" # SMTP
-      - "8025:8025" # Web UI
-    restart: unless-stopped
-
-  # B2B Frontend - Web UI for Tenants (E2E Testing Only)
   nginx:
     image: nginx:alpine
     container_name: sso_nginx
@@ -191,11 +122,9 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - EMAIL_PROVIDER=mailhog
-      - MAILHOG_HOST=mailhog
+      - EMAIL_PROVIDER=console
     ports:
       - "8000:8000"
     volumes:
@@ -204,8 +133,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      jaeger:
-        condition: service_started
       redis:
         condition: service_healthy
     command: uvicorn modules.b2b.main:app --host 0.0.0.0 --port 8000 --reload
@@ -223,8 +150,7 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - EMAIL_PROVIDER=mailhog
-      - MAILHOG_HOST=mailhog
+      - EMAIL_PROVIDER=console
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
@@ -245,11 +171,9 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - EMAIL_PROVIDER=mailhog
-      - MAILHOG_HOST=mailhog
+      - EMAIL_PROVIDER=console
       # AI Config
       - LLM_PROVIDER=openai
       - LLM_MODEL=gpt-4o-mini
@@ -262,12 +186,9 @@ services:
       - ./backend:/app
       - ./data:/data
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy
-      jaeger:
-        condition: service_started
       redis:
         condition: service_healthy
       elasticsearch:
@@ -341,7 +262,6 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - HF_HOME=/app/.cache/huggingface
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       # Frontend services (now in Docker) - use internal service names
       - FRONTEND_URL=http://frontend-b2b:3000
       - FRONTEND_URL_B2B=http://frontend-b2b:3000
@@ -354,15 +274,11 @@ services:
       - ./backend:/app
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     command: python -m pytest tests/e2e_browser -v
-  # Jaeger - Distributed Tracing
+
 volumes:
   postgres_data:
   redis_data:
-  grafana_data:
   es_data:
     driver: local
   minio_data:
-    driver: local
-
-  kibana_data:
     driver: local

@@ -27,23 +27,16 @@ display-services: ## Display running services
 	@echo ""
 	@echo "$(YELLOW)Common URLs:$(NC)"
 	@echo "API Gateway:  http://localhost:8080"
-	@echo "Email UI:     http://localhost:8025 (Mailhog)"
-	@echo "Grafana:      http://localhost:3002"
-	@echo "Prometheus:   http://localhost:9090"
-	@echo "Jaeger:       http://localhost:16686"
-	@echo "Kibana:       http://localhost:5601"
 
-elasticsearch: ## Start just Elasticsearch + Kibana (useful to pre-warm before 'make up' — ES takes ~90s to become healthy)
-	docker-compose up -d elasticsearch kibana
+elasticsearch: ## Start just Elasticsearch (useful to pre-warm before 'make up' — ES takes ~90s to become healthy)
+	docker-compose up -d elasticsearch
 
-up: ## Build and start the full stack: infra, B2B API/worker, Bank Surveillance domain API/worker, frontend
-	docker-compose up -d --build postgres redis elasticsearch kibana minio jaeger prometheus grafana mailhog nginx \
+up: ## Build and start the full stack: Postgres, Redis, Elasticsearch, MinIO, B2B API/worker, Bank Surveillance domain API/worker, frontend
+	docker-compose up -d --build postgres redis elasticsearch minio nginx \
 							b2b-api b2b-worker b2b-domain-api b2b-domain-worker frontend-b2b
 	@echo "$(GREEN)✓ Full stack started$(NC)"
 	@echo "  B2B Portal:      http://localhost:3000"
 	@echo "  API Gateway:     http://localhost:8080"
-	@echo "  Mailhog:         http://localhost:8025"
-	@echo "  Kibana:          http://localhost:5601"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
@@ -168,7 +161,6 @@ b2b-demo-bank: ## Bank Surveillance demo — starts B2B containers
 	@echo "$(BLUE)Login as:$(NC)         owner@worldwidebank.com"
 	@echo "$(BLUE)B2B Portal:$(NC)       http://localhost:3000"
 	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
-	@echo "$(BLUE)Mailhog:$(NC)          http://localhost:8025"
 
 
 ##@ Testing
@@ -176,7 +168,7 @@ b2b-demo-bank: ## Bank Surveillance demo — starts B2B containers
 test-api: ## Run backend API pytest suite — uses saas_test_db, never touches demo data. Usage: make test-api [USE_CASE=bank_surveillance] [path=tests/b2b/api]
 	@echo "$(BLUE)Running backend API tests (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+	@$(DC_TEST) up -d postgres minio redis nginx \
 		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
@@ -188,7 +180,7 @@ test-api: ## Run backend API pytest suite — uses saas_test_db, never touches d
 test-ui: ## Run automated Playwright browser tests — uses saas_test_db. Usage: make test-ui [USE_CASE=bank_surveillance]
 	@echo "$(BLUE)Running automated UI tests (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+	@$(DC_TEST) up -d postgres minio redis nginx \
 		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@$(DC_TEST) --profile test-ui up -d
 	@sleep 8
@@ -201,7 +193,7 @@ test-ui: ## Run automated Playwright browser tests — uses saas_test_db. Usage:
 test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units) — uses saas_test_db
 	@echo "$(BLUE)Running B2B Foundation Full Suite (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+	@$(DC_TEST) up -d postgres minio redis nginx \
 		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all
@@ -215,7 +207,7 @@ test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units
 test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, Units) — uses saas_test_db
 	@echo "$(BLUE)Running Bank Surveillance specific suite (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+	@$(DC_TEST) up -d postgres minio redis nginx \
 		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
@@ -229,7 +221,7 @@ test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, 
 test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank) — uses saas_test_db
 	@echo "$(BLUE)Running Bank Surveillance full suite (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
+	@$(DC_TEST) up -d postgres minio redis nginx \
 		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance

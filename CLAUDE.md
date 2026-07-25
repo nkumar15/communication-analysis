@@ -23,7 +23,7 @@ All common dev tasks are in the `Makefile`. Run `make help` or browse the Makefi
 
 ### Infrastructure
 ```bash
-make up              # Start all backend services (postgres, redis, minio, elasticsearch, monitoring)
+make up              # Build and start the full stack (postgres, redis, elasticsearch, minio, nginx, B2B API/worker, Bank Surveillance domain API/worker, frontend)
 make down            # Stop all services
 make restart         # Restart everything
 ```
@@ -32,30 +32,23 @@ make restart         # Restart everything
 ```bash
 make db-recreate     # Drop + recreate DB with migrations (destructive)
 make migrate-schema  # Run SQL migrations only
-make migrate-only    # Run Alembic migrations
 make db-setup-auth   # Setup Row-Level Security
 make db-shell        # Open PostgreSQL shell
 ```
 
 ### Seeding
 ```bash
-make seed-demo USE_CASE=bank_surveillance  # Full demo with data
-make seed-all                              # All seed scripts
-make platform-seed-system                  # Seed system tenant
-make platform-seed-admin                   # Create platform admin user
+make b2b-demo-bank   # Full demo: recreate DB, start services, seed roles, onboard demo tenant
+make seed-all        # Seed RBAC roles only (services must already be running)
 ```
 
-### Frontend Dev Servers
+### Frontend Dev Server
 ```bash
 # From frontend/ directory
 npm run start:b2b       # http://localhost:3000
-npm run start:b2c       # http://localhost:3001
-npm run start:platform  # http://localhost:3002
 
 # Or via Makefile
 make web-b2b
-make web-b2c
-make web-platform
 ```
 
 ### Testing
@@ -66,12 +59,10 @@ make test-api path=tests/b2b/api/foundation          # Scoped to a specific path
 make test-ui                                         # Automated Playwright browser tests
 
 # Scoped backend suites
-make test-b2b-foundation-only                        # B2B core tests only
-make test-b2b-bank-only USE_CASE=bank_surveillance   # Bank surveillance tests only
-make test-b2b-bank USE_CASE=bank_surveillance        # Foundation + Bank combined
-make test-b2c-foundation-only                        # B2C tests
-make test-platform-foundation-only                   # Platform tests
-make test-all-foundation                             # All foundation tests
+make test-b2b-foundation-only                        # B2B foundation tests only
+make test-b2b-bank-only                              # Bank Surveillance tests only
+make test-b2b-bank                                   # Foundation + Bank Surveillance combined
+make test-all-foundation                             # Alias for test-b2b-foundation-only
 
 # Single test file (services must already be running via make up):
 docker-compose --profile test-api run --rm e2e-tests pytest tests/b2b/api/foundation/test_users.py -v
@@ -92,22 +83,20 @@ make dast-scan        # OWASP ZAP baseline scan
 
 ### System Structure
 
-Three FastAPI microservices + domain APIs, served via nginx gateway (`:8080`):
+Two FastAPI microservices, served via nginx gateway (`:8080`):
 
 | Service | Port | Responsibility |
 |---|---|---|
-| B2B API | 8000 | Tenant management, RBAC, teams, billing, SSO |
-| Platform API | 8001 | Super-admin console, tenant provisioning |
-| B2C API | 8002 | Personal workspaces, consumer billing |
-| B2B Domain APIs | 8003+ | Vertical solutions (bank_surveillance, task_management, marketing_agency) |
+| B2B API | 8000 | Tenant management, RBAC, teams, SSO |
+| B2B Domain API | 8003 | Bank Surveillance (the only domain in this repo) |
 
-Frontend is a **single React/Webpack codebase** that builds three separate portals using `PORTAL=b2b|b2c|platform` at build time.
+Frontend is a **single React/Webpack codebase** building one portal (`PORTAL=b2b`).
 
 ### Backend Module Layout
 
 Each module follows the same structure:
 ```
-modules/{b2b,b2c,platform}/
+modules/b2b/
 ├── main.py          # FastAPI app definition + routers registration
 ├── routers/         # HTTP layer — thin, no business logic
 ├── services/        # Business logic — fat, all validation here
@@ -117,27 +106,25 @@ modules/{b2b,b2c,platform}/
 └── tasks/           # Celery task definitions
 ```
 
-Domain modules live at `modules/domains/b2b/{domain_name}/` and follow the same structure.
+The domain module lives at `modules/domains/b2b/bank_surveillance/` and follows the same structure.
 
 Shared foundations:
 - `core/` — config, db sessions, base models, lifespan hooks
-- `infrastructure/` — auth (Firebase), email (Resend/Mailhog), payment (Stripe), monitoring (OTel/Prometheus/Sentry)
-- `plugins/` — RBAC extension plugins (geo, data classification)
-- `workers/{b2b,b2c,b2b_domain,b2c_domain}_worker/` — Celery workers
+- `infrastructure/` — auth (Firebase), email (Resend/SES/console), monitoring (OTel/Sentry)
+- `plugins/` — RBAC extension plugins (geo, data classification, hierarchical teams)
+- `workers/{b2b,b2b_domain}_worker/` — Celery workers
 
 ### Frontend Module Layout
 
 ```
 frontend/src/
 ├── core/               # Shared: API clients, Firebase auth, hooks, base components
-│   ├── api/            # b2bClient.js, b2cClient.js, platformClient.js (Axios + auto token)
+│   ├── api/            # b2bClient.js, b2bDomainClient.js (auto token attached)
 │   ├── firebase/       # authService.js, tenantManager.js
 │   └── hooks/          # useAuth.js and other cross-cutting hooks
 ├── modules/
 │   ├── b2b/            # B2B portal pages, components, layouts
-│   ├── b2c/            # B2C portal pages, components, layouts
-│   ├── platform/       # Platform admin pages
-│   └── domains/        # Domain-specific UIs (surveillance/, projects/)
+│   └── domains/        # Domain-specific UI (surveillance/)
 └── shared/             # Utilities and constants
 ```
 
@@ -178,8 +165,7 @@ These apply to every backend write path:
 ### React / Frontend
 - Pages (`pages/`) are route handlers with minimal logic; business logic goes into services or hooks.
 - Server state via **TanStack Query**; shared global state via React Context; local state via `useState`/`useReducer`.
-- Strict isolation: `modules/b2b` must not import from `modules/b2c` and vice versa. Shared code belongs in `src/core/` or `src/shared/`.
-- All domain API calls must go through the appropriate client (`b2bClient`, `b2cClient`, `b2bDomainClient`).
+- All API calls must go through the appropriate client (`b2bClient` for foundation, `b2bDomainClient` for Bank Surveillance).
 
 ---
 
@@ -188,14 +174,7 @@ These apply to every backend write path:
 | Service | URL |
 |---|---|
 | B2B Portal | http://localhost:3000 |
-| B2C Portal | http://localhost:3001 |
-| Platform Console | http://localhost:3002 |
 | API Gateway / Swagger | http://localhost:8080 |
-| Mailhog (email) | http://localhost:8025 |
-| Grafana | http://localhost:3002 |
-| Jaeger (tracing) | http://localhost:16686 |
-| Prometheus | http://localhost:9090 |
-| Kibana | http://localhost:5601 |
 
 ---
 
