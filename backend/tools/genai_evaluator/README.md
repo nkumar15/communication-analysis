@@ -47,7 +47,7 @@ dataset_path: "../../datasets/enron/golden_dataset/golden_set.json"
 
 pipeline:
   retriever:
-    type: "hybrid"  # vector, bm25, or hybrid
+    type: "vector"  # only retriever type currently implemented
     top_k: 20
     index_name: "enron_documents"
     weights: [0.5, 0.5]
@@ -81,7 +81,7 @@ metrics:
 
 ### Data Flow
 1.  **Loader**: Reads `dataset_path` (JSON).
-2.  **Retriever**: Fetches nodes using `TenantAwareHybridRetriever`.
+2.  **Retriever**: Fetches nodes via `RagComponentFactory.create_retriever`.
 3.  **Reranker**: (Optional) Re-scores nodes using CrossEncoder.
 4.  **Synthesizer**: Generates answer using LLM.
 5.  **Evaluator**: `deepeval` computes metrics comparing Actual vs Expected/Context.

@@ -20,28 +20,10 @@ const QuickActionsWidget = ({ actions = [], role = 'viewer' }) => {
             path: '/b2b/teams',
             primary: false
         },
-        manage_billing: {
-            label: 'Subscription',
-            icon: '💳',
-            path: '/billing/subscription',
-            primary: false
-        },
         view_audit_logs: {
             label: 'Audit Logs',
             icon: '🔍',
             path: '/audit-logs',
-            primary: false
-        },
-        view_projects: {
-            label: 'View Projects',
-            icon: '📋',
-            path: '/projects',
-            primary: true
-        },
-        create_task: {
-            label: 'Create Task',
-            icon: '✅',
-            path: '/projects',
             primary: false
         },
         view_teams: {

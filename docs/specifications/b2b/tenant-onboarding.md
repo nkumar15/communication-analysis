@@ -75,7 +75,7 @@ This feature must be implemented for both:
 - Native-styled Inputs and Actions.
 
 ## 5. Technical Implementation
-*   **API**: `b2b-api`, `platform-api`
+*   **API**: `b2b-api`
 *   **Database**: `tenants` (status), `users` (admin)
 *   **Modules**: `TenantService`, `InvitationService`, `EmailService`
 

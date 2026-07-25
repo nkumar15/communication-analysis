@@ -25,17 +25,7 @@ class RagComponentFactory:
             embed_model = EmbeddingFactory.get_embedding_model()
             Settings.embed_model = embed_model
 
-        if config.retriever.type == "hybrid":
-            from tools.genai_evaluator.core.retrievers import TenantAwareHybridRetriever
-            
-            return TenantAwareHybridRetriever(
-                embed_model=embed_model,
-                tenant_id=tenant_id,
-                top_k=config.retriever.top_k,
-                index_name=config.retriever.index_name or "nse_rag_documents"
-            )
-        
-        elif config.retriever.type == "vector":
+        if config.retriever.type == "vector":
              # Implementation for standard vector retriever
              # You would load VectorStoreIndex here
              raise NotImplementedError("Vector retriever not yet implemented in factory")

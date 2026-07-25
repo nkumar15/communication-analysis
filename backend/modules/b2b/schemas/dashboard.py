@@ -31,11 +31,6 @@ class DashboardStats(BaseModel):
     
     # User's teams
     my_teams: List[TeamSummary]
-    
-    # Domain stats (team-scoped for member/viewer)
-    my_projects_count: int = 0
-    my_tasks_count: int = 0
-    overdue_tasks_count: int = 0
-    
+
     # Quick actions based on role
     quick_actions: List[str]
