@@ -1,0 +1,62 @@
+[
+    {
+        "id": "q1",
+        "query": "What are the Raptor transactions?",
+        "expected_keywords": [
+            "Raptor",
+            "LJM",
+            "hedging",
+            "debt",
+            "SPE",
+            "special purpose entity"
+        ],
+        "description": "Tests retrieval of complex accounting structures."
+    },
+    {
+        "id": "q2",
+        "query": "Who is the CEO of Enron?",
+        "expected_keywords": [
+            "Kenneth Lay",
+            "Ken Lay",
+            "Jeff Skilling",
+            "Jeffrey Skilling"
+        ],
+        "description": "Tests retrieval of key entities and roles."
+    },
+    {
+        "id": "q3",
+        "query": "What is the status of the California energy crisis?",
+        "expected_keywords": [
+            "California",
+            "crisis",
+            "blackout",
+            "ISO",
+            "Davis",
+            "price cap"
+        ],
+        "description": "Tests retrieval of external event impact."
+    },
+    {
+        "id": "q4",
+        "query": "Did anyone discuss shredding documents?",
+        "expected_keywords": [
+            "shred",
+            "document",
+            "destruction",
+            "Anderson",
+            "audit"
+        ],
+        "description": "Tests retrieval of suspicious activities (compliance)."
+    },
+    {
+        "id": "q5",
+        "query": "Meeting with Arthur Andersen",
+        "expected_keywords": [
+            "Arthur Andersen",
+            "accounting",
+            "audit",
+            "partner"
+        ],
+        "description": "Tests retrieval of specific meeting contexts."
+    }
+]

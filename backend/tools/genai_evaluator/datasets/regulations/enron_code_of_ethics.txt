@@ -1,0 +1,12 @@
+
+Statement of Human Rights and Principles
+(Selected Excerpts relevant to Financial Reporting & Conflicts of Interest)
+
+Principle 2: Financial Integrity
+Employees must maintain accurate and complete financial records. All transactions must be recorded in accordance with Generally Accepted Accounting Principles (GAAP). 
+- No "off-balance-sheet" entities shall be used to conceal debt or losses without full public disclosure.
+- Marking-to-market valuations must be based on observable market data or conservative independent estimates, not internal optimism.
+
+Principle 3: Conflicts of Interest
+Employees must avoid investing in or managing partnerships (Special Purpose Entities) that do business with Enron, unless explicitly approved by the Board of Directors and the Chairman.
+- CFOs and Treasurers are prohibited from managing LJM-style partnerships that transact with the Company.

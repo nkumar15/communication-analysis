@@ -1,0 +1,155 @@
+"""
+User Management API Router
+
+Handles user listing, statistics, and role management.
+"""
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
+from uuid import UUID
+
+from core.db.session import get_db
+from modules.b2b.middleware import get_current_active_user
+from modules.b2b.schemas.users import UserResponse, UserStatsResponse, UserRoleUpdate
+from modules.b2b.services.user_service import user_service
+
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/stats", response_model=UserStatsResponse)
+async def get_user_stats(
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get user and invitation statistics for current tenant
+    
+    - Requires dashboard:read permission
+    - Returns counts scoped to user's access level
+    """
+    stats = await user_service.get_user_stats(
+        db=db,
+        tenant_id=current_user['tenant_id'],
+        user_id=current_user['id']
+    )
+    return UserStatsResponse(**stats)
+
+
+@router.get("/list", response_model=List[UserResponse])
+async def list_users(
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List users accessible to current user (scoped by hierarchy)
+    
+    - Requires authentication
+    - Returns users based on reporting structure
+    """
+    users = await user_service.list_accessible_users(
+        db=db,
+        user_id=current_user['id']
+    )
+    return [UserResponse(**u) for u in users]
+
+
+@router.put("/{user_id}/role", status_code=status.HTTP_200_OK)
+async def update_user_role(
+    user_id: UUID,
+    role_update: UserRoleUpdate,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a user's role in the tenant
+    
+    - Admin/Owner only
+    - Cannot change own role
+    - Enforces role hierarchy
+    """
+    result = await user_service.update_user_role(
+        db=db,
+        user_id=user_id,
+        role_name=role_update.role,
+        current_user_id=current_user['id'],
+        current_user_role=current_user['role'],
+        tenant_id=current_user['tenant_id']
+    )
+    await db.commit()
+    return result
+
+
+@router.post("/{user_id}/deactivate", status_code=status.HTTP_200_OK)
+async def deactivate_user(
+    user_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Deactivate a user.
+    
+    - Admin/Owner only.
+    - Cannot deactivate self.
+    - Cannot deactivate Owner.
+    - Admin cannot deactivate another Admin.
+    """
+    # 1. Deactivate
+    result = await user_service.deactivate_user(
+        db=db,
+        user_id=user_id,
+        current_user_id=current_user['id'],
+        current_user_role=current_user['role'],
+        tenant_id=current_user['tenant_id']
+    )
+    
+    # 2. Audit Log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'user.deactivated',
+        'resource_type': 'user',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(user_id),
+        'details': {'reason': 'manual_deactivation'},
+        'ip_address': None,  # Could capture from request if available
+        'user_agent': None
+    })
+    
+    await db.commit()
+    return result
+
+
+@router.post("/{user_id}/reactivate", status_code=status.HTTP_200_OK)
+async def reactivate_user(
+    user_id: UUID,
+    current_user: dict = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reactivate a user.
+    """
+    # 1. Reactivate
+    result = await user_service.reactivate_user(
+        db=db,
+        user_id=user_id,
+        current_user_id=current_user['id'],
+        current_user_role=current_user['role'],
+        tenant_id=current_user['tenant_id']
+    )
+    
+    # 2. Audit Log
+    from workers.b2b_worker.audit_tasks import persist_audit_log
+    persist_audit_log.delay({
+        'tenant_id': str(current_user['tenant_id']),
+        'event_type': 'user.reactivated',
+        'resource_type': 'user',
+        'actor_id': str(current_user['id']),
+        'resource_id': str(user_id),
+        'details': {'reason': 'manual_reactivation'},
+        'ip_address': None,
+        'user_agent': None
+    })
+    
+    await db.commit()
+    return result

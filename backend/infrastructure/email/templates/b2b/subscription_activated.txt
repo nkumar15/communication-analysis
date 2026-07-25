@@ -1,0 +1,32 @@
+Subject: Subscription Activated - Welcome to {tier_name}!
+
+Hello,
+
+Great news! Your {tier_name} subscription has been successfully activated.
+
+Subscription Details:
+- Tier: {tier_name}
+- Billing Interval: {billing_interval}
+- Seat Count: {seat_count} users
+- Amount: ${amount} per {billing_interval}
+- Next Billing Date: {next_billing_date}
+
+Pricing Breakdown:
+- Base Price: ${base_price}
+- Per-Seat Price: ${per_seat_price} × {seat_count} seats
+- Total: ${total_amount} per {billing_interval}
+
+What's Next?
+- Invite team members to join your workspace
+- Your subscription will automatically renew on {next_billing_date}
+- Manage your subscription anytime in your account settings
+
+View your subscription details:
+{subscription_url}
+
+Questions? Contact our support team at support@{platform_domain}
+
+Thank you for choosing {platform_name}!
+
+Best regards,
+The {platform_name} Team

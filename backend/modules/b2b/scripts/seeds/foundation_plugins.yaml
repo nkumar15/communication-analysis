@@ -1,0 +1,77 @@
+# Foundation Plugin Templates
+# 
+# This file contains DEFAULT template data that gets cloned to tenant tables
+# when a plugin is enabled. Use cases can OVERRIDE or EXTEND these defaults
+# in their overlay_plugins.yaml file.
+
+geographic_boundaries:
+  # Configuration (can be overridden by overlay)
+  enforce_strict: false
+  global_roles: []
+  
+  # Template data (cloned to b2b.geographic_regions per tenant)
+  default_regions:
+    - code: US
+      name: United States
+      regulatory_jurisdiction: SEC/Fed
+    - code: SG
+      name: Singapore
+      regulatory_jurisdiction: MAS
+    - code: UK
+      name: United Kingdom
+      regulatory_jurisdiction: FCA
+    - code: IN
+      name: India
+      regulatory_jurisdiction: RBI
+    - code: MY
+      name: Malaysia
+      regulatory_jurisdiction: BNM
+    - code: HK
+      name: Hong Kong
+      regulatory_jurisdiction: HKMA
+
+data_classification:
+  # Configuration (can be overridden by overlay)
+  enforce_strict: false
+  default_level: PUBLIC
+  
+  # Template data (cloned to b2b.sensitivity_levels per tenant)
+  sensitivity_levels:
+    - name: PUBLIC
+      level: 0
+      description: Publicly available information
+    - name: INTERNAL
+      level: 1
+      description: Internal use only
+    - name: CONFIDENTIAL
+      level: 2
+      description: Confidential business information
+    - name: RESTRICTED
+      level: 3
+      description: Restricted access, regulatory implications
+    - name: TOP_SECRET
+      level: 4
+      description: Highest sensitivity, executive/whistleblower data
+
+hierarchical_teams:
+  # Configuration (can be overridden by overlay)
+  max_depth: 4
+  allow_cross_hierarchy: true
+  
+  # Template data (cloned to b2b.org_tiers per tenant)
+  org_tiers:
+    - name: GLOBAL
+      display_name: Global
+      description: Highest organizational level
+      hierarchy_order: 1
+    - name: REGIONAL
+      display_name: Regional
+      description: Multi-country management
+      hierarchy_order: 2
+    - name: COUNTRY
+      display_name: Country
+      description: Single country operations
+      hierarchy_order: 3
+  
+  # Instance data (empty in foundation, populated in overlay)
+  seed_data: []
