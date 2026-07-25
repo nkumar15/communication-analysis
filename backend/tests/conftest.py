@@ -46,10 +46,7 @@ if 'langchain_openai' not in sys.modules:
 
 # Import ALL primary apps (sub-apps are internal to these)
 from modules.b2b.main import app as b2b_app
-from modules.platform.main import app as platform_app
-from modules.b2c.main import app as b2c_app
 from modules.domains.b2b.main import app as b2b_domain_app
-from modules.domains.b2c.main import app as b2c_domain_app
 
 # Register RBAC plugins at module load so plugin_registry._plugins is populated.
 # ASGITransport (httpx) does not trigger the ASGI lifespan, so plugin init via
@@ -87,46 +84,6 @@ async def lifespan(app: FastAPI):
     await close_db()
 
 
-@pytest.fixture(autouse=True)
-def mock_stripe():
-    """Mock Stripe globally for all tests"""
-    import stripe
-    from unittest.mock import MagicMock, patch
-    
-    with patch("stripe.Customer.create") as mock_cust_create, \
-         patch("stripe.Customer.retrieve") as mock_cust_ret, \
-         patch("stripe.checkout.Session.create") as mock_check_create, \
-         patch("stripe.billing_portal.Session.create") as mock_portal_create, \
-         patch("stripe.Subscription.retrieve") as mock_sub_ret:
-        
-        mock_cust_create.return_value = MagicMock(
-            id="cus_test_123", 
-            email="test@example.com", 
-            created=1704067200
-        )
-        mock_cust_ret.return_value = MagicMock(
-            id="cus_test_123",
-            email="test@example.com"
-        )
-        mock_check_create.return_value = MagicMock(
-            id="cs_test_123", 
-            url="https://checkout.stripe.com/test_123", 
-            expires_at=1704153600
-        )
-        mock_portal_create.return_value = MagicMock(
-            url="https://billing.stripe.com/test_123"
-        )
-        mock_sub_ret.return_value = MagicMock(
-            id="sub_test_123",
-            status="active",
-            current_period_start=1704067200,
-            current_period_end=1706745600,
-            items=MagicMock(data=[MagicMock(id="si_test_123")])
-        )
-        
-        yield
-
-
 # Create unified test app
 app = FastAPI(
     title="Unified Test API",
@@ -147,10 +104,7 @@ app.add_middleware(
 # Mount ALL primary apps with their correct prefixes
 # CRITICAL: Mount specific paths BEFORE generic paths to avoid shadowing!
 app.mount("/api/b2b/domain", b2b_domain_app)
-app.mount("/api/b2c/domain", b2c_domain_app)
 app.mount("/api/b2b", b2b_app)
-app.mount("/api/platform", platform_app)
-app.mount("/api/b2c", b2c_app)
 
 
 
@@ -293,29 +247,13 @@ async def api_client(db_session):
     # Override database dependency to use test session
     async def override_get_db():
         # CRITICAL FIX for Test Gaps:
-        # For B2B: We MUST reset the RLS context before giving the session to the API endpoint.
+        # We MUST reset the RLS context before giving the session to the API endpoint.
         # Otherwise, the API inherits the context set during test setup (seed data),
         # masking bugs where the API forgets to set its own context.
-        #
-        # For B2C: The auth middleware SETS the context, and we need to PRESERVE it.
-        # Check if context is already set (B2C case) and don't clear it.
         from core.db.rls import rls_service
-        from sqlalchemy import text
-        
-        # Check if RLS context is already set (B2C auth middleware sets it)
-        try:
-            result = await db_session.execute(
-                text("SELECT current_setting('app.current_user_id', true)")
-            )
-            current_context = result.scalar()
-            context_was_set = bool(current_context and current_context != '')
-        except:
-            context_was_set = False
-        
-        # Only clear if context was NOT already set (B2B case)
-        if not context_was_set:
-            await rls_service.clear_context(db_session)
-        
+
+        await rls_service.clear_context(db_session)
+
         yield db_session
         await db_session.flush()
     
@@ -422,94 +360,13 @@ async def api_client(db_session):
     
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
-    
-    # Override B2C auth dependency for B2C endpoints
-    from modules.b2c.middleware.b2c_auth import get_current_b2c_user
-    
-    async def override_get_current_b2c_user(
-        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
-        # NOTE: We use db_session directly here, NOT override_get_db
-        # because override_get_db clears RLS context for B2B testing,
-        # but B2C needs to SET context in the auth middleware
-    ):
-        if not credentials:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
-            )
-        
-        token = credentials.credentials
-        try:
-            # Decode mock JWT token
-            parts = token.split(".")
-            if len(parts) != 3:
-                raise ValueError("Invalid token format")
-            
-            payload_str = parts[1]
-            payload_str += "=" * ((4 - len(payload_str) % 4) % 4)
-            payload_json = base64.urlsafe_b64decode(payload_str).decode()
-            payload = json.loads(payload_json)
-            
-            firebase_uid = payload.get("uid")
-            
-            # Look up actual B2C user by firebase_uid to get UUID and set RLS
-            from modules.b2c.models.user import B2CUser
-            from sqlalchemy import text
-            
-            # Use SECURITY DEFINER function to lookup user (bypasses RLS)
-            result = await db_session.execute(
-                text("SELECT b2c.lookup_user_by_firebase_uid(:uid)"),
-                {"uid": firebase_uid}
-            )
-            user_id = result.scalar_one_or_none()
-            
-            if not user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found"
-                )
-            
-            # Set RLS context - this is critical for B2C queries
-            await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
-            
-            # Fetch full user
-            result = await db_session.execute(
-                select(B2CUser).where(B2CUser.id == user_id)
-            )
-            user = result.scalar_one()
-            
-            # Fix: Check for deleted user (matches real middleware behavior)
-            if user.deleted_at:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="User account not found"
-                )
-            
-            # Return user data matching what the real middleware returns
-            return {
-                "id": str(user.id),
-                "email": user.email,
-                "display_name": user.display_name,
-                "email_verified": payload.get("email_verified", True)
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid token: {str(e)}"
-            )
-    
-    app.dependency_overrides[get_current_b2c_user] = override_get_current_b2c_user
-    
+
     # Propagate overrides to all sub-apps
     # This is required because FastAPI sub-apps do not inherit dependency overrides from the parent.
-    # Must include nested sub-apps too: b2b_domain_app mounts surveillance_app and
-    # task_management_app as separate FastAPI instances, so they need overrides directly.
+    # Must include nested sub-apps too: b2b_domain_app mounts surveillance_app as a
+    # separate FastAPI instance, so it needs overrides directly.
     from modules.domains.b2b.bank_surveillance.main import app as surveillance_app
-    from modules.domains.b2b.task_management.main import app as task_management_app
-    for sub_app in [b2b_app, platform_app, b2c_app, b2b_domain_app, b2c_domain_app,
-                    surveillance_app, task_management_app]:
+    for sub_app in [b2b_app, b2b_domain_app, surveillance_app]:
         sub_app.dependency_overrides.update(app.dependency_overrides)
     
     # httpx 0.27+ requires ASGITransport instead of app parameter
@@ -518,105 +375,6 @@ async def api_client(db_session):
         yield client
     
     app.dependency_overrides.clear()
-
-
-@pytest_asyncio.fixture
-async def platform_admin_setup(db_session: AsyncSession):
-    """Setup System Tenant, Platform Admin Role, and User"""
-    from sqlalchemy import select
-    from modules.platform.models import PlatformTenant, PlatformRole, PlatformUser
-    from core.constants import PlatformRoleName
-    
-    # Generate unique identifiers for this test run
-    unique_suffix = uuid4().hex[:8]
-    
-    # 1. Check/Create System Tenant (PlatformTenant)
-    # Platform tenant is a SINGLETON - check for ANY existing one
-    result = await db_session.execute(select(PlatformTenant))
-    system_tenant = result.scalar_one_or_none()
-    
-    if not system_tenant:
-        system_tenant = PlatformTenant(
-            name="System Tenant",
-            firebase_tenant_id="system-platform",
-            is_active=True
-        )
-        db_session.add(system_tenant)
-        await db_session.flush()
-    
-    # 2. Check/Create Platform Admin Role
-    result = await db_session.execute(
-        select(PlatformRole)
-        .where(PlatformRole.name == PlatformRoleName.PLATFORM_ADMIN)
-    )
-    role = result.scalar_one_or_none()
-    
-    if not role:
-        role = PlatformRole(
-            name=PlatformRoleName.PLATFORM_ADMIN,
-            display_name="Platform Admin",
-            is_system_role=True
-        )
-        db_session.add(role)
-        await db_session.flush()
-        
-        # Add wildcard permissions to allow all platform operations in tests
-        from modules.platform.models import PlatformPermission
-        wildcard_perm = PlatformPermission(
-            platform_role_id=role.id,
-            resource="*",
-            action="*"
-        )
-        db_session.add(wildcard_perm)
-        await db_session.flush()
-    else:
-        # Relationship check: Ensure it has the wildcard permission even if role existed
-        from modules.platform.models import PlatformPermission
-        perm_result = await db_session.execute(
-            select(PlatformPermission)
-            .where(PlatformPermission.platform_role_id == role.id)
-            .where(PlatformPermission.resource == "*")
-        )
-        if not perm_result.scalar_one_or_none():
-            wildcard_perm = PlatformPermission(
-                platform_role_id=role.id,
-                resource="*",
-                action="*"
-            )
-            db_session.add(wildcard_perm)
-            await db_session.flush()
-    
-    # 3. Create Platform Admin User with UNIQUE email per test
-    # This avoids IntegrityError when tests run in parallel or sequentially
-    unique_email = f"admin-{unique_suffix}@system.local"
-    admin_user = PlatformUser(
-        platform_tenant_id=system_tenant.id,
-        platform_role_id=role.id,
-        email=unique_email,
-        firebase_uid=f"firebase-admin-{unique_suffix}",
-        display_name="Platform Admin",
-        is_active=True
-    )
-    db_session.add(admin_user)
-    await db_session.flush()
-    
-    # Don't commit - let the test session handle rollback
-    
-    return {
-        "tenant": system_tenant,
-        "user": admin_user,
-        "token": encode_mock_jwt(create_mock_firebase_token(
-            uid=admin_user.firebase_uid,
-            email=admin_user.email,
-            firebase_tenant_id=system_tenant.firebase_tenant_id
-        ))
-    }
-
-
-@pytest_asyncio.fixture
-async def platform_admin_token(platform_admin_setup):
-    """Fixture to provide platform admin token directly"""
-    return platform_admin_setup["token"]
 
 
 # Helper functions (not fixtures - just plain functions)
@@ -811,111 +569,6 @@ async def create_test_tenant(
     return tenant
 
 
-async def create_platform_tenant(
-    db_session: AsyncSession,
-    name: str = "SaaS Platform System",
-    firebase_tenant_id: str = None
-):
-    """Create the platform tenant (singleton) - Idempotent"""
-    from modules.platform.models import PlatformTenant, PlatformRole
-    from sqlalchemy import select
-    
-    # Check if exists (singleton)
-    # Check if exists (singleton)
-    result = await db_session.execute(select(PlatformTenant))
-    existing = result.scalar_one_or_none()
-    
-    tenant = existing
-    if not existing:
-        suffix = uuid4().hex[:8]
-        firebase_tenant_id = firebase_tenant_id or f"platform-{suffix}"
-        
-        tenant = PlatformTenant(
-            name=name,
-            firebase_tenant_id=firebase_tenant_id,
-            email_domain="platform.local",
-            is_active=True
-        )
-        db_session.add(tenant)
-        await db_session.flush()
-        await db_session.refresh(tenant)
-    
-    # Ensure all system roles exist (idempotent check)
-    roles = ["platform_admin", "support_staff", "billing_manager"]
-    
-    # Get existing roles
-    existing_roles_result = await db_session.execute(
-        select(PlatformRole.name)
-    )
-    existing_role_names = existing_roles_result.scalars().all()
-    
-    for role_name in roles:
-        if role_name not in existing_role_names:
-            role = PlatformRole(
-                name=role_name,
-                display_name=role_name.replace("_", " ").title(),
-                is_system_role=True
-            )
-            db_session.add(role)
-    
-    await db_session.flush()
-    
-    return tenant
-
-
-async def create_platform_user(
-    db_session: AsyncSession,
-    email: str,
-    firebase_uid: str = None,
-    role_name: str = "platform_admin",
-    name: str = None,
-    platform_tenant_id: UUID = None  # Optional for backward compatibility
-):
-    """Create a platform user - Idempotent"""
-    from modules.platform.models import PlatformUser, PlatformRole, PlatformTenant
-    from sqlalchemy import select
-    
-    # Get or create platform tenant if not provided
-    if not platform_tenant_id:
-        result = await db_session.execute(select(PlatformTenant))
-        tenant = result.scalar_one_or_none()
-        if not tenant:
-            # Create minimal tenant for testing
-            tenant = await create_platform_tenant(db_session)
-        platform_tenant_id = tenant.id
-    
-    # Check if exists
-    result = await db_session.execute(
-        select(PlatformUser).where(PlatformUser.email == email)
-    )
-    existing = result.scalar_one_or_none()
-    if existing:
-        return existing
-    
-    # Get role
-    result = await db_session.execute(
-        select(PlatformRole)
-        .where(PlatformRole.name == role_name)
-    )
-    role = result.scalar_one_or_none()
-    
-    if not role:
-        raise ValueError(f"Platform role '{role_name}' not found")
-    
-    user = PlatformUser(
-        platform_tenant_id=platform_tenant_id,
-        platform_role_id=role.id,
-        email=email,
-        firebase_uid=firebase_uid or f"firebase-{uuid4().hex}",
-        display_name=name or email.split("@")[0],
-        is_active=True
-    )
-    db_session.add(user)
-    await db_session.flush()
-    await db_session.refresh(user)
-    return user
-
-
 async def create_test_user(
     db_session: AsyncSession,
     tenant_id: UUID,
@@ -986,89 +639,6 @@ async def create_test_invitation(
     await db_session.flush()
     await db_session.refresh(invitation)
     return invitation
-
-
-# ============================================================================
-# B2C Test Helpers
-# ============================================================================
-
-async def create_b2c_user(
-    db_session: AsyncSession,
-    email: str,
-    firebase_uid: str = None,
-    display_name: str = None
-):
-    """Create a B2C user for testing"""
-    from modules.b2c.models.user import B2CUser
-    from sqlalchemy import text
-    
-    if not firebase_uid:
-        firebase_uid = f"b2c-{uuid4().hex[:12]}"
-    
-    # Create user with pre-generated ID so we can set RLS context
-    user_id = uuid4()
-    
-    # Set user context to allow this user's data to be created
-    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
-    
-    user = B2CUser(
-        id=user_id,
-        firebase_uid=firebase_uid,
-        email=email,
-        display_name=display_name or email.split('@')[0]
-    )
-    db_session.add(user)
-    await db_session.flush()
-    await db_session.refresh(user)
-    
-    return user
-
-
-async def create_b2c_workspace(
-    db_session: AsyncSession,
-    owner_id: UUID,
-    name: str,
-    workspace_type: str = 'personal',
-    subscription_tier: str = 'free'
-):
-    """Create a B2C workspace for testing"""
-    from modules.b2c.models.workspace import Workspace, WorkspaceType
-    from modules.b2c.models.workspace_member import WorkspaceMember
-    from sqlalchemy import text
-    
-    # Set user context to owner to allow workspace creation
-    await db_session.execute(text(f"SET LOCAL app.current_user_id = '{owner_id}'"))
-    
-    workspace = Workspace(
-        name=name,
-        type=WorkspaceType(workspace_type),
-        owner_id=owner_id,
-        subscription_tier=subscription_tier
-    )
-    db_session.add(workspace)
-    await db_session.flush()
-    await db_session.refresh(workspace)
-    
-    # Add owner as member
-    member = WorkspaceMember(
-        workspace_id=workspace.id,
-        user_id=owner_id,
-        role='owner'
-    )
-    db_session.add(member)
-    await db_session.flush()
-    
-    return workspace
-
-
-def create_b2c_mock_token(firebase_uid: str, email: str, email_verified: bool = True):
-    """Create mock Firebase token for B2C testing"""
-    return {
-        'uid': firebase_uid,
-        'email': email,
-        'email_verified': email_verified,
-        'name': email.split('@')[0]
-    }
 
 
 # Pytest configuration

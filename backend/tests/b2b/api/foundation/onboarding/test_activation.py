@@ -15,8 +15,7 @@ from core.db.rls import rls_service
 from core.constants import B2BRoleName
 from datetime import datetime, timedelta, timezone
 import secrets
-from unittest.mock import patch
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from tests.conftest import (
     create_test_tenant,
@@ -24,7 +23,6 @@ from tests.conftest import (
     create_test_invitation,
     create_mock_firebase_token,
     encode_mock_jwt,
-    platform_admin_setup
 )
 
 
@@ -32,123 +30,6 @@ from tests.conftest import (
 @pytest.mark.integration
 class TestActivationFlow:
     """Test complete tenant activation workflow (Happy Path)"""
-    
-    @pytest.mark.asyncio
-    async def test_complete_activation_success_path(
-        self,
-        api_client: AsyncClient,
-        platform_admin_setup,
-        db_session: AsyncSession
-    ):
-        """
-        Test complete activation flow: Platform creates → Owner activates → Tenant active
-        """
-        # Arrange
-        platform_admin_token = platform_admin_setup["token"]
-        
-        # Mock Firebase interactions for onboarding
-        with patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.create_tenant') as mock_create_tenant, \
-             patch('infrastructure.auth.firebase_provisioning.FirebaseTenantProvisioner.configure_oidc_provider') as mock_config_oidc:
-            
-            mock_create_tenant.return_value = f"test-tenant-{uuid4().hex[:8]}"
-            mock_config_oidc.return_value = "oidc.test"
-            
-            # Act: Step 1 - Platform admin creates tenant
-            domain = f"test-complete-{uuid4().hex[:8]}.com"
-            owner_email = f"owner@{domain}"
-            
-            onboard_response = await api_client.post(
-                "/api/platform/b2b/tenants/onboard",
-                json={
-                    "company_name": "Test Corp",
-                    "domain": domain,
-                    "owner_email": owner_email,
-                    "oidc_provider": "auth0",
-                    "oidc_client_id": "test-client",
-                    "oidc_client_secret": "test-secret",
-                    "oidc_issuer": "https://test.auth0.com"
-                },
-                headers={"Authorization": f"Bearer {platform_admin_token}"}
-            )
-            
-            assert onboard_response.status_code == 201
-            onboard_data = onboard_response.json()
-            
-            tenant_id = onboard_data["tenant_id"]
-            activation_token = onboard_data["activation_token"]
-            
-            # Verify tenant created with pending status
-            tenant = await db_session.get(TenantModel, UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id)
-            assert tenant.activation_status == "pending"
-        
-        # Act: Step 2 - Owner validates activation token
-        validate_response = await api_client.get(
-            f"/api/b2b/activation/validate/{activation_token}"
-        )
-        
-        # Assert
-        assert validate_response.status_code == 200
-        validate_data = validate_response.json()
-        assert validate_data["tenant_id"] == tenant_id
-        assert validate_data["admin_email"] == owner_email
-        
-        # Act: Step 3 - Owner gets tenant SSO configuration
-        tenant_info_response = await api_client.get(
-            f"/api/b2b/activation/tenant-info/{tenant_id}"
-        )
-        
-        # Assert
-        assert tenant_info_response.status_code == 200
-        tenant_info = tenant_info_response.json()
-        assert "firebase_tenant_id" in tenant_info
-        
-        # Act: Step 4 - Owner performs SSO login (mocked) - this creates the user
-        firebase_uid = f"firebase-{uuid4().hex[:8]}"
-        
-        # Create owner user (simulating what auth sync would do)
-        # We use a TenantAwareSession if available, or set context
-        await rls_service.set_tenant_context(db_session, tenant.id)
-        owner_user = await create_test_user(
-            db_session,
-            tenant_id=tenant.id,
-            email=owner_email,
-            firebase_uid=firebase_uid,
-            role_slug=B2BRoleName.OWNER
-        )
-        await db_session.commit()
-        await rls_service.set_tenant_context(db_session, tenant.id) # Re-set after commit
-
-        # Step 5: Owner completes activation
-        owner_jwt = encode_mock_jwt(create_mock_firebase_token(
-            uid=firebase_uid,
-            email=owner_email,
-            firebase_tenant_id=tenant.firebase_tenant_id
-        ))
-        
-        complete_response = await api_client.post(
-            "/api/b2b/activation/complete",
-            json={"activation_token": activation_token},
-            headers={"Authorization": f"Bearer {owner_jwt}"}
-        )
-        
-        # Assert
-        assert complete_response.status_code == 200
-        assert complete_response.json()["message"] == "Tenant activated successfully"
-        
-        # Verify tenant is now active
-        await db_session.refresh(tenant)
-        assert tenant.activation_status == "active"
-        
-        # Verify invitation was accepted
-        await rls_service.set_tenant_context(db_session, tenant.id)
-        invitation_result = await db_session.execute(
-            select(InvitationModel).where(
-                InvitationModel.tenant_id == tenant.id,
-                InvitationModel.email == owner_email
-            )
-        )
-        invitation = invitation_result.scalar_one()
-        assert invitation.accepted_at is not None
 
     @pytest.mark.asyncio
     async def test_validate_activation_token_success(self, api_client: AsyncClient, db_session: AsyncSession):

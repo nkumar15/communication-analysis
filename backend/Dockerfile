@@ -1,5 +1,5 @@
 # Unified Dockerfile for Enterprise SSO
-# Supports: B2B, Platform, B2C microservices AND E2E Testing
+# Supports: B2B microservices AND E2E Testing
 
 # ==========================================
 # 1. Base Stage (Common Runtime)
@@ -95,28 +95,6 @@ COPY --chown=appuser:appuser migrations /app/migrations
 EXPOSE 8000
 CMD ["uvicorn", "modules.b2b.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-# --- Platform Microservice ---
-FROM builder AS platform
-USER appuser
-COPY --chown=appuser:appuser core /app/core
-COPY --chown=appuser:appuser infrastructure /app/infrastructure
-COPY --chown=appuser:appuser modules/platform /app/modules/platform
-COPY --chown=appuser:appuser migrations /app/migrations
-EXPOSE 8001
-CMD ["uvicorn", "modules.platform.main:app", "--host", "0.0.0.0", "--port", "8001"]
-
-# --- B2C Microservice ---
-FROM builder AS b2c
-USER appuser
-# Copy code
-COPY core/ /app/core/
-COPY infrastructure/ /app/infrastructure/
-COPY modules/b2c/ /app/modules/b2c/
-COPY modules/__init__.py /app/modules/
-WORKDIR /app
-EXPOSE 8002
-CMD ["uvicorn", "modules.b2c.main:app", "--host", "0.0.0.0", "--port", "8002"]
-
 # --- B2B Domain Microservice (B2B Logic) ---
 FROM builder AS b2b-domain
 
@@ -134,24 +112,6 @@ COPY modules/__init__.py /app/modules/
 WORKDIR /app
 EXPOSE 8003
 CMD ["uvicorn", "modules.domains.b2b.main:app", "--host", "0.0.0.0", "--port", "8003"]
-
-# --- B2C Domain Microservice (B2C Logic) ---
-FROM builder AS b2c-domain
-
-# Install AI-specific dependencies (same requirements as before)
-COPY requirements-ai-api.txt .
-ENV UV_HTTP_TIMEOUT=300
-RUN uv pip install --system --no-cache -r requirements-ai-api.txt
-
-USER appuser
-# Copy code
-COPY core/ /app/core/
-COPY infrastructure/ /app/infrastructure/
-COPY modules/domains/ /app/modules/domains/
-COPY modules/__init__.py /app/modules/
-WORKDIR /app
-EXPOSE 8004
-CMD ["uvicorn", "modules.domains.b2c.main:app", "--host", "0.0.0.0", "--port", "8004"]
 
 # ==========================================
 # 5. Test Runner Stage (Development)
@@ -196,14 +156,3 @@ COPY --chown=appuser:appuser workers /app/workers
 RUN mkdir -p /app/.cache/huggingface
 WORKDIR /app
 CMD ["celery", "-A", "workers.b2b_domain_worker.celery_app", "worker", "--loglevel=info"]
-
-# --- B2C Domain Worker ---
-FROM domain-worker-builder AS b2c-domain-worker
-USER appuser
-COPY --chown=appuser:appuser core /app/core
-COPY --chown=appuser:appuser infrastructure /app/infrastructure
-COPY --chown=appuser:appuser modules /app/modules
-COPY --chown=appuser:appuser workers /app/workers
-RUN mkdir -p /app/.cache/huggingface /home/appuser/.cache/docling
-WORKDIR /app
-CMD ["celery", "-A", "workers.b2c_domain_worker.celery_app", "worker", "--loglevel=info"]

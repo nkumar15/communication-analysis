@@ -31,9 +31,6 @@ from tests.conftest import (
     
     # Classes
     TenantAwareSession,
-    
-    # Other fixtures
-    platform_admin_setup,
 )
 
 
