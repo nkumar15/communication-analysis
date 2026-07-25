@@ -33,8 +33,8 @@ display-services: ## Display running services
 	@echo "Jaeger:       http://localhost:16686"
 	@echo "Kibana:       http://localhost:5601"
 
-elasticsearch: ## Start elasticsearch and elasticsearch-kibana
-	docker-compose up -d elasticsearch elasticsearch-kibana
+elasticsearch: ## Start elasticsearch and kibana
+	docker-compose up -d elasticsearch kibana
 
 up: ## Start all backend services (B2B + infra, no frontend) — used by test targets
 	docker-compose up -d postgres minio \
@@ -344,7 +344,7 @@ dast-scan-b2b: ## Run OWASP ZAP scan on B2B API
 
 dast-scan-domain: ## Run OWASP ZAP scan on Domain API
 	@echo "$(BLUE)Scanning Domain API...$(NC)"
-	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/domain/openapi.json -f openapi -r zap-domain-report.html -w zap-domain-report.md -J zap-domain-report.json 2>&1 | tee backend/zap-domain-output.log || true
+	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/b2b/domain/openapi.json -f openapi -r zap-domain-report.html -w zap-domain-report.md -J zap-domain-report.json 2>&1 | tee backend/zap-domain-output.log || true
 	@echo "$(GREEN)✓ Domain API scan complete - Reports: backend/zap-domain-report.*$(NC)"
 
 dast-scan-full: ## Run OWASP ZAP full active scan (comprehensive but slow)
