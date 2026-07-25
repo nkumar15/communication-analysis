@@ -17,7 +17,7 @@ logs: ## View logs (usage: make logs [s=service])
 ifdef s
 	docker-compose logs -f $(s)
 else
-	docker-compose logs -f b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api b2c-worker b2b-domain-worker b2c-domain-worker nginx
+	docker-compose logs -f b2b-api b2b-domain-api b2b-worker b2b-domain-worker nginx
 endif
 
 
@@ -36,28 +36,19 @@ display-services: ## Display running services
 elasticsearch: ## Start elasticsearch and elasticsearch-kibana
 	docker-compose up -d elasticsearch elasticsearch-kibana
 
-up: ## Start all backend services (B2B + B2C + infra, no frontends) — used by test targets
+up: ## Start all backend services (B2B + infra, no frontend) — used by test targets
 	docker-compose up -d postgres minio \
-							b2b-api platform-api b2c-api \
-							b2b-domain-api b2c-domain-api \
-							b2c-worker b2b-worker \
-							b2b-domain-worker b2c-domain-worker \
+							b2b-api b2b-domain-api \
+							b2b-worker b2b-domain-worker \
 							redis nginx mailhog prometheus grafana jaeger
 	@echo "$(GREEN)✓ Backend services started$(NC)"
-	@echo "$(YELLOW) Tip: run 'make dev-full' to also start the 3 frontend portals$(NC)"
+	@echo "$(YELLOW) Tip: run 'make dev-full' to also start the frontend portal$(NC)"
 	@echo "$(YELLOW) Tip: run 'make up-full' to also start Elasticsearch + Kibana$(NC)"
 
-up-b2b: ## Start B2B-only services + infra (b2b-api, b2b-worker, b2b-domain-api, b2b-domain-worker, platform-api, frontends)
+up-b2b: ## Start B2B services + infra (b2b-api, b2b-worker, b2b-domain-api, b2b-domain-worker, frontend)
 	@docker-compose --profile b2b-demo up -d
 	@echo "$(GREEN)✓ B2B services started$(NC)"
 	@echo "  B2B Portal:      http://localhost:3000"
-	@echo "  Platform Portal: http://localhost:3002"
-	@echo "  API Gateway:     http://localhost:8080"
-
-up-b2c: ## Start B2C-only services + infra (b2c-api, b2c-worker, b2c-beat, b2c-domain-api, b2c-domain-worker, frontend-b2c)
-	@docker-compose --profile b2c-demo up -d
-	@echo "$(GREEN)✓ B2C services started$(NC)"
-	@echo "  B2C Portal:      http://localhost:3001"
 	@echo "  API Gateway:     http://localhost:8080"
 
 up-full: ## Start all backend services including Elasticsearch + Kibana
@@ -65,21 +56,19 @@ up-full: ## Start all backend services including Elasticsearch + Kibana
 	@docker-compose up -d elasticsearch kibana
 	@echo "$(GREEN)✓ All backend services started (including Elasticsearch)$(NC)"
 
-dev-full: ## Start everything for manual full-stack testing (B2B + B2C + all 3 frontend portals)
+dev-full: ## Start everything for manual full-stack testing (B2B + frontend portal)
 	@docker-compose --profile dev-full up -d
 	@echo "$(GREEN)✓ Full stack ready$(NC)"
 	@echo "  B2B Portal:      http://localhost:3000"
-	@echo "  B2C Portal:      http://localhost:3001"
-	@echo "  Platform Portal: http://localhost:3002"
 	@echo "  API Gateway:     http://localhost:8080"
 	@echo "  Mailhog:         http://localhost:8025"
 
 down: ## Stop all services
 	@echo "$(BLUE)Stopping services...$(NC)"
-	docker-compose --profile b2b-demo --profile b2c-demo --profile dev-full --profile test-api --profile test-ui down --remove-orphans
+	docker-compose --profile b2b-demo --profile dev-full --profile test-api --profile test-ui down --remove-orphans
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
-restart: down up ## Restart all services (full B2B + B2C stack)
+restart: down up ## Restart all services (B2B stack)
 
 ##@ Database
 
@@ -131,17 +120,6 @@ migrate-schema-test: ## Run SQL migrations against saas_test_db
 
 ##@ Seed
 
-platform-seed-system: ## Seed System Tenant (Platform)
-	@echo "$(BLUE)Seeding System Tenant...$(NC)"
-	@docker-compose exec -T platform-api python /app/scripts/platform/seed_system_tenant.py
-
-platform-seed-admin: ## Create Platform Admin User
-	@echo "$(BLUE)Creating Platform Admin User...$(NC)"
-	@docker-compose exec -T platform-api python /app/scripts/platform/create_platform_admin.py
-
-platform-seed-permissions: ## Seed platform permissions
-	docker-compose exec -T platform-api python /app/scripts/platform/seed_platform_permissions.py
-
 b2b-seed-roles: ## Seed B2B RBAC Roles (Foundation + [USE_CASE])
 	@echo "$(BLUE)=== SaaS Admin Console - RBAC Seeding ===$(NC)"
 	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/seed_rbac.py
@@ -149,15 +127,6 @@ ifdef USE_CASE
 	@echo "$(YELLOW)Loading domain use case: $(USE_CASE)$(NC)"
 	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_rbac.py
 endif
-
-b2b-seed-plans: ## Seed B2B Subscription Plans
-	@echo "$(BLUE)=== SaaS Admin Console - Subscription Seeding ===$(NC)"
-	@docker-compose exec -it b2b-api env USE_CASE=$(USE_CASE) python /app/modules/b2b/scripts/seeds/seed_subscription_plans.py
-
-b2c-seed-plans: ## Seed B2C subscription plans
-	@echo "$(BLUE)Seeding B2C subscription plans...$(NC)"
-	@docker-compose exec -T b2c-api python /app/scripts/b2c/seed_subscription_plans.py
-	@echo "$(GREEN)✓ B2C plans seeded$(NC)"
 
 b2b-verify-seed: ## Verify B2B Seed Data
 	@echo "$(BLUE)=== SaaS Admin Console - Seed Verification ===$(NC)"
@@ -169,34 +138,21 @@ ifdef USE_CASE
 	@docker-compose exec -T b2b-domain-api python /app/modules/domains/b2b/$(USE_CASE)/scripts/seeds/seed_meta.py
 endif
 
-seed-all: ## Run all seed scripts — B2B + B2C (requires all API services running)
+seed-all: ## Run all seed scripts (requires b2b-api running)
 	@echo "$(BLUE)Running seed scripts...$(NC)"
-	@$(MAKE) platform-seed-permissions
 	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
-	@$(MAKE) b2b-seed-plans
-	@$(MAKE) b2c-seed-plans
 	@$(MAKE) b2b-verify-seed
 	@echo "$(GREEN)✓ Seed scripts complete$(NC)"
 
-seed-b2b: ## Seed B2B platform only — no b2c-api needed (USE_CASE=xxx for domain roles)
-	@echo "$(BLUE)Running B2B seed scripts...$(NC)"
-	@$(MAKE) platform-seed-permissions
-	@$(MAKE) b2b-seed-roles $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
-	@$(MAKE) b2b-seed-plans
-	@$(MAKE) b2b-verify-seed
-	@echo "$(GREEN)✓ B2B seed complete$(NC)"
+seed-b2b: seed-all ## Alias for seed-all
 
-seed-demo: ## Full demo system (optional USE_CASE=xxx) — starts all services
+seed-demo: ## Full demo system (optional USE_CASE=xxx, defaults to bank_surveillance) — starts all services
 	@echo "$(BLUE)=== Setting up Demo System ===$(NC)"
 	@$(MAKE) db-recreate
 	@$(MAKE) restart
-	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
-ifdef USE_CASE
-	@$(MAKE) b2b-invite f=modules/domains/b2b/$(USE_CASE)/scripts/seeds/demo_tenant.json
-	@$(MAKE) b2b-seed-meta USE_CASE=$(USE_CASE)
-else
-	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/demo_tenant.json
-endif
+	@$(MAKE) seed-all USE_CASE=$(or $(USE_CASE),bank_surveillance)
+	@$(MAKE) b2b-invite f=modules/domains/b2b/$(or $(USE_CASE),bank_surveillance)/scripts/seeds/demo_tenant.json
+	@$(MAKE) b2b-seed-meta USE_CASE=$(or $(USE_CASE),bank_surveillance)
 	@echo "$(GREEN)✅ Demo system ready$(NC)"
 
 
@@ -205,17 +161,11 @@ endif
 b2b-invite: ## Invite B2B Tenant (f=file.json [PLUGINS=p1,p2])
 	@echo "$(BLUE)=== SaaS Admin Console - B2B Tenant Setup ===$(NC)"
 	@docker-compose exec -it b2b-api python /app/scripts/b2b/tenant_onboard.py create-local \
-		--file $(or $(f),modules/domains/b2b/task_management/scripts/seeds/task_management_demo.json) \
+		--file $(or $(f),modules/domains/b2b/bank_surveillance/scripts/seeds/bank_surveillance_demo.json) \
 		$(if $(PLUGINS),--plugins $(PLUGINS),)
 
 b2b-invite-bank: ## Invite Bank Tenant (Shortcut)
 	@$(MAKE) b2b-invite f=modules/domains/b2b/bank_surveillance/scripts/seeds/bank_surveillance_demo.json
-
-b2b-invite-marketing: ## Invite Marketing Tenant (Shortcut)
-	@$(MAKE) b2b-invite f=modules/domains/b2b/marketing_agency/scripts/seeds/marketing_agency_demo.json
-
-b2b-invite-task: ## Invite Task Management Tenant (Shortcut)
-	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/task_management_demo.json
 
 b2b-resend-invite: ## Resend activation email (usage: make b2b-resend-invite d=domain.com)
 ifdef d
@@ -231,7 +181,7 @@ endif
 
 ##@ B2B Demos
 
-b2b-demo-bank: ## Bank Surveillance demo — starts B2B-only containers (no B2C services)
+b2b-demo-bank: ## Bank Surveillance demo — starts B2B containers
 	@echo "$(BLUE)=== Bank Surveillance Demo Setup ===$(NC)"
 	@$(MAKE) db-recreate
 	@echo "$(BLUE)Starting B2B services...$(NC)"
@@ -247,41 +197,8 @@ b2b-demo-bank: ## Bank Surveillance demo — starts B2B-only containers (no B2C 
 	@echo ""
 	@echo "$(BLUE)Login as:$(NC)         owner@worldwidebank.com"
 	@echo "$(BLUE)B2B Portal:$(NC)       http://localhost:3000"
-	@echo "$(BLUE)Platform Portal:$(NC)  http://localhost:3002"
 	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
 	@echo "$(BLUE)Mailhog:$(NC)          http://localhost:8025"
-	@echo ""
-	@echo "$(YELLOW)B2C services are NOT running (not needed for bank demo)$(NC)"
-	@echo "$(YELLOW)Run 'make dev-full' to start all services including B2C$(NC)"
-
-b2b-demo-task: ## Task Management demo — starts B2B-only containers (no B2C services)
-	@echo "$(BLUE)=== Task Management Demo Setup ===$(NC)"
-	@$(MAKE) db-recreate
-	@echo "$(BLUE)Starting B2B services...$(NC)"
-	@docker-compose --profile b2b-demo up -d
-	@sleep 5
-	@$(MAKE) seed-b2b USE_CASE=task_management
-	@$(MAKE) b2b-invite f=modules/domains/b2b/task_management/scripts/seeds/demo_tenant.json
-	@$(MAKE) b2b-seed-meta USE_CASE=task_management
-	@echo ""
-	@echo "$(GREEN)✅ Task Management Demo Ready!$(NC)"
-	@echo "$(BLUE)B2B Portal:$(NC)       http://localhost:3000"
-	@echo "$(BLUE)Platform Portal:$(NC)  http://localhost:3002"
-	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
-	@echo "$(YELLOW)B2C services are NOT running (not needed for task demo)$(NC)"
-
-b2c-demo-trader: ## Finance Trader demo — starts B2C-only containers (no B2B services)
-	@echo "$(BLUE)=== Finance Trader Demo Setup ===$(NC)"
-	@$(MAKE) db-recreate
-	@echo "$(BLUE)Starting B2C services...$(NC)"
-	@docker-compose --profile b2c-demo up -d
-	@sleep 5
-	@$(MAKE) b2c-seed-plans
-	@echo ""
-	@echo "$(GREEN)✅ Finance Trader Demo Ready!$(NC)"
-	@echo "$(BLUE)B2C Portal:$(NC)       http://localhost:3001"
-	@echo "$(BLUE)API Gateway:$(NC)      http://localhost:8080"
-	@echo "$(YELLOW)B2B services are NOT running (not needed for B2C demo)$(NC)"
 
 
 ##@ Testing
@@ -290,8 +207,7 @@ test-api: ## Run backend API pytest suite — uses saas_test_db, never touches d
 	@echo "$(BLUE)Running backend API tests (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
 	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
 	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
@@ -303,8 +219,7 @@ test-ui: ## Run automated Playwright browser tests — uses saas_test_db. Usage:
 	@echo "$(BLUE)Running automated UI tests (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
 	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@$(DC_TEST) --profile test-ui up -d
 	@sleep 8
 	@$(MAKE) seed-all $(if $(USE_CASE),USE_CASE=$(USE_CASE),)
@@ -317,8 +232,7 @@ test-b2b-foundation-only: ## Run B2B foundation full suite (API, Services, Units
 	@echo "$(BLUE)Running B2B Foundation Full Suite (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
 	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all
 	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
@@ -332,8 +246,7 @@ test-b2b-bank-only: ## Run B2B Bank Surveillance specific suite (API, Services, 
 	@echo "$(BLUE)Running Bank Surveillance specific suite (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
 	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
 	@$(DC_TEST) run --rm -e USE_CASE=bank_surveillance e2e-tests \
@@ -347,8 +260,7 @@ test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank) — u
 	@echo "$(BLUE)Running Bank Surveillance full suite (saas_test_db)...$(NC)"
 	@$(MAKE) db-recreate-test
 	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
+		b2b-api b2b-domain-api b2b-worker b2b-domain-worker
 	@sleep 5
 	@$(MAKE) seed-all USE_CASE=bank_surveillance
 	@$(DC_TEST) run --rm -e USE_CASE=bank_surveillance e2e-tests \
@@ -360,55 +272,7 @@ test-b2b-bank: ## Run B2B Bank Surveillance full suite (Foundation + Bank) — u
 		tests/b2b/units \
 		-v
 
-test-b2c-foundation-only: ## Run B2C foundation full suite (API, Services, Units) — uses saas_test_db
-	@echo "$(BLUE)Running B2C Foundation Full Suite (saas_test_db)...$(NC)"
-	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
-	@sleep 5
-	@$(MAKE) seed-all
-	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
-		tests/b2c/api/foundation \
-		tests/b2c/services/foundation \
-		tests/b2c/units \
-		-v
-
-
-test-platform-foundation-only: ## Run Platform foundation full suite (API, Services, Units) — uses saas_test_db
-	@echo "$(BLUE)Running Platform Foundation Full Suite (saas_test_db)...$(NC)"
-	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
-	@sleep 5
-	@$(MAKE) seed-all
-	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
-		tests/platform/api \
-		tests/platform/services \
-		tests/platform/units \
-		-v
-
-
-test-all-foundation: ## Run all foundation tests (B2B, B2C, Platform) — uses saas_test_db
-	@echo "$(BLUE)Running All Foundation Tests (saas_test_db)...$(NC)"
-	@$(MAKE) db-recreate-test
-	@$(DC_TEST) up -d postgres minio redis nginx mailhog prometheus grafana jaeger \
-		b2b-api platform-api b2c-api b2b-domain-api b2c-domain-api \
-		b2b-worker b2c-worker b2b-domain-worker b2c-domain-worker
-	@sleep 5
-	@$(MAKE) seed-all
-	@$(DC_TEST) --profile test-api run --rm e2e-tests pytest \
-		tests/b2b/api/foundation \
-		tests/b2b/services/foundation \
-		tests/b2b/units \
-		tests/b2c/api/foundation \
-		tests/b2c/services/foundation \
-		tests/b2c/units \
-		tests/platform/api \
-		tests/platform/services \
-		tests/platform/units \
-		-v
+test-all-foundation: test-b2b-foundation-only ## Alias for test-b2b-foundation-only
 
 ##@ Frontend (Local Development)
 
@@ -419,22 +283,8 @@ web-b2b: ## Start B2B portal (port 3000)
 	fi
 	cd frontend && npm run start:b2b
 
-web-b2c: ## Start B2C portal (port 3001)
-	@if [ ! -d "frontend/node_modules" ]; then \
-		echo "$(YELLOW)Installing frontend dependencies...$(NC)"; \
-		cd frontend && npm install; \
-	fi
-	cd frontend && npm run start:b2c
-
-web-platform: ## Start Platform portal (port 3002)
-	@if [ ! -d "frontend/node_modules" ]; then \
-		echo "$(YELLOW)Installing frontend dependencies...$(NC)"; \
-		cd frontend && npm install; \
-	fi
-	cd frontend && npm run start:platform
-
 stop-web-all:
-	docker-compose stop frontend-b2c frontend-b2b frontend-platform || true
+	docker-compose stop frontend-b2b || true
 
 
 
@@ -447,12 +297,6 @@ load-test-b2b: ## Run B2B Locust load test (50 users). Usage: make load-test-b2b
 	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
 	$(DC_TEST) --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2b_locustfile.py --host http://b2b-api:8000 --headless -u 50 -r 10 --run-time $(DURATION)"
 	@echo "$(GREEN)✓ B2B Load test complete$(NC)"
-
-load-test-b2c: ## Run B2C Locust load test (50 users). Usage: make load-test-b2c DURATION=30s
-	@echo "$(BLUE)Starting B2C Locust load test (50 users, $(DURATION))...$(NC)"
-	@echo "$(YELLOW)Press Ctrl+C to stop early.$(NC)"
-	$(DC_TEST) --profile test-api run --rm e2e-tests bash -c "python -m locust -f tests/load/b2c_locustfile.py --host http://b2c-api:8002 --headless -u 50 -r 10 --run-time $(DURATION)"
-	@echo "$(GREEN)✓ B2C Load test complete$(NC)"
 
 ##@ SAST (Static Application Security Testing)
 
@@ -475,10 +319,7 @@ sast-scan-containers: ## Run Trivy vulnerability scan on Docker images
 	@echo "$(BLUE)Running Trivy container security scans...$(NC)"
 	@echo "$(YELLOW)Scanning backend images...$(NC)"
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2b-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
-	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-platform-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
-	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2c-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2b-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
-	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-b2c-domain-api:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@echo "$(YELLOW)Scanning frontend image...$(NC)"
 	@docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL enterprisesso-frontend:latest 2>&1 | tee -a backend/trivy-report.txt || true
 	@echo "$(GREEN)✓ Container security scan complete - Report saved to backend/trivy-report.txt$(NC)"
@@ -494,24 +335,12 @@ dast-scan: ## Run OWASP ZAP baseline scan on all APIs
 	@echo "$(BLUE)Running OWASP ZAP baseline scans on all APIs...$(NC)"
 	@echo "$(YELLOW)Ensure services are running: make up$(NC)"
 	@$(MAKE) dast-scan-b2b
-	@$(MAKE) dast-scan-platform
-	@$(MAKE) dast-scan-b2c
 	@$(MAKE) dast-scan-domain
 
 dast-scan-b2b: ## Run OWASP ZAP scan on B2B API
 	@echo "$(BLUE)Scanning B2B API...$(NC)"
 	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/b2b/openapi.json -f openapi -r zap-b2b-report.html -w zap-b2b-report.md -J zap-b2b-report.json 2>&1 | tee backend/zap-b2b-output.log || true
 	@echo "$(GREEN)✓ B2B API scan complete - Reports: backend/zap-b2b-report.*$(NC)"
-
-dast-scan-platform: ## Run OWASP ZAP scan on Platform API
-	@echo "$(BLUE)Scanning Platform API...$(NC)"
-	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/platform/openapi.json -f openapi -r zap-platform-report.html -w zap-platform-report.md -J zap-platform-report.json 2>&1 | tee backend/zap-platform-output.log || true
-	@echo "$(GREEN)✓ Platform API scan complete - Reports: backend/zap-platform-report.*$(NC)"
-
-dast-scan-b2c: ## Run OWASP ZAP scan on B2C API
-	@echo "$(BLUE)Scanning B2C API...$(NC)"
-	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t http://localhost:8080/docs/b2c/openapi.json -f openapi -r zap-b2c-report.html -w zap-b2c-report.md -J zap-b2c-report.json 2>&1 | tee backend/zap-b2c-output.log || true
-	@echo "$(GREEN)✓ B2C API scan complete - Reports: backend/zap-b2c-report.*$(NC)"
 
 dast-scan-domain: ## Run OWASP ZAP scan on Domain API
 	@echo "$(BLUE)Scanning Domain API...$(NC)"
@@ -523,14 +352,3 @@ dast-scan-full: ## Run OWASP ZAP full active scan (comprehensive but slow)
 	@echo "$(YELLOW)⚠ This may take 30+ minutes. Ensure services are running: make up$(NC)"
 	@docker run --rm --network="host" -v $(PWD)/backend:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py -t http://localhost:8080 -r zap-full-report.html -w zap-full-report.md -J zap-full-report.json 2>&1 | tee backend/zap-full-output.log || true
 	@echo "$(GREEN)✓ DAST full scan complete - Reports: backend/zap-full-report.*$(NC)"
-
-
-##@ Stripe
-
-stripe-listen-b2b: ## Forward Stripe webhooks to B2B service (Port 8000)
-	@echo "$(BLUE)Forwarding Stripe events to B2B Service...$(NC)"
-	stripe listen --forward-to localhost:8000/api/b2b/billing/webhooks/stripe
-
-stripe-listen-b2c: ## Forward Stripe webhooks to B2C service (Port 8002)
-	@echo "$(BLUE)Forwarding Stripe events to B2C Service...$(NC)"
-	stripe listen --forward-to localhost:8002/api/b2c/billing/webhooks/stripe

@@ -165,9 +165,6 @@ services:
   # ------------------------------------------------------------------------------------
   # B2B Services
   # ------------------------------------------------------------------------------------
-  # ------------------------------------------------------------------------------------
-  # B2B Services
-  # ------------------------------------------------------------------------------------
   dbmigrate:
     build:
       context: ./backend
@@ -181,7 +178,7 @@ services:
       - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
     depends_on:
       - postgres
-    command: env ENABLED_PRODUCTS=platform,b2b,b2c python /app/migrations/run_migrations.py
+    command: env ENABLED_PRODUCTS=b2b python /app/migrations/run_migrations.py
 
   # B2B Worker - Celery Background Tasks
   b2b-api:
@@ -213,7 +210,7 @@ services:
         condition: service_healthy
     command: uvicorn modules.b2b.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # Platform Microservice - Admin Operations
+  # B2B Worker - Celery Background Tasks
   b2b-worker:
     profiles: ["b2b-demo", "dev-full"]
     build:
@@ -237,7 +234,7 @@ services:
       - postgres
     command: celery -A workers.b2b_worker.celery_app worker --loglevel=info --concurrency=4 -Q celery,emails,audit
 
-  # B2C Worker - Celery Background Tasks for B2C
+  # B2B Domain Microservice - B2B Logic (Bank Surveillance)
   b2b-domain-api:
     profiles: ["b2b-demo", "dev-full"]
     build:
@@ -279,7 +276,7 @@ services:
         condition: service_healthy
     command: uvicorn modules.domains.b2b.main:app --host 0.0.0.0 --port 8003 --reload
 
-  # B2C Domain Microservice - B2C Logic (Finance Trader)
+  # B2B Domain Worker - Background Processing for B2B (RAG)
   b2b-domain-worker:
     profiles: ["b2b-demo", "dev-full"]
     build:
@@ -303,7 +300,7 @@ services:
       - redis
     command: celery -A workers.b2b_domain_worker.celery_app worker --loglevel=info --concurrency=1 -Q b2b-domain
 
-  # B2C Domain Worker - Background Processing for B2C (RAG)
+  # B2B Frontend - Web UI for Tenants
   frontend-b2b:
     profiles: ["b2b-demo", "dev-full", "test-ui"]
     build:
@@ -317,233 +314,6 @@ services:
       - PORT=3000
     ports:
       - "3000:3000"
-    depends_on:
-      - nginx
-    restart: unless-stopped
-
-  # ------------------------------------------------------------------------------------
-  # B2C Services
-  # ------------------------------------------------------------------------------------
-  # B2C Frontend - Web UI for Workspaces (E2E Testing Only)
-
-  # ------------------------------------------------------------------------------------
-  # B2C Services
-  # ------------------------------------------------------------------------------------
-  b2c-api:
-    profiles: ["b2c-demo", "dev-full"]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: b2c
-    container_name: sso_b2c_api
-    env_file:
-      - ./backend/.env
-    environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - EMAIL_PROVIDER=mailhog
-      - MAILHOG_HOST=mailhog
-    ports:
-      - "8002:8002"
-    volumes:
-      - ./backend:/app
-      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      jaeger:
-        condition: service_started
-      redis:
-        condition: service_healthy
-    command: uvicorn modules.b2c.main:app --host 0.0.0.0 --port 8002 --reload
-
-  # B2B Domain Microservice - B2B Logic (Surveillance, Projects)
-  b2c-worker:
-    profiles: ["b2c-demo", "dev-full"]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: b2c
-    container_name: sso_b2c_worker
-    env_file:
-      - ./backend/.env
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - EMAIL_PROVIDER=mailhog
-      - MAILHOG_HOST=mailhog
-    volumes:
-      - ./backend:/app
-      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-    depends_on:
-      - redis
-      - postgres
-    command: celery -A workers.b2c_worker.celery_app worker --loglevel=info
-
-  # B2C Beat - Celery Periodic Tasks Scheduler
-  b2c-beat:
-    profiles: ["b2c-demo", "dev-full"]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: b2c
-    container_name: sso_b2c_beat
-    env_file:
-      - ./backend/.env
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    volumes:
-      - ./backend:/app
-      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-    depends_on:
-      - redis
-      - postgres
-    command: celery -A workers.b2c_worker.celery_app beat --loglevel=info
-
-  # B2B Microservice - Tenant Management
-  b2c-domain-api:
-    profiles: ["b2c-demo", "dev-full"]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: b2c-domain
-    container_name: sso_b2c_domain_api
-    env_file:
-      - ./backend/.env
-    environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      # AI Config
-      - LLM_PROVIDER=openai
-      - LLM_MODEL=gpt-4o-mini
-      - EMBEDDING_PROVIDER=openai
-      - EMBEDDING_MODEL=text-embedding-3-small
-      - HF_HOME=/app/.cache/huggingface
-    ports:
-      - "8004:8004"
-    volumes:
-      - ./backend:/app
-      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      jaeger:
-        condition: service_started
-      redis:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-      minio:
-        condition: service_healthy
-    command: uvicorn modules.domains.b2c.main:app --host 0.0.0.0 --port 8004 --reload
-
-  # B2B Domain Worker - Background Processing for B2B
-  b2c-domain-worker:
-    profiles: ["b2c-demo", "dev-full"]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: b2c-domain-worker
-    container_name: sso_b2c_domain_worker
-    restart: always
-    env_file:
-      - ./backend/.env
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-      - MINIO_SECURE=False
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - LLM_PROVIDER=openai
-      - LLM_MODEL=gpt-4o-mini
-      - EMBEDDING_PROVIDER=openai
-      - EMBEDDING_MODEL=text-embedding-3-small
-      - HF_HOME=/app/.cache/huggingface
-      - PYTHONPATH=/app
-    volumes:
-      - ./backend:/app
-      - ./data:/data
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - elasticsearch
-    command: celery -A workers.b2c_domain_worker.celery_app worker --loglevel=info --concurrency=1 -Q b2c-domain
-
-  frontend-b2c:
-    profiles: ["b2c-demo", "dev-full", "test-ui"]
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        PORTAL: b2c
-        REACT_APP_API_URL: http://localhost:8080
-    container_name: sso_frontend_b2c
-    environment:
-      - PORT=3001
-    ports:
-      - "3001:3001"
-    depends_on:
-      - nginx
-    restart: unless-stopped
-
-  # ------------------------------------------------------------------------------------
-  # PLATFORM Services
-  # ------------------------------------------------------------------------------------
-  # Platform Frontend - Admin UI (E2E Testing Only)
-
-  # ------------------------------------------------------------------------------------
-  # PLATFORM Services
-  # ------------------------------------------------------------------------------------
-  platform-api:
-    profiles: ["b2b-demo", "dev-full"]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: platform
-    container_name: sso_platform_api
-    env_file:
-      - ./backend/.env
-    environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - EMAIL_PROVIDER=mailhog
-      - MAILHOG_HOST=mailhog
-    ports:
-      - "8001:8001"
-    volumes:
-      - ./backend:/app
-      - ./secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      jaeger:
-        condition: service_started
-      redis:
-        condition: service_healthy
-    command: uvicorn modules.platform.main:app --host 0.0.0.0 --port 8001 --reload
-
-  # B2C Microservice - Workspace Management
-  frontend-platform:
-    profiles: ["b2b-demo", "dev-full", "test-ui"]
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        PORTAL: platform
-        REACT_APP_API_URL: http://localhost:8080
-    container_name: sso_frontend_platform
-    environment:
-      - PORT=3002
-    ports:
-      - "3002:3002"
     depends_on:
       - nginx
     restart: unless-stopped
@@ -575,8 +345,6 @@ services:
       # Frontend services (now in Docker) - use internal service names
       - FRONTEND_URL=http://frontend-b2b:3000
       - FRONTEND_URL_B2B=http://frontend-b2b:3000
-      - FRONTEND_URL_B2C=http://frontend-b2c:3001
-      - FRONTEND_URL_PLATFORM=http://frontend-platform:3002
       - BASE_URL=http://frontend-b2b:3000
       # Database Overrides (Force use of internal docker service 'postgres')
       - DATABASE_URL=postgresql://saas_demo_user:saas_demo_user_password@postgres:5432/saas_demo_db
