@@ -1,0 +1,22 @@
+Subject: Payment Receipt
+
+Hi {{ user_name }},
+
+Thank you for your payment!
+
+Payment Details:
+- Amount: {{ amount }} {{ currency }}
+- Date: {{ invoice_date }}
+
+{% if invoice_pdf_url %}
+[Download Invoice PDF]({{ invoice_pdf_url }})
+{% endif %}
+
+View all your invoices:
+[Billing History]({{ billing_url }})
+
+Questions about your bill?
+Contact our support team.
+
+Best regards,
+The Team

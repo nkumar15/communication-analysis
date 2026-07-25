@@ -1,0 +1,19 @@
+# AI/RAG API Requirements (for domain-api)
+# Extends base requirements with llama-index packages
+
+-r requirements.txt
+
+# RAG Core Libraries (needed by RagService)
+llama-index-core==0.14.10
+llama-index-embeddings-ollama>=0.3.0
+llama-index-llms-ollama>=0.3.0
+llama-index-embeddings-openai>=0.5.0
+llama-index-llms-openai>=0.3.0
+llama-index-vector-stores-elasticsearch>=0.3.0
+llama-index-readers-file>=0.2.0
+sentence-transformers>=2.6.1
+
+# LangChain Support
+langchain==1.2.0
+langchain-openai==1.1.6
+langchain-community==0.4.1

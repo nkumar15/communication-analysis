@@ -1,0 +1,100 @@
+# Bank Surveillance - Domain Specific Actions
+# These actions extend the core set (read, write, delete) with domain-specific verbs
+# Derived from Product User Stories & Feature Specifications
+
+actions:
+  # ===== CORE CRUD (inherited from base) =====
+  # read, write, delete - assumed from base
+
+  # ===== SURVEILLANCE WORKFLOW =====
+  - name: search
+    display_name: Search
+    description: Perform semantic/keyword search over data
+    applicable_resources: [communications, rag_search]
+
+  - name: query
+    display_name: Query (RAG)
+    description: Execute guided questions and AI-assisted queries
+    applicable_resources: [rag_search]
+
+  - name: investigate
+    display_name: Investigate
+    description: Open and conduct a formal investigation workflow
+    applicable_resources: [investigations, alerts, communications]
+
+  - name: flag
+    display_name: Flag for Review
+    description: Mark an item as suspicious requiring further review
+    applicable_resources: [communications, alerts]
+
+  - name: escalate
+    display_name: Escalate
+    description: Escalate an alert or case to senior reviewer
+    applicable_resources: [alerts, cases]
+
+  - name: close
+    display_name: Close
+    description: Close an alert or case with decision rationale
+    applicable_resources: [alerts, cases]
+
+  - name: assign
+    display_name: Assign
+    description: Assign a case or alert to an analyst
+    applicable_resources: [cases, alerts, regions]
+
+  # ===== 4-EYES / APPROVAL =====
+  - name: approve
+    display_name: Approve
+    description: Approve investigation result (Checker in 4-eyes)
+    applicable_resources: [investigations, cases]
+
+  - name: acknowledge
+    display_name: Acknowledge
+    description: Acknowledge receipt of an alert without closing it
+    applicable_resources: [alerts]
+
+  # ===== GRAPH ANALYSIS =====
+  - name: analyze
+    display_name: Analyze
+    description: Perform deep-dive network/graph analysis
+    applicable_resources: [graph, communications]
+
+  # ===== DATA OPERATIONS =====
+  - name: trigger
+    display_name: Trigger
+    description: Trigger an ingestion job or pipeline
+    applicable_resources: [ingestion]
+
+  - name: retry
+    display_name: Retry
+    description: Retry a failed ingestion job
+    applicable_resources: [ingestion]
+
+  # ===== REPORTING & AUDIT =====
+  - name: submit
+    display_name: Submit
+    description: Submit a report or finding for final review
+    applicable_resources: [surveillance_reports]
+
+
+  # ===== AI CONFIGURATION =====
+  - name: train
+    display_name: Train Model
+    description: Reinforce or retrain AI models with feedback
+    applicable_resources: [model_config]
+
+  - name: configure
+    display_name: Configure
+    description: Modify system configuration settings
+    applicable_resources: [model_config, retention_policies, regions]
+
+  # ===== ACCESS CONTROL =====
+  - name: grant
+    display_name: Grant Access
+    description: Grant cross-region or elevated access
+    applicable_resources: [cross_region_data, sensitive_content, regions]
+
+  - name: redact
+    display_name: Redact
+    description: System action to redact sensitive content
+    applicable_resources: [sensitive_content, communications]

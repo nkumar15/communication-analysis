@@ -1,0 +1,71 @@
+# Bank Surveillance - Plugin Configuration Overlays
+# 
+# This file OVERRIDES foundation defaults and adds domain-specific configuration.
+# Structure mirrors foundation_plugins.yaml for consistency.
+
+geographic_boundaries:
+  # Configuration (overrides foundation defaults)
+  enforce_strict: true  # OVERRIDE: foundation has false
+  global_roles: [surveillance_chief, compliance_officer]  # OVERRIDE: foundation has []
+  
+  # Template data (optional - can add domain-specific regions)
+  # default_regions: []  # Uncomment to add more regions beyond foundation
+  
+data_classification:
+  # Configuration (overrides foundation defaults)
+  enforce_strict: true  # OVERRIDE: foundation has false
+  default_level: INTERNAL  # OVERRIDE: foundation has PUBLIC
+  
+  # Template data (optional - can add domain-specific sensitivity levels)
+  # sensitivity_levels: []  # Uncomment to add more levels beyond foundation
+
+hierarchical_teams:
+  # Configuration (overrides foundation defaults)
+  max_depth: 3  # OVERRIDE: foundation has 4 (Region → Desk → Unit)
+  allow_cross_hierarchy: false  # OVERRIDE: foundation has true
+  
+  # Template data (optional - can add domain-specific org tiers)
+  # org_tiers: []  # Uncomment to add more tiers beyond foundation
+  
+  # Instance data (domain-specific team hierarchy for demos)
+  seed_data:
+    - name: "Global Surveillance"
+      description: "Global Head of Surveillance"
+      region_code: "US"
+      org_tier: GLOBAL
+      children:
+        - name: "APAC Surveillance"
+          description: "Regional Surveillance for Asia Pacific"
+          region_code: "SG"
+          org_tier: REGIONAL
+          children:
+            - name: "SG Desk"
+              description: "Singapore Trading Desk Surveillance"
+              region_code: "SG"
+              org_tier: COUNTRY
+            - name: "HK Desk"
+              description: "Hong Kong Trading Desk Surveillance"
+              region_code: "HK"
+              org_tier: COUNTRY
+            - name: "MY Desk"
+              description: "Malaysia Trading Desk Surveillance"
+              region_code: "MY"
+              org_tier: COUNTRY
+        - name: "EMEA Surveillance"
+          description: "Regional Surveillance for Europe, Middle East, Africa"
+          region_code: "UK"
+          org_tier: REGIONAL
+          children: 
+            - name: "UK Desk"
+              description: "London Trading Desk Surveillance"
+              region_code: "UK"
+              org_tier: COUNTRY
+        - name: "Americas Surveillance"
+          description: "Regional Surveillance for North/South America"
+          region_code: "US"
+          org_tier: REGIONAL
+          children:
+            - name: "US Desk"
+              description: "New York Trading Desk Surveillance"
+              region_code: "US"
+              org_tier: COUNTRY

@@ -1,0 +1,20 @@
+name: "enron_baseline_v1"
+description: "Baseline Enron RAG (Vector Only, Top-k=10)"
+tenant_id: "default"
+dataset_path: "scripts/evaluation/datasets/enron/golden_dataset/golden_set.json"
+output_dir: "scripts/evaluation/results/enron"
+
+metrics:
+  - faithfulness
+  - answer_relevancy
+  - contextual_recall
+
+pipeline:
+  retriever:
+    type: "vector"
+    top_k: 10
+    index_name: "enron_emails"
+  
+  llm:
+    model: "gpt-4o-mini"
+    temperature: 0.0

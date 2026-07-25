@@ -1,0 +1,24 @@
+name: "enron_intent_v1"
+description: "Baseline Intent Classification using GPT-4o-mini on Enron Golden Dataset v3 (Balanced)"
+dataset_path: "scripts/evaluation/datasets/enron/golden_dataset/enron_intent_golden_v3.json"
+# Tenant ID is required by schema but currently ignored by RAG service (global search)
+tenant_id: "00000000-0000-0000-0000-000000000000"
+
+pipeline:
+  retriever:
+    type: "vector"
+    top_k: 20
+    index_name: "enron_emails"
+  
+  reranker:
+    enabled: true
+    model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    top_n: 5
+    
+  llm:
+    model: "gpt-4o-mini"
+    temperature: 0.0
+    prompt_strategy: "grounding_cot"
+
+metrics: ["faithfulness", "answer_relevancy"]
+output_dir: "results"

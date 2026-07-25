@@ -1,0 +1,26 @@
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
+import uuid
+
+class AnalysisRequest(BaseModel):
+    text: str = Field(..., description="The content to analyze/investigate")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata (sender, recipient, subject, etc.)")
+    tenant_id: Optional[uuid.UUID] = Field(default=None, description="Optional tenant ID for multi-tenancy")
+
+class AlertInvestigationRequest(BaseModel):
+    """Request and AI investigation for a specific Alert"""
+    alert_id: uuid.UUID
+
+class AnalysisResponse(BaseModel):
+    """Analysis report returned to the client"""
+    timestamp: str
+    risk_level: str
+    requires_action: bool
+    summary: str
+    intent_verdict: Optional[Dict[str, Any]] = None
+    policy_verdict: Optional[Dict[str, Any]] = None
+    evasion_verdict: Optional[Dict[str, Any]] = None
+    graph_context: Optional[Dict[str, Any]] = None
+    tenant_id: Optional[uuid.UUID] = None
+    timeline: Optional[List[Dict[str, Any]]] = None
+    evidence_pack: Optional[List[str]] = None
