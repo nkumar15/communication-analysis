@@ -114,7 +114,6 @@ The backend consists of 3 independent microservices:
 - [B2B Authentication](../architecture/b2b/authentication.md)
 - [B2B Authorization & RBAC](../architecture/b2b/authorization.md)
 - [B2B Tenant Onboarding](../architecture/b2b/tenant-onboarding-flow.md)
-- [B2B Subscription & Billing](../architecture/b2b/subscription.md)
 - [Multi-Tenant Isolation](../architecture/b2b/multi-tenant-isolation.md)
 
 ---
@@ -403,8 +402,6 @@ open http://localhost:8000/docs
 - Create task → Only assignable to team members
 - Add threaded comments → Replies nest correctly
 - Cross-tenant access → Returns 403 Forbidden
-
-See [Domain APIs Architecture](../architecture/domain-apis.md) for complete API documentation.
 
 ### 6. End-to-End Activation Test
 
@@ -1473,7 +1470,6 @@ make test-api-coverage
 - [B2B Authentication](../architecture/b2b/authentication.md) - Auth flow, RLS context, tenant validation
 - [B2B Authorization](../architecture/b2b/authorization.md) - RBAC system, permissions, access control
 - [B2B Tenant Onboarding](../architecture/b2b/tenant-onboarding-flow.md) - Complete onboarding sequence
-- [B2B Subscription](../architecture/b2b/subscription.md) - Pricing, payments, invoices
 - [Multi-Tenant Isolation](../architecture/b2b/multi-tenant-isolation.md) - RLS implementation
 
 **API & Tools:**

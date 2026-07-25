@@ -6,7 +6,6 @@ This directory contains the normative standards for development, design, and eth
 - [UI/UX Design Specification](ui-design.md): Design tokens, component library, and visual language.
 
 ## Rules & Best Practices
-- [API Standards](../guides/mobile-development.md): *To be formalized*
 - [Testing Standards](testing.md): Strategy and Roadmap.
 - [Test Matrix](test-matrix.md): Functional coverage matrix.
 - [Security Policy](../architecture/security.md): *Located in Architecture but defines policy*
