@@ -4,18 +4,40 @@ from firebase_admin import auth, credentials
 from typing import Optional, Dict, Any
 from core.config import settings
 from infrastructure.auth.provider import AuthProvider
+from infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
 
 class FirebaseAuthProvider(AuthProvider):
     """Firebase implementation of AuthProvider"""
-    
+
     def __init__(self):
         self.app: Optional[firebase_admin.App] = None
-    
+
     def initialize(self):
-        """Initialize Firebase Admin SDK"""
-        if not firebase_admin._apps:
+        """Initialize Firebase Admin SDK.
+
+        In local/dev environments, a missing or invalid service account
+        cert doesn't block startup — verify_id_token()'s mock-token path
+        (header.payload.mock_signature) doesn't need a real Firebase app.
+        Any code path that *does* need real Firebase (production, or the
+        real-token branch of verify_id_token) will fail loudly at the
+        point of use instead.
+        """
+        if firebase_admin._apps:
+            return
+        try:
             cred = credentials.Certificate(settings.firebase_credentials_path_resolved)
             firebase_admin.initialize_app(cred)
+        except Exception as e:
+            if settings.log_environment in ["local", "development"]:
+                logger.warning(
+                    "firebase_init_skipped",
+                    reason=str(e),
+                    note="No valid Firebase credentials — only mock tokens will work",
+                )
+            else:
+                raise
     
     async def verify_id_token(self, id_token: str) -> Dict[str, Any]:
         """

@@ -46,6 +46,16 @@ function App() {
 
     useEffect(() => {
         const initAuth = async () => {
+            // Local/demo mode: skip Firebase login entirely and use a fixed
+            // mock token (backend must have AUTH_PROVIDER support for
+            // mock_signature tokens — see infrastructure/auth/firebase.py).
+            // Opt-in only: unset in production builds.
+            const demoToken = process.env.REACT_APP_DEMO_AUTO_LOGIN_TOKEN;
+            if (demoToken && !sessionStorage.getItem('firebaseToken')) {
+                console.log('🧪 Demo mode: auto-login with fixed mock token');
+                sessionStorage.setItem('firebaseToken', demoToken);
+            }
+
             console.log('⏳ Waiting for Firebase auth to be ready...');
 
             // Wait for Firebase to finish initializing and restoring any previous auth state

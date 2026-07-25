@@ -2,13 +2,11 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from uuid import uuid4
 
-from modules.b2b.models import Team, TeamMember, B2BSubscription, B2BSubscriptionPlan
+from modules.b2b.models import Team, TeamMember
 from core.constants import B2BRoleName
-from core.utils import get_utc_now
-from datetime import timedelta
 from tests.conftest import (
     create_test_tenant,
     create_test_user,
@@ -557,83 +555,4 @@ class TestTeamManagement:
         )
         
         assert response.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_create_team_limit_enforced(self, api_client: AsyncClient, b2b_test_setup):
-        """Test team creation limit enforcement"""
-        setup = b2b_test_setup
-        tenant = setup["tenant"]
-        session = setup["session"]
-        token = setup["token"]
-        
-        # 1. Setup a restrictive plan (max_teams=1)
-        plan = B2BSubscriptionPlan(
-            tier_key="starter_mock",
-            name="Starter Mock",
-            limits={"max_teams": 1, "users": 5},
-            base_price_monthly=1000
-        )
-        session.add(plan)
-        await session.flush()
-        
-        # Create/Update subscription to this plan
-        # Deactivate existing subs first
-        await session.execute(
-            B2BSubscription.__table__.update()
-            .where(B2BSubscription.tenant_id == tenant.id)
-            .values(status="canceled")
-        )
-        
-        sub = B2BSubscription(
-            tenant_id=tenant.id,
-            plan_id=plan.id,
-            status="active",
-            current_period_start=get_utc_now(),
-            current_period_end=get_utc_now() + timedelta(days=30),
-            provider_subscription_id=f"sub_mock_{uuid4().hex}"
-        )
-        session.add(sub)
-        await session.commit() # Commit needed to be visible to checking logic (if new transaction)
-        
-        # 2. Create 1st Team (Should succeed)
-        # However, create_test_tenant usually creates "Default Team".
-        # So count might already be 1.
-        existing_teams_count = (await session.execute(
-            select(func.count(Team.id)).where(Team.tenant_id == tenant.id, Team.deleted_at.is_(None))
-        )).scalar()
-        
-        # If count is 1 (Default Team), then creating "Team 1" should FAIL if limit is 1.
-        # But we want to test success first.
-        # Let's bump limit to 2 for this test to show success then fail.
-        plan.limits = {"max_teams": 2, "users": 5}
-        session.add(plan)
-        await session.commit()
-        
-        if existing_teams_count < 2:
-            resp = await api_client.post(
-                "/api/b2b/teams/", 
-                json={"name": "Team 1"}, 
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            assert resp.status_code == 201
-            
-        # Refetch plan and set limit to existing count to force fail on next
-        existing_count = (await session.execute(
-             select(func.count(Team.id)).where(Team.tenant_id == tenant.id, Team.deleted_at.is_(None))
-        )).scalar()
-        
-        plan.limits = {"max_teams": existing_count}
-        session.add(plan)
-        await session.commit()
-        
-        # 3. Try to create another team (Should fail)
-        resp = await api_client.post(
-            "/api/b2b/teams/", 
-            json={"name": "Team Over Limit"}, 
-            headers={"Authorization": f"Bearer {token}"}
-        )
-        
-        assert resp.status_code == 403
-        assert "limit" in resp.json()["detail"].lower()
-
 

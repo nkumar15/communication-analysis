@@ -351,7 +351,6 @@ class AuthService:
         # Fetch active plugins & features
         # Mechanism: Intersection of Tenant Config (DB) and System Registry (Code)
         from core.rbac.plugin_registry import plugin_registry
-        from modules.b2b.models import B2BSubscription, B2BSubscriptionPlan
         from modules.b2b.schemas.features import PlanLimits
 
         tenant_features = tenant.features or {}
@@ -372,24 +371,9 @@ class AuthService:
         }
         active_features['plugins'] = active_plugin_list
 
-        # Always fetch limits fresh from the active subscription → plan row.
-        # This ensures limits reflect the current plan definition even if the
-        # plan was updated after the tenant's last checkout.
-        plan_result = await db.execute(
-            select(B2BSubscriptionPlan)
-            .join(B2BSubscription, B2BSubscription.plan_id == B2BSubscriptionPlan.id)
-            .where(
-                B2BSubscription.tenant_id == tenant.id,
-                B2BSubscription.status.in_(['active', 'trialing']),
-            )
-        )
-        plan = plan_result.scalars().first()
-        if plan and plan.limits:
-            active_features['limits'] = PlanLimits(**(plan.limits)).model_dump()
-        else:
-            # No active subscription — apply starter defaults so frontend always
-            # has a defined limits object to render against.
-            active_features['limits'] = PlanLimits().model_dump()
+        # No subscription/plan system — limits are always unlimited (-1),
+        # but frontend still expects a defined limits object to render against.
+        active_features['limits'] = PlanLimits().model_dump()
 
         return user, tenant, permissions, teams, active_features
 

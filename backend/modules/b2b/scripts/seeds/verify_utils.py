@@ -4,7 +4,6 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.b2b.models.role_template import RoleTemplate
 from modules.b2b.models.rbac import Resource, Action
-from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
 
 # Color codes for terminal output
 GREEN = "\033[92m"
@@ -30,12 +29,7 @@ async def check_foundation(db: AsyncSession) -> List[tuple]:
     result = await db.execute(select(func.count()).select_from(Action))
     count = result.scalar()
     checks.append(("Actions (b2b.actions)", count, count >= 7))
-    
-    # 4. Check subscription plans (Always expect foundational 3)
-    result = await db.execute(select(func.count()).select_from(B2BSubscriptionPlan))
-    count = result.scalar()
-    checks.append(("Subscription Plans (b2b.subscription_plans)", count, count >= 3))
-    
+
     return checks
 
 def print_report(title: str, checks: List[tuple]) -> bool:
