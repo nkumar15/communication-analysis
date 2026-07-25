@@ -3,9 +3,6 @@ B2B Domain Microservice - Domain Logic API
 
 This microservice handles B2B-specific domain business logic:
 - Bank Surveillance
-- Projects
-- Tasks
-- Comments
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +20,6 @@ from infrastructure.logging.middleware import LoggingMiddleware
 
 # Import sub-apps
 from modules.domains.b2b.bank_surveillance.main import app as surveillance_app
-from modules.domains.b2b.task_management.main import app as task_management_app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="B2B Domain Logic API",
-    description="Domain-specific business logic API for B2B (Surveillance, Projects)",
+    description="Domain-specific business logic API for B2B (Bank Surveillance)",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
@@ -56,7 +52,6 @@ setup_observability(app, service_name="b2b-domain-api", sqlalchemy_engine=engine
 
 # Mount sub-apps
 app.mount("/bank_surveillance", surveillance_app)
-app.mount("/task_management", task_management_app)
 
 @app.get("/")
 async def root():

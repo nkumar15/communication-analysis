@@ -12,14 +12,8 @@ import AccountSettingsPage from './modules/b2b/web/pages/AccountSettingsPage';
 import ProtectedRoute from './core/components/ProtectedRoute';
 import useAuth from './core/hooks/useAuth';
 import firebaseAuthService from './core/firebase/authService';
-import { auth } from './core/firebase/config';
 import RoleManagementPage from './modules/b2b/web/pages/RoleManagementPage';
 import TeamRoleManagementPage from './modules/b2b/web/pages/TeamRoleManagementPage';
-import ProjectsPage from './modules/domains/projects/pages/ProjectsPage';
-import ProjectDetailPage from './modules/domains/projects/pages/ProjectDetailPage';
-import TaskDetailPage from './modules/domains/projects/pages/TaskDetailPage';
-
-import { SubscriptionSettingsPage, InvoicesListPage } from './modules/b2b/billing';
 import SurveillanceDashboardPage from './modules/domains/surveillance/pages/SurveillanceDashboardPage';
 import AlertsPage from './modules/domains/surveillance/pages/AlertsPage';
 import AlertDetailPage from './modules/domains/surveillance/pages/AlertDetailPage';
@@ -68,20 +62,11 @@ function App() {
             if (user) {
                 console.log('🔔 Auth state changed:', user.email);
 
-                // Check if this is a platform admin tenant
-                // Platform admins should NOT call B2B sync-user
-                const tenantId = localStorage.getItem('firebase_tenant_id') || auth.tenantId;
-                const isPlatformAdmin = tenantId && (tenantId.includes('platform') || tenantId.includes('system'));
-
-                if (!isPlatformAdmin) {
-                    // Regular B2B user - sync with backend
-                    try {
-                        await apiService.syncUser();
-                    } catch (error) {
-                        console.error('❌ Error syncing user:', error);
-                    }
-                } else {
-                    console.log('⚠️ Skipping B2B syncUser for platform admin');
+                // Sync with backend
+                try {
+                    await apiService.syncUser();
+                } catch (error) {
+                    console.error('❌ Error syncing user:', error);
                 }
             }
         });
@@ -147,9 +132,6 @@ function App() {
                 {/* New routes */}
                 <Route path="/roles" element={<ProtectedRoute><RoleManagementPage /></ProtectedRoute>} />
                 <Route path="/team-roles" element={<ProtectedRoute><TeamRoleManagementPage /></ProtectedRoute>} />
-                <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
-                <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
-                <Route path="/tasks/:taskId" element={<ProtectedRoute><TaskDetailPage /></ProtectedRoute>} />
                 <Route path="/b2b/teams" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
                 <Route path="/b2b/teams/:teamId" element={<ProtectedRoute><TeamDetailsPage /></ProtectedRoute>} />
                 <Route path="/audit-logs" element={<ProtectedRoute><AuditLogsPage /></ProtectedRoute>} />
@@ -164,10 +146,6 @@ function App() {
                 <Route path="/b2b/surveillance/ingestion" element={<ProtectedRoute><IngestionPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/regulatory" element={<ProtectedRoute><RegulatoryLibraryPage /></ProtectedRoute>} />
                 <Route path="/b2b/surveillance/controls" element={<ProtectedRoute><SurveillanceControlsPage /></ProtectedRoute>} />
-
-                {/* Billing routes */}
-                <Route path="/billing/subscription" element={<ProtectedRoute><SubscriptionSettingsPage /></ProtectedRoute>} />
-                <Route path="/billing/invoices" element={<ProtectedRoute><InvoicesListPage /></ProtectedRoute>} />
 
                 {/* Default redirect using smart routing */}
                 <Route path="/" element={<RootRedirect />} />

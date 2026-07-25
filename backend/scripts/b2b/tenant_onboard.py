@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from core.db.session import AsyncSessionLocal
 from infrastructure.auth import get_auth_provider
 from core.rbac.init_plugins import initialize_plugins
-from modules.platform.services.tenant_onboarding_service import tenant_onboarding_service
+from modules.b2b.services.tenant_onboarding_service import tenant_onboarding_service
 
 
 @click.group()
@@ -117,13 +117,11 @@ async def seed_plugin_config_from_yaml(db, tenant_id, yaml_path):
         click.echo(f"⚠️  Failed to seed instance config: {e}", err=True)
 
 async def create_local_async(
-    company, domain, firebase_tenant_id, owner_email, tenant_id=None, plugins=None, subscription_tier=None, plugins_yaml_path=None, use_case=None):
+    company, domain, firebase_tenant_id, owner_email, tenant_id=None, plugins=None, plugins_yaml_path=None, use_case=None):
     """Create tenant using API service (Local Mode) - Pure Logic"""
     click.echo(f"🚀 Creating local tenant for {company} ({domain})...")
     if plugins:
         click.echo(f"🔌 Plugins enabled: {plugins}")
-    if subscription_tier:
-        click.echo(f"💳 Subscription Tier: {subscription_tier}")
     if use_case:
         click.echo(f"🏢 Use case: {use_case}")
 
@@ -141,7 +139,7 @@ async def create_local_async(
                 existing_tenant = await db.get(TenantModel, tenant_id)
                 if existing_tenant:
                     click.echo(f"ℹ️  Tenant {tenant_id} exists. detailed configuration update...")
-                    # Do NOT return early. Let the service handle repair/update logic (plugins, subscription).
+                    # Do NOT return early. Let the service handle repair/update logic (plugins).
 
 
             result = await tenant_onboarding_service.onboard_tenant(
@@ -150,8 +148,7 @@ async def create_local_async(
                 domain=domain,
                 owner_email=owner_email,
                 tenant_id=tenant_id,
-                features={'plugins': plugins} if plugins else {},
-                subscription_tier=subscription_tier
+                features={'plugins': plugins} if plugins else {}
             )
 
             # Apply Plugin Config from YAML if provided
@@ -415,8 +412,7 @@ def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file
         else:
             plugin_list = []
     
-    # Subscription Tier and use_case from Config
-    subscription_tier = existing_config.get("subscription_tier")
+    # use_case from Config
     use_case = existing_config.get("use_case")
 
     tenant_id_str = existing_config.get("tenant_id")
@@ -452,7 +448,7 @@ def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file
     # Run Async Logic
     try:
         result = asyncio.run(create_local_async(
-            company, domain, firebase_tenant_id, owner_email, tenant_id, plugin_list, subscription_tier, plugins_yaml_path, use_case
+            company, domain, firebase_tenant_id, owner_email, tenant_id, plugin_list, plugins_yaml_path, use_case
         ))
     except Exception as e:
         click.echo(f"\n❌ Error: {str(e)}", err=True)
@@ -466,8 +462,7 @@ def create_local(company, domain, firebase_tenant_id, owner_email, plugins, file
         "company": company,
         "owner_email": owner_email,
         "firebase_tenant_id": result.get("firebase_tenant_id"),
-        "plugins": plugin_list if not subscription_tier else [], # If tier driven, plugins list in JSON is less relevant
-        "subscription_tier": subscription_tier,
+        "plugins": plugin_list,
         "last_updated": str(time.time()),
     })
     
@@ -809,103 +804,6 @@ async def manage_plugins_async(tenant_id, domain, enable, disable, list_only, fi
             else:
                 click.echo(f"ℹ️  State matches Target. No changes. Active: {target_list}")
                 
-        except Exception as e:
-            click.echo(f"\n❌ Error: {str(e)}", err=True)
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
-
-@cli.command('set-subscription')
-@click.option('--tenant-id', required=False, help='Tenant UUID')
-@click.option('--domain', required=False, help='Tenant domain')
-@click.option('--tier', required=True, type=click.Choice(['starter', 'professional', 'enterprise']), help='Target Subscription Tier')
-def set_subscription(tenant_id, domain, tier):
-    """Simulate a Subscription Upgrade/Downgrade (Production Flow)"""
-    if not tenant_id and not domain:
-        click.echo("❌ Error: Must provide either --tenant-id or --domain", err=True)
-        sys.exit(1)
-        
-    asyncio.run(set_subscription_async(tenant_id, domain, tier))
-
-
-async def set_subscription_async(tenant_id, domain, tier):
-    """Async subscription change logic"""
-    from modules.b2b.models import TenantModel
-    from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
-    from modules.b2b.models.subscription import B2BSubscription
-    from sqlalchemy import select
-    from uuid import UUID
-    from datetime import datetime
-    
-    async with AsyncSessionLocal() as db:
-        try:
-            from core.db.rls import rls_service
-            await rls_service.set_platform_admin_context(db)
-            
-            # 1. Find Tenant
-            if tenant_id:
-                stmt = select(TenantModel).where(TenantModel.id == UUID(tenant_id))
-            else:
-                stmt = select(TenantModel).where(TenantModel.domain == domain.lower())
-                
-            tenant = await db.scalar(stmt)
-            if not tenant:
-                click.echo("❌ Tenant not found")
-                sys.exit(1)
-
-            # 2. Find Target Plan
-            plan = await db.scalar(
-                select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == tier)
-            )
-            if not plan:
-                click.echo(f"❌ Plan '{tier}' not found in DB. Did you run 'python scripts/b2b/seed_subscription_plans.py'?")
-                sys.exit(1)
-
-            click.echo(f"🔄 Upgrading/Downgrading {tenant.name} to {plan.name}...")
-            
-            # 3. Apply Subscription Config (Plugins + Features + Limits)
-            from modules.b2b.services.subscription_service import SubscriptionService
-            sub_service = SubscriptionService(db)
-            config_result = await sub_service.apply_subscription_to_tenant(tenant.id, plan)
-            
-            # 4. Update Subscription Record (The Billing Logic)
-            # Find or Create subscription
-            sub = await db.scalar(
-                select(B2BSubscription).where(B2BSubscription.tenant_id == tenant.id)
-            )
-            
-            if sub:
-                sub.plan_id = plan.id
-                sub.tier = plan.tier_key
-                sub.updated_at = datetime.utcnow()
-                click.echo("   💳 Updated existing subscription record.")
-            else:
-                 # Create wrapper if missing (simplified)
-                 sub = B2BSubscription(
-                     tenant_id=tenant.id,
-                     plan_id=plan.id,
-                     tier=plan.tier_key,
-                     status='active',
-                     seat_count=1,
-                     base_price_cents=plan.base_price_monthly,
-                     per_seat_price_cents=plan.per_seat_price_monthly,
-                     total_amount_cents=plan.base_price_monthly,
-                     billing_interval='monthly'
-                 )
-                 db.add(sub)
-                 click.echo("   💳 Created new subscription record.")
-
-            await db.commit()
-            
-            # Summary
-            click.echo(f"\n✅ Subscription set to: {tier.upper()}")
-            if config_result.get('added_plugins'): 
-                click.echo(f"   🟢 Plugins Enabled: {config_result['added_plugins']}")
-            if config_result.get('removed_plugins'): 
-                click.echo(f"   🔴 Plugins Disabled: {config_result['removed_plugins']}")
-            click.echo(f"   🔌 Final Active Plugins: {config_result.get('active_features', {}).get('plugins', [])}")
-
-
         except Exception as e:
             click.echo(f"\n❌ Error: {str(e)}", err=True)
             import traceback

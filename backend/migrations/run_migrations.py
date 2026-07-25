@@ -5,9 +5,7 @@ Modular Migration Runner with Product Selection
 Supports running migrations for specific products based on ENABLED_PRODUCTS env var.
 
 Usage:
-    ENABLED_PRODUCTS=platform,b2b python run_migrations.py    # B2B only
-    ENABLED_PRODUCTS=platform,b2c python run_migrations.py    # B2C only
-    ENABLED_PRODUCTS=platform,b2b,b2c python run_migrations.py # All products (default)
+    ENABLED_PRODUCTS=b2b python run_migrations.py    # B2B (default)
 """
 import asyncio
 import asyncpg
@@ -20,8 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.config import settings
 
-# Default: all products enabled for development
-DEFAULT_PRODUCTS = "platform,b2b,b2c"
+# Default: B2B enabled for development
+DEFAULT_PRODUCTS = "b2b"
 
 
 async def run_migrations():
@@ -36,13 +34,11 @@ async def run_migrations():
     
     # Define migration order: core first, then products
     # Core always runs, then products in dependency order
-    migration_order = ["core", "platform"]  # Platform always after core
-    
-    # Add enabled products (platform already added if in list)
+    migration_order = ["core"]
+
+    # Add enabled products
     if "b2b" in enabled_products:
         migration_order.append("b2b")
-    if "b2c" in enabled_products:
-        migration_order.append("b2c")
     
     # Remove duplicates while preserving order
     seen = set()

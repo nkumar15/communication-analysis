@@ -30,7 +30,6 @@ from modules.b2b.routers import (
     account,
     audit_logs,
     dashboard,
-    billing,
     sso_settings,
     regions,
 )
@@ -82,7 +81,6 @@ app.include_router(team_roles.router)
 app.include_router(account.router)
 app.include_router(audit_logs.router)
 app.include_router(dashboard.router)
-app.include_router(billing.router)
 app.include_router(sso_settings.router)
 app.include_router(regions.router)
 

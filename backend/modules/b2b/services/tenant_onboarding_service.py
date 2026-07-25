@@ -1,5 +1,5 @@
 """
-Platform Tenant Onboarding Service
+B2B Tenant Onboarding Service
 
 Handles full tenant provisioning workflow extracted from tenant_onboard.py script.
 Includes Firebase tenant creation, OIDC configuration, role seeding, and email notifications.
@@ -36,12 +36,11 @@ class TenantOnboardingService:
         owner_email: str,
         # New optional params for local/test mode
         tenant_id: Optional[UUID] = None,
-        features: Optional[dict] = None,
-        subscription_tier: Optional[str] = None
+        features: Optional[dict] = None
     ) -> dict:
         """
         Complete tenant onboarding workflow (Step 1: Provisioning)
-        
+
         Args:
             db: Database session
             company_name: Company name
@@ -49,24 +48,13 @@ class TenantOnboardingService:
             owner_email: Owner email address
             tenant_id: Optional UUID to force a specific tenant ID (for seeding)
             plugins: Optional list of enabled plugins (manual override)
-            subscription_tier: Optional tier key (e.g. 'enterprise') to init subscription
         """
-        from modules.b2b.models.subscription_plan import B2BSubscriptionPlan
-        from modules.b2b.models.subscription import B2BSubscription
         from modules.b2b.services.tenant_service import tenant_service
 
         try:
             # Initialize Firebase if not already done
             get_auth_provider().initialize()
-            
-            # Resolve Plan if Tier provided
-            target_plan = None
-            
-            if subscription_tier:
-                stmt_plan = select(B2BSubscriptionPlan).where(B2BSubscriptionPlan.tier_key == subscription_tier)
-                res_plan = await db.execute(stmt_plan)
-                target_plan = res_plan.scalar_one_or_none()
-            
+
             # Check for existing tenant in DB first to handle idempotency
             stmt = select(TenantModel).where(TenantModel.domain == domain.lower())
             result = await db.execute(stmt)
@@ -78,45 +66,7 @@ class TenantOnboardingService:
                     raise Exception(f"Tenant for domain {domain} is already active.")
                 
                 print(f"♻️  Tenant exists (pending), resending activation for {domain}")
-                
-                # Apply subscription config if plan provided (for repair/updating existing tenant)
-                if target_plan:
-                    from modules.b2b.services.subscription_service import SubscriptionService
-                    sub_service = SubscriptionService(db)
-                    await sub_service.apply_subscription_to_tenant(existing_tenant.id, target_plan)
 
-
-                # Update/Ensure Subscription if Tier provided (Repair/Upgrade)
-                if target_plan:
-                    stmt_sub = select(B2BSubscription).where(B2BSubscription.tenant_id == existing_tenant.id)
-                    res_sub = await db.execute(stmt_sub)
-                    existing_sub = res_sub.scalar_one_or_none()
-                    
-                    if existing_sub:
-                        # Update if different
-                        if existing_sub.tier != target_plan.tier_key:
-                             existing_sub.plan_id = target_plan.id
-                             existing_sub.tier = target_plan.tier_key
-                             # Update prices? Maybe preserve legacy pricing? 
-                             # For onboarding/demo fix, verification is key -> Update it.
-                             existing_sub.base_price_cents = target_plan.base_price_monthly
-                             existing_sub.per_seat_price_cents = target_plan.per_seat_price_monthly
-                             existing_sub.total_amount_cents = target_plan.base_price_monthly
-                    else:
-                        # Create missing subscription
-                        new_sub = B2BSubscription(
-                             tenant_id=existing_tenant.id,
-                             plan_id=target_plan.id,
-                             tier=target_plan.tier_key,
-                             status='active',
-                             seat_count=1,
-                             base_price_cents=target_plan.base_price_monthly,
-                             per_seat_price_cents=target_plan.per_seat_price_monthly,
-                             total_amount_cents=target_plan.base_price_monthly,
-                             billing_interval='monthly'
-                        )
-                        db.add(new_sub)
-                
                 # Ensure we have an owner invitation to update
                 from modules.b2b.models import InvitationModel
                 inv_stmt = select(InvitationModel).where(
@@ -193,31 +143,6 @@ class TenantOnboardingService:
             db.add(tenant)
             await db.flush()
             # No refresh yet
-            
-            # 3.5 Create Subscription if plan found
-            if target_plan:
-                 sub = B2BSubscription(
-                     tenant_id=tenant.id,
-                     plan_id=target_plan.id,
-                     tier=target_plan.tier_key,
-                     status='active',
-                     seat_count=1, # Default
-                     base_price_cents=target_plan.base_price_monthly,
-                     per_seat_price_cents=target_plan.per_seat_price_monthly,
-                     total_amount_cents=target_plan.base_price_monthly, # Initial
-                     billing_interval='monthly'
-                 )
-                 db.add(sub)
-            else:
-                # Fallback to starter if no tier specified? Or leave null? 
-                # Better to leave null or create default if business logic requires.
-                pass
-
-            # 3.6 Apply Subscription Config (Plugins + Features + Limits)
-            if target_plan:
-                from modules.b2b.services.subscription_service import SubscriptionService
-                sub_service = SubscriptionService(db)
-                await sub_service.apply_subscription_to_tenant(tenant.id, target_plan)
 
             # 4. Seed roles from templates
             await role_template_service.seed_tenant_roles(db, tenant.id)
